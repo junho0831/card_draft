@@ -63,3 +63,4 @@ MVP에서는 카드 효과를 의도적으로 작게 유지한다. 온라인 PvP
 - UI 반응형 가이드: `res://docs/ui-responsive.md`
 - 밸런스 기준: `res://docs/balance.md`
 - MVP 기획: `res://docs/mvp.md`
+# card_draft
