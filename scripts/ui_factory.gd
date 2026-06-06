@@ -4,6 +4,9 @@ class_name UiFactory
 var card_art_sheet: Texture2D
 var card_art_cols := 4
 var card_art_rows := 3
+const COMPACT_BREAKPOINT := 860.0
+const SCREEN_MARGIN := 18.0
+const MIN_RESPONSIVE_WIDTH := 280.0
 
 func setup(art_sheet: Texture2D, cols: int, rows: int) -> void:
 	card_art_sheet = art_sheet
@@ -18,6 +21,112 @@ func make_label(text: String, font_size: int, color: Color) -> Label:
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	return label
+
+func is_compact(viewport_width: float) -> bool:
+	return viewport_width < COMPACT_BREAKPOINT
+
+func responsive_width(viewport_width: float, preferred_width: int) -> float:
+	return min(float(preferred_width), max(MIN_RESPONSIVE_WIDTH, viewport_width - (SCREEN_MARGIN * 2.0 + 12.0)))
+
+func apply_root_layout(root: Control, viewport_size: Vector2) -> void:
+	root.custom_minimum_size = Vector2(max(320.0, viewport_size.x - SCREEN_MARGIN * 2.0), max(0.0, viewport_size.y - SCREEN_MARGIN * 2.0))
+	root.offset_left = SCREEN_MARGIN
+	root.offset_top = SCREEN_MARGIN
+	root.offset_right = -SCREEN_MARGIN
+	root.offset_bottom = -SCREEN_MARGIN
+
+func make_responsive_box(compact: bool, separation: int = 14) -> BoxContainer:
+	var box: BoxContainer
+	if compact:
+		box = VBoxContainer.new()
+	else:
+		box = HBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", separation)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return box
+
+func make_center_panel(color: Color, viewport_width: float, preferred_width: int) -> PanelContainer:
+	var panel := make_panel_container(color)
+	panel.custom_minimum_size = Vector2(responsive_width(viewport_width, preferred_width), 0)
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return panel
+
+func make_responsive_panel(color: Color, viewport_width: float, preferred_width: int, min_height: int = 0) -> PanelContainer:
+	var panel := make_panel_container(color)
+	panel.custom_minimum_size = Vector2(responsive_width(viewport_width, preferred_width), min_height)
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return panel
+
+func make_filter_bar(filters: Array, active_filter: String, target: Object, callback_method: String, compact: bool) -> Container:
+	var actions: Container
+	if compact:
+		var grid := GridContainer.new()
+		grid.columns = 3
+		actions = grid
+	else:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		actions = row
+	actions.add_theme_constant_override("separation", 8)
+	actions.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for filter in filters:
+		var button := Button.new()
+		button.text = String(filter)
+		button.custom_minimum_size = Vector2(92 if compact else 86, 34)
+		var color := Color(0.18, 0.24, 0.3, 1.0)
+		if String(filter) == active_filter:
+			color = Color(0.38, 0.31, 0.12, 1.0)
+		style_button(button, color)
+		button.pressed.connect(Callable(target, callback_method).bind(String(filter)))
+		actions.add_child(button)
+	return actions
+
+func make_showcase_card(title: String, art_index: int, compact: bool = false) -> PanelContainer:
+	var panel := make_panel_container(Color(0.14, 0.16, 0.19, 1.0))
+	var card_width := 120
+	var art_size := Vector2(96, 112)
+	if compact:
+		card_width = 92
+		art_size = Vector2(70, 86)
+	panel.custom_minimum_size = Vector2(card_width, 0)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	panel.add_child(box)
+	box.add_child(make_art_rect(art_index, art_size))
+	var label := make_label(title, 15, Color(0.95, 0.96, 0.93, 1.0))
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	box.add_child(label)
+	return panel
+
+func make_stat_tile(title: String, value: String, color: Color, compact: bool = false) -> PanelContainer:
+	var panel := make_panel_container(color)
+	panel.custom_minimum_size = Vector2(96 if compact else 126, 64 if compact else 72)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	panel.add_child(box)
+	var title_label := make_label(title, 12, Color(0.88, 0.9, 0.92, 1.0))
+	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	var value_label := make_label(value, 18, Color(1.0, 0.98, 0.9, 1.0))
+	value_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	box.add_child(title_label)
+	box.add_child(value_label)
+	return panel
+
+func make_status_badge(title: String, value: String, color: Color) -> PanelContainer:
+	var panel := make_panel_container(color)
+	panel.custom_minimum_size = Vector2(0, 58)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	panel.add_child(row)
+	var title_label := make_label(title, 13, Color(0.9, 0.94, 0.96, 1.0))
+	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	var value_label := make_label(value, 15, Color(1.0, 0.98, 0.88, 1.0))
+	value_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	row.add_child(title_label)
+	row.add_child(value_label)
+	return panel
 
 func add_title(parent: Node, text: String) -> void:
 	var title := make_label(text, 40, Color(1.0, 0.88, 0.55, 1.0))

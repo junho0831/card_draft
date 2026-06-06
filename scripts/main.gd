@@ -107,12 +107,7 @@ func _notification(what: int) -> void:
 func _apply_root_layout() -> void:
 	if root_box == null:
 		return
-	var viewport_size := get_viewport_rect().size
-	root_box.custom_minimum_size = Vector2(max(320.0, viewport_size.x - 36.0), max(0.0, viewport_size.y - 36.0))
-	root_box.offset_left = 18
-	root_box.offset_top = 18
-	root_box.offset_right = -18
-	root_box.offset_bottom = -18
+	ui.apply_root_layout(root_box, get_viewport_rect().size)
 
 func _clear_screen() -> void:
 	for child in root_box.get_children():
@@ -215,19 +210,10 @@ func _show_main_menu() -> void:
 	root_box.add_child(_make_profile_summary())
 
 	var compact := _is_compact_layout()
-	var hub: BoxContainer
-	if compact:
-		hub = VBoxContainer.new()
-	else:
-		hub = HBoxContainer.new()
-	hub.alignment = BoxContainer.ALIGNMENT_CENTER
-	hub.add_theme_constant_override("separation", 14)
-	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var hub: BoxContainer = ui.make_responsive_box(compact, 14)
 	root_box.add_child(hub)
 
-	var showcase := _make_panel_container(Color(0.105, 0.12, 0.145, 1.0))
-	showcase.custom_minimum_size = Vector2(_responsive_width(420), 0)
-	showcase.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var showcase := _make_responsive_panel(Color(0.105, 0.12, 0.145, 1.0), 420)
 	hub.add_child(showcase)
 
 	var showcase_box := VBoxContainer.new()
@@ -243,28 +229,26 @@ func _show_main_menu() -> void:
 	art_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	art_row.add_theme_constant_override("separation", 6)
 	showcase_box.add_child(art_row)
-	art_row.add_child(_make_showcase_card("인간", 0, compact))
-	art_row.add_child(_make_showcase_card("엘프", 4, compact))
-	art_row.add_child(_make_showcase_card("언데드", 7, compact))
+	art_row.add_child(ui.make_showcase_card("인간", 0, compact))
+	art_row.add_child(ui.make_showcase_card("엘프", 4, compact))
+	art_row.add_child(ui.make_showcase_card("언데드", 7, compact))
 
 	var stat_row := HBoxContainer.new()
 	stat_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	stat_row.add_theme_constant_override("separation", 6)
 	showcase_box.add_child(stat_row)
-	stat_row.add_child(_make_stat_tile("골드", str(int(player_profile["gold"])), Color(0.82, 0.55, 0.18, 1.0), compact))
-	stat_row.add_child(_make_stat_tile("랭크", reward_service.rank_name(int(player_profile["rank_points"])), Color(0.34, 0.48, 0.62, 1.0), compact))
-	stat_row.add_child(_make_stat_tile("카드", "%d장" % deck_service.total_owned_cards(player_profile["owned_cards"]), Color(0.32, 0.52, 0.42, 1.0), compact))
+	stat_row.add_child(ui.make_stat_tile("골드", str(int(player_profile["gold"])), Color(0.82, 0.55, 0.18, 1.0), compact))
+	stat_row.add_child(ui.make_stat_tile("랭크", reward_service.rank_name(int(player_profile["rank_points"])), Color(0.34, 0.48, 0.62, 1.0), compact))
+	stat_row.add_child(ui.make_stat_tile("카드", "%d장" % deck_service.total_owned_cards(player_profile["owned_cards"]), Color(0.32, 0.52, 0.42, 1.0), compact))
 
 	var backend_text := "로컬 저장"
 	var backend_color := Color(0.38, 0.42, 0.48, 1.0)
 	if server_enabled:
 		backend_text = "Spring Boot 백엔드"
 		backend_color = Color(0.24, 0.5, 0.42, 1.0)
-	showcase_box.add_child(_make_status_badge("서버 연결", backend_text, backend_color))
+	showcase_box.add_child(ui.make_status_badge("서버 연결", backend_text, backend_color))
 
-	var menu_panel := _make_panel_container(Color(0.13, 0.15, 0.18, 1.0))
-	menu_panel.custom_minimum_size = Vector2(_responsive_width(360), 0)
-	menu_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var menu_panel := _make_responsive_panel(Color(0.13, 0.15, 0.18, 1.0), 360)
 	hub.add_child(menu_panel)
 
 	var menu := VBoxContainer.new()
@@ -342,51 +326,44 @@ func _show_deck_builder() -> void:
 func _render_deck_builder() -> void:
 	_clear_screen()
 	_add_title("덱 구성")
+	var compact := _is_compact_layout()
 	var validation: String = deck_service.validation_message(working_deck, cards_by_id, player_profile["owned_cards"], DECK_SIZE, MAX_CARD_COPIES)
 	var validation_color := Color(1.0, 0.68, 0.62, 1.0)
 	if validation == "저장 가능":
 		validation_color = Color(0.62, 1.0, 0.72, 1.0)
 	root_box.add_child(_make_label("현재 %d/%d장 | %s" % [working_deck.size(), DECK_SIZE, validation], 17, validation_color))
 
-	var actions := HBoxContainer.new()
-	actions.alignment = BoxContainer.ALIGNMENT_CENTER
-	actions.add_theme_constant_override("separation", 8)
+	var actions: Container = ui.make_filter_bar(["전체", "인간", "엘프", "언데드", "중립"], deck_builder_filter, self, "_set_deck_filter", compact)
 	root_box.add_child(actions)
-	for filter in ["전체", "인간", "엘프", "언데드", "중립"]:
-		var button := Button.new()
-		button.text = filter
-		button.custom_minimum_size = Vector2(86, 34)
-		var filter_button_color := Color(0.18, 0.24, 0.3, 1.0)
-		if filter == deck_builder_filter:
-			filter_button_color = Color(0.38, 0.31, 0.12, 1.0)
-		_style_button(button, filter_button_color)
-		button.pressed.connect(Callable(self, "_set_deck_filter").bind(filter))
-		actions.add_child(button)
 
-	var content := HBoxContainer.new()
+	var content: BoxContainer = ui.make_responsive_box(compact, 14)
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation", 14)
 	root_box.add_child(content)
 
 	var card_panel := _make_panel_container(Color(0.105, 0.115, 0.135, 1.0))
+	card_panel.custom_minimum_size = Vector2(_responsive_width(760 if not compact else 420), 380 if compact else 0)
 	card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(card_panel)
 	var card_scroll := ScrollContainer.new()
+	card_scroll.custom_minimum_size = Vector2(0, 360 if compact else 0)
 	card_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	card_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card_panel.add_child(card_scroll)
 	var card_list := VBoxContainer.new()
 	card_list.add_theme_constant_override("separation", 6)
+	card_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card_scroll.add_child(card_list)
 
 	for card in card_defs:
 		if deck_builder_filter != "전체" and String(card.race) != deck_builder_filter:
 			continue
-		card_list.add_child(_make_deck_builder_card_row(card))
+		card_list.add_child(_make_deck_builder_card_row(card, compact))
 
 	var deck_panel := _make_panel_container(Color(0.12, 0.135, 0.16, 1.0))
-	deck_panel.custom_minimum_size = Vector2(330, 0)
-	deck_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	deck_panel.custom_minimum_size = Vector2(_responsive_width(330), 0)
+	deck_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if compact else Control.SIZE_FILL
+	deck_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN if compact else Control.SIZE_EXPAND_FILL
 	content.add_child(deck_panel)
 	var deck_box := VBoxContainer.new()
 	deck_box.add_theme_constant_override("separation", 8)
@@ -394,23 +371,27 @@ func _render_deck_builder() -> void:
 	deck_box.add_child(_make_label("선택한 덱", 20, Color(0.96, 0.88, 0.68, 1.0)))
 	deck_box.add_child(_make_label(deck_service.deck_summary_text(working_deck, cards_by_id), 14, Color(0.9, 0.92, 0.95, 1.0)))
 
-	var bottom := HBoxContainer.new()
-	bottom.alignment = BoxContainer.ALIGNMENT_CENTER
-	bottom.add_theme_constant_override("separation", 10)
+	var bottom: BoxContainer = ui.make_responsive_box(compact, 10)
+	bottom.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	root_box.add_child(bottom)
 	_add_menu_button(bottom, "덱 저장", "_save_working_deck", Color(0.18, 0.34, 0.48, 1.0))
 	_add_menu_button(bottom, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
 
-func _make_deck_builder_card_row(card: Dictionary) -> Control:
+func _make_deck_builder_card_row(card: Dictionary, compact: bool = false) -> Control:
 	var row := HBoxContainer.new()
-	row.custom_minimum_size = Vector2(0, 72)
-	row.add_theme_constant_override("separation", 8)
+	row.custom_minimum_size = Vector2(0, 88 if compact else 72)
+	row.add_theme_constant_override("separation", 6 if compact else 8)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	row.add_child(_make_art_rect(int(card.art), Vector2(84, 54)))
+	row.add_child(_make_art_rect(int(card.art), Vector2(64, 46) if compact else Vector2(84, 54)))
 	var id := String(card.id)
 	var owned := int(player_profile["owned_cards"].get(id, 0))
 	var selected: int = deck_service.count_in_array(working_deck, id)
-	var info := _make_label("[%d] %s  %s/%s  보유 %d | 덱 %d" % [card.cost, card.name, card.race, card.attr, owned, selected], 15, Color(0.92, 0.94, 0.98, 1.0))
+	var info_text := "[%d] %s  %s/%s  보유 %d | 덱 %d" % [card.cost, card.name, card.race, card.attr, owned, selected]
+	if compact:
+		info_text = "[%d] %s\n%s/%s  보유 %d | 덱 %d" % [card.cost, card.name, card.race, card.attr, owned, selected]
+	var info := _make_label(info_text, 13 if compact else 15, Color(0.92, 0.94, 0.98, 1.0))
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info)
 
@@ -1035,69 +1016,20 @@ func _render_battle_deck() -> void:
 	deck_count_label.text = "남은 카드 %d장 / 시작 %d장" % [player.deck.size(), DECK_SIZE]
 	deck_list_label.text = deck_service.deck_summary_from_cards(player.deck)
 
-func _make_showcase_card(title: String, art_index: int, compact: bool = false) -> PanelContainer:
-	var panel := _make_panel_container(Color(0.14, 0.16, 0.19, 1.0))
-	var card_width := 120
-	var art_size := Vector2(96, 112)
-	if compact:
-		card_width = 92
-		art_size = Vector2(70, 86)
-	panel.custom_minimum_size = Vector2(card_width, 0)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 6)
-	panel.add_child(box)
-	box.add_child(_make_art_rect(art_index, art_size))
-	var label := _make_label(title, 15, Color(0.95, 0.96, 0.93, 1.0))
-	label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	box.add_child(label)
-	return panel
-
-func _make_stat_tile(title: String, value: String, color: Color, compact: bool = false) -> PanelContainer:
-	var panel := _make_panel_container(color)
-	panel.custom_minimum_size = Vector2(96 if compact else 126, 64 if compact else 72)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 2)
-	panel.add_child(box)
-	var title_label := _make_label(title, 12, Color(0.88, 0.9, 0.92, 1.0))
-	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	var value_label := _make_label(value, 18, Color(1.0, 0.98, 0.9, 1.0))
-	value_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	box.add_child(title_label)
-	box.add_child(value_label)
-	return panel
-
-func _make_status_badge(title: String, value: String, color: Color) -> PanelContainer:
-	var panel := _make_panel_container(color)
-	panel.custom_minimum_size = Vector2(0, 58)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 10)
-	panel.add_child(row)
-	var title_label := _make_label(title, 13, Color(0.9, 0.94, 0.96, 1.0))
-	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	var value_label := _make_label(value, 15, Color(1.0, 0.98, 0.88, 1.0))
-	value_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	row.add_child(title_label)
-	row.add_child(value_label)
-	return panel
-
 func _is_compact_layout() -> bool:
-	return get_viewport_rect().size.x < 860.0
+	return ui.is_compact(get_viewport_rect().size.x)
 
 func _responsive_width(preferred_width: int) -> float:
-	var viewport_width := get_viewport_rect().size.x
-	return min(float(preferred_width), max(280.0, viewport_width - 48.0))
+	return ui.responsive_width(get_viewport_rect().size.x, preferred_width)
 
 func _make_center_panel(color: Color, preferred_width: int) -> PanelContainer:
-	var panel := _make_panel_container(color)
-	panel.custom_minimum_size = Vector2(_responsive_width(preferred_width), 0)
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	return panel
+	return ui.make_center_panel(color, get_viewport_rect().size.x, preferred_width)
+
+func _make_responsive_panel(color: Color, preferred_width: int, min_height: int = 0) -> PanelContainer:
+	return ui.make_responsive_panel(color, get_viewport_rect().size.x, preferred_width, min_height)
 
 func _make_profile_summary() -> PanelContainer:
-	var panel := _make_panel_container(Color(0.105, 0.115, 0.135, 1.0))
-	panel.custom_minimum_size = Vector2(_responsive_width(560), 0)
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var panel := _make_responsive_panel(Color(0.105, 0.115, 0.135, 1.0), 560)
 	var label := _make_label("%s | 골드 %d | %s %d점 | 보유 카드 %d장" % [
 		String(player_profile["player_name"]),
 		int(player_profile["gold"]),

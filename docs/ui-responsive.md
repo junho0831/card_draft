@@ -53,13 +53,15 @@ window/stretch/aspect="expand"
 
 ```text
 scripts/main.gd
+scripts/ui_factory.gd
 ```
 
 관련 함수:
 
-- `_build_base_ui`
-- `_apply_root_layout`
+- `main.gd`의 `_build_base_ui`
+- `main.gd`의 `_apply_root_layout`
 - `_notification`
+- `ui_factory.gd`의 `apply_root_layout`
 
 ## 폭 계산 규칙
 
@@ -68,15 +70,14 @@ scripts/main.gd
 권장:
 
 ```gdscript
-panel.custom_minimum_size = Vector2(_responsive_width(520), 0)
+var panel := ui.make_responsive_panel(color, get_viewport_rect().size.x, 520)
 ```
 
 현재 helper:
 
 ```gdscript
-func _responsive_width(preferred_width: int) -> float:
-	var viewport_width := get_viewport_rect().size.x
-	return min(float(preferred_width), max(280.0, viewport_width - 48.0))
+func responsive_width(viewport_width: float, preferred_width: int) -> float:
+	return min(float(preferred_width), max(MIN_RESPONSIVE_WIDTH, viewport_width - (SCREEN_MARGIN * 2.0 + 12.0)))
 ```
 
 의미:
@@ -87,12 +88,12 @@ func _responsive_width(preferred_width: int) -> float:
 
 ## 가운데 패널 규칙
 
-모드 선택, 알림, 보상처럼 가운데에 놓는 패널은 `_make_center_panel`을 사용한다.
+모드 선택, 알림, 보상처럼 가운데에 놓는 패널은 `ui_factory.gd`의 `make_center_panel`을 사용한다. `main.gd`에서는 필요하면 얇은 래퍼만 둔다.
 
 권장:
 
 ```gdscript
-var panel := _make_center_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
+var panel := ui.make_center_panel(Color(0.12, 0.135, 0.16, 1.0), get_viewport_rect().size.x, 520)
 root_box.add_child(panel)
 ```
 
@@ -118,8 +119,10 @@ panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 현재 기준:
 
 ```gdscript
-func _is_compact_layout() -> bool:
-	return get_viewport_rect().size.x < 860.0
+const COMPACT_BREAKPOINT := 860.0
+
+func is_compact(viewport_width: float) -> bool:
+	return viewport_width < COMPACT_BREAKPOINT
 ```
 
 작은 화면에서 새 화면을 만들 때는 아래 원칙을 따른다.
@@ -167,8 +170,10 @@ label.autowrap_mode = TextServer.AUTOWRAP_OFF
 
 권장:
 
-- 화면 중심 패널: `_make_center_panel`
-- 화면 폭에 맞는 패널: `_responsive_width`
+- 화면 중심 패널: `ui.make_center_panel`
+- 화면 폭에 맞는 패널: `ui.make_responsive_panel`
+- 2열/1열 전환: `ui.make_responsive_box`
+- 필터 버튼 묶음: `ui.make_filter_bar`
 - 정보가 많은 화면: `ScrollContainer`
 - 전투/덱 구성처럼 넓은 화면: 스크롤 허용
 
