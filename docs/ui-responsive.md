@@ -1,0 +1,249 @@
+# Card Draft UI 반응형 가이드
+
+## 목적
+
+이 문서는 Godot UI가 데스크톱, 웹, 모바일 크기에서 잘리지 않게 만들기 위한 기준이다.
+
+현재 프로젝트는 PC 실행뿐 아니라 웹 빌드나 모바일 비율에서도 화면이 깨지지 않는 것을 목표로 한다. 작은 화면에서는 모든 정보를 한 화면에 억지로 넣지 않고, 스크롤로 접근 가능하게 만든다.
+
+## 기준 해상도
+
+기본 디자인 기준:
+
+```text
+1280 x 720
+```
+
+검증에 사용할 대표 크기:
+
+```text
+390 x 844   모바일 세로
+780 x 1280  태블릿/모바일 큰 화면
+1280 x 720  데스크톱 기본
+```
+
+## Godot stretch 설정
+
+현재 `project.godot` 설정:
+
+```text
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+```
+
+의도:
+
+- 기준 해상도는 1280x720으로 둔다.
+- 화면이 커지면 UI가 확장된다.
+- 화면 비율이 달라도 캔버스가 잘리지 않게 한다.
+
+## 루트 레이아웃 원칙
+
+현재 루트 UI는 `ScrollContainer` 안에 `VBoxContainer`를 넣는다.
+
+이유:
+
+- 모바일 세로 화면에서 콘텐츠가 세로로 길어질 수 있다.
+- 웹 브라우저 창 크기가 작아져도 버튼이 화면 밖으로 완전히 사라지면 안 된다.
+- 전투 화면이나 덱 구성처럼 정보가 많은 화면은 스크롤 접근을 허용해야 한다.
+
+구현 위치:
+
+```text
+scripts/main.gd
+```
+
+관련 함수:
+
+- `_build_base_ui`
+- `_apply_root_layout`
+- `_notification`
+
+## 폭 계산 규칙
+
+고정 폭을 그대로 쓰지 않는다.
+
+권장:
+
+```gdscript
+panel.custom_minimum_size = Vector2(_responsive_width(520), 0)
+```
+
+현재 helper:
+
+```gdscript
+func _responsive_width(preferred_width: int) -> float:
+	var viewport_width := get_viewport_rect().size.x
+	return min(float(preferred_width), max(280.0, viewport_width - 48.0))
+```
+
+의미:
+
+- 넓은 화면에서는 원하는 폭을 사용한다.
+- 작은 화면에서는 화면 폭에서 여백을 뺀 폭으로 줄인다.
+- 너무 작아지는 것은 280px에서 막는다.
+
+## 가운데 패널 규칙
+
+모드 선택, 알림, 보상처럼 가운데에 놓는 패널은 `_make_center_panel`을 사용한다.
+
+권장:
+
+```gdscript
+var panel := _make_center_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
+root_box.add_child(panel)
+```
+
+비권장:
+
+```gdscript
+var panel := _make_panel_container(Color(0.12, 0.135, 0.16, 1.0))
+panel.custom_minimum_size = Vector2(620, 0)
+panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+```
+
+고정 폭 `620` 같은 값은 모바일이나 작은 웹 창에서 화면 잘림을 만든다.
+
+## 2열/1열 전환
+
+메인 화면은 넓은 화면에서는 2열을 사용한다.
+
+- 왼쪽: 카드 쇼케이스와 상태 정보.
+- 오른쪽: 메뉴 버튼.
+
+작은 화면에서는 1열로 전환한다.
+
+현재 기준:
+
+```gdscript
+func _is_compact_layout() -> bool:
+	return get_viewport_rect().size.x < 860.0
+```
+
+작은 화면에서 새 화면을 만들 때는 아래 원칙을 따른다.
+
+- 2열 `HBoxContainer`를 고정하지 않는다.
+- 폭이 좁으면 `VBoxContainer`로 전환한다.
+- 카드나 타일 크기도 compact 값에 따라 줄인다.
+
+## 버튼 규칙
+
+공통 버튼은 `UiFactory.add_menu_button`을 사용한다.
+
+현재 기준:
+
+- 최소 폭: 220px
+- 높이: 48px
+- 가로 확장 허용
+
+주의:
+
+- 버튼 텍스트가 너무 길면 줄바꿈되거나 잘릴 수 있다.
+- 모바일에서는 버튼 텍스트를 짧게 쓴다.
+- 예: `랭크전 - 점수 변동` 정도는 가능하지만, 긴 설명문을 버튼 안에 넣지 않는다.
+
+## 라벨 규칙
+
+라벨은 기본적으로 자동 줄바꿈을 허용한다.
+
+```gdscript
+label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+```
+
+단, 한 줄로 보여야 하는 짧은 상태 값은 줄바꿈을 끈다.
+
+```gdscript
+label.autowrap_mode = TextServer.AUTOWRAP_OFF
+```
+
+주의:
+
+- 부모 폭이 너무 좁으면 한 글자씩 세로로 떨어질 수 있다.
+- 프로필 요약, 상태 배지, 작은 타일 값은 최소 폭과 `AUTOWRAP_OFF`를 같이 고려한다.
+
+## 패널 크기 규칙
+
+권장:
+
+- 화면 중심 패널: `_make_center_panel`
+- 화면 폭에 맞는 패널: `_responsive_width`
+- 정보가 많은 화면: `ScrollContainer`
+- 전투/덱 구성처럼 넓은 화면: 스크롤 허용
+
+비권장:
+
+- `custom_minimum_size = Vector2(620, 0)` 같은 고정 폭.
+- 모바일에서 2열 고정.
+- 텍스트가 긴 버튼.
+- 카드 목록을 스크롤 없이 한 화면에 전부 배치.
+
+## 화면별 기준
+
+메인 메뉴:
+
+- 데스크톱: 쇼케이스와 메뉴 2열.
+- 모바일/좁은 웹: 쇼케이스와 메뉴 1열.
+- 상태 타일과 카드 미리보기는 compact 크기를 사용한다.
+
+모드 선택:
+
+- `_make_center_panel` 사용.
+- 긴 안내문은 라벨 줄바꿈 허용.
+- 버튼은 가로 확장.
+
+덱 구성:
+
+- 카드 목록은 스크롤 컨테이너 안에 둔다.
+- 선택 덱 패널은 데스크톱에서 오른쪽에 둔다.
+- 모바일에서 완전한 사용성을 높이려면 다음 단계에서 카드 목록과 선택 덱을 탭 구조로 분리하는 것이 좋다.
+
+전투 화면:
+
+- 현재 전투 화면은 정보량이 많아 모바일에서는 스크롤 접근을 허용한다.
+- 다음 단계에서는 모바일 전투 전용 레이아웃을 별도로 두는 것이 좋다.
+- 예: 상대 필드, 내 필드, 손패를 세로 섹션으로 분리.
+
+## QA 체크리스트
+
+기본 실행:
+
+```bash
+/opt/homebrew/bin/godot --headless --path /Users/parkjunho/card-draft --quit-after 2
+```
+
+모바일 세로:
+
+```bash
+/opt/homebrew/bin/godot --headless --path /Users/parkjunho/card-draft --resolution 390x844 --quit-after 2
+```
+
+태블릿/큰 모바일:
+
+```bash
+/opt/homebrew/bin/godot --headless --path /Users/parkjunho/card-draft --resolution 780x1280 --quit-after 2
+```
+
+데스크톱:
+
+```bash
+/opt/homebrew/bin/godot --headless --path /Users/parkjunho/card-draft --resolution 1280x720 --quit-after 2
+```
+
+수동 확인:
+
+- 메인 메뉴에서 버튼이 화면 밖으로 사라지지 않는다.
+- 프로필 요약이 한 글자씩 세로로 떨어지지 않는다.
+- 모드 선택 화면이 작은 폭에서도 보인다.
+- 알림/보상 화면이 작은 폭에서도 보인다.
+- 덱 구성과 전투 화면은 필요한 경우 스크롤로 접근 가능하다.
+- 버튼 텍스트가 버튼 밖으로 넘치지 않는다.
+
+## 다음 개선 후보
+
+- 덱 구성 화면 모바일 탭 UI.
+- 전투 화면 모바일 전용 레이아웃.
+- 카드 hand 영역 가로 스크롤.
+- 필드 슬롯 compact 크기.
+- 웹 빌드 후 브라우저 실제 크기에서 스크린샷 검증.

@@ -1,0 +1,134 @@
+[
+  {
+    "id": "flame_swordsman",
+    "name": "불꽃 검사",
+    "type": "unit",
+    "race": "인간",
+    "attr": "화염",
+    "cost": 2,
+    "attack": 2,
+    "health": 2,
+    "art": 0,
+    "text": "균형 잡힌 인간 전투 유닛"
+  },
+  {
+    "id": "shield_guard",
+    "name": "방패 수호병",
+    "type": "unit",
+    "race": "인간",
+    "attr": "대지",
+    "cost": 3,
+    "attack": 2,
+    "health": 4,
+    "art": 1,
+    "text": "단단한 방어 유닛"
+  },
+  {
+    "id": "captain_order",
+    "name": "지휘관의 명령",
+    "type": "spell",
+    "race": "인간",
+    "attr": "빛",
+    "cost": 3,
+    "art": 2,
+    "text": "아군 전체 공격력 +1"
+  },
+  {
+    "id": "elf_ranger",
+    "name": "엘프 순찰자",
+    "type": "unit",
+    "race": "엘프",
+    "attr": "바람",
+    "cost": 1,
+    "attack": 1,
+    "health": 1,
+    "art": 3,
+    "text": "저코스트 전개 유닛"
+  },
+  {
+    "id": "forest_archer",
+    "name": "숲의 궁수",
+    "type": "unit",
+    "race": "엘프",
+    "attr": "바람",
+    "cost": 2,
+    "attack": 1,
+    "health": 2,
+    "art": 4,
+    "text": "소환 시 카드 1장 드로우"
+  },
+  {
+    "id": "elven_insight",
+    "name": "엘프의 통찰",
+    "type": "spell",
+    "race": "엘프",
+    "attr": "빛",
+    "cost": 3,
+    "art": 5,
+    "text": "카드 2장 드로우"
+  },
+  {
+    "id": "bone_soldier",
+    "name": "해골 병사",
+    "type": "unit",
+    "race": "언데드",
+    "attr": "암흑",
+    "cost": 1,
+    "attack": 2,
+    "health": 1,
+    "art": 6,
+    "text": "사망해도 부담이 적은 유닛"
+  },
+  {
+    "id": "grave_knight",
+    "name": "무덤 기사",
+    "type": "unit",
+    "race": "언데드",
+    "attr": "암흑",
+    "cost": 4,
+    "attack": 4,
+    "health": 3,
+    "art": 7,
+    "text": "사망 시 영웅 체력 2 회복"
+  },
+  {
+    "id": "dark_bargain",
+    "name": "어둠의 거래",
+    "type": "spell",
+    "race": "언데드",
+    "attr": "암흑",
+    "cost": 2,
+    "art": 8,
+    "text": "내 영웅 체력 2 지불, 카드 2장 드로우"
+  },
+  {
+    "id": "fireball",
+    "name": "화염구",
+    "type": "spell",
+    "race": "중립",
+    "attr": "화염",
+    "cost": 3,
+    "art": 9,
+    "text": "가장 앞의 적 유닛 또는 영웅에게 피해 4"
+  },
+  {
+    "id": "healing_spring",
+    "name": "치유의 샘",
+    "type": "spell",
+    "race": "중립",
+    "attr": "물",
+    "cost": 2,
+    "art": 10,
+    "text": "내 영웅 체력 3 회복"
+  },
+  {
+    "id": "elf_bow",
+    "name": "엘프의 활",
+    "type": "equipment",
+    "race": "중립",
+    "attr": "바람",
+    "cost": 2,
+    "art": 11,
+    "text": "가장 앞의 아군 유닛 공격력 +2"
+  }
+]
