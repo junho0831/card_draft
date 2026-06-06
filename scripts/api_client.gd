@@ -57,6 +57,15 @@ func submit_match_result(match_id: String, result: String) -> Dictionary:
 		"result": result,
 	}, true)
 
+func fetch_shop_products() -> Dictionary:
+	return await _request("/api/shop/products", HTTPClient.METHOD_GET, {}, true)
+
+func buy_shop_product(product_id: String, race_filter: String = "") -> Dictionary:
+	return await _request("/api/shop/purchase", HTTPClient.METHOD_POST, {
+		"productId": product_id,
+		"raceFilter": race_filter,
+	}, true)
+
 func _request(path: String, method: HTTPClient.Method, body: Dictionary, include_user: bool) -> Dictionary:
 	var request := HTTPRequest.new()
 	request.timeout = timeout_seconds

@@ -42,4 +42,31 @@ public final class Dto {
             Map<String, Integer> collection
     ) {
     }
+
+    public record ShopProductResponse(
+            String id,
+            String name,
+            int price,
+            int cardCount,
+            boolean raceSelectable
+    ) {
+    }
+
+    public record ShopPurchaseRequest(
+            @NotBlank(message = "상품 ID가 필요합니다.") String productId,
+            String raceFilter
+    ) {
+    }
+
+    public record ShopCardResponse(String id, String name) {
+    }
+
+    public record ShopPurchaseResponse(
+            String summary,
+            int goldDelta,
+            List<ShopCardResponse> cards,
+            Object profile,
+            Map<String, Integer> collection
+    ) {
+    }
 }

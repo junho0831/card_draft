@@ -134,6 +134,16 @@ public class CardDraftRepository {
                 """, userId, cardId, delta);
     }
 
+    public boolean debitGoldIfEnough(UUID userId, int price) {
+        int updated = jdbc.update("""
+                update users
+                set gold = gold - ?,
+                    updated_at = now()
+                where id = ? and gold >= ?
+                """, price, userId, price);
+        return updated > 0;
+    }
+
     @Transactional
     public DeckRecord saveDeck(UUID userId, UUID deckId, String name, Map<String, Integer> counts, boolean selected) {
         UUID id = deckId == null ? UUID.randomUUID() : deckId;

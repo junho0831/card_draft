@@ -261,6 +261,82 @@ X-User-Id: {userId}
 
 같은 매치에 결과를 두 번 제출하면 실패한다.
 
+## 상점 상품 목록
+
+```http
+GET /api/shop/products
+X-User-Id: {userId}
+```
+
+응답:
+
+```json
+[
+  {
+    "id": "random_card",
+    "name": "랜덤 카드 1장",
+    "price": 50,
+    "cardCount": 1,
+    "raceSelectable": false
+  },
+  {
+    "id": "race_card",
+    "name": "종족 카드 1장",
+    "price": 80,
+    "cardCount": 1,
+    "raceSelectable": true
+  },
+  {
+    "id": "mini_pack",
+    "name": "미니 팩 3장",
+    "price": 120,
+    "cardCount": 3,
+    "raceSelectable": false
+  }
+]
+```
+
+## 상점 구매
+
+```http
+POST /api/shop/purchase
+X-User-Id: {userId}
+```
+
+요청:
+
+```json
+{
+  "productId": "race_card",
+  "raceFilter": "엘프"
+}
+```
+
+`productId` 값:
+
+- `random_card`: 골드 50, 전체 카드 중 랜덤 1장.
+- `race_card`: 골드 80, 선택 종족 랜덤 1장.
+- `mini_pack`: 골드 120, 전체 카드 중 랜덤 3장.
+
+응답:
+
+```json
+{
+  "summary": "종족 카드 1장 구매\n골드 -80\n카드 획득: 숲의 궁수\n",
+  "goldDelta": -80,
+  "cards": [
+    {
+      "id": "forest_archer",
+      "name": "숲의 궁수"
+    }
+  ],
+  "profile": {},
+  "collection": {}
+}
+```
+
+중복 카드는 보유 수량으로 3장을 초과할 수 있다. 덱 구성에서는 기존 규칙대로 동일 카드 최대 3장만 넣을 수 있다.
+
 ## curl 테스트 예시
 
 게스트 로그인:
@@ -282,4 +358,11 @@ curl -s http://127.0.0.1:8080/api/profile \
 
 ```bash
 curl -s http://127.0.0.1:8080/api/cards | python3 -m json.tool
+```
+
+상점 상품 확인:
+
+```bash
+curl -s http://127.0.0.1:8080/api/shop/products \
+  -H "X-User-Id: $USER_ID" | python3 -m json.tool
 ```

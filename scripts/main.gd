@@ -30,6 +30,7 @@ var api_client
 var player_profile := {}
 var working_deck: Array = []
 var deck_builder_filter := "전체"
+var shop_race_filter := "인간"
 var active_mode := "casual"
 var opponent_type := "ai"
 var server_enabled := false
@@ -258,6 +259,7 @@ func _show_main_menu() -> void:
 
 	_add_menu_button(menu, "게임 시작", "_show_mode_select", Color(0.16, 0.38, 0.54, 1.0))
 	_add_menu_button(menu, "덱 구성", "_show_deck_builder", Color(0.22, 0.31, 0.38, 1.0))
+	_add_menu_button(menu, "상점", "_show_shop", Color(0.38, 0.3, 0.14, 1.0))
 	_add_menu_button(menu, "카드 보관함", "_show_collection", Color(0.22, 0.31, 0.38, 1.0))
 	_add_menu_button(menu, "설정", "_show_settings", Color(0.22, 0.31, 0.38, 1.0))
 	_add_menu_button(menu, "종료", "_quit_game", Color(0.42, 0.18, 0.18, 1.0))
@@ -454,6 +456,101 @@ func _save_working_deck() -> void:
 	player_profile["selected_deck"] = working_deck.duplicate()
 	_save_profile()
 	_show_message("덱을 저장했습니다.", "_show_main_menu")
+
+func _show_shop() -> void:
+	_clear_screen()
+	_add_title("상점")
+	root_box.add_child(_make_profile_summary())
+
+	var compact := _is_compact_layout()
+	var panel := _make_responsive_panel(Color(0.105, 0.115, 0.135, 1.0), 760)
+	root_box.add_child(panel)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 12)
+	panel.add_child(box)
+
+	box.add_child(_make_label("골드로 랜덤 카드를 구매합니다. 보유 수량은 3장을 초과할 수 있지만 덱에는 동일 카드 최대 3장만 넣을 수 있습니다.", 15, Color(0.84, 0.88, 0.95, 1.0)))
+
+	var race_label := _make_label("종족 카드 선택: %s" % shop_race_filter, 16, Color(1.0, 0.88, 0.55, 1.0))
+	race_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	box.add_child(race_label)
+	box.add_child(ui.make_filter_bar(["인간", "엘프", "언데드"], shop_race_filter, self, "_set_shop_race_filter", compact))
+
+	var products: Array = reward_service.shop_products()
+	for product in products:
+		box.add_child(_make_shop_product_row(product))
+
+	var bottom: BoxContainer = ui.make_responsive_box(compact, 10)
+	bottom.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(bottom)
+	_add_menu_button(bottom, "카드 보관함", "_show_collection", Color(0.22, 0.31, 0.38, 1.0))
+	_add_menu_button(bottom, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
+
+func _make_shop_product_row(product: Dictionary) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.custom_minimum_size = Vector2(0, 72)
+
+	var title := "%s | 골드 %d | 카드 %d장" % [String(product["name"]), int(product["price"]), int(product["card_count"])]
+	if bool(product["race_selectable"]):
+		title += " | 선택 종족: %s" % shop_race_filter
+	var info := _make_label(title, 15, Color(0.92, 0.94, 0.98, 1.0))
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info)
+
+	var button := Button.new()
+	button.text = "구매"
+	button.custom_minimum_size = Vector2(96, 40)
+	_style_button(button, Color(0.38, 0.3, 0.14, 1.0))
+	button.disabled = int(player_profile.get("gold", 0)) < int(product["price"])
+	button.pressed.connect(Callable(self, "_buy_shop_product").bind(String(product["id"])))
+	row.add_child(button)
+	return row
+
+func _set_shop_race_filter(filter: String) -> void:
+	shop_race_filter = filter
+	_show_shop()
+
+func _buy_shop_product(product_id: String) -> void:
+	if server_enabled:
+		var server_result: Dictionary = await api_client.buy_shop_product(product_id, shop_race_filter)
+		if bool(server_result.get("ok", false)) and typeof(server_result.get("body", {})) == TYPE_DICTIONARY:
+			var body: Dictionary = server_result["body"]
+			if typeof(body.get("profile", {})) == TYPE_DICTIONARY and typeof(body.get("collection", {})) == TYPE_DICTIONARY:
+				var decks_result: Dictionary = await api_client.fetch_decks()
+				var decks_body: Array = []
+				if bool(decks_result.get("ok", false)) and typeof(decks_result.get("body", [])) == TYPE_ARRAY:
+					decks_body = decks_result["body"]
+				_apply_server_profile(body["profile"], body["collection"], decks_body)
+			_save_profile()
+			_show_shop_result(String(body.get("summary", "상점 구매 완료")))
+			return
+		server_enabled = false
+
+	var local_result: Dictionary = reward_service.buy_random_cards(player_profile, card_defs, product_id, shop_race_filter)
+	if not bool(local_result.get("ok", false)):
+		_show_message(String(local_result.get("error", "구매 실패")), "_show_shop")
+		return
+	player_profile = local_result["profile"]
+	_save_profile()
+	_show_shop_result(String(local_result["summary"]))
+
+func _show_shop_result(summary: String) -> void:
+	_clear_screen()
+	_add_title("구매 결과")
+	root_box.add_child(_make_profile_summary())
+	var panel := _make_center_panel(Color(0.12, 0.135, 0.16, 1.0), 560)
+	root_box.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 12)
+	panel.add_child(box)
+	box.add_child(_make_label(summary, 19, Color(0.92, 0.94, 0.98, 1.0)))
+	box.add_child(_make_label("현재 골드 %d | 보유 카드 %d장" % [int(player_profile["gold"]), deck_service.total_owned_cards(player_profile["owned_cards"])], 16, Color(1.0, 0.88, 0.55, 1.0)))
+	_add_menu_button(box, "상점으로", "_show_shop", Color(0.38, 0.3, 0.14, 1.0))
+	_add_menu_button(box, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
 
 func _show_collection() -> void:
 	_clear_screen()
