@@ -2,23 +2,38 @@ extends RefCounted
 class_name RewardService
 
 const SHOP_PRODUCTS := {
-	"random_card": {
-		"name": "랜덤 카드 1장",
+	"apprentice_pack": {
+		"name": "견습 카드 팩",
 		"price": 50,
 		"card_count": 1,
 		"race_selectable": false,
+		"description": "가볍게 카드 풀을 넓히는 기본 팩",
+		"contents": [
+			"전체 카드 풀에서 랜덤 카드 1장",
+			"종족 제한 없음",
+		],
 	},
-	"race_card": {
-		"name": "종족 카드 1장",
+	"race_pack": {
+		"name": "종족 지원 팩",
 		"price": 80,
 		"card_count": 1,
 		"race_selectable": true,
+		"description": "선택한 종족 카드만 노리는 전용 팩",
+		"contents": [
+			"선택 종족 카드 중 랜덤 1장",
+			"인간 / 엘프 / 언데드 중 선택",
+		],
 	},
-	"mini_pack": {
-		"name": "미니 팩 3장",
+	"battle_pack": {
+		"name": "전장 보급 팩",
 		"price": 120,
 		"card_count": 3,
 		"race_selectable": false,
+		"description": "빠르게 덱 재료를 모으는 3장 팩",
+		"contents": [
+			"전체 카드 풀에서 랜덤 카드 3장",
+			"중복 획득 가능",
+		],
 	},
 }
 
@@ -71,12 +86,12 @@ func grant_random_card(profile: Dictionary, card_defs: Array) -> String:
 
 func shop_products() -> Array:
 	return [
-		_shop_product("random_card"),
-		_shop_product("race_card"),
-		_shop_product("mini_pack"),
+		_shop_product("apprentice_pack"),
+		_shop_product("race_pack"),
+		_shop_product("battle_pack"),
 	]
 
-func buy_random_cards(profile: Dictionary, card_defs: Array, product_id: String, race_filter: String = "") -> Dictionary:
+func buy_shop_product(profile: Dictionary, card_defs: Array, product_id: String, race_filter: String = "") -> Dictionary:
 	if not SHOP_PRODUCTS.has(product_id):
 		return _shop_error("알 수 없는 상품입니다.")
 	if card_defs.is_empty():
@@ -138,6 +153,8 @@ func _shop_product(product_id: String) -> Dictionary:
 		"price": int(product["price"]),
 		"card_count": int(product["card_count"]),
 		"race_selectable": bool(product["race_selectable"]),
+		"description": String(product["description"]),
+		"contents": product["contents"].duplicate(),
 	}
 
 func _shop_card_pool(card_defs: Array, race_selectable: bool, race_filter: String) -> Array:

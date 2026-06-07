@@ -46,11 +46,13 @@ public class ProfileService {
 
     public ProfileView profile(UUID userId) {
         requireUser(userId);
+        ensureCollectionComplete(userId);
         return repository.profile(userId);
     }
 
     public Map<String, Integer> collection(UUID userId) {
         requireUser(userId);
+        ensureCollectionComplete(userId);
         return repository.collection(userId);
     }
 
@@ -60,6 +62,20 @@ public class ProfileService {
             owned.put(cards.get(i).id(), i < 6 ? 3 : 2);
         }
         return owned;
+    }
+
+    private void ensureCollectionComplete(UUID userId) {
+        List<CardDefinition> cards = repository.findEnabledCards();
+        Map<String, Integer> owned = repository.collection(userId);
+        for (int i = 0; i < cards.size(); i++) {
+            CardDefinition card = cards.get(i);
+            if (owned.containsKey(card.id()) && owned.get(card.id()) != null && owned.get(card.id()) > 0) {
+                continue;
+            }
+            if (!owned.containsKey(card.id()) || owned.get(card.id()) == 0) {
+                repository.upsertOwnedCard(userId, card.id(), i < 6 ? 3 : 2);
+            }
+        }
     }
 
     private List<String> starterDeck(List<CardDefinition> cards, Map<String, Integer> owned) {

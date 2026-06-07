@@ -62,6 +62,10 @@ scripts/ui_factory.gd
 - `main.gd`의 `_apply_root_layout`
 - `_notification`
 - `ui_factory.gd`의 `apply_root_layout`
+- `ui_factory.gd`의 `begin_screen`
+- `ui_factory.gd`의 `make_screen_panel`
+- `ui_factory.gd`의 `make_scroll_panel`
+- `ui_factory.gd`의 `make_action_bar`
 
 ## 폭 계산 규칙
 
@@ -88,13 +92,24 @@ func responsive_width(viewport_width: float, preferred_width: int) -> float:
 
 ## 가운데 패널 규칙
 
-모드 선택, 알림, 보상처럼 가운데에 놓는 패널은 `ui_factory.gd`의 `make_center_panel`을 사용한다. `main.gd`에서는 필요하면 얇은 래퍼만 둔다.
+메뉴/설정/리스트/보상 계열 화면은 먼저 `ui_factory.gd`의 `begin_screen`으로 화면 셸을 시작하고, 본문은 `make_screen_panel` 또는 `make_scroll_panel`에 넣는다.
 
 권장:
 
 ```gdscript
-var panel := ui.make_center_panel(Color(0.12, 0.135, 0.16, 1.0), get_viewport_rect().size.x, 520)
-root_box.add_child(panel)
+var body := ui.begin_screen(root_box, "카드 보관함", _make_profile_summary())
+var panel_data := ui.make_scroll_panel(color, get_viewport_rect().size.x, 760, 8, 420)
+body.add_child(panel_data["panel"])
+```
+
+모드 선택, 알림, 보상처럼 가운데 성격의 화면도 직접 패널을 조립하지 않고 공통 셸 안에서 같은 방식으로 구성한다.
+
+권장:
+
+```gdscript
+var body := ui.begin_screen(root_box, "알림")
+var panel := ui.make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), get_viewport_rect().size.x, 520)
+body.add_child(panel)
 ```
 
 비권장:
@@ -106,6 +121,12 @@ panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 ```
 
 고정 폭 `620` 같은 값은 모바일이나 작은 웹 창에서 화면 잘림을 만든다.
+
+추가 원칙:
+
+- 새 화면 추가 시 `main.gd`에서 직접 `PanelContainer`, `ScrollContainer`, `HBoxContainer`를 조립하지 않는다.
+- 메뉴/설정/리스트/보상 계열 화면은 `ui_factory.gd` 공통 셸을 사용한다.
+- 개별 화면에서 별도 반응형 폭 계산을 다시 만들지 않는다.
 
 ## 2열/1열 전환
 
@@ -172,6 +193,10 @@ label.autowrap_mode = TextServer.AUTOWRAP_OFF
 
 - 화면 중심 패널: `ui.make_center_panel`
 - 화면 폭에 맞는 패널: `ui.make_responsive_panel`
+- 화면 셸 시작: `ui.begin_screen`
+- 메뉴 본문 패널: `ui.make_screen_panel`
+- 스크롤 본문 패널: `ui.make_scroll_panel`
+- 하단 공통 버튼 바: `ui.make_action_bar`
 - 2열/1열 전환: `ui.make_responsive_box`
 - 필터 버튼 묶음: `ui.make_filter_bar`
 - 정보가 많은 화면: `ScrollContainer`
@@ -194,7 +219,7 @@ label.autowrap_mode = TextServer.AUTOWRAP_OFF
 
 모드 선택:
 
-- `_make_center_panel` 사용.
+- `begin_screen` + `make_screen_panel` 사용.
 - 긴 안내문은 라벨 줄바꿈 허용.
 - 버튼은 가로 확장.
 

@@ -1,6 +1,8 @@
 extends RefCounted
 class_name ProfileStore
 
+const LOCAL_DEBUG_GOLD := 999999999999999999
+
 func load_or_create(path: String, card_defs: Array, deck_service, deck_size: int, max_copies: int) -> Dictionary:
 	var profile := {}
 	var loaded := false
@@ -31,7 +33,7 @@ func make_default_profile(card_defs: Array, deck_size: int) -> Dictionary:
 				deck.append(String(card["id"]))
 	return {
 		"player_name": "플레이어",
-		"gold": 0,
+		"gold": LOCAL_DEBUG_GOLD,
 		"rank_points": 0,
 		"owned_cards": owned,
 		"selected_deck": deck,
@@ -45,7 +47,7 @@ func normalize(profile: Dictionary, card_defs: Array, deck_service, deck_size: i
 	if not profile.has("player_name"):
 		profile["player_name"] = "플레이어"
 	if not profile.has("gold"):
-		profile["gold"] = 0
+		profile["gold"] = LOCAL_DEBUG_GOLD
 	if not profile.has("rank_points"):
 		profile["rank_points"] = 0
 	if not profile.has("owned_cards") or typeof(profile["owned_cards"]) != TYPE_DICTIONARY:
@@ -60,13 +62,19 @@ func normalize(profile: Dictionary, card_defs: Array, deck_service, deck_size: i
 		profile["settings"]["fast_ai"] = false
 
 	var cards_by_id := {}
+	var index := 0
 	for card in card_defs:
 		var id := String(card["id"])
 		cards_by_id[id] = card
 		if not profile["owned_cards"].has(id):
-			profile["owned_cards"][id] = 0
+			profile["owned_cards"][id] = 3 if index < 6 else 2
+		index += 1
 	if not deck_service.is_deck_valid(profile["selected_deck"], cards_by_id, profile["owned_cards"], deck_size, max_copies):
 		profile["selected_deck"] = deck_service.make_owned_starter_deck(card_defs, profile["owned_cards"], deck_size, max_copies)
+	return profile
+
+func apply_local_debug_defaults(profile: Dictionary) -> Dictionary:
+	profile["gold"] = max(int(profile.get("gold", 0)), LOCAL_DEBUG_GOLD)
 	return profile
 
 func save(path: String, profile: Dictionary) -> void:

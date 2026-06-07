@@ -48,6 +48,7 @@ var input_locked := false
 
 var root_box: VBoxContainer
 var root_scroll: ScrollContainer
+var modal_layer: Control
 var status_label: Label
 var opponent_info: Label
 var opponent_field_box: HBoxContainer
@@ -78,6 +79,9 @@ func _ready() -> void:
 	cards_by_id = card_db.cards_by_id
 	player_profile = profile_store.load_or_create(PROFILE_PATH, card_defs, deck_service, DECK_SIZE, MAX_CARD_COPIES)
 	await _initialize_backend()
+	if not server_enabled:
+		player_profile = profile_store.apply_local_debug_defaults(player_profile)
+		_save_profile()
 	_show_main_menu()
 
 func _build_base_ui() -> void:
@@ -90,6 +94,11 @@ func _build_base_ui() -> void:
 	root_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root_scroll.follow_focus = true
 	add_child(root_scroll)
+
+	modal_layer = Control.new()
+	modal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	modal_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(modal_layer)
 
 	root_box = VBoxContainer.new()
 	root_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -125,6 +134,7 @@ func _clear_screen() -> void:
 	deck_list_label = null
 	log_label = null
 	end_turn_button = null
+	_clear_modal()
 
 func _save_profile() -> void:
 	profile_store.save(PROFILE_PATH, player_profile)
@@ -139,6 +149,8 @@ func _initialize_backend() -> void:
 
 	var login: Dictionary = await api_client.guest_login(String(player_profile.get("player_name", "플레이어")))
 	if not bool(login.get("ok", false)):
+		player_profile = profile_store.apply_local_debug_defaults(player_profile)
+		_save_profile()
 		return
 	var body: Variant = login.get("body", {})
 	if typeof(body) != TYPE_DICTIONARY or not body.has("userId"):
@@ -201,18 +213,16 @@ func _string_or_empty(value: Variant) -> String:
 
 func _show_error_screen(message: String) -> void:
 	_clear_screen()
-	_add_title("CARD DRAFT")
-	var label := _make_label(message, 20, Color(1.0, 0.65, 0.65, 1.0))
-	root_box.add_child(label)
+	var body: VBoxContainer = ui.begin_screen(root_box, "CARD DRAFT")
+	body.add_child(_make_label(message, 20, Color(1.0, 0.65, 0.65, 1.0)))
 
 func _show_main_menu() -> void:
 	_clear_screen()
-	_add_title("CARD DRAFT")
-	root_box.add_child(_make_profile_summary())
-
 	var compact := _is_compact_layout()
+	var body: VBoxContainer = _begin_menu_screen("CARD DRAFT")
+
 	var hub: BoxContainer = ui.make_responsive_box(compact, 14)
-	root_box.add_child(hub)
+	body.add_child(hub)
 
 	var showcase := _make_responsive_panel(Color(0.105, 0.12, 0.145, 1.0), 420)
 	hub.add_child(showcase)
@@ -265,15 +275,14 @@ func _show_main_menu() -> void:
 	_add_menu_button(menu, "종료", "_quit_game", Color(0.42, 0.18, 0.18, 1.0))
 
 	var note := _make_label("AI 매칭 MVP | 덱 30장 | 영웅 체력 20 | 필드 5칸", 14, Color(0.78, 0.82, 0.9, 1.0))
-	root_box.add_child(note)
+	body.add_child(note)
 
 func _show_mode_select() -> void:
 	_clear_screen()
-	_add_title("매칭 모드")
-	root_box.add_child(_make_profile_summary())
+	var body: VBoxContainer = _begin_menu_screen("매칭 모드")
 
-	var panel := _make_center_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
-	root_box.add_child(panel)
+	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
+	body.add_child(panel)
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
@@ -299,10 +308,9 @@ func _start_matching(mode: String) -> void:
 	opponent_type = "ai"
 	active_match_id = ""
 	_clear_screen()
-	_add_title("상대 찾는 중...")
-	root_box.add_child(_make_profile_summary())
-	var panel := _make_center_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
-	root_box.add_child(panel)
+	var body: VBoxContainer = _begin_menu_screen("상대 찾는 중...")
+	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
+	body.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
@@ -314,6 +322,8 @@ func _start_matching(mode: String) -> void:
 			active_match_id = String(match_result["body"].get("matchId", ""))
 		else:
 			server_enabled = false
+			player_profile = profile_store.apply_local_debug_defaults(player_profile)
+			_save_profile()
 			box.add_child(_make_label("서버 매칭 실패. 이번 전투는 로컬 보상으로 진행합니다.", 14, Color(1.0, 0.68, 0.62, 1.0)))
 	await get_tree().create_timer(1.0).timeout
 	_start_battle(active_mode)
@@ -327,43 +337,35 @@ func _show_deck_builder() -> void:
 
 func _render_deck_builder() -> void:
 	_clear_screen()
-	_add_title("덱 구성")
 	var compact := _is_compact_layout()
+	var body: VBoxContainer = _begin_menu_screen("덱 구성", false)
 	var validation: String = deck_service.validation_message(working_deck, cards_by_id, player_profile["owned_cards"], DECK_SIZE, MAX_CARD_COPIES)
 	var validation_color := Color(1.0, 0.68, 0.62, 1.0)
 	if validation == "저장 가능":
 		validation_color = Color(0.62, 1.0, 0.72, 1.0)
-	root_box.add_child(_make_label("현재 %d/%d장 | %s" % [working_deck.size(), DECK_SIZE, validation], 17, validation_color))
+	body.add_child(_make_label("현재 %d/%d장 | %s" % [working_deck.size(), DECK_SIZE, validation], 17, validation_color))
 
 	var actions: Container = ui.make_filter_bar(["전체", "인간", "엘프", "언데드", "중립"], deck_builder_filter, self, "_set_deck_filter", compact)
-	root_box.add_child(actions)
+	body.add_child(actions)
 
 	var content: BoxContainer = ui.make_responsive_box(compact, 14)
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root_box.add_child(content)
+	body.add_child(content)
 
-	var card_panel := _make_panel_container(Color(0.105, 0.115, 0.135, 1.0))
-	card_panel.custom_minimum_size = Vector2(_responsive_width(760 if not compact else 420), 380 if compact else 0)
+	var catalog_panel: Dictionary = ui.make_scroll_panel(Color(0.105, 0.115, 0.135, 1.0), get_viewport_rect().size.x, 760 if not compact else 420, 6, 380 if compact else 0)
+	var card_panel: PanelContainer = catalog_panel["panel"]
 	card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(card_panel)
-	var card_scroll := ScrollContainer.new()
+	var card_scroll: ScrollContainer = catalog_panel["scroll"]
 	card_scroll.custom_minimum_size = Vector2(0, 360 if compact else 0)
-	card_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	card_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card_panel.add_child(card_scroll)
-	var card_list := VBoxContainer.new()
-	card_list.add_theme_constant_override("separation", 6)
-	card_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card_scroll.add_child(card_list)
+	var card_list: VBoxContainer = catalog_panel["content"]
 
 	for card in card_defs:
 		if deck_builder_filter != "전체" and String(card.race) != deck_builder_filter:
 			continue
-		card_list.add_child(_make_deck_builder_card_row(card, compact))
+		card_list.add_child(_make_card_catalog_row(card, compact, "deck_builder"))
 
-	var deck_panel := _make_panel_container(Color(0.12, 0.135, 0.16, 1.0))
-	deck_panel.custom_minimum_size = Vector2(_responsive_width(330), 0)
+	var deck_panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 330)
 	deck_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if compact else Control.SIZE_FILL
 	deck_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN if compact else Control.SIZE_EXPAND_FILL
 	content.add_child(deck_panel)
@@ -373,46 +375,10 @@ func _render_deck_builder() -> void:
 	deck_box.add_child(_make_label("선택한 덱", 20, Color(0.96, 0.88, 0.68, 1.0)))
 	deck_box.add_child(_make_label(deck_service.deck_summary_text(working_deck, cards_by_id), 14, Color(0.9, 0.92, 0.95, 1.0)))
 
-	var bottom: BoxContainer = ui.make_responsive_box(compact, 10)
-	bottom.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	root_box.add_child(bottom)
+	var bottom: BoxContainer = ui.make_action_bar(compact, 10)
+	body.add_child(bottom)
 	_add_menu_button(bottom, "덱 저장", "_save_working_deck", Color(0.18, 0.34, 0.48, 1.0))
 	_add_menu_button(bottom, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
-
-func _make_deck_builder_card_row(card: Dictionary, compact: bool = false) -> Control:
-	var row := HBoxContainer.new()
-	row.custom_minimum_size = Vector2(0, 88 if compact else 72)
-	row.add_theme_constant_override("separation", 6 if compact else 8)
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	row.add_child(_make_art_rect(int(card.art), Vector2(64, 46) if compact else Vector2(84, 54)))
-	var id := String(card.id)
-	var owned := int(player_profile["owned_cards"].get(id, 0))
-	var selected: int = deck_service.count_in_array(working_deck, id)
-	var info_text := "[%d] %s  %s/%s  보유 %d | 덱 %d" % [card.cost, card.name, card.race, card.attr, owned, selected]
-	if compact:
-		info_text = "[%d] %s\n%s/%s  보유 %d | 덱 %d" % [card.cost, card.name, card.race, card.attr, owned, selected]
-	var info := _make_label(info_text, 13 if compact else 15, Color(0.92, 0.94, 0.98, 1.0))
-	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info)
-
-	var minus := Button.new()
-	minus.text = "-"
-	minus.custom_minimum_size = Vector2(38, 34)
-	_style_button(minus, Color(0.35, 0.16, 0.16, 1.0))
-	minus.disabled = selected <= 0
-	minus.pressed.connect(Callable(self, "_remove_from_working_deck").bind(id))
-	row.add_child(minus)
-
-	var plus := Button.new()
-	plus.text = "+"
-	plus.custom_minimum_size = Vector2(38, 34)
-	_style_button(plus, Color(0.18, 0.34, 0.48, 1.0))
-	plus.disabled = working_deck.size() >= DECK_SIZE or selected >= MAX_CARD_COPIES or selected >= owned
-	plus.pressed.connect(Callable(self, "_add_to_working_deck").bind(id))
-	row.add_child(plus)
-	return row
 
 func _set_deck_filter(filter: String) -> void:
 	deck_builder_filter = filter
@@ -453,24 +419,23 @@ func _save_working_deck() -> void:
 			_show_message("서버에 덱을 저장했습니다.", "_show_main_menu")
 			return
 		server_enabled = false
+		player_profile = profile_store.apply_local_debug_defaults(player_profile)
 	player_profile["selected_deck"] = working_deck.duplicate()
 	_save_profile()
 	_show_message("덱을 저장했습니다.", "_show_main_menu")
 
 func _show_shop() -> void:
 	_clear_screen()
-	_add_title("상점")
-	root_box.add_child(_make_profile_summary())
-
 	var compact := _is_compact_layout()
-	var panel := _make_responsive_panel(Color(0.105, 0.115, 0.135, 1.0), 760)
-	root_box.add_child(panel)
+	var body: VBoxContainer = _begin_menu_screen("상점")
+	var panel := _make_screen_panel(Color(0.105, 0.115, 0.135, 1.0), 760)
+	body.add_child(panel)
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
 
-	box.add_child(_make_label("골드로 랜덤 카드를 구매합니다. 보유 수량은 3장을 초과할 수 있지만 덱에는 동일 카드 최대 3장만 넣을 수 있습니다.", 15, Color(0.84, 0.88, 0.95, 1.0)))
+	box.add_child(_make_label("골드로 카드 팩을 구매합니다. 보유 수량은 3장을 초과할 수 있지만 덱에는 동일 카드 최대 3장만 넣을 수 있습니다.", 15, Color(0.84, 0.88, 0.95, 1.0)))
 
 	var race_label := _make_label("종족 카드 선택: %s" % shop_race_filter, 16, Color(1.0, 0.88, 0.55, 1.0))
 	race_label.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -479,46 +444,33 @@ func _show_shop() -> void:
 
 	var products: Array = reward_service.shop_products()
 	for product in products:
-		box.add_child(_make_shop_product_row(product))
+		box.add_child(_make_card_catalog_row(product, compact, "shop"))
 
-	var bottom: BoxContainer = ui.make_responsive_box(compact, 10)
-	bottom.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var bottom: BoxContainer = ui.make_action_bar(compact, 10)
 	box.add_child(bottom)
 	_add_menu_button(bottom, "카드 보관함", "_show_collection", Color(0.22, 0.31, 0.38, 1.0))
 	_add_menu_button(bottom, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
-
-func _make_shop_product_row(product: Dictionary) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.custom_minimum_size = Vector2(0, 72)
-
-	var title := "%s | 골드 %d | 카드 %d장" % [String(product["name"]), int(product["price"]), int(product["card_count"])]
-	if bool(product["race_selectable"]):
-		title += " | 선택 종족: %s" % shop_race_filter
-	var info := _make_label(title, 15, Color(0.92, 0.94, 0.98, 1.0))
-	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info)
-
-	var button := Button.new()
-	button.text = "구매"
-	button.custom_minimum_size = Vector2(96, 40)
-	_style_button(button, Color(0.38, 0.3, 0.14, 1.0))
-	button.disabled = int(player_profile.get("gold", 0)) < int(product["price"])
-	button.pressed.connect(Callable(self, "_buy_shop_product").bind(String(product["id"])))
-	row.add_child(button)
-	return row
 
 func _set_shop_race_filter(filter: String) -> void:
 	shop_race_filter = filter
 	_show_shop()
 
+func _prompt_buy_shop_product(product_id: String) -> void:
+	var product := _shop_product_by_id(product_id)
+	if product.is_empty():
+		_show_message("알 수 없는 상품입니다.", "_show_shop")
+		return
+	_show_shop_confirm_popup(product)
+
 func _buy_shop_product(product_id: String) -> void:
+	_clear_modal()
+	var product := _shop_product_by_id(product_id)
+	var gained_cards: Array = []
 	if server_enabled:
 		var server_result: Dictionary = await api_client.buy_shop_product(product_id, shop_race_filter)
 		if bool(server_result.get("ok", false)) and typeof(server_result.get("body", {})) == TYPE_DICTIONARY:
 			var body: Dictionary = server_result["body"]
+			gained_cards = _shop_result_cards(body.get("cards", []))
 			if typeof(body.get("profile", {})) == TYPE_DICTIONARY and typeof(body.get("collection", {})) == TYPE_DICTIONARY:
 				var decks_result: Dictionary = await api_client.fetch_decks()
 				var decks_body: Array = []
@@ -526,63 +478,48 @@ func _buy_shop_product(product_id: String) -> void:
 					decks_body = decks_result["body"]
 				_apply_server_profile(body["profile"], body["collection"], decks_body)
 			_save_profile()
-			_show_shop_result(String(body.get("summary", "상점 구매 완료")))
+			_show_shop()
+			_show_shop_result_popup(product, gained_cards, String(body.get("summary", "상점 구매 완료")))
 			return
 		server_enabled = false
+		player_profile = profile_store.apply_local_debug_defaults(player_profile)
 
-	var local_result: Dictionary = reward_service.buy_random_cards(player_profile, card_defs, product_id, shop_race_filter)
+	var local_result: Dictionary = reward_service.buy_shop_product(player_profile, card_defs, product_id, shop_race_filter)
 	if not bool(local_result.get("ok", false)):
 		_show_message(String(local_result.get("error", "구매 실패")), "_show_shop")
 		return
 	player_profile = local_result["profile"]
+	gained_cards = _shop_result_cards(local_result.get("cards", []))
 	_save_profile()
-	_show_shop_result(String(local_result["summary"]))
-
-func _show_shop_result(summary: String) -> void:
-	_clear_screen()
-	_add_title("구매 결과")
-	root_box.add_child(_make_profile_summary())
-	var panel := _make_center_panel(Color(0.12, 0.135, 0.16, 1.0), 560)
-	root_box.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
-	panel.add_child(box)
-	box.add_child(_make_label(summary, 19, Color(0.92, 0.94, 0.98, 1.0)))
-	box.add_child(_make_label("현재 골드 %d | 보유 카드 %d장" % [int(player_profile["gold"]), deck_service.total_owned_cards(player_profile["owned_cards"])], 16, Color(1.0, 0.88, 0.55, 1.0)))
-	_add_menu_button(box, "상점으로", "_show_shop", Color(0.38, 0.3, 0.14, 1.0))
-	_add_menu_button(box, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
+	_show_shop()
+	_show_shop_result_popup(product, gained_cards, String(local_result["summary"]))
 
 func _show_collection() -> void:
 	_clear_screen()
-	_add_title("카드 보관함")
-	root_box.add_child(_make_profile_summary())
-	var panel := _make_panel_container(Color(0.105, 0.115, 0.135, 1.0))
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root_box.add_child(panel)
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_child(scroll)
-	var list := VBoxContainer.new()
-	list.add_theme_constant_override("separation", 6)
-	scroll.add_child(list)
+	var compact := _is_compact_layout()
+	var body: VBoxContainer = _begin_menu_screen("카드 보관함")
+	var panel_data: Dictionary = ui.make_scroll_panel(Color(0.105, 0.115, 0.135, 1.0), get_viewport_rect().size.x, 760 if not compact else 420, 8, 420 if compact else 0)
+	var panel: PanelContainer = panel_data["panel"]
+	body.add_child(panel)
+	var list: VBoxContainer = panel_data["content"]
+	list.add_child(_make_label("보유 카드는 밝게, 미보유 카드는 어둡게 표시됩니다.", 14, Color(0.82, 0.88, 0.95, 1.0)))
+	var grid := GridContainer.new()
+	grid.columns = 2 if compact else 4
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	list.add_child(grid)
 	for card in card_defs:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		row.add_child(_make_art_rect(int(card.art), Vector2(96, 62)))
-		var stat := ""
-		if card.type == "unit":
-			stat = " %d/%d" % [card.attack, card.health]
-			row.add_child(_make_label("%s%s | 비용 %d | %s/%s | %s | 보유 %d장\n%s" % [card.name, stat, card.cost, card.race, card.attr, deck_service.type_name(String(card.type)), int(player_profile["owned_cards"].get(String(card.id), 0)), card.text], 15, Color(0.92, 0.94, 0.98, 1.0)))
-		list.add_child(row)
-	_add_menu_button(root_box, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
+		grid.add_child(_make_collection_card(card, compact))
+	var actions: BoxContainer = ui.make_action_bar(compact, 10)
+	body.add_child(actions)
+	_add_menu_button(actions, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
 
 func _show_settings() -> void:
 	_clear_screen()
-	_add_title("설정")
-	var panel := _make_panel_container(Color(0.12, 0.135, 0.16, 1.0))
-	panel.custom_minimum_size = Vector2(480, 0)
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	root_box.add_child(panel)
+	var body: VBoxContainer = _begin_menu_screen("설정")
+	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 480)
+	body.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
@@ -617,9 +554,9 @@ func _reset_profile() -> void:
 
 func _show_message(message: String, callback_method: String) -> void:
 	_clear_screen()
-	_add_title("알림")
-	var panel := _make_center_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
-	root_box.add_child(panel)
+	var body: VBoxContainer = _begin_menu_screen("알림", false)
+	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
+	body.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
@@ -1018,22 +955,154 @@ func _apply_reward() -> void:
 			active_match_id = ""
 			return
 		server_enabled = false
+		player_profile = profile_store.apply_local_debug_defaults(player_profile)
 	var result: Dictionary = reward_service.apply_reward(player_profile, active_mode, battle_result, card_defs)
 	player_profile = result["profile"]
 	reward_summary = String(result["summary"])
 
 func _show_reward_screen() -> void:
 	_clear_screen()
-	_add_title("전투 결과")
-	root_box.add_child(_make_profile_summary())
-	var panel := _make_center_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
-	root_box.add_child(panel)
+	var body: VBoxContainer = _begin_menu_screen("전투 결과")
+	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
+	body.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
 	box.add_child(_make_label(reward_summary, 20, Color(0.92, 0.94, 0.98, 1.0)))
 	box.add_child(_make_label("현재 랭크: %s / %d점" % [reward_service.rank_name(int(player_profile["rank_points"])), int(player_profile["rank_points"])], 16, Color(0.96, 0.88, 0.68, 1.0)))
 	_add_menu_button(box, "메인으로", "_show_main_menu", Color(0.18, 0.34, 0.48, 1.0))
+
+func _clear_modal() -> void:
+	if modal_layer == null:
+		return
+	for child in modal_layer.get_children():
+		modal_layer.remove_child(child)
+		child.queue_free()
+
+func _show_modal_panel(title: String, preferred_width: int = 560) -> VBoxContainer:
+	_clear_modal()
+	var overlay := ColorRect.new()
+	overlay.color = Color(0.02, 0.025, 0.035, 0.76)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	modal_layer.add_child(overlay)
+
+	var shell := CenterContainer.new()
+	shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	modal_layer.add_child(shell)
+
+	var panel := _make_screen_panel(Color(0.11, 0.125, 0.16, 1.0), preferred_width)
+	panel.modulate = Color(1, 1, 1, 0)
+	panel.scale = Vector2(0.94, 0.94)
+	shell.add_child(panel)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 12)
+	panel.add_child(box)
+	box.add_child(_make_label(title, 24, Color(1.0, 0.88, 0.55, 1.0)))
+
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(panel, "modulate", Color(1, 1, 1, 1), 0.16)
+	tween.tween_property(panel, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	return box
+
+func _show_shop_confirm_popup(product: Dictionary) -> void:
+	var compact := _is_compact_layout()
+	var box := _show_modal_panel("구매 확인", 520)
+	box.add_child(_make_label("%s\n골드 %d" % [String(product.get("name", "")), int(product.get("price", 0))], 18, Color(0.92, 0.94, 0.98, 1.0)))
+	box.add_child(_make_label(String(product.get("description", "")), 15, Color(0.82, 0.88, 0.95, 1.0)))
+	var contents: Array = product.get("contents", [])
+	if not contents.is_empty():
+		box.add_child(_make_label("팩 구성\n- %s" % _join_text_array(contents, "\n- "), 15, Color(0.9, 0.92, 0.96, 1.0)))
+	if bool(product.get("race_selectable", false)):
+		box.add_child(_make_label("선택 종족: %s" % shop_race_filter, 15, Color(0.96, 0.88, 0.68, 1.0)))
+	box.add_child(_make_label("현재 골드 %d" % int(player_profile.get("gold", 0)), 15, Color(0.96, 0.88, 0.68, 1.0)))
+	var actions: BoxContainer = ui.make_action_bar(compact, 10)
+	box.add_child(actions)
+	_add_menu_button(actions, "구매", "_noop", Color(0.38, 0.3, 0.14, 1.0)).pressed.connect(func() -> void:
+		await _buy_shop_product(String(product.get("id", "")))
+	)
+	_add_menu_button(actions, "취소", "_noop", Color(0.22, 0.24, 0.28, 1.0)).pressed.connect(_clear_modal)
+
+func _show_shop_result_popup(product: Dictionary, gained_cards: Array, summary: String) -> void:
+	var compact := _is_compact_layout()
+	var box := _show_modal_panel("팩 개봉 결과", 760 if not compact else 540)
+	box.add_child(_make_label("%s" % String(product.get("name", "카드 팩")), 18, Color(0.96, 0.88, 0.68, 1.0)))
+	box.add_child(_make_label(summary, 15, Color(0.9, 0.92, 0.96, 1.0)))
+
+	var cards_row: BoxContainer = ui.make_responsive_box(compact, 10)
+	cards_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(cards_row)
+	var reveal_cards: Array[Control] = []
+	for card in gained_cards:
+		var reveal := _make_shop_reveal_card(card, compact)
+		reveal_cards.append(reveal)
+		cards_row.add_child(reveal)
+
+	box.add_child(_make_label("현재 골드 %d | 보유 카드 %d장" % [int(player_profile["gold"]), deck_service.total_owned_cards(player_profile["owned_cards"])], 16, Color(1.0, 0.88, 0.55, 1.0)))
+	var actions: BoxContainer = ui.make_action_bar(compact, 10)
+	box.add_child(actions)
+	_add_menu_button(actions, "한 번 더", "_noop", Color(0.38, 0.3, 0.14, 1.0)).pressed.connect(func() -> void:
+		_clear_modal()
+	)
+	_add_menu_button(actions, "닫기", "_noop", Color(0.22, 0.24, 0.28, 1.0)).pressed.connect(_clear_modal)
+	_play_shop_reveal_effect(reveal_cards)
+
+func _make_shop_reveal_card(card: Dictionary, compact: bool) -> Control:
+	var panel := _make_panel_container(Color(0.15, 0.17, 0.21, 1.0))
+	panel.custom_minimum_size = Vector2(130 if compact else 160, 0)
+	panel.modulate = Color(1, 1, 1, 0)
+	panel.scale = Vector2(0.86, 0.86)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	panel.add_child(box)
+	box.add_child(_make_art_rect(int(card.get("art", 0)), Vector2(108, 88) if compact else Vector2(132, 104)))
+	box.add_child(_make_label(String(card.get("name", "")), 15, Color(0.98, 0.98, 0.96, 1.0)))
+	box.add_child(_make_label("[%d] %s/%s" % [int(card.get("cost", 0)), String(card.get("race", "")), String(card.get("attr", ""))], 13, Color(0.82, 0.88, 0.95, 1.0)))
+	if String(card.get("type", "")) == "unit":
+		box.add_child(_make_label("%d/%d" % [int(card.get("attack", 0)), int(card.get("health", 0))], 13, Color(1.0, 0.88, 0.55, 1.0)))
+	return panel
+
+func _play_shop_reveal_effect(reveal_cards: Array[Control]) -> void:
+	for index in range(reveal_cards.size()):
+		var reveal := reveal_cards[index]
+		var tween := create_tween()
+		tween.tween_interval(0.08 * index)
+		tween.tween_property(reveal, "modulate", Color(1, 1, 1, 1), 0.18)
+		tween.parallel().tween_property(reveal, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _shop_product_by_id(product_id: String) -> Dictionary:
+	for product in reward_service.shop_products():
+		if String(product.get("id", "")) == product_id:
+			return product
+	return {}
+
+func _shop_result_cards(raw_cards: Variant) -> Array:
+	var results: Array = []
+	if typeof(raw_cards) != TYPE_ARRAY:
+		return results
+	for raw_card in raw_cards:
+		if typeof(raw_card) != TYPE_DICTIONARY:
+			continue
+		var card_id := String(raw_card.get("id", ""))
+		if cards_by_id.has(card_id):
+			results.append(cards_by_id[card_id].duplicate(true))
+			continue
+		results.append({
+			"id": card_id,
+			"name": String(raw_card.get("name", "알 수 없는 카드")),
+			"type": "",
+			"race": "",
+			"attr": "",
+			"cost": 0,
+			"art": 0,
+		})
+	return results
+
+func _noop() -> void:
+	pass
 
 func _refresh_ui() -> void:
 	if status_label == null:
@@ -1119,11 +1188,173 @@ func _is_compact_layout() -> bool:
 func _responsive_width(preferred_width: int) -> float:
 	return ui.responsive_width(get_viewport_rect().size.x, preferred_width)
 
+func _begin_menu_screen(title: String, with_profile: bool = true) -> VBoxContainer:
+	var summary: Control = null
+	if with_profile:
+		summary = _make_profile_summary()
+	return ui.begin_screen(root_box, title, summary)
+
+func _make_screen_panel(color: Color, preferred_width: int, min_height: int = 0) -> PanelContainer:
+	return ui.make_screen_panel(color, get_viewport_rect().size.x, preferred_width, min_height)
+
 func _make_center_panel(color: Color, preferred_width: int) -> PanelContainer:
 	return ui.make_center_panel(color, get_viewport_rect().size.x, preferred_width)
 
 func _make_responsive_panel(color: Color, preferred_width: int, min_height: int = 0) -> PanelContainer:
 	return ui.make_responsive_panel(color, get_viewport_rect().size.x, preferred_width, min_height)
+
+func _make_card_catalog_row(entry: Dictionary, compact: bool, context: String) -> Control:
+	var row: BoxContainer = ui.make_info_row(compact and context != "shop", 8, 88 if compact else 72)
+	var row_color := Color(0.12, 0.135, 0.16, 1.0)
+	if context == "shop":
+		row_color = Color(0.16, 0.145, 0.11, 1.0)
+	var frame := _make_panel_container(row_color)
+	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	frame.add_child(row)
+
+	if context == "shop":
+		var info := _make_label(_shop_product_text(entry, compact), 14 if compact else 15, Color(0.92, 0.94, 0.98, 1.0))
+		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(info)
+		var button := Button.new()
+		button.text = "구매"
+		button.custom_minimum_size = Vector2(96, 40)
+		_style_button(button, Color(0.38, 0.3, 0.14, 1.0))
+		button.disabled = int(player_profile.get("gold", 0)) < int(entry.get("price", 0))
+		button.pressed.connect(Callable(self, "_prompt_buy_shop_product").bind(String(entry.get("id", ""))))
+		row.add_child(button)
+		return frame
+
+	var art_size := Vector2(64, 46) if compact else Vector2(84, 54)
+	if context == "collection":
+		art_size = Vector2(72, 52) if compact else Vector2(96, 62)
+	row.add_child(_make_art_rect(int(entry.get("art", 0)), art_size))
+
+	var info := _make_label(_card_catalog_text(entry, compact, context), 13 if compact else 15, Color(0.92, 0.94, 0.98, 1.0))
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info)
+
+	if context == "deck_builder":
+		var id := String(entry.get("id", ""))
+		var owned := int(player_profile["owned_cards"].get(id, 0))
+		var selected: int = deck_service.count_in_array(working_deck, id)
+		var actions := HBoxContainer.new()
+		actions.add_theme_constant_override("separation", 6)
+		actions.alignment = BoxContainer.ALIGNMENT_CENTER
+		if compact:
+			actions.size_flags_horizontal = Control.SIZE_SHRINK_END
+		var minus := Button.new()
+		minus.text = "-"
+		minus.custom_minimum_size = Vector2(38, 34)
+		_style_button(minus, Color(0.35, 0.16, 0.16, 1.0))
+		minus.disabled = selected <= 0
+		minus.pressed.connect(Callable(self, "_remove_from_working_deck").bind(id))
+		actions.add_child(minus)
+
+		var plus := Button.new()
+		plus.text = "+"
+		plus.custom_minimum_size = Vector2(38, 34)
+		_style_button(plus, Color(0.18, 0.34, 0.48, 1.0))
+		plus.disabled = working_deck.size() >= DECK_SIZE or selected >= MAX_CARD_COPIES or selected >= owned
+		plus.pressed.connect(Callable(self, "_add_to_working_deck").bind(id))
+		actions.add_child(plus)
+		row.add_child(actions)
+
+	return frame
+
+func _make_collection_card(card: Dictionary, compact: bool) -> Control:
+	var owned := int(player_profile["owned_cards"].get(String(card.get("id", "")), 0))
+	var frame := _make_panel_container(Color(0.13, 0.145, 0.175, 1.0))
+	frame.custom_minimum_size = Vector2(0, 250 if compact else 290)
+	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if owned <= 0:
+		frame.modulate = Color(0.42, 0.42, 0.46, 1.0)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	frame.add_child(box)
+
+	var art := _make_art_rect(int(card.get("art", 0)), Vector2(132, 92) if compact else Vector2(150, 108))
+	art.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if owned <= 0:
+		art.modulate = Color(0.3, 0.3, 0.34, 1.0)
+	box.add_child(art)
+
+	var name := _make_label(String(card.get("name", "")), 15 if compact else 16, Color(0.98, 0.98, 0.96, 1.0))
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	box.add_child(name)
+
+	var stat_text := "[%d] %s/%s | %s" % [
+		int(card.get("cost", 0)),
+		String(card.get("race", "")),
+		String(card.get("attr", "")),
+		deck_service.type_name(String(card.get("type", ""))),
+	]
+	if String(card.get("type", "")) == "unit":
+		stat_text += " | %d/%d" % [int(card.get("attack", 0)), int(card.get("health", 0))]
+	var stat := _make_label(stat_text, 12 if compact else 13, Color(0.84, 0.88, 0.95, 1.0))
+	stat.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	box.add_child(stat)
+
+	var count_color := Color(1.0, 0.88, 0.55, 1.0) if owned > 0 else Color(0.66, 0.69, 0.74, 1.0)
+	var count_label := _make_label("보유 %d장" % owned, 13 if compact else 14, count_color)
+	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	box.add_child(count_label)
+
+	var text := _make_label(String(card.get("text", "")), 12 if compact else 13, Color(0.82, 0.88, 0.95, 1.0))
+	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	box.add_child(text)
+	return frame
+
+func _card_catalog_text(card: Dictionary, compact: bool, context: String) -> String:
+	var id := String(card.get("id", ""))
+	var owned := int(player_profile["owned_cards"].get(id, 0))
+	var lines: Array[String] = []
+	var title := "[%d] %s" % [int(card.get("cost", 0)), String(card.get("name", ""))]
+	if String(card.get("type", "")) == "unit":
+		title += "  %d/%d" % [int(card.get("attack", 0)), int(card.get("health", 0))]
+	lines.append(title)
+
+	var meta := "%s/%s | %s | 보유 %d장" % [
+		String(card.get("race", "중립")),
+		String(card.get("attr", "무속성")),
+		deck_service.type_name(String(card.get("type", ""))),
+		owned,
+	]
+	if context == "deck_builder":
+		meta += " | 덱 %d장" % deck_service.count_in_array(working_deck, id)
+	lines.append(meta)
+	lines.append(String(card.get("text", "")))
+
+	if not compact:
+		return "%s\n%s" % [lines[0], " | ".join([meta, String(card.get("text", ""))])]
+	return "\n".join(lines)
+
+func _shop_product_text(product: Dictionary, compact: bool) -> String:
+	var lines: Array[String] = []
+	lines.append("%s | 골드 %d | 카드 %d장" % [
+		String(product.get("name", "")),
+		int(product.get("price", 0)),
+		int(product.get("card_count", 0)),
+	])
+	lines.append(String(product.get("description", "")))
+	var contents: Array = product.get("contents", [])
+	if not contents.is_empty():
+		lines.append("구성: " + _join_text_array(contents, " / "))
+	if bool(product.get("race_selectable", false)):
+		lines.append("선택 종족: %s" % shop_race_filter)
+	lines.append("보유 골드 %d" % int(player_profile.get("gold", 0)))
+	if compact:
+		return "\n".join(lines)
+	return "%s\n%s" % [lines[0], " | ".join(lines.slice(1))]
+
+func _join_text_array(values: Array, separator: String) -> String:
+	var parts: Array[String] = []
+	for value in values:
+		parts.append(String(value))
+	return separator.join(parts)
 
 func _make_profile_summary() -> PanelContainer:
 	var panel := _make_responsive_panel(Color(0.105, 0.115, 0.135, 1.0), 560)

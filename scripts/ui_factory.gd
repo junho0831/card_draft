@@ -135,6 +135,50 @@ func add_title(parent: Node, text: String) -> void:
 	title.add_theme_color_override("font_outline_color", Color(0.08, 0.075, 0.07, 1.0))
 	parent.add_child(title)
 
+func begin_screen(root: Node, title: String, summary: Control = null, spacing: int = 12) -> VBoxContainer:
+	add_title(root, title)
+	if summary != null:
+		root.add_child(summary)
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", spacing)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	root.add_child(body)
+	return body
+
+func make_screen_panel(color: Color, viewport_width: float, preferred_width: int, min_height: int = 0) -> PanelContainer:
+	var panel := make_responsive_panel(color, viewport_width, preferred_width, min_height)
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return panel
+
+func make_scroll_panel(color: Color, viewport_width: float, preferred_width: int, content_separation: int = 8, min_height: int = 0) -> Dictionary:
+	var panel := make_screen_panel(color, viewport_width, preferred_width, min_height)
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	panel.add_child(scroll)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", content_separation)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(content)
+	return {
+		"panel": panel,
+		"scroll": scroll,
+		"content": content,
+	}
+
+func make_action_bar(compact: bool, separation: int = 10) -> BoxContainer:
+	var bar := make_responsive_box(compact, separation)
+	bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return bar
+
+func make_info_row(compact: bool, separation: int = 8, min_height: int = 0) -> BoxContainer:
+	var row := make_responsive_box(compact, separation)
+	row.custom_minimum_size = Vector2(0, min_height)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return row
+
 func add_menu_button(parent: Node, target: Object, text: String, callback_method: String, color: Color) -> Button:
 	var button := Button.new()
 	button.text = text

@@ -41,14 +41,14 @@ class ShopServiceTest {
     void returnsShopProducts() {
         assertThat(shopService.products())
                 .extracting("id")
-                .containsExactly("random_card", "race_card", "mini_pack");
+                .containsExactly("apprentice_pack", "race_pack", "battle_pack");
     }
 
     @Test
     void purchasesRandomCardWhenGoldIsEnough() {
         when(repository.debitGoldIfEnough(userId, 50)).thenReturn(true);
 
-        var response = shopService.purchase(userId, "random_card", "");
+        var response = shopService.purchase(userId, "apprentice_pack", "");
 
         assertThat(response.goldDelta()).isEqualTo(-50);
         assertThat(response.cards()).hasSize(1);
@@ -59,7 +59,7 @@ class ShopServiceTest {
     void purchasesRaceCardOnlyFromSelectedRace() {
         when(repository.debitGoldIfEnough(userId, 80)).thenReturn(true);
 
-        var response = shopService.purchase(userId, "race_card", "엘프");
+        var response = shopService.purchase(userId, "race_pack", "엘프");
 
         assertThat(response.cards()).hasSize(1);
         assertThat(response.cards().getFirst().id()).isEqualTo("forest_archer");
@@ -70,7 +70,7 @@ class ShopServiceTest {
     void rejectsPurchaseWhenGoldIsNotEnough() {
         when(repository.debitGoldIfEnough(userId, 120)).thenReturn(false);
 
-        assertThatThrownBy(() -> shopService.purchase(userId, "mini_pack", ""))
+        assertThatThrownBy(() -> shopService.purchase(userId, "battle_pack", ""))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("골드");
 

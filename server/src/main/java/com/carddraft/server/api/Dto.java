@@ -48,7 +48,9 @@ public final class Dto {
             String name,
             int price,
             int cardCount,
-            boolean raceSelectable
+            boolean raceSelectable,
+            String description,
+            List<String> contents
     ) {
     }
 

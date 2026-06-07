@@ -14,9 +14,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ShopService {
     private static final List<Product> PRODUCTS = List.of(
-            new Product("random_card", "랜덤 카드 1장", 50, 1, false),
-            new Product("race_card", "종족 카드 1장", 80, 1, true),
-            new Product("mini_pack", "미니 팩 3장", 120, 3, false)
+            new Product("apprentice_pack", "견습 카드 팩", 50, 1, false,
+                    "가볍게 카드 풀을 넓히는 기본 팩",
+                    List.of("전체 카드 풀에서 랜덤 카드 1장", "종족 제한 없음")),
+            new Product("race_pack", "종족 지원 팩", 80, 1, true,
+                    "선택한 종족 카드만 노리는 전용 팩",
+                    List.of("선택 종족 카드 중 랜덤 1장", "인간 / 엘프 / 언데드 중 선택")),
+            new Product("battle_pack", "전장 보급 팩", 120, 3, false,
+                    "빠르게 덱 재료를 모으는 3장 팩",
+                    List.of("전체 카드 풀에서 랜덤 카드 3장", "중복 획득 가능"))
     );
 
     private final CardDraftRepository repository;
@@ -34,7 +40,9 @@ public class ShopService {
                         product.name(),
                         product.price(),
                         product.cardCount(),
-                        product.raceSelectable()
+                        product.raceSelectable(),
+                        product.description(),
+                        product.contents()
                 ))
                 .toList();
     }
@@ -93,6 +101,14 @@ public class ShopService {
         return "%s 구매\n골드 -%d\n카드 획득: %s\n".formatted(product.name(), product.price(), cardNames);
     }
 
-    private record Product(String id, String name, int price, int cardCount, boolean raceSelectable) {
+    private record Product(
+            String id,
+            String name,
+            int price,
+            int cardCount,
+            boolean raceSelectable,
+            String description,
+            List<String> contents
+    ) {
     }
 }

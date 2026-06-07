@@ -273,25 +273,40 @@ X-User-Id: {userId}
 ```json
 [
   {
-    "id": "random_card",
-    "name": "랜덤 카드 1장",
+    "id": "apprentice_pack",
+    "name": "견습 카드 팩",
     "price": 50,
     "cardCount": 1,
-    "raceSelectable": false
+    "raceSelectable": false,
+    "description": "가볍게 카드 풀을 넓히는 기본 팩",
+    "contents": [
+      "전체 카드 풀에서 랜덤 카드 1장",
+      "종족 제한 없음"
+    ]
   },
   {
-    "id": "race_card",
-    "name": "종족 카드 1장",
+    "id": "race_pack",
+    "name": "종족 지원 팩",
     "price": 80,
     "cardCount": 1,
-    "raceSelectable": true
+    "raceSelectable": true,
+    "description": "선택한 종족 카드만 노리는 전용 팩",
+    "contents": [
+      "선택 종족 카드 중 랜덤 1장",
+      "인간 / 엘프 / 언데드 중 선택"
+    ]
   },
   {
-    "id": "mini_pack",
-    "name": "미니 팩 3장",
+    "id": "battle_pack",
+    "name": "전장 보급 팩",
     "price": 120,
     "cardCount": 3,
-    "raceSelectable": false
+    "raceSelectable": false,
+    "description": "빠르게 덱 재료를 모으는 3장 팩",
+    "contents": [
+      "전체 카드 풀에서 랜덤 카드 3장",
+      "중복 획득 가능"
+    ]
   }
 ]
 ```
@@ -307,16 +322,16 @@ X-User-Id: {userId}
 
 ```json
 {
-  "productId": "race_card",
+  "productId": "race_pack",
   "raceFilter": "엘프"
 }
 ```
 
 `productId` 값:
 
-- `random_card`: 골드 50, 전체 카드 중 랜덤 1장.
-- `race_card`: 골드 80, 선택 종족 랜덤 1장.
-- `mini_pack`: 골드 120, 전체 카드 중 랜덤 3장.
+- `apprentice_pack`: 골드 50, 전체 카드 중 랜덤 1장.
+- `race_pack`: 골드 80, 선택 종족 랜덤 1장.
+- `battle_pack`: 골드 120, 전체 카드 중 랜덤 3장.
 
 응답:
 
