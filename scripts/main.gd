@@ -30,6 +30,7 @@ var api_client
 var player_profile := {}
 var working_deck: Array = []
 var deck_builder_filter := "전체"
+var collection_filter := "전체"
 var shop_race_filter := "인간"
 var active_mode := "casual"
 var opponent_type := "ai"
@@ -80,7 +81,7 @@ func _ready() -> void:
 	player_profile = profile_store.load_or_create(PROFILE_PATH, card_defs, deck_service, DECK_SIZE, MAX_CARD_COPIES)
 	await _initialize_backend()
 	if not server_enabled:
-		player_profile = profile_store.apply_local_debug_defaults(player_profile)
+		player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
 		_save_profile()
 	_show_main_menu()
 
@@ -120,6 +121,9 @@ func _apply_root_layout() -> void:
 	ui.apply_root_layout(root_box, get_viewport_rect().size)
 
 func _clear_screen() -> void:
+	if root_scroll != null:
+		root_scroll.scroll_horizontal = 0
+		root_scroll.scroll_vertical = 0
 	for child in root_box.get_children():
 		root_box.remove_child(child)
 		child.queue_free()
@@ -149,7 +153,7 @@ func _initialize_backend() -> void:
 
 	var login: Dictionary = await api_client.guest_login(String(player_profile.get("player_name", "플레이어")))
 	if not bool(login.get("ok", false)):
-		player_profile = profile_store.apply_local_debug_defaults(player_profile)
+		player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
 		_save_profile()
 		return
 	var body: Variant = login.get("body", {})
@@ -322,7 +326,7 @@ func _start_matching(mode: String) -> void:
 			active_match_id = String(match_result["body"].get("matchId", ""))
 		else:
 			server_enabled = false
-			player_profile = profile_store.apply_local_debug_defaults(player_profile)
+			player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
 			_save_profile()
 			box.add_child(_make_label("서버 매칭 실패. 이번 전투는 로컬 보상으로 진행합니다.", 14, Color(1.0, 0.68, 0.62, 1.0)))
 	await get_tree().create_timer(1.0).timeout
@@ -419,7 +423,7 @@ func _save_working_deck() -> void:
 			_show_message("서버에 덱을 저장했습니다.", "_show_main_menu")
 			return
 		server_enabled = false
-		player_profile = profile_store.apply_local_debug_defaults(player_profile)
+		player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
 	player_profile["selected_deck"] = working_deck.duplicate()
 	_save_profile()
 	_show_message("덱을 저장했습니다.", "_show_main_menu")
@@ -482,7 +486,7 @@ func _buy_shop_product(product_id: String) -> void:
 			_show_shop_result_popup(product, gained_cards, String(body.get("summary", "상점 구매 완료")))
 			return
 		server_enabled = false
-		player_profile = profile_store.apply_local_debug_defaults(player_profile)
+		player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
 
 	var local_result: Dictionary = reward_service.buy_shop_product(player_profile, card_defs, product_id, shop_race_filter)
 	if not bool(local_result.get("ok", false)):
@@ -498,22 +502,51 @@ func _show_collection() -> void:
 	_clear_screen()
 	var compact := _is_compact_layout()
 	var body: VBoxContainer = _begin_menu_screen("카드 보관함")
-	var panel_data: Dictionary = ui.make_scroll_panel(Color(0.105, 0.115, 0.135, 1.0), get_viewport_rect().size.x, 760 if not compact else 420, 8, 420 if compact else 0)
-	var panel: PanelContainer = panel_data["panel"]
+	var panel := _make_screen_panel(Color(0.105, 0.115, 0.135, 1.0), 760 if not compact else 420)
 	body.add_child(panel)
-	var list: VBoxContainer = panel_data["content"]
-	list.add_child(_make_label("보유 카드는 밝게, 미보유 카드는 어둡게 표시됩니다.", 14, Color(0.82, 0.88, 0.95, 1.0)))
-	var grid := GridContainer.new()
-	grid.columns = 2 if compact else 4
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	list.add_child(grid)
-	for card in card_defs:
-		grid.add_child(_make_collection_card(card, compact))
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 10)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_child(list)
+	list.add_child(_make_label("카드 %d종 | 보유 카드는 밝게, 미보유 카드는 어둡게 표시됩니다." % card_defs.size(), 14, Color(0.82, 0.88, 0.95, 1.0)))
+	list.add_child(ui.make_filter_bar(["전체", "보유", "미보유", "인간", "엘프", "언데드", "중립"], collection_filter, self, "_set_collection_filter", compact))
+	if card_defs.is_empty():
+		list.add_child(_make_label("표시할 카드 데이터가 없습니다.", 18, Color(1.0, 0.68, 0.62, 1.0)))
+		return
+	var filtered_cards := _filtered_collection_cards()
+	if filtered_cards.is_empty():
+		list.add_child(_make_label("조건에 맞는 카드가 없습니다.", 18, Color(1.0, 0.68, 0.62, 1.0)))
+		return
+	var columns := 2 if compact else 4
+	var row: HBoxContainer = null
+	for index in range(filtered_cards.size()):
+		if index % columns == 0:
+			row = HBoxContainer.new()
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
+			row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_theme_constant_override("separation", 10)
+			list.add_child(row)
+		row.add_child(_make_collection_card(filtered_cards[index], compact))
 	var actions: BoxContainer = ui.make_action_bar(compact, 10)
 	body.add_child(actions)
 	_add_menu_button(actions, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
+
+func _set_collection_filter(filter: String) -> void:
+	collection_filter = filter
+	_show_collection()
+
+func _filtered_collection_cards() -> Array:
+	var filtered: Array = []
+	for card in card_defs:
+		var owned := int(player_profile["owned_cards"].get(String(card.get("id", "")), 0))
+		if collection_filter == "보유" and owned <= 0:
+			continue
+		if collection_filter == "미보유" and owned > 0:
+			continue
+		if collection_filter not in ["전체", "보유", "미보유"] and String(card.get("race", "")) != collection_filter:
+			continue
+		filtered.append(card)
+	return filtered
 
 func _show_settings() -> void:
 	_clear_screen()
@@ -955,7 +988,7 @@ func _apply_reward() -> void:
 			active_match_id = ""
 			return
 		server_enabled = false
-		player_profile = profile_store.apply_local_debug_defaults(player_profile)
+		player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
 	var result: Dictionary = reward_service.apply_reward(player_profile, active_mode, battle_result, card_defs)
 	player_profile = result["profile"]
 	reward_summary = String(result["summary"])
@@ -1267,7 +1300,7 @@ func _make_card_catalog_row(entry: Dictionary, compact: bool, context: String) -
 func _make_collection_card(card: Dictionary, compact: bool) -> Control:
 	var owned := int(player_profile["owned_cards"].get(String(card.get("id", "")), 0))
 	var frame := _make_panel_container(Color(0.13, 0.145, 0.175, 1.0))
-	frame.custom_minimum_size = Vector2(0, 250 if compact else 290)
+	frame.custom_minimum_size = Vector2(148 if compact else 170, 250 if compact else 290)
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if owned <= 0:
 		frame.modulate = Color(0.42, 0.42, 0.46, 1.0)

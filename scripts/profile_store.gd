@@ -2,6 +2,7 @@ extends RefCounted
 class_name ProfileStore
 
 const LOCAL_DEBUG_GOLD := 999999999999999999
+const LOCAL_DEBUG_CARD_COPIES := 3
 
 func load_or_create(path: String, card_defs: Array, deck_service, deck_size: int, max_copies: int) -> Dictionary:
 	var profile := {}
@@ -73,8 +74,15 @@ func normalize(profile: Dictionary, card_defs: Array, deck_service, deck_size: i
 		profile["selected_deck"] = deck_service.make_owned_starter_deck(card_defs, profile["owned_cards"], deck_size, max_copies)
 	return profile
 
-func apply_local_debug_defaults(profile: Dictionary) -> Dictionary:
+func apply_local_debug_defaults(profile: Dictionary, card_defs: Array = []) -> Dictionary:
 	profile["gold"] = max(int(profile.get("gold", 0)), LOCAL_DEBUG_GOLD)
+	if not profile.has("owned_cards") or typeof(profile["owned_cards"]) != TYPE_DICTIONARY:
+		profile["owned_cards"] = {}
+	for card in card_defs:
+		var id := String(card.get("id", ""))
+		if id.is_empty():
+			continue
+		profile["owned_cards"][id] = max(int(profile["owned_cards"].get(id, 0)), LOCAL_DEBUG_CARD_COPIES)
 	return profile
 
 func save(path: String, profile: Dictionary) -> void:
