@@ -36,8 +36,16 @@ func make_default_profile(card_defs: Array, deck_size: int) -> Dictionary:
 		"player_name": "플레이어",
 		"gold": LOCAL_DEBUG_GOLD,
 		"rank_points": 0,
+		"soul_stones": 0,
 		"owned_cards": owned,
 		"selected_deck": deck,
+		"unlocked_cards": [],
+		"unlocked_relics": [],
+		"upgrades": {
+			"start_hp": 0,
+			"start_gold": 0,
+			"second_chance": 0,
+		},
 		"settings": {
 			"battle_cutscene": true,
 			"fast_ai": false,
@@ -51,12 +59,26 @@ func normalize(profile: Dictionary, card_defs: Array, deck_service, deck_size: i
 		profile["gold"] = LOCAL_DEBUG_GOLD
 	if not profile.has("rank_points"):
 		profile["rank_points"] = 0
+	if not profile.has("soul_stones"):
+		profile["soul_stones"] = 0
 	if not profile.has("owned_cards") or typeof(profile["owned_cards"]) != TYPE_DICTIONARY:
 		profile["owned_cards"] = {}
 	if not profile.has("selected_deck") or typeof(profile["selected_deck"]) != TYPE_ARRAY:
 		profile["selected_deck"] = []
+	if not profile.has("unlocked_cards") or typeof(profile["unlocked_cards"]) != TYPE_ARRAY:
+		profile["unlocked_cards"] = []
+	if not profile.has("unlocked_relics") or typeof(profile["unlocked_relics"]) != TYPE_ARRAY:
+		profile["unlocked_relics"] = []
+	if not profile.has("upgrades") or typeof(profile["upgrades"]) != TYPE_DICTIONARY:
+		profile["upgrades"] = {}
 	if not profile.has("settings") or typeof(profile["settings"]) != TYPE_DICTIONARY:
 		profile["settings"] = {}
+	if not profile["upgrades"].has("start_hp"):
+		profile["upgrades"]["start_hp"] = 0
+	if not profile["upgrades"].has("start_gold"):
+		profile["upgrades"]["start_gold"] = 0
+	if not profile["upgrades"].has("second_chance"):
+		profile["upgrades"]["second_chance"] = 0
 	if not profile["settings"].has("battle_cutscene"):
 		profile["settings"]["battle_cutscene"] = true
 	if not profile["settings"].has("fast_ai"):

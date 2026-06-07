@@ -1,0 +1,97 @@
+[
+	{
+		"id": "suspicious_merchant",
+		"title": "수상한 상인",
+		"description": "수상한 상인이 피, 돈, 침묵 중 하나를 요구한다.",
+		"options": [
+			{
+				"label": "체력 5 잃고 강한 카드 받기",
+				"effect": "merchant_card"
+			},
+			{
+				"label": "골드 50 지불하고 유물 받기",
+				"effect": "merchant_relic"
+			},
+			{
+				"label": "무시하기",
+				"effect": "leave"
+			}
+		]
+	},
+	{
+		"id": "abandoned_cathedral",
+		"title": "버려진 성당",
+		"description": "낡은 제단이 덱을 정리하거나 체력을 회복시켜줄 수 있다.",
+		"options": [
+			{
+				"label": "카드 1장 제거",
+				"effect": "remove_card"
+			},
+			{
+				"label": "체력 10 회복",
+				"effect": "heal_10"
+			},
+			{
+				"label": "저주를 받고 유물 획득",
+				"effect": "curse_relic"
+			}
+		]
+	},
+	{
+		"id": "goblin_casino",
+		"title": "고블린 도박장",
+		"description": "고블린들이 무모한 배팅을 권한다.",
+		"options": [
+			{
+				"label": "골드 30 베팅",
+				"effect": "gamble_small"
+			},
+			{
+				"label": "골드 60 베팅",
+				"effect": "gamble_relic"
+			},
+			{
+				"label": "떠나기",
+				"effect": "leave"
+			}
+		]
+	},
+	{
+		"id": "magic_spring",
+		"title": "마법의 샘",
+		"description": "샘물에 손을 담그면 회복과 변이의 감각이 동시에 느껴진다.",
+		"options": [
+			{
+				"label": "체력 30% 회복",
+				"effect": "heal"
+			},
+			{
+				"label": "카드 1장 강화",
+				"effect": "upgrade_card"
+			},
+			{
+				"label": "최대 체력 +5, 현재 체력 -10",
+				"effect": "max_hp_trade"
+			}
+		]
+	},
+	{
+		"id": "battlefield_ruins",
+		"title": "전쟁터의 잔해",
+		"description": "파편 속에서 빌드 방향을 바꿀 수 있는 전리품이 보인다.",
+		"options": [
+			{
+				"label": "무작위 장착 카드",
+				"effect": "gain_equipment"
+			},
+			{
+				"label": "무작위 인간 카드",
+				"effect": "gain_human"
+			},
+			{
+				"label": "무작위 언데드 카드",
+				"effect": "gain_undead"
+			}
+		]
+	}
+]

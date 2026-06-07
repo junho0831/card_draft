@@ -1,0 +1,12 @@
+[
+	{
+		"id": 1,
+		"name": "국경지대",
+		"nodes": ["battle", "battle", "event", "battle", "shop", "elite", "rest", "boss"]
+	},
+	{
+		"id": 2,
+		"name": "죽음의 성",
+		"nodes": ["battle", "battle", "event", "battle", "shop", "elite", "rest", "boss"]
+	}
+]
