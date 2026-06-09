@@ -8,17 +8,17 @@ const RUN_PATH := "user://run_state.json"
 const CARD_DATA_PATH := "res://data/cards.json"
 const CARD_ART_SHEET := preload("res://assets/card_art/season1_sample_sheet.png")
 const BATTLE_CUTSCENE_SCENE := preload("res://scenes/BattleCutscene.tscn")
-const BattleCardEffectsScript := preload("res://scripts/battle_card_effects.gd")
-const CardDatabaseScript := preload("res://scripts/card_database.gd")
-const DeckServiceScript := preload("res://scripts/deck_service.gd")
-const EnemyServiceScript := preload("res://scripts/enemy_service.gd")
-const EventServiceScript := preload("res://scripts/event_service.gd")
-const ProfileStoreScript := preload("res://scripts/profile_store.gd")
-const RelicServiceScript := preload("res://scripts/relic_service.gd")
-const RewardServiceScript := preload("res://scripts/reward_service.gd")
-const RunGeneratorScript := preload("res://scripts/run_generator.gd")
-const RunStateScript := preload("res://scripts/run_state.gd")
-const UiFactoryScript := preload("res://scripts/ui_factory.gd")
+const BattleCardEffectsScript := preload("res://scripts/battle/battle_card_effects.gd")
+const CardDatabaseScript := preload("res://scripts/services/card_database.gd")
+const DeckServiceScript := preload("res://scripts/services/deck_service.gd")
+const EnemyServiceScript := preload("res://scripts/services/enemy_service.gd")
+const EventServiceScript := preload("res://scripts/services/event_service.gd")
+const ProfileStoreScript := preload("res://scripts/core/profile_store.gd")
+const RelicServiceScript := preload("res://scripts/services/relic_service.gd")
+const RewardServiceScript := preload("res://scripts/services/reward_service.gd")
+const RunGeneratorScript := preload("res://scripts/services/run_generator.gd")
+const RunStateScript := preload("res://scripts/services/run_state.gd")
+const UiFactoryScript := preload("res://scripts/ui/ui_factory.gd")
 const CARD_ART_COLS := 4
 const CARD_ART_ROWS := 3
 const SHOP_CARD_COST := 40
@@ -685,19 +685,30 @@ func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_inde
 	var defender: Dictionary = defender_side.field[defender_index]
 	var attack_damage := _calculate_damage(attacker, false, attacker_side, int(attacker.attack))
 	var defense_damage := _calculate_damage(defender, false, defender_side, int(defender.attack))
+	
+	if int(defender.health) - attack_damage <= 0:
+		defense_damage = 0
+		
 	input_locked = true
 	_refresh_ui()
-	await _play_unit_cutscene(attacker, defender)
-	attacker.health -= defense_damage
+	
+	if bool(player_profile["settings"]["battle_cutscene"]):
+		await battle_cutscene.play_unit_battle(attacker, defender, attack_damage, defense_damage)
+	
 	defender.health -= attack_damage
+	attacker.health -= defense_damage
 	attacker.can_attack = false
-	_add_log("%s(%d/%d) vs %s(%d/%d)" % [attacker.name, attack_damage, attacker.health, defender.name, defense_damage, defender.health])
+	
+	_add_log("%s 공격! %s에게 %d 피해" % [attacker.name, defender.name, attack_damage])
+	if defense_damage > 0:
+		_add_log("%s 반격! %s에게 %d 피해" % [defender.name, attacker.name, defense_damage])
+	elif int(defender.health) <= 0:
+		_add_log("%s가 처치되었습니다." % defender.name)
+		
 	_cleanup_dead_units(attacker_side, defender_side)
 	input_locked = false
 
-func _play_unit_cutscene(attacker: Dictionary, defender: Dictionary) -> void:
-	if bool(player_profile["settings"]["battle_cutscene"]):
-		await battle_cutscene.play_unit_battle(attacker, defender)
+
 
 func _play_hero_cutscene(attacker: Dictionary, defender_name: String, damage: int) -> void:
 	if bool(player_profile["settings"]["battle_cutscene"]):

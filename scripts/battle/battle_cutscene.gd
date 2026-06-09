@@ -114,14 +114,14 @@ func _make_style_box(bg_color: Color, border_color: Color, border_width: int, ra
 	style.content_margin_bottom = 14
 	return style
 
-func play_unit_battle(attacker: Dictionary, defender: Dictionary) -> void:
+func play_unit_battle(attacker: Dictionary, defender: Dictionary, attack_damage: int, defense_damage: int) -> void:
 	title_label.text = "유닛 전투"
 	attacker_art.texture = _make_art_texture(int(attacker.art))
 	defender_art.texture = _make_art_texture(int(defender.art))
 	attacker_label.text = "%s\n공격 %d / 체력 %d" % [attacker.name, attacker.attack, attacker.health]
 	defender_label.text = "%s\n공격 %d / 체력 %d" % [defender.name, defender.attack, defender.health]
 	impact_label.text = "VS"
-	await _play()
+	await _play(defense_damage, attack_damage)
 
 func play_hero_attack(attacker: Dictionary, defender_name: String, damage: int) -> void:
 	title_label.text = "영웅 공격"
@@ -130,28 +130,71 @@ func play_hero_attack(attacker: Dictionary, defender_name: String, damage: int) 
 	attacker_label.text = "%s\n공격 %d" % [attacker.name, attacker.attack]
 	defender_label.text = "%s 영웅\n피해 %d" % [defender_name, damage]
 	impact_label.text = "공격"
-	await _play()
+	await _play(0, damage)
 
-func _play() -> void:
+func _play(attacker_takes_damage: int, defender_takes_damage: int) -> void:
 	show()
 	modulate.a = 0.0
+	
+	var attacker_orig_pos = attacker_art.position
+	var defender_orig_pos = defender_art.position
+
 	var tween := create_tween()
 	tween.tween_property(self, "modulate:a", 1.0, 0.12)
 	tween.tween_property(panel, "scale", Vector2(1.05, 1.05), 0.1)
 	tween.tween_property(panel, "scale", Vector2.ONE, 0.05)
 	await tween.finished
 
+	# 1. 공격자 -> 방어자 공격 연출
+	var attack_tween = create_tween()
+	attack_tween.tween_property(attacker_art, "position:x", attacker_orig_pos.x + 60, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	await attack_tween.finished
+
 	# 이펙트: 화면 번쩍임 (Flash)
-	flash_rect.color = Color(1.0, 0.9, 0.9, 0.8) # 강한 임팩트
+	flash_rect.color = Color(1.0, 0.9, 0.9, 0.8)
 	var flash_tween := create_tween()
 	flash_tween.tween_property(flash_rect, "color:a", 0.0, 0.3)
 	
-	# 이펙트: 카메라 셰이크 (패널 흔들림)
+	# 이펙트: 방어자 데미지 텍스트
+	if defender_takes_damage > 0:
+		if defender_art.texture != null:
+			_spawn_damage_text(defender_art, defender_takes_damage)
+		else:
+			_spawn_damage_text(defender_label, defender_takes_damage)
+
+	# 카메라 셰이크
 	var orig_pos = panel.position
-	for i in range(6):
+	for i in range(4):
 		panel.position = orig_pos + Vector2(randf_range(-15, 15), randf_range(-15, 15))
 		await get_tree().create_timer(0.03).timeout
 	panel.position = orig_pos
+	
+	var retreat_tween = create_tween()
+	retreat_tween.tween_property(attacker_art, "position:x", attacker_orig_pos.x, 0.2).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	await retreat_tween.finished
+
+	# 2. 방어자 -> 공격자 반격 연출
+	if attacker_takes_damage > 0 and defender_art.texture != null:
+		await get_tree().create_timer(0.1).timeout
+		
+		var counter_tween = create_tween()
+		counter_tween.tween_property(defender_art, "position:x", defender_orig_pos.x - 60, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		await counter_tween.finished
+		
+		flash_rect.color = Color(1.0, 0.9, 0.9, 0.8)
+		var counter_flash_tween := create_tween()
+		counter_flash_tween.tween_property(flash_rect, "color:a", 0.0, 0.3)
+		
+		_spawn_damage_text(attacker_art, attacker_takes_damage)
+		
+		for i in range(4):
+			panel.position = orig_pos + Vector2(randf_range(-15, 15), randf_range(-15, 15))
+			await get_tree().create_timer(0.03).timeout
+		panel.position = orig_pos
+		
+		var counter_retreat_tween = create_tween()
+		counter_retreat_tween.tween_property(defender_art, "position:x", defender_orig_pos.x, 0.2).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+		await counter_retreat_tween.finished
 
 	await get_tree().create_timer(0.4).timeout
 	var fade := create_tween()
@@ -159,6 +202,25 @@ func _play() -> void:
 	await fade.finished
 	hide()
 	modulate.a = 1.0
+
+func _spawn_damage_text(target: Control, damage: int) -> void:
+	var lbl = Label.new()
+	lbl.text = "-%d" % damage
+	lbl.add_theme_font_size_override("font_size", 48)
+	lbl.add_theme_color_override("font_color", Color(1, 0.2, 0.2))
+	lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	lbl.add_theme_constant_override("outline_size", 8)
+	
+	# 랜덤한 각도로 회전
+	lbl.rotation_degrees = randf_range(-15, 15)
+	
+	target.add_child(lbl)
+	lbl.position = Vector2(target.size.x / 2 - 20, target.size.y / 2 - 20)
+	
+	var tween = create_tween()
+	tween.tween_property(lbl, "position:y", lbl.position.y - 60, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(lbl, "modulate:a", 0.0, 0.6).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+	tween.tween_callback(lbl.queue_free)
 
 func _make_art_texture(art_index: int) -> AtlasTexture:
 	var texture := AtlasTexture.new()
