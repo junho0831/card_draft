@@ -11,6 +11,7 @@ var defender_art: TextureRect
 var attacker_label: Label
 var defender_label: Label
 var impact_label: Label
+var flash_rect: ColorRect
 
 func _ready() -> void:
 	_build_ui()
@@ -66,6 +67,12 @@ func _build_ui() -> void:
 	defender_art = defender_box.get_node("Art") as TextureRect
 	defender_label = defender_box.get_node("Label") as Label
 	row.add_child(defender_box)
+
+	flash_rect = ColorRect.new()
+	flash_rect.color = Color(1, 1, 1, 0)
+	flash_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(flash_rect)
 
 func _make_side_box() -> VBoxContainer:
 	var box := VBoxContainer.new()
@@ -130,10 +137,23 @@ func _play() -> void:
 	modulate.a = 0.0
 	var tween := create_tween()
 	tween.tween_property(self, "modulate:a", 1.0, 0.12)
-	tween.tween_property(panel, "scale", Vector2(1.04, 1.04), 0.12)
-	tween.tween_property(panel, "scale", Vector2.ONE, 0.12)
+	tween.tween_property(panel, "scale", Vector2(1.05, 1.05), 0.1)
+	tween.tween_property(panel, "scale", Vector2.ONE, 0.05)
 	await tween.finished
-	await get_tree().create_timer(0.42).timeout
+
+	# 이펙트: 화면 번쩍임 (Flash)
+	flash_rect.color = Color(1.0, 0.9, 0.9, 0.8) # 강한 임팩트
+	var flash_tween := create_tween()
+	flash_tween.tween_property(flash_rect, "color:a", 0.0, 0.3)
+	
+	# 이펙트: 카메라 셰이크 (패널 흔들림)
+	var orig_pos = panel.position
+	for i in range(6):
+		panel.position = orig_pos + Vector2(randf_range(-15, 15), randf_range(-15, 15))
+		await get_tree().create_timer(0.03).timeout
+	panel.position = orig_pos
+
+	await get_tree().create_timer(0.4).timeout
 	var fade := create_tween()
 	fade.tween_property(self, "modulate:a", 0.0, 0.12)
 	await fade.finished

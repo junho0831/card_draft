@@ -274,5 +274,53 @@
     "health": 3,
     "art": 11,
     "text": "어느 덱에도 넣기 쉬운 중립 마무리 유닛"
+  },
+  {
+    "id": "dragon_hatchling",
+    "name": "새끼 드래곤",
+    "type": "unit",
+    "race": "드래곤",
+    "attr": "화염",
+    "cost": 2,
+    "attack": 3,
+    "health": 2,
+    "art": 24,
+    "text": "아직 작지만 강력한 불꽃을 뿜습니다."
+  },
+  {
+    "id": "ancient_wyrm",
+    "name": "고대 비룡",
+    "type": "unit",
+    "race": "드래곤",
+    "attr": "바람",
+    "cost": 6,
+    "attack": 6,
+    "health": 6,
+    "art": 25,
+    "text": "시너지: 내 필드에 다른 드래곤이 있으면 공격력 +2"
+  },
+  {
+    "id": "gear_bot",
+    "name": "톱니바퀴 로봇",
+    "type": "unit",
+    "race": "기계",
+    "attr": "대지",
+    "cost": 1,
+    "attack": 1,
+    "health": 2,
+    "art": 26,
+    "text": "시너지: 기계가 플레이될 때마다 체력 +1"
+  },
+  {
+    "id": "omega_cannon",
+    "name": "오메가 캐논",
+    "type": "unit",
+    "race": "기계",
+    "attr": "빛",
+    "cost": 5,
+    "attack": 5,
+    "health": 4,
+    "art": 27,
+    "text": "막강한 화력을 자랑하는 기계 병기"
   }
 ]
