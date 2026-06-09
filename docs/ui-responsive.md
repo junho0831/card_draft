@@ -52,15 +52,16 @@ window/stretch/aspect="expand"
 구현 위치:
 
 ```text
-scripts/main.gd
-scripts/ui_factory.gd
+scripts/core/main.gd
+scripts/ui/ui_factory.gd
+scripts/ui/screens/*.gd
 ```
 
 관련 함수:
 
 - `main.gd`의 `_build_base_ui`
 - `main.gd`의 `_apply_root_layout`
-- `_notification`
+- 각 screen 클래스의 `build` 또는 `_prepare_battle`
 - `ui_factory.gd`의 `apply_root_layout`
 - `ui_factory.gd`의 `begin_screen`
 - `ui_factory.gd`의 `make_screen_panel`

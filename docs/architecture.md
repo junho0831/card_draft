@@ -27,7 +27,8 @@ Godot가 담당하는 것:
 
 주요 파일:
 
-- `scripts/main.gd`: 화면 흐름, 전투 흐름, 서버 동기화 진입점.
+- `scripts/main.gd`: 메인 라우터, 상태 초기화, 서버 동기화 진입점.
+- `scripts/ui/screens/*`: 전투(BattleScreen), 상점, 이벤트, 보상, 맵 등 화면별 캡슐화 모듈.
 - `scripts/api_client.gd`: HTTP API 호출.
 - `scripts/card_database.gd`: 로컬 카드 데이터 로드.
 - `scripts/profile_store.gd`: 로컬 프로필 저장.

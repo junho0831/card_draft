@@ -160,12 +160,14 @@ func _play(attacker_takes_damage: int, defender_takes_damage: int) -> void:
 	var flash_tween := create_tween()
 	flash_tween.tween_property(flash_rect, "color:a", 0.0, 0.3)
 	
-	# 이펙트: 방어자 데미지 텍스트
+	# 이펙트: 방어자 데미지 텍스트 및 이펙트
 	if defender_takes_damage > 0:
 		if defender_art.texture != null:
-			_spawn_damage_text(defender_art, defender_takes_damage)
+			_spawn_floating_text(defender_art, -defender_takes_damage)
+			_play_slash_effect(defender_art)
 		else:
-			_spawn_damage_text(defender_label, defender_takes_damage)
+			_spawn_floating_text(defender_label, -defender_takes_damage)
+			_play_slash_effect(defender_label)
 
 	# 카메라 셰이크
 	var orig_pos = panel.position
@@ -190,7 +192,8 @@ func _play(attacker_takes_damage: int, defender_takes_damage: int) -> void:
 		var counter_flash_tween := create_tween()
 		counter_flash_tween.tween_property(flash_rect, "color:a", 0.0, 0.3)
 		
-		_spawn_damage_text(attacker_art, attacker_takes_damage)
+		_spawn_floating_text(attacker_art, -attacker_takes_damage)
+		_play_slash_effect(attacker_art)
 		
 		for i in range(4):
 			panel.position = orig_pos + Vector2(randf_range(-15, 15), randf_range(-15, 15))
@@ -208,11 +211,14 @@ func _play(attacker_takes_damage: int, defender_takes_damage: int) -> void:
 	hide()
 	modulate.a = 1.0
 
-func _spawn_damage_text(target: Control, damage: int) -> void:
+func _spawn_floating_text(target: Control, delta: int) -> void:
+	if delta == 0:
+		return
 	var lbl = Label.new()
-	lbl.text = "-%d" % damage
+	var color := Color(1, 0.2, 0.2) if delta < 0 else Color(0.2, 1, 0.2)
+	lbl.text = ("%+d" % delta) if delta > 0 else ("%d" % delta)
 	lbl.add_theme_font_size_override("font_size", 48)
-	lbl.add_theme_color_override("font_color", Color(1, 0.2, 0.2))
+	lbl.add_theme_color_override("font_color", color)
 	lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	lbl.add_theme_constant_override("outline_size", 8)
 	
@@ -226,6 +232,31 @@ func _spawn_damage_text(target: Control, damage: int) -> void:
 	tween.tween_property(lbl, "position:y", lbl.position.y - 60, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_property(lbl, "modulate:a", 0.0, 0.6).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
 	tween.tween_callback(lbl.queue_free)
+
+func _play_slash_effect(target: Control) -> void:
+	var slash = Line2D.new()
+	slash.width = 15.0
+	slash.default_color = Color(1.0, 1.0, 1.0, 0.9)
+	slash.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	slash.end_cap_mode = Line2D.LINE_CAP_ROUND
+	
+	var cx = target.size.x / 2
+	var cy = target.size.y / 2
+	var p1 = Vector2(cx - 50, cy - 50)
+	var p2 = Vector2(cx + 50, cy + 50)
+	
+	if randi() % 2 == 0:
+		p1.y = cy + 50
+		p2.y = cy - 50
+		
+	slash.add_point(p1)
+	slash.add_point(p2)
+	target.add_child(slash)
+	
+	var tween = create_tween()
+	tween.tween_property(slash, "width", 0.0, 0.2).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(slash, "modulate:a", 0.0, 0.2)
+	tween.tween_callback(slash.queue_free)
 
 func _make_art_texture(art_index: int) -> AtlasTexture:
 	var texture := AtlasTexture.new()
