@@ -58,6 +58,7 @@ var player_field_box: HBoxContainer
 var player_info: Label
 var hand_box: HBoxContainer
 var deck_count_label: Label
+var turn_overlay: Panel
 var deck_list_label: RichTextLabel
 var log_label: RichTextLabel
 var end_turn_button: Button
@@ -155,6 +156,7 @@ func _clear_screen() -> void:
 	deck_list_label = null
 	log_label = null
 	end_turn_button = null
+	turn_overlay = null
 	_clear_modal()
 
 func _clear_modal() -> void:
@@ -351,62 +353,10 @@ func _upgrade_second_chance() -> void:
 func _show_map() -> void:
 	active_screen = "map"
 	_clear_screen()
-	var compact := _is_compact_layout()
 	var body: VBoxContainer = _begin_menu_screen(String(_current_act().get("name", "맵")))
-	body.add_child(_make_run_summary_panel())
-
-	var panel := _make_screen_panel(Color(0.105, 0.115, 0.135, 1.0), 760 if not compact else 420)
-	body.add_child(panel)
-	var list := VBoxContainer.new()
-	list.add_theme_constant_override("separation", 10)
-	panel.add_child(list)
-
-	var current_act := _current_act()
-	var nodes: Array = current_act.get("nodes", [])
-	var current_index := int(current_run.get("current_node_index", 0))
-	for index in range(nodes.size()):
-		var node_type := String(nodes[index])
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		list.add_child(row)
-		var label := _make_label("%d. %s" % [index + 1, _node_type_name(node_type)], 16, Color(0.9, 0.92, 0.98, 1.0))
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(label)
-		var button := Button.new()
-		button.custom_minimum_size = Vector2(120, 40)
-		if index < current_index:
-			button.text = "완료"
-			button.disabled = true
-			ui.style_button(button, Color(0.15, 0.18, 0.22, 1.0))
-		elif index == current_index:
-			button.text = "진입"
-			ui.style_button(button, Color(0.18, 0.34, 0.48, 1.0))
-			button.pressed.connect(Callable(self, "_enter_current_node"))
-		else:
-			button.text = "잠김"
-			button.disabled = true
-			ui.style_button(button, Color(0.15, 0.18, 0.22, 1.0))
-		row.add_child(button)
-
-	var relic_panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 760 if not compact else 420)
-	body.add_child(relic_panel)
-	var relic_box := VBoxContainer.new()
-	relic_box.add_theme_constant_override("separation", 8)
-	relic_panel.add_child(relic_box)
-	relic_box.add_child(_make_label("보유 유물", 18, Color(1.0, 0.88, 0.55, 1.0)))
-	if (current_run.get("relic_ids", []) as Array).is_empty():
-		relic_box.add_child(_make_label("아직 유물이 없습니다.", 14, Color(0.82, 0.88, 0.95, 1.0)))
-	else:
-		for relic_id in current_run.get("relic_ids", []):
-			var relic: Dictionary = relic_service.get_relic(String(relic_id))
-			relic_box.add_child(_make_label("%s - %s" % [String(relic.get("name", relic_id)), String(relic.get("text", ""))], 14, Color(0.9, 0.92, 0.98, 1.0)))
-
-	var actions: BoxContainer = ui.make_action_bar(compact, 10)
-	body.add_child(actions)
-	_add_menu_button(actions, "메인 메뉴", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
-	_add_menu_button(actions, "런 포기", "_abandon_run", Color(0.42, 0.18, 0.18, 1.0))
+	var MapScreenClass = load("res://scripts/ui/screens/map_screen.gd")
+	var map_screen = MapScreenClass.new(self)
+	map_screen.build(body, _current_act())
 
 func _enter_current_node() -> void:
 	var node: Dictionary = run_store.current_node(current_run)
@@ -422,7 +372,8 @@ func _enter_current_node() -> void:
 			_save_run()
 			_show_event()
 		"shop":
-			current_run["pending_shop"] = _generate_shop_state()
+			var ShopScreenClass = load("res://scripts/ui/screens/shop_screen.gd")
+			current_run["pending_shop"] = ShopScreenClass.generate_shop_state(self)
 			_save_run()
 			_show_shop()
 		"rest":
@@ -470,11 +421,12 @@ func _start_battle() -> void:
 		"second_chance_used": false,
 	}
 	_build_battle_ui()
-	_start_turn(player, true)
 	relic_service.on_battle_start(current_run, player, battle_state)
 	player.health = int(current_run.get("hp", player.health))
 	_add_log("%s 전투 시작. 적 영웅 체력을 0으로 만드세요." % _node_type_name(String(run_store.current_node(current_run).get("type", "battle"))))
 	_refresh_ui()
+	await _show_turn_banner("전투 시작!", true)
+	await _start_turn(player, true)
 
 func _new_side(display_name: String, deck: Array, hp: int, max_hp: int) -> Dictionary:
 	deck.shuffle()
@@ -515,13 +467,6 @@ func _build_battle_ui() -> void:
 	opponent_field_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	opponent_field_box.custom_minimum_size = Vector2(0, 124)
 	board_box.add_child(opponent_field_box)
-
-	hero_attack_button = Button.new()
-	hero_attack_button.text = "상대 영웅 공격"
-	hero_attack_button.custom_minimum_size = Vector2(160, 42)
-	ui.style_button(hero_attack_button, Color(0.5, 0.13, 0.13, 1.0))
-	hero_attack_button.pressed.connect(Callable(self, "_attack_opponent_hero"))
-	board_box.add_child(hero_attack_button)
 	board_box.add_child(HSeparator.new())
 
 	player_field_box = HBoxContainer.new()
@@ -537,12 +482,20 @@ func _build_battle_ui() -> void:
 	hand_box.custom_minimum_size = Vector2(0, 166)
 	board_box.add_child(hand_box)
 
-	end_turn_button = Button.new()
-	end_turn_button.text = "턴 종료"
-	end_turn_button.custom_minimum_size = Vector2(150, 44)
-	ui.style_button(end_turn_button, Color(0.18, 0.34, 0.48, 1.0))
-	end_turn_button.pressed.connect(Callable(self, "_on_end_turn_pressed"))
-	board_box.add_child(end_turn_button)
+	turn_overlay = Panel.new()
+	turn_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	turn_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.border_width_left = 60
+	style.border_width_right = 60
+	style.border_width_top = 60
+	style.border_width_bottom = 60
+	style.border_color = Color(0, 0, 0, 0)
+	style.border_blend = true
+	turn_overlay.add_theme_stylebox_override("panel", style)
+	modal_layer.add_child(turn_overlay)
 
 	var side_panel := _make_panel_container(Color(0.105, 0.115, 0.135, 1.0))
 	side_panel.custom_minimum_size = Vector2(330, 0)
@@ -573,13 +526,40 @@ func _build_battle_ui() -> void:
 
 	side_box.add_child(_make_label("게임 로그", 20, Color(0.96, 0.88, 0.55, 1.0)))
 	log_label = RichTextLabel.new()
-	log_label.custom_minimum_size = Vector2(0, 180)
+	log_label.custom_minimum_size = Vector2(0, 140)
+	log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	log_label.bbcode_enabled = false
 	log_label.fit_content = false
 	log_label.add_theme_color_override("default_color", Color(0.9, 0.92, 0.95, 1.0))
 	side_box.add_child(log_label)
 
+	side_box.add_child(HSeparator.new())
+
+	var action_row := HBoxContainer.new()
+	action_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	action_row.add_theme_constant_override("separation", 10)
+	side_box.add_child(action_row)
+
+	hero_attack_button = Button.new()
+	hero_attack_button.text = "상대 영웅 공격"
+	hero_attack_button.custom_minimum_size = Vector2(140, 48)
+	ui.style_button(hero_attack_button, Color(0.5, 0.13, 0.13, 1.0))
+	hero_attack_button.pressed.connect(Callable(self, "_attack_opponent_hero"))
+	action_row.add_child(hero_attack_button)
+
+	end_turn_button = Button.new()
+	end_turn_button.text = "턴 종료"
+	end_turn_button.custom_minimum_size = Vector2(140, 48)
+	ui.style_button(end_turn_button, Color(0.18, 0.34, 0.48, 1.0))
+	end_turn_button.pressed.connect(Callable(self, "_on_end_turn_pressed"))
+	action_row.add_child(end_turn_button)
+
 func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
+	if is_player_turn:
+		await _show_turn_banner("내 턴!", true)
+	else:
+		await _show_turn_banner("적 턴!", false)
+
 	side.max_mana = min(MAX_MANA, int(side.max_mana) + 1)
 	side.mana = side.max_mana
 	if is_player_turn and bool(battle_state.get("mana_crystal_bonus", false)):
@@ -593,6 +573,38 @@ func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
 		battle_state["cards_played_this_turn"] = 0
 		relic_service.on_turn_start(current_run, battle_state, player)
 	_add_log("%s 턴 시작: 마나 %d/%d" % [side.name, side.mana, side.max_mana])
+
+func _show_turn_banner(text: String, is_player: bool) -> void:
+	if turn_overlay and is_instance_valid(turn_overlay):
+		var target_color = Color(0.2, 0.5, 1.0, 0.25) if is_player else Color(0.9, 0.2, 0.2, 0.25)
+		var style: StyleBoxFlat = turn_overlay.get_theme_stylebox("panel")
+		var bg_tween = create_tween()
+		bg_tween.tween_property(style, "border_color", target_color, 0.6)
+
+	var banner := Label.new()
+	banner.text = text
+	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	banner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	banner.add_theme_font_size_override("font_size", 96)
+	var color = Color(0.6, 0.8, 1.0) if is_player else Color(1.0, 0.5, 0.5)
+	banner.add_theme_color_override("font_color", color)
+	banner.add_theme_color_override("font_outline_color", Color(0.1, 0.1, 0.1))
+	banner.add_theme_constant_override("outline_size", 20)
+	
+	add_child(banner)
+	
+	banner.pivot_offset = get_viewport_rect().size / 2.0
+	banner.scale = Vector2(0.2, 0.2)
+	banner.modulate.a = 0.0
+	
+	var tween = create_tween()
+	tween.tween_property(banner, "scale", Vector2(1.0, 1.0), 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(banner, "modulate:a", 1.0, 0.2)
+	tween.tween_interval(0.5)
+	tween.tween_property(banner, "modulate:a", 0.0, 0.3)
+	tween.tween_callback(banner.queue_free)
+	await tween.finished
 
 func _draw_cards(side: Dictionary, count: int) -> void:
 	for i in range(count):
@@ -731,9 +743,10 @@ func _cleanup_side_dead(owner: Dictionary, enemy: Dictionary) -> void:
 func _on_end_turn_pressed() -> void:
 	if input_locked or game_over or current_player != "player":
 		return
+	input_locked = true
 	current_player = "opponent"
 	selected_attacker = -1
-	_start_turn(opponent, false)
+	await _start_turn(opponent, false)
 	_refresh_ui()
 	var ai_wait := 0.5
 	if bool(player_profile["settings"]["fast_ai"]):
@@ -790,7 +803,8 @@ func _run_ai_turn() -> void:
 
 	if not game_over:
 		current_player = "player"
-		_start_turn(player, true)
+		await _start_turn(player, true)
+		input_locked = false
 	_refresh_ui()
 
 func _check_game_over() -> void:
@@ -841,218 +855,18 @@ func _finish_battle_victory() -> void:
 func _show_card_reward() -> void:
 	active_screen = "card_reward"
 	_clear_screen()
-	var reward: Dictionary = current_run.get("pending_card_reward", {})
 	var body: VBoxContainer = _begin_menu_screen("전투 보상")
-	body.add_child(_make_run_summary_panel())
-	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 760)
-	body.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
-	panel.add_child(box)
-	box.add_child(_make_label("골드 +%d" % int(reward.get("gold_reward", 0)), 16, Color(1.0, 0.88, 0.55, 1.0)))
-	box.add_child(_make_label("카드 3장 중 1장을 선택해 덱에 추가합니다.", 16, Color(0.9, 0.92, 0.98, 1.0)))
-	if typeof(reward.get("bonus_relic", {})) == TYPE_DICTIONARY and not Dictionary(reward.get("bonus_relic", {})).is_empty():
-		var relic: Dictionary = reward["bonus_relic"]
-		box.add_child(_make_label("추가 유물 보상: %s - %s" % [String(relic.get("name", "")), String(relic.get("text", ""))], 15, Color(1.0, 0.88, 0.55, 1.0)))
-	var row: BoxContainer = ui.make_responsive_box(_is_compact_layout(), 10)
-	box.add_child(row)
-	for card_id in reward.get("choices", []):
-		if not cards_by_id.has(String(card_id)):
-			continue
-		row.add_child(_make_reward_choice(cards_by_id[String(card_id)]))
-	_add_menu_button(box, "건너뛰기", "_skip_card_reward", Color(0.22, 0.24, 0.28, 1.0))
-
-func _make_reward_choice(card: Dictionary) -> Control:
-	var frame := _make_card_frame()
-	frame.custom_minimum_size = Vector2(170, 0)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 6)
-	frame.add_child(box)
-	box.add_child(_make_art_rect(int(card.get("art", 0)), Vector2(150, 102)))
-	box.add_child(_make_label(String(card.get("name", "")), 15, Color(0.98, 0.98, 0.96, 1.0)))
-	box.add_child(_make_label("[%d] %s/%s" % [int(card.get("cost", 0)), String(card.get("race", "")), String(card.get("attr", ""))], 13, Color(0.82, 0.88, 0.95, 1.0)))
-	box.add_child(_make_label(String(card.get("text", "")), 13, Color(0.82, 0.88, 0.95, 1.0)))
-	var button := Button.new()
-	button.text = "선택"
-	button.custom_minimum_size = Vector2(120, 40)
-	ui.style_button(button, Color(0.18, 0.34, 0.48, 1.0))
-	button.pressed.connect(Callable(self, "_claim_card_reward").bind(String(card.get("id", ""))))
-	box.add_child(button)
-	return frame
-
-func _claim_card_reward(card_id: String) -> void:
-	var reward: Dictionary = current_run.get("pending_card_reward", {})
-	(current_run.get("deck_ids", []) as Array).append(card_id)
-	var bonus_relic: Dictionary = reward.get("bonus_relic", {})
-	if not bonus_relic.is_empty():
-		var relic_id := String(bonus_relic.get("id", ""))
-		(current_run.get("relic_ids", []) as Array).append(relic_id)
-		relic_service.apply_on_acquire(current_run, relic_id)
-	run_store.mark_node_cleared(current_run)
-	run_store.advance_after_node(current_run)
-	current_run["pending_card_reward"] = {}
-	if current_run.get("result", "") == "win":
-		_save_run()
-		_show_run_result(true)
-		return
-	_save_run()
-	_show_map()
-
-func _skip_card_reward() -> void:
-	var reward: Dictionary = current_run.get("pending_card_reward", {})
-	var bonus_relic: Dictionary = reward.get("bonus_relic", {})
-	if not bonus_relic.is_empty():
-		var relic_id := String(bonus_relic.get("id", ""))
-		(current_run.get("relic_ids", []) as Array).append(relic_id)
-		relic_service.apply_on_acquire(current_run, relic_id)
-	run_store.mark_node_cleared(current_run)
-	run_store.advance_after_node(current_run)
-	current_run["pending_card_reward"] = {}
-	if current_run.get("result", "") == "win":
-		_save_run()
-		_show_run_result(true)
-		return
-	_save_run()
-	_show_map()
+	var RewardScreenClass = load("res://scripts/ui/screens/reward_screen.gd")
+	var screen = RewardScreenClass.new(self)
+	screen.build(body)
 
 func _show_event() -> void:
 	active_screen = "event"
 	_clear_screen()
-	var event_data: Dictionary = current_run.get("pending_event", {})
 	var body: VBoxContainer = _begin_menu_screen("이벤트")
-	body.add_child(_make_run_summary_panel())
-	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 640)
-	body.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
-	panel.add_child(box)
-	box.add_child(_make_label(String(event_data.get("title", "")), 24, Color(1.0, 0.88, 0.55, 1.0)))
-	box.add_child(_make_label(String(event_data.get("description", "")), 16, Color(0.9, 0.92, 0.98, 1.0)))
-	for option in event_data.get("options", []):
-		if typeof(option) != TYPE_DICTIONARY:
-			continue
-		var button := _add_menu_button(box, String(option.get("label", "")), "_noop", Color(0.22, 0.31, 0.38, 1.0))
-		button.pressed.connect(Callable(self, "_resolve_event_option").bind(String(option.get("effect", ""))))
-
-func _resolve_event_option(effect: String) -> void:
-	match effect:
-		"merchant_card":
-			current_run["hp"] = max(1, int(current_run.get("hp", 1)) - 5)
-			var premium_choices := _roll_high_cost_cards(3)
-			current_run["pending_card_reward"] = {
-				"choices": premium_choices,
-				"bonus_relic": {},
-				"battle_tier": "event",
-			}
-			current_run["pending_event"] = {}
-			_save_run()
-			_show_card_reward()
-			return
-		"merchant_relic":
-			if int(current_run.get("gold", 0)) < 50:
-				_show_message("골드가 부족합니다.", "_show_event")
-				return
-			current_run["gold"] = int(current_run["gold"]) - 50
-			var merchant_relic: Dictionary = relic_service.random_relic(current_run.get("relic_ids", []))
-			if merchant_relic.is_empty():
-				_show_message("얻을 유물이 없습니다.", "_complete_event_and_return")
-				return
-			var merchant_relic_id := String(merchant_relic.get("id", ""))
-			(current_run.get("relic_ids", []) as Array).append(merchant_relic_id)
-			relic_service.apply_on_acquire(current_run, merchant_relic_id)
-			_show_message("수상한 상인: %s 획득" % String(merchant_relic.get("name", "")), "_complete_event_and_return")
-			return
-		"gamble_small":
-			if int(current_run.get("gold", 0)) < 30:
-				_show_message("골드가 부족합니다.", "_show_event")
-				return
-			current_run["gold"] = int(current_run["gold"]) - 30
-			if randi() % 2 == 0:
-				current_run["gold"] = int(current_run["gold"]) + 80
-				_show_message("도박 성공: 골드 80 획득", "_complete_event_and_return")
-				return
-			_show_message("도박 실패: 골드를 잃었습니다.", "_complete_event_and_return")
-			return
-		"gamble_relic":
-			if int(current_run.get("gold", 0)) < 60:
-				_show_message("골드가 부족합니다.", "_show_event")
-				return
-			current_run["gold"] = int(current_run["gold"]) - 60
-			if randi() % 10 < 3:
-				var relic: Dictionary = relic_service.random_relic(current_run.get("relic_ids", []))
-				if not relic.is_empty():
-					var relic_id := String(relic.get("id", ""))
-					(current_run.get("relic_ids", []) as Array).append(relic_id)
-					relic_service.apply_on_acquire(current_run, relic_id)
-					_show_message("대박: %s 획득" % String(relic.get("name", "")), "_complete_event_and_return")
-					return
-			_show_message("도박 실패: 아무것도 얻지 못했습니다.", "_complete_event_and_return")
-			return
-		"remove_card":
-			pending_return_screen = "event_complete"
-			_show_remove_card_screen("이벤트")
-			return
-		"heal_10":
-			current_run["hp"] = min(int(current_run.get("max_hp", 50)), int(current_run.get("hp", 0)) + 10)
-			_show_message("버려진 성당: 체력 10 회복", "_complete_event_and_return")
-			return
-		"curse_relic":
-			current_run["max_hp"] = max(10, int(current_run.get("max_hp", 50)) - 5)
-			current_run["hp"] = min(int(current_run.get("max_hp", 50)), int(current_run.get("hp", 0)))
-			var curse_relic: Dictionary = relic_service.random_relic(current_run.get("relic_ids", []))
-			if not curse_relic.is_empty():
-				var curse_relic_id := String(curse_relic.get("id", ""))
-				(current_run.get("relic_ids", []) as Array).append(curse_relic_id)
-				relic_service.apply_on_acquire(current_run, curse_relic_id)
-				_show_message("저주를 받고 %s 획득" % String(curse_relic.get("name", "")), "_complete_event_and_return")
-				return
-			_complete_event_and_return()
-			return
-		"heal":
-			var heal_amount := maxi(1, int(round(float(int(current_run.get("max_hp", 50))) * 0.3)))
-			current_run["hp"] = min(int(current_run.get("max_hp", 50)), int(current_run.get("hp", 0)) + heal_amount)
-			_show_message("마법 샘: 체력 %d 회복" % heal_amount, "_complete_event_and_return")
-			return
-		"upgrade_card":
-			pending_return_screen = "event_complete_upgrade"
-			_show_upgrade_card_screen()
-			return
-		"max_hp_trade":
-			current_run["max_hp"] = int(current_run.get("max_hp", 50)) + 5
-			current_run["hp"] = max(1, int(current_run.get("hp", 1)) - 10)
-			_show_message("마법의 샘: 최대 체력 +5, 현재 체력 -10", "_complete_event_and_return")
-			return
-		"gain_equipment":
-			var gain_id := String(_roll_card_choice_filtered("equipment", ""))
-			if gain_id.is_empty():
-				_complete_event_and_return()
-				return
-			(current_run.get("deck_ids", []) as Array).append(gain_id)
-			_show_message("전쟁터의 잔해: %s 획득" % String(cards_by_id[gain_id].get("name", "")), "_complete_event_and_return")
-			return
-		"gain_human":
-			var gain_human_id := String(_roll_card_choice_filtered("", "인간"))
-			if gain_human_id.is_empty():
-				_complete_event_and_return()
-				return
-			(current_run.get("deck_ids", []) as Array).append(gain_human_id)
-			_show_message("전쟁터의 잔해: %s 획득" % String(cards_by_id[gain_human_id].get("name", "")), "_complete_event_and_return")
-			return
-		"gain_undead":
-			var gain_undead_id := String(_roll_card_choice_filtered("", "언데드"))
-			if gain_undead_id.is_empty():
-				_complete_event_and_return()
-				return
-			(current_run.get("deck_ids", []) as Array).append(gain_undead_id)
-			_show_message("전쟁터의 잔해: %s 획득" % String(cards_by_id[gain_undead_id].get("name", "")), "_complete_event_and_return")
-			return
-		"gain_random_card":
-			var gain_id := String(_roll_card_choices(1)[0])
-			(current_run.get("deck_ids", []) as Array).append(gain_id)
-			_show_message("전쟁터: %s 획득" % String(cards_by_id[gain_id].get("name", "")), "_complete_event_and_return")
-			return
-		_:
-			_complete_event_and_return()
+	var EventScreenClass = load("res://scripts/ui/screens/event_screen.gd")
+	var screen = EventScreenClass.new(self)
+	screen.build(body)
 
 func _complete_event_and_return() -> void:
 	current_run["pending_event"] = {}
@@ -1061,161 +875,13 @@ func _complete_event_and_return() -> void:
 	_save_run()
 	_show_map()
 
-func _generate_shop_state() -> Dictionary:
-	return {
-		"cards": _roll_card_choices(3),
-		"relic": relic_service.random_relic(current_run.get("relic_ids", [])),
-		"remove_used": false,
-		"purchased_cards": [],
-		"relic_bought": false,
-	}
-
 func _show_shop() -> void:
 	active_screen = "shop"
 	_clear_screen()
-	var shop_state: Dictionary = current_run.get("pending_shop", {})
 	var body: VBoxContainer = _begin_menu_screen("상점")
-	body.add_child(_make_run_summary_panel())
-	var panel := _make_screen_panel(Color(0.105, 0.115, 0.135, 1.0), 760)
-	body.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
-	panel.add_child(box)
-	box.add_child(_make_label("카드 구매, 유물 구매, 카드 제거를 할 수 있습니다.", 15, Color(0.84, 0.88, 0.95, 1.0)))
-
-	for card_id in shop_state.get("cards", []):
-		if not cards_by_id.has(String(card_id)):
-			continue
-		box.add_child(_make_shop_card_row(cards_by_id[String(card_id)], shop_state))
-
-	var relic: Dictionary = shop_state.get("relic", {})
-	if not relic.is_empty():
-		box.add_child(_make_shop_relic_row(relic, shop_state))
-
-	var remove_row := HBoxContainer.new()
-	remove_row.add_theme_constant_override("separation", 10)
-	box.add_child(remove_row)
-	var remove_cost := _shop_remove_cost()
-	var remove_label := _make_label("카드 제거 - 골드 %d" % remove_cost, 15, Color(0.92, 0.94, 0.98, 1.0))
-	remove_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	remove_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	remove_row.add_child(remove_label)
-	var remove_button := Button.new()
-	remove_button.text = "제거"
-	remove_button.custom_minimum_size = Vector2(96, 40)
-	ui.style_button(remove_button, Color(0.32, 0.18, 0.18, 1.0))
-	remove_button.disabled = int(current_run.get("gold", 0)) < remove_cost
-	remove_button.pressed.connect(Callable(self, "_begin_shop_remove"))
-	remove_row.add_child(remove_button)
-
-	var heal_row := HBoxContainer.new()
-	heal_row.add_theme_constant_override("separation", 10)
-	box.add_child(heal_row)
-	var heal_label := _make_label("체력 20 회복 - 골드 %d" % SHOP_HEAL_COST, 15, Color(0.92, 0.94, 0.98, 1.0))
-	heal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	heal_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heal_row.add_child(heal_label)
-	var heal_button := Button.new()
-	heal_button.text = "회복"
-	heal_button.custom_minimum_size = Vector2(96, 40)
-	ui.style_button(heal_button, Color(0.18, 0.4, 0.24, 1.0))
-	heal_button.disabled = int(current_run.get("gold", 0)) < SHOP_HEAL_COST
-	heal_button.pressed.connect(Callable(self, "_buy_shop_heal"))
-	heal_row.add_child(heal_button)
-
-	var actions: BoxContainer = ui.make_action_bar(_is_compact_layout(), 10)
-	box.add_child(actions)
-	_add_menu_button(actions, "지도 복귀", "_leave_shop", Color(0.18, 0.34, 0.48, 1.0))
-
-func _make_shop_card_row(card: Dictionary, shop_state: Dictionary) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var frame := _make_card_frame()
-	frame.custom_minimum_size = Vector2(0, 0)
-	row.add_child(frame)
-	var inner := HBoxContainer.new()
-	inner.add_theme_constant_override("separation", 10)
-	frame.add_child(inner)
-	inner.add_child(_make_art_rect(int(card.get("art", 0)), Vector2(72, 52)))
-	var label := _make_label("[%d] %s - %s" % [int(card.get("cost", 0)), String(card.get("name", "")), String(card.get("text", ""))], 14, Color(0.92, 0.94, 0.98, 1.0))
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	inner.add_child(label)
-	var button := Button.new()
-	button.text = "구매"
-	button.custom_minimum_size = Vector2(96, 40)
-	ui.style_button(button, Color(0.38, 0.3, 0.14, 1.0))
-	button.disabled = int(current_run.get("gold", 0)) < SHOP_CARD_COST or (shop_state.get("purchased_cards", []) as Array).has(String(card.get("id", "")))
-	button.pressed.connect(Callable(self, "_buy_shop_card").bind(String(card.get("id", ""))))
-	row.add_child(button)
-	return row
-
-func _make_shop_relic_row(relic: Dictionary, shop_state: Dictionary) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var label := _make_label("%s - %s (골드 %d)" % [String(relic.get("name", "")), String(relic.get("text", "")), SHOP_RELIC_COST], 14, Color(1.0, 0.88, 0.55, 1.0))
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(label)
-	var button := Button.new()
-	button.text = "유물 구매"
-	button.custom_minimum_size = Vector2(110, 40)
-	ui.style_button(button, Color(0.38, 0.3, 0.14, 1.0))
-	button.disabled = int(current_run.get("gold", 0)) < SHOP_RELIC_COST or bool(shop_state.get("relic_bought", false))
-	button.pressed.connect(Callable(self, "_buy_shop_relic"))
-	row.add_child(button)
-	return row
-
-func _buy_shop_card(card_id: String) -> void:
-	if int(current_run.get("gold", 0)) < SHOP_CARD_COST:
-		return
-	current_run["gold"] = int(current_run["gold"]) - SHOP_CARD_COST
-	(current_run.get("deck_ids", []) as Array).append(card_id)
-	var shop_state: Dictionary = current_run.get("pending_shop", {})
-	(shop_state.get("purchased_cards", []) as Array).append(card_id)
-	current_run["pending_shop"] = shop_state
-	_save_run()
-	_show_shop()
-
-func _buy_shop_relic() -> void:
-	var shop_state: Dictionary = current_run.get("pending_shop", {})
-	var relic: Dictionary = shop_state.get("relic", {})
-	if relic.is_empty() or int(current_run.get("gold", 0)) < SHOP_RELIC_COST:
-		return
-	current_run["gold"] = int(current_run["gold"]) - SHOP_RELIC_COST
-	(current_run.get("relic_ids", []) as Array).append(String(relic.get("id", "")))
-	relic_service.apply_on_acquire(current_run, String(relic.get("id", "")))
-	shop_state["relic_bought"] = true
-	current_run["pending_shop"] = shop_state
-	_save_run()
-	_show_shop()
-
-func _begin_shop_remove() -> void:
-	var remove_cost := _shop_remove_cost()
-	if int(current_run.get("gold", 0)) < remove_cost:
-		return
-	current_run["gold"] = int(current_run["gold"]) - remove_cost
-	var shop_state: Dictionary = current_run.get("pending_shop", {})
-	shop_state["remove_count"] = int(shop_state.get("remove_count", 0)) + 1
-	current_run["pending_shop"] = shop_state
-	pending_return_screen = "shop"
-	_save_run()
-	_show_remove_card_screen("상점")
-
-func _buy_shop_heal() -> void:
-	if int(current_run.get("gold", 0)) < SHOP_HEAL_COST:
-		return
-	current_run["gold"] = int(current_run["gold"]) - SHOP_HEAL_COST
-	current_run["hp"] = min(int(current_run.get("max_hp", 50)), int(current_run.get("hp", 0)) + 20)
-	_save_run()
-	_show_shop()
-
-func _leave_shop() -> void:
-	current_run["pending_shop"] = {}
-	run_store.mark_node_cleared(current_run)
-	run_store.advance_after_node(current_run)
-	_save_run()
-	_show_map()
+	var ShopScreenClass = load("res://scripts/ui/screens/shop_screen.gd")
+	var screen = ShopScreenClass.new(self)
+	screen.build(body)
 
 func _show_rest() -> void:
 	active_screen = "rest"
@@ -1404,47 +1070,10 @@ func _abandon_run() -> void:
 func _show_collection() -> void:
 	active_screen = "collection"
 	_clear_screen()
-	var compact := _is_compact_layout()
 	var body: VBoxContainer = _begin_menu_screen("카드 보관함")
-	var panel := _make_screen_panel(Color(0.105, 0.115, 0.135, 1.0), 760 if not compact else 420)
-	body.add_child(panel)
-	var list := VBoxContainer.new()
-	list.add_theme_constant_override("separation", 10)
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.add_child(list)
-	list.add_child(_make_label("카드 %d종 | 보유 카드는 밝게, 미보유 카드는 어둡게 표시됩니다." % card_defs.size(), 14, Color(0.82, 0.88, 0.95, 1.0)))
-	list.add_child(ui.make_filter_bar(["전체", "보유", "미보유", "인간", "엘프", "언데드", "중립"], collection_filter, self, "_set_collection_filter", compact))
-	var filtered_cards := _filtered_collection_cards()
-	var columns := 2 if compact else 4
-	var row: HBoxContainer = null
-	for index in range(filtered_cards.size()):
-		if index % columns == 0:
-			row = HBoxContainer.new()
-			row.alignment = BoxContainer.ALIGNMENT_CENTER
-			row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			row.add_theme_constant_override("separation", 10)
-			list.add_child(row)
-		row.add_child(_make_collection_card(filtered_cards[index], compact))
-	var actions: BoxContainer = ui.make_action_bar(compact, 10)
-	body.add_child(actions)
-	_add_menu_button(actions, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
-
-func _set_collection_filter(filter: String) -> void:
-	collection_filter = filter
-	_show_collection()
-
-func _filtered_collection_cards() -> Array:
-	var filtered: Array = []
-	for card in card_defs:
-		var owned := int(player_profile["owned_cards"].get(String(card.get("id", "")), 0))
-		if collection_filter == "보유" and owned <= 0:
-			continue
-		if collection_filter == "미보유" and owned > 0:
-			continue
-		if collection_filter not in ["전체", "보유", "미보유"] and String(card.get("race", "")) != collection_filter:
-			continue
-		filtered.append(card)
-	return filtered
+	var CollectionScreenClass = load("res://scripts/ui/screens/collection_screen.gd")
+	var screen = CollectionScreenClass.new(self)
+	screen.build(body)
 
 func _show_settings() -> void:
 	active_screen = "settings"
@@ -1691,29 +1320,7 @@ func _render_battle_deck() -> void:
 	deck_count_label.text = "남은 카드 %d장" % player.deck.size()
 	deck_list_label.text = deck_service.deck_summary_from_cards(player.deck)
 
-func _make_collection_card(card: Dictionary, compact: bool) -> Control:
-	var owned := int(player_profile["owned_cards"].get(String(card.get("id", "")), 0))
-	var panel := _make_card_frame()
-	panel.custom_minimum_size = Vector2(170 if compact else 220, 0)
-	if owned <= 0:
-		panel.modulate = Color(0.45, 0.45, 0.5, 1.0)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 6)
-	panel.add_child(box)
-	var art := _make_art_rect(int(card.get("art", 0)), Vector2(132, 92) if compact else Vector2(150, 108))
-	if owned <= 0:
-		art.modulate = Color(0.3, 0.3, 0.34, 1.0)
-	box.add_child(art)
-	box.add_child(_make_label("%s x%d" % [String(card.get("name", "")), owned], 14 if compact else 15, Color(0.98, 0.98, 0.96, 1.0)))
-	var stat_text := "[%d] %s/%s | %s" % [int(card.get("cost", 0)), String(card.get("race", "")), String(card.get("attr", "")), deck_service.type_name(String(card.get("type", "")))]
-	if String(card.get("type", "")) == "unit":
-		stat_text += " | %d/%d" % [int(card.get("attack", 0)), int(card.get("health", 0))]
-	var stat := _make_label(stat_text, 12 if compact else 13, Color(0.84, 0.88, 0.95, 1.0))
-	box.add_child(stat)
-	var text := _make_label(String(card.get("text", "")), 12 if compact else 13, Color(0.82, 0.88, 0.95, 1.0))
-	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	box.add_child(text)
-	return panel
+
 
 func _noop() -> void:
 	pass

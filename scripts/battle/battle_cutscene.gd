@@ -23,29 +23,33 @@ func _build_ui() -> void:
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 
+	var margin = MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 120)
+	margin.add_theme_constant_override("margin_right", 120)
+	margin.add_theme_constant_override("margin_top", 100)
+	margin.add_theme_constant_override("margin_bottom", 100)
+	add_child(margin)
+
 	panel = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(640, 340)
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.offset_left = -320
-	panel.offset_top = -170
-	panel.offset_right = 320
-	panel.offset_bottom = 170
 	panel.add_theme_stylebox_override("panel", _make_style_box(Color(0.12, 0.135, 0.16, 1.0), Color(0.72, 0.62, 0.36, 1.0), 2, 8))
-	add_child(panel)
+	margin.add_child(panel)
 
 	var root := VBoxContainer.new()
 	root.add_theme_constant_override("separation", 12)
+	root.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(root)
 
 	title_label = Label.new()
 	title_label.text = "전투"
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", 26)
+	title_label.add_theme_font_size_override("font_size", 36)
 	title_label.add_theme_color_override("font_color", Color(0.96, 0.88, 0.68, 1.0))
 	root.add_child(title_label)
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	row.add_theme_constant_override("separation", 20)
 	root.add_child(row)
 
@@ -58,8 +62,8 @@ func _build_ui() -> void:
 	impact_label.text = "VS"
 	impact_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	impact_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	impact_label.custom_minimum_size = Vector2(80, 180)
-	impact_label.add_theme_font_size_override("font_size", 34)
+	impact_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	impact_label.add_theme_font_size_override("font_size", 48)
 	impact_label.add_theme_color_override("font_color", Color(1.0, 0.74, 0.42, 1.0))
 	row.add_child(impact_label)
 
@@ -76,12 +80,13 @@ func _build_ui() -> void:
 
 func _make_side_box() -> VBoxContainer:
 	var box := VBoxContainer.new()
-	box.custom_minimum_size = Vector2(210, 220)
-	box.add_theme_constant_override("separation", 8)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 12)
 
 	var art := TextureRect.new()
 	art.name = "Art"
-	art.custom_minimum_size = Vector2(210, 150)
+	art.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	box.add_child(art)
@@ -90,8 +95,8 @@ func _make_side_box() -> VBoxContainer:
 	label.name = "Label"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.custom_minimum_size = Vector2(210, 50)
-	label.add_theme_font_size_override("font_size", 16)
+	label.custom_minimum_size = Vector2(0, 60)
+	label.add_theme_font_size_override("font_size", 22)
 	label.add_theme_color_override("font_color", Color(0.92, 0.94, 0.98, 1.0))
 	box.add_child(label)
 	return box
