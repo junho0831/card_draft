@@ -89,6 +89,30 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 	var calc_damage: Callable = context.get("calculate_damage", Callable())
 	var card_id := _base_card_id(String(card.get("id", "")))
 	match card_id:
+		"death_mark":
+			enemy["curses"] = int(enemy.get("curses", 0)) + 1
+			if log.is_valid():
+				log.call("죽음의 낙인! 적 영웅에게 저주 +1 (현재: %d)" % enemy["curses"])
+		"plague_spread":
+			for unit in enemy.field:
+				unit.health -= 1
+				if log.is_valid():
+					log.call("역병 확산! %s에게 피해 1" % unit.name)
+			if cleanup.is_valid():
+				cleanup.call(owner, enemy)
+			enemy["curses"] = int(enemy.get("curses", 0)) + 2
+			if log.is_valid():
+				log.call("역병 확산! 적 영웅에게 저주 +2 (현재: %d)" % enemy["curses"])
+		"world_tree_ritual":
+			owner["ritual_stacks"] = int(owner.get("ritual_stacks", 0)) + 1
+			if log.is_valid():
+				log.call("세계수 의식! 의식 스택 +1 (현재: %d)" % owner["ritual_stacks"])
+		"nature_communion":
+			owner["ritual_stacks"] = int(owner.get("ritual_stacks", 0)) + 1
+			if log.is_valid():
+				log.call("자연의 교감! 의식 스택 +1 (현재: %d)" % owner["ritual_stacks"])
+			if draw_cards.is_valid():
+				draw_cards.call(owner, 1)
 		"captain_order":
 			var bonus := 1
 			if String(card.get("id", "")).ends_with("_plus"):

@@ -4,10 +4,12 @@ var main
 var root_box: VBoxContainer
 var status_label: Label
 var opponent_info: Label
+var opponent_gauge_info: Label
 var opponent_field_box: HBoxContainer
 var hero_attack_button: Button
 var player_field_box: HBoxContainer
 var player_info: Label
+var player_gauge_info: Label
 var hand_box: HBoxContainer
 var deck_count_label: Label
 var turn_overlay: Panel
@@ -59,6 +61,8 @@ func _new_side(display_name: String, deck: Array, hp: int, max_hp: int) -> Dicti
 		"hand": [],
 		"field": [],
 		"corpse_explosion_stacks": 0,
+		"curses": 0,
+		"ritual_stacks": 0,
 	}
 
 
@@ -95,6 +99,8 @@ func _build_battle_ui() -> void:
 
 	opponent_info = main._make_label("", 16, Color(1.0, 0.78, 0.78, 1.0))
 	board_box.add_child(opponent_info)
+	opponent_gauge_info = main._make_label("", 14, Color(0.8, 0.6, 1.0, 1.0))
+	board_box.add_child(opponent_gauge_info)
 	opponent_field_box = HBoxContainer.new()
 	opponent_field_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	opponent_field_box.custom_minimum_size = Vector2(0, 124)
@@ -107,6 +113,8 @@ func _build_battle_ui() -> void:
 	board_box.add_child(player_field_box)
 	player_info = main._make_label("", 16, Color(0.78, 0.9, 1.0, 1.0))
 	board_box.add_child(player_info)
+	player_gauge_info = main._make_label("", 14, Color(0.6, 1.0, 0.6, 1.0))
+	board_box.add_child(player_gauge_info)
 	board_box.add_child(main._make_label("내 손패", 16, Color(0.96, 0.88, 0.55, 1.0)))
 
 	hand_box = HBoxContainer.new()
@@ -332,6 +340,8 @@ func _attack_opponent_hero() -> void:
 	damage = main.relic_service.mitigate_hero_damage(main.current_run, battle_state, damage, false)
 	opponent.health -= damage
 	attacker.can_attack = false
+	if damage >= 3:
+		_shake_screen(15.0, 0.3)
 	_add_log("%s가 상대 영웅에게 피해 %d" % [attacker.name, damage])
 	selected_attacker = -1
 	input_locked = false
@@ -357,6 +367,8 @@ func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_inde
 	
 	defender.health -= attack_damage
 	attacker.health -= defense_damage
+	if attack_damage >= 3 or defense_damage >= 3:
+		_shake_screen(10.0, 0.2)
 	attacker.can_attack = false
 	
 	_add_log("%s 공격! %s에게 %d 피해" % [attacker.name, defender.name, attack_damage])
@@ -679,3 +691,14 @@ func _add_log(message: String) -> void:
 	if log_label == null:
 		return
 	log_label.text = message + "\n" + log_label.text
+
+func _shake_screen(intensity: float, duration: float) -> void:
+	if main.root_scroll == null or not is_instance_valid(main.root_scroll):
+		return
+	var tween = create_tween()
+	var original_pos = main.root_scroll.position
+	for i in range(int(duration * 20)):
+		tween.tween_property(main.root_scroll, "position", original_pos + Vector2(randf_range(-intensity, intensity), randf_range(-intensity, intensity)), 0.05)
+		tween.parallel().tween_property(main.modal_layer, "position", Vector2(randf_range(-intensity, intensity), randf_range(-intensity, intensity)), 0.05)
+	tween.tween_property(main.root_scroll, "position", original_pos, 0.05)
+	tween.parallel().tween_property(main.modal_layer, "position", Vector2.ZERO, 0.05)
