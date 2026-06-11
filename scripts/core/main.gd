@@ -1,4 +1,4 @@
-extends Control
+///extends Control
 
 const MAX_MANA := 10
 const MAX_FIELD := 5
@@ -21,12 +21,10 @@ const ShopRunServiceScript := preload("res://scripts/services/shop_run_service.g
 const RunFlowCoordinatorScript := preload("res://scripts/core/run_flow_coordinator.gd")
 const RunGeneratorScript := preload("res://scripts/services/run_generator.gd")
 const RunStateScript := preload("res://scripts/services/run_state.gd")
+const CollectionScreenScript := preload("res://scripts/ui/screens/collection_screen.gd")
 const UiFactoryScript := preload("res://scripts/ui/ui_factory.gd")
 const CARD_ART_COLS := 4
 const CARD_ART_ROWS := 3
-const SHOP_CARD_COST := 40
-const SHOP_RELIC_COST := 125
-const SHOP_HEAL_COST := 60
 
 var card_db
 var deck_service
@@ -73,7 +71,7 @@ func _ready() -> void:
 	ui.setup(CARD_ART_SHEET, CARD_ART_COLS, CARD_ART_ROWS)
 	battle_effects = BattleCardEffectsScript.new()
 	run_flow = RunFlowCoordinatorScript.new(self)
-	battle_screen = load("res://scripts/ui/screens/battle_screen.gd").new(self)
+	battle_screen = null
 
 	_build_base_ui()
 	if not card_db.load_cards(CARD_DATA_PATH):
@@ -221,6 +219,9 @@ func _show_main_menu() -> void:
 
 func _start_new_run() -> void:
 	run_flow.start_new_run()
+
+func _init_run(race_id: String) -> void:
+	run_flow.init_run(race_id)
 
 func _continue_run() -> void:
 	run_flow.continue_run()
@@ -530,8 +531,7 @@ func _show_collection() -> void:
 	active_screen = "collection"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("카드 보관함")
-	var CollectionScreenClass = load("res://scripts/ui/screens/collection_screen.gd")
-	var screen = CollectionScreenClass.new(self)
+	var screen = CollectionScreenScript.new(self)
 	screen.build(body)
 
 func _show_settings() -> void:
@@ -600,10 +600,6 @@ func _profile_upgrades() -> Dictionary:
 			"second_chance": 0,
 		}
 	return player_profile["upgrades"]
-
-func _shop_remove_cost() -> int:
-	var shop_state: Dictionary = current_run.get("pending_shop", {})
-	return 50 + int(shop_state.get("remove_count", 0)) * 25
 
 func _run_soul_stones(is_win: bool) -> int:
 	var stones := 0
@@ -702,9 +698,6 @@ func _node_type_name(node_type: String) -> String:
 			return "보스"
 		_:
 			return node_type
-
-func _noop() -> void:
-	pass
 
 func _is_compact_layout() -> bool:
 	return ui.is_compact(get_viewport_rect().size.x)

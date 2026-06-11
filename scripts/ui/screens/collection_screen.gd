@@ -7,8 +7,8 @@ func _init(_main: Node) -> void:
 	main = _main
 
 func build(body: VBoxContainer) -> void:
-	var compact := main._is_compact_layout()
-	var panel := main._make_screen_panel(Color(0.105, 0.115, 0.135, 1.0), 760 if not compact else 420)
+	var compact = main._is_compact_layout()
+	var panel = main._make_screen_panel(Color(0.105, 0.115, 0.135, 1.0), 760 if not compact else 420)
 	body.add_child(panel)
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 10)
@@ -29,7 +29,7 @@ func build(body: VBoxContainer) -> void:
 		row.add_child(_make_collection_card(filtered_cards[index], compact))
 	var actions: BoxContainer = main.ui.make_action_bar(compact, 10)
 	body.add_child(actions)
-	main._add_menu_button(actions, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0), main)
+	main._add_menu_button(actions, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
 
 func _set_collection_filter(filter: String) -> void:
 	main.collection_filter = filter
@@ -50,14 +50,14 @@ func _filtered_collection_cards() -> Array:
 
 func _make_collection_card(card: Dictionary, compact: bool) -> Control:
 	var owned := int(main.player_profile["owned_cards"].get(String(card.get("id", "")), 0))
-	var panel := main._make_card_frame()
+	var panel = main._make_card_frame()
 	panel.custom_minimum_size = Vector2(170 if compact else 220, 0)
 	if owned <= 0:
 		panel.modulate = Color(0.45, 0.45, 0.5, 1.0)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
 	panel.add_child(box)
-	var art := main._make_art_rect(int(card.get("art", 0)), Vector2(132, 92) if compact else Vector2(150, 108))
+	var art = main._make_art_rect(int(card.get("art", 0)), Vector2(132, 92) if compact else Vector2(150, 108))
 	if owned <= 0:
 		art.modulate = Color(0.3, 0.3, 0.34, 1.0)
 	box.add_child(art)
@@ -65,9 +65,9 @@ func _make_collection_card(card: Dictionary, compact: bool) -> Control:
 	var stat_text := "[%d] %s/%s | %s" % [int(card.get("cost", 0)), String(card.get("race", "")), String(card.get("attr", "")), main.deck_service.type_name(String(card.get("type", "")))]
 	if String(card.get("type", "")) == "unit":
 		stat_text += " | %d/%d" % [int(card.get("attack", 0)), int(card.get("health", 0))]
-	var stat := main._make_label(stat_text, 12 if compact else 13, Color(0.84, 0.88, 0.95, 1.0))
+	var stat = main._make_label(stat_text, 12 if compact else 13, Color(0.84, 0.88, 0.95, 1.0))
 	box.add_child(stat)
-	var text := main._make_label(String(card.get("text", "")), 12 if compact else 13, Color(0.82, 0.88, 0.95, 1.0))
+	var text = main._make_label(String(card.get("text", "")), 12 if compact else 13, Color(0.82, 0.88, 0.95, 1.0))
 	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(text)
 	return panel

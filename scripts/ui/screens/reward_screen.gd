@@ -9,7 +9,7 @@ func _init(_main: Node) -> void:
 func build(body: VBoxContainer) -> void:
 	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
 	body.add_child(main._make_run_summary_panel())
-	var panel := main._make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 760)
+	var panel = main._make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 760)
 	body.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
@@ -28,7 +28,7 @@ func build(body: VBoxContainer) -> void:
 	main._add_menu_button(box, "건너뛰기", "_skip_card_reward", Color(0.22, 0.24, 0.28, 1.0), self)
 
 func _make_reward_choice(card: Dictionary) -> Control:
-	var frame := main._make_card_frame()
+	var frame = main._make_card_frame()
 	frame.custom_minimum_size = Vector2(170, 0)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
@@ -46,38 +46,17 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	return frame
 
 func _claim_card_reward(card_id: String) -> void:
-	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
 	(main.current_run.get("deck_ids", []) as Array).append(card_id)
-	var bonus_relic: Dictionary = reward.get("bonus_relic", {})
-	if not bonus_relic.is_empty():
-		var relic_id := String(bonus_relic.get("id", ""))
-		(main.current_run.get("relic_ids", []) as Array).append(relic_id)
-		main.relic_service.apply_on_acquire(main.current_run, relic_id)
-	main.run_store.mark_node_cleared(main.current_run)
-	main.run_store.advance_after_node(main.current_run)
-	main.current_run["pending_card_reward"] = {}
-	if main.current_run.get("result", "") == "win":
-		main._save_run()
-		main._show_run_result(true)
-		return
-	main._save_run()
-	var MapScreenClass = load("res://scripts/ui/screens/map_screen.gd")
-	main._show_map()
+	_finalize_reward()
 
 func _skip_card_reward() -> void:
+	_finalize_reward()
+
+func _finalize_reward() -> void:
 	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
 	var bonus_relic: Dictionary = reward.get("bonus_relic", {})
 	if not bonus_relic.is_empty():
 		var relic_id := String(bonus_relic.get("id", ""))
 		(main.current_run.get("relic_ids", []) as Array).append(relic_id)
 		main.relic_service.apply_on_acquire(main.current_run, relic_id)
-	main.run_store.mark_node_cleared(main.current_run)
-	main.run_store.advance_after_node(main.current_run)
-	main.current_run["pending_card_reward"] = {}
-	if main.current_run.get("result", "") == "win":
-		main._save_run()
-		main._show_run_result(true)
-		return
-	main._save_run()
-	var MapScreenClass = load("res://scripts/ui/screens/map_screen.gd")
-	main._show_map()
+	main.run_flow.advance_from_current_node(["pending_card_reward"])

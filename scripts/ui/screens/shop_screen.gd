@@ -23,7 +23,7 @@ static func generate_shop_state(main: Node) -> Dictionary:
 func build(body: VBoxContainer) -> void:
 	var shop_state: Dictionary = main.current_run.get("pending_shop", {})
 	body.add_child(main._make_run_summary_panel())
-	var panel := main._make_screen_panel(Color(0.105, 0.115, 0.135, 1.0), 760)
+	var panel = main._make_screen_panel(Color(0.105, 0.115, 0.135, 1.0), 760)
 	body.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
@@ -43,7 +43,7 @@ func build(body: VBoxContainer) -> void:
 	remove_row.add_theme_constant_override("separation", 10)
 	box.add_child(remove_row)
 	var remove_cost := _shop_remove_cost()
-	var remove_label := main._make_label("카드 제거 - 골드 %d" % remove_cost, 15, Color(0.92, 0.94, 0.98, 1.0))
+	var remove_label = main._make_label("카드 제거 - 골드 %d" % remove_cost, 15, Color(0.92, 0.94, 0.98, 1.0))
 	remove_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	remove_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	remove_row.add_child(remove_label)
@@ -58,7 +58,7 @@ func build(body: VBoxContainer) -> void:
 	var heal_row := HBoxContainer.new()
 	heal_row.add_theme_constant_override("separation", 10)
 	box.add_child(heal_row)
-	var heal_label := main._make_label("체력 20 회복 - 골드 %d" % SHOP_HEAL_COST, 15, Color(0.92, 0.94, 0.98, 1.0))
+	var heal_label = main._make_label("체력 20 회복 - 골드 %d" % SHOP_HEAL_COST, 15, Color(0.92, 0.94, 0.98, 1.0))
 	heal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	heal_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heal_row.add_child(heal_label)
@@ -77,14 +77,14 @@ func build(body: VBoxContainer) -> void:
 func _make_shop_card_row(card: Dictionary, shop_state: Dictionary) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	var frame := main._make_card_frame()
+	var frame = main._make_card_frame()
 	frame.custom_minimum_size = Vector2(0, 0)
 	row.add_child(frame)
 	var inner := HBoxContainer.new()
 	inner.add_theme_constant_override("separation", 10)
 	frame.add_child(inner)
 	inner.add_child(main._make_art_rect(int(card.get("art", 0)), Vector2(72, 52)))
-	var label := main._make_label("[%d] %s - %s" % [int(card.get("cost", 0)), String(card.get("name", "")), String(card.get("text", ""))], 14, Color(0.92, 0.94, 0.98, 1.0))
+	var label = main._make_label("[%d] %s - %s" % [int(card.get("cost", 0)), String(card.get("name", "")), String(card.get("text", ""))], 14, Color(0.92, 0.94, 0.98, 1.0))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	inner.add_child(label)
@@ -100,7 +100,7 @@ func _make_shop_card_row(card: Dictionary, shop_state: Dictionary) -> Control:
 func _make_shop_relic_row(relic: Dictionary, shop_state: Dictionary) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	var label := main._make_label("%s - %s (골드 %d)" % [String(relic.get("name", "")), String(relic.get("text", "")), SHOP_RELIC_COST], 14, Color(1.0, 0.88, 0.55, 1.0))
+	var label = main._make_label("%s - %s (골드 %d)" % [String(relic.get("name", "")), String(relic.get("text", "")), SHOP_RELIC_COST], 14, Color(1.0, 0.88, 0.55, 1.0))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
@@ -149,9 +149,8 @@ func _begin_shop_remove() -> void:
 	var shop_state: Dictionary = main.current_run.get("pending_shop", {})
 	shop_state["remove_count"] = int(shop_state.get("remove_count", 0)) + 1
 	main.current_run["pending_shop"] = shop_state
-	main.pending_return_screen = "shop"
 	main._save_run()
-	main._show_remove_card_screen("상점")
+	main._show_remove_card_screen("상점", "shop")
 
 func _buy_shop_heal() -> void:
 	if int(main.current_run.get("gold", 0)) < SHOP_HEAL_COST:
@@ -162,9 +161,4 @@ func _buy_shop_heal() -> void:
 	main._show_shop()
 
 func _leave_shop() -> void:
-	main.current_run["pending_shop"] = {}
-	main.run_store.mark_node_cleared(main.current_run)
-	main.run_store.advance_after_node(main.current_run)
-	main._save_run()
-	var MapScreenClass = load("res://scripts/ui/screens/map_screen.gd")
-	main._show_map()
+	main.run_flow.advance_from_current_node(["pending_shop"])
