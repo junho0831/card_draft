@@ -27,7 +27,7 @@ func play_card(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: 
 			owner.field.append(unit)
 			if log.is_valid():
 				log.call("%s: %s 소환" % [owner.name, card.name])
-			_resolve_unit_play(owner, unit, context)
+			_resolve_unit_play(owner, enemy, unit, context)
 		"spell":
 			_resolve_spell(owner, enemy, card, context)
 		"equipment":
@@ -60,7 +60,7 @@ func on_unit_died(dead_unit: Dictionary, owner: Dictionary, enemy: Dictionary, c
 	if String(dead_unit.get("id", "")) == "bone_soldier" and draw_cards.is_valid():
 		pass
 
-func _resolve_unit_play(owner: Dictionary, unit: Dictionary, context: Dictionary) -> void:
+func _resolve_unit_play(owner: Dictionary, enemy: Dictionary, unit: Dictionary, context: Dictionary) -> void:
 	var draw_cards: Callable = context.get("draw_cards", Callable())
 	var log: Callable = context.get("log", Callable())
 	match _base_card_id(String(unit.get("id", ""))):
@@ -81,6 +81,10 @@ func _resolve_unit_play(owner: Dictionary, unit: Dictionary, context: Dictionary
 				relic_service.on_hero_hp_lost(context.get("run_data", {}), context, owner, 1)
 			if log.is_valid():
 				log.call("도적 효과: 내 영웅 체력 1 잃음")
+		"bone_oracle":
+			_add_curse(enemy, 1, log, "뼈 점술사")
+		"ritual_sapling":
+			_add_ritual(owner, 1, log, "의식의 묘목")
 
 func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: Dictionary) -> void:
 	var draw_cards: Callable = context.get("draw_cards", Callable())
@@ -90,9 +94,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 	var card_id := _base_card_id(String(card.get("id", "")))
 	match card_id:
 		"death_mark":
-			enemy["curses"] = int(enemy.get("curses", 0)) + 1
-			if log.is_valid():
-				log.call("죽음의 낙인! 적 영웅에게 저주 +1 (현재: %d)" % enemy["curses"])
+			_add_curse(enemy, 1, log, "죽음의 낙인")
 		"plague_spread":
 			for unit in enemy.field:
 				unit.health -= 1
@@ -100,17 +102,34 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 					log.call("역병 확산! %s에게 피해 1" % unit.name)
 			if cleanup.is_valid():
 				cleanup.call(owner, enemy)
-			enemy["curses"] = int(enemy.get("curses", 0)) + 2
-			if log.is_valid():
-				log.call("역병 확산! 적 영웅에게 저주 +2 (현재: %d)" % enemy["curses"])
+			_add_curse(enemy, 2, log, "역병 확산")
+		"soul_shackle":
+			_add_curse(enemy, 2, log, "영혼 족쇄")
+			if draw_cards.is_valid():
+				draw_cards.call(owner, 1)
+		"funeral_fog":
+			if enemy.field.is_empty():
+				enemy.health -= 1
+				if log.is_valid():
+					log.call("장례 안개! %s 영웅에게 피해 1" % enemy.name)
+			else:
+				enemy.field[0].health -= 1
+				if log.is_valid():
+					log.call("장례 안개! %s에게 피해 1" % enemy.field[0].name)
+				if cleanup.is_valid():
+					cleanup.call(owner, enemy)
+			_add_curse(enemy, 1, log, "장례 안개")
 		"world_tree_ritual":
-			owner["ritual_stacks"] = int(owner.get("ritual_stacks", 0)) + 1
-			if log.is_valid():
-				log.call("세계수 의식! 의식 스택 +1 (현재: %d)" % owner["ritual_stacks"])
+			_add_ritual(owner, 1, log, "세계수 의식")
 		"nature_communion":
-			owner["ritual_stacks"] = int(owner.get("ritual_stacks", 0)) + 1
-			if log.is_valid():
-				log.call("자연의 교감! 의식 스택 +1 (현재: %d)" % owner["ritual_stacks"])
+			_add_ritual(owner, 1, log, "자연의 교감")
+			if draw_cards.is_valid():
+				draw_cards.call(owner, 1)
+		"moonwell":
+			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 2)
+			_add_ritual(owner, 1, log, "달샘")
+		"ancient_oath":
+			_add_ritual(owner, 2, log, "고대의 맹세")
 			if draw_cards.is_valid():
 				draw_cards.call(owner, 1)
 		"captain_order":
@@ -219,3 +238,13 @@ func _resolve_equipment(owner: Dictionary, card: Dictionary, context: Dictionary
 	owner.field[0].attack += 2
 	if log.is_valid():
 		log.call("%s: %s 장착, %s 공격력 +2" % [owner.name, card.name, owner.field[0].name])
+
+func _add_curse(enemy: Dictionary, amount: int, log: Callable, source: String) -> void:
+	enemy["curses"] = int(enemy.get("curses", 0)) + amount
+	if log.is_valid():
+		log.call("%s! 적 영웅에게 저주 +%d (현재: %d)" % [source, amount, int(enemy.get("curses", 0))])
+
+func _add_ritual(owner: Dictionary, amount: int, log: Callable, source: String) -> void:
+	owner["ritual_stacks"] = int(owner.get("ritual_stacks", 0)) + amount
+	if log.is_valid():
+		log.call("%s! 의식 스택 +%d (현재: %d)" % [source, amount, int(owner.get("ritual_stacks", 0))])

@@ -304,5 +304,69 @@
         "cost": 2,
         "art": 11,
         "text": "의식 스택을 1만큼 증가시킴. 카드 1장 드로우"
+    },
+    {
+        "id": "bone_oracle",
+        "name": "뼈 점술사",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 2,
+        "attack": 1,
+        "health": 3,
+        "art": 4,
+        "text": "소환 시 적 영웅에게 저주 1스택을 부여"
+    },
+    {
+        "id": "soul_shackle",
+        "name": "영혼 족쇄",
+        "type": "spell",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 2,
+        "art": 6,
+        "text": "적 영웅에게 저주 2스택을 부여. 카드 1장 드로우"
+    },
+    {
+        "id": "funeral_fog",
+        "name": "장례 안개",
+        "type": "spell",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 1,
+        "art": 8,
+        "text": "가장 앞의 적 또는 적 영웅에게 피해 1. 적 영웅에게 저주 1스택을 부여"
+    },
+    {
+        "id": "ritual_sapling",
+        "name": "의식의 묘목",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "대지",
+        "cost": 2,
+        "attack": 1,
+        "health": 3,
+        "art": 9,
+        "text": "소환 시 의식 스택을 1만큼 증가시킴"
+    },
+    {
+        "id": "moonwell",
+        "name": "달샘",
+        "type": "spell",
+        "race": "엘프",
+        "attr": "물",
+        "cost": 2,
+        "art": 10,
+        "text": "내 영웅 체력 2 회복. 의식 스택을 1만큼 증가시킴"
+    },
+    {
+        "id": "ancient_oath",
+        "name": "고대의 맹세",
+        "type": "spell",
+        "race": "엘프",
+        "attr": "빛",
+        "cost": 3,
+        "art": 0,
+        "text": "의식 스택을 2만큼 증가시킴. 카드 1장 드로우"
     }
 ]

@@ -4,6 +4,8 @@ const MAX_MANA := 10
 const MAX_FIELD := 5
 const START_HAND := 4
 const TURN_TIME_SECONDS := 60.0
+const CURSE_VICTORY_GOAL := 10
+const RITUAL_VICTORY_GOAL := 8
 
 var main
 var root_box: VBoxContainer
@@ -88,6 +90,12 @@ func _format_side_status(side: Dictionary, fallback_name: String) -> String:
 func _format_side_resources(side: Dictionary) -> String:
 	return "마나 %d/%d | 손패 %d | 덱 %d" % [int(side.get("mana", 0)), int(side.get("max_mana", 0)), (side.get("hand", []) as Array).size(), (side.get("deck", []) as Array).size()]
 
+func _format_opponent_victory_gauge() -> String:
+	return "저주 %d/%d | %s" % [int(opponent.get("curses", 0)), CURSE_VICTORY_GOAL, _format_side_resources(opponent)]
+
+func _format_player_victory_gauge() -> String:
+	return "의식 %d/%d | %s" % [int(player.get("ritual_stacks", 0)), RITUAL_VICTORY_GOAL, _format_side_resources(player)]
+
 func _is_fast_ai_enabled() -> bool:
 	return bool(main.player_profile["settings"]["fast_ai"])
 
@@ -124,10 +132,11 @@ func _finish_player_defeat() -> void:
 	main.current_run["result"] = "loss"
 	_finish_run(false)
 
-func _finish_opponent_defeat() -> void:
+func _finish_player_victory(victory_type: String) -> void:
 	game_over = true
 	battle_finished = true
 	main.current_run["hp"] = int(player.health)
+	main.current_run["battle_victory_type"] = victory_type
 
 func _reset_battle_state() -> void:
 	current_player = "player"
@@ -149,6 +158,8 @@ func _reset_battle_state() -> void:
 		"cards_played_this_turn": 0,
 		"necromancer_ring_used": false,
 		"second_chance_used": false,
+		"curse_goal": CURSE_VICTORY_GOAL,
+		"ritual_goal": RITUAL_VICTORY_GOAL,
 	}
 
 func _prepare_battle(tier: String) -> void:
@@ -596,7 +607,10 @@ func _run_ai_play_cards() -> void:
 				opponent.mana -= cost
 				opponent.hand.remove_at(i)
 				main.battle_effects.play_card(opponent, player, card, _battle_effect_context())
+				_check_game_over()
 				played = true
+				if game_over:
+					return
 				if not _is_fast_ai_enabled():
 					await main.get_tree().create_timer(0.2).timeout
 				break
@@ -647,7 +661,16 @@ func _check_game_over() -> void:
 			return
 		_finish_player_defeat()
 	elif int(opponent.health) <= 0:
-		_finish_opponent_defeat()
+		_add_log("적 영웅을 쓰러뜨려 승리했습니다.")
+		_finish_player_victory("health")
+		await _finish_battle_victory()
+	elif _has_curse_victory():
+		_add_log("저주가 완성되어 승리했습니다.")
+		_finish_player_victory("curse")
+		await _finish_battle_victory()
+	elif _has_ritual_victory():
+		_add_log("의식이 완성되어 승리했습니다.")
+		_finish_player_victory("ritual")
 		await _finish_battle_victory()
 
 
@@ -656,6 +679,12 @@ func _finish_battle_victory() -> void:
 	main.current_run["pending_card_reward"] = _apply_battle_victory_rewards()
 	_save_run()
 	_show_card_reward()
+
+func _has_curse_victory() -> bool:
+	return int(opponent.get("curses", 0)) >= int(battle_state.get("curse_goal", CURSE_VICTORY_GOAL))
+
+func _has_ritual_victory() -> bool:
+	return int(player.get("ritual_stacks", 0)) >= int(battle_state.get("ritual_goal", RITUAL_VICTORY_GOAL))
 
 
 func _spawn_floating_text(target: Control, delta: int) -> void:
@@ -777,11 +806,11 @@ func _refresh_status_labels() -> void:
 	if opponent_info != null:
 		opponent_info.text = _format_side_status(opponent, "적")
 	if opponent_gauge_info != null:
-		opponent_gauge_info.text = _format_side_resources(opponent)
+		opponent_gauge_info.text = _format_opponent_victory_gauge()
 	if player_info != null:
 		player_info.text = _format_side_status(player, "플레이어")
 	if player_gauge_info != null:
-		player_gauge_info.text = _format_side_resources(player)
+		player_gauge_info.text = _format_player_victory_gauge()
 
 func _refresh_action_buttons() -> void:
 	if hero_attack_button != null:

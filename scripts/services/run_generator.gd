@@ -21,15 +21,20 @@ func starter_deck(race_id: String = "") -> Array[String]:
 		return [
 			"elf_ranger", "elf_ranger", "elf_ranger",
 			"forest_archer", "forest_archer", "forest_archer",
-			"elven_insight", "elven_insight",
-			"nature_blessing", "nature_communion",
+			"elven_insight",
+			"ritual_sapling",
+			"world_tree_ritual",
+			"nature_communion",
 		]
 	if race_id == "undead":
 		return [
 			"bone_soldier", "bone_soldier", "bone_soldier",
-			"grave_knight", "grave_knight", "grave_knight",
-			"dark_bargain", "dark_bargain",
-			"call_of_dead", "plague_spread",
+			"grave_knight", "grave_knight",
+			"bone_oracle",
+			"dark_bargain",
+			"death_mark",
+			"call_of_dead",
+			"plague_spread",
 		]
 	
 	# Default (Human or empty)

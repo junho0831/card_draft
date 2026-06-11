@@ -1,4 +1,4 @@
-///extends Control
+extends Control
 
 const MAX_MANA := 10
 const MAX_FIELD := 5
