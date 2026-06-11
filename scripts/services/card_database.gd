@@ -38,13 +38,41 @@ func build_starter_deck(deck_size: int) -> Array:
 			deck.append(card.duplicate(true))
 	return deck
 
+func has_card(id: String) -> bool:
+	return not get_card(id).is_empty()
+
+func get_card(id: String) -> Dictionary:
+	if cards_by_id.has(id):
+		return cards_by_id[id].duplicate(true)
+	if not id.ends_with("_plus"):
+		return {}
+	return _build_upgraded_card(id)
+
 func build_deck_from_ids(ids: Array) -> Array:
 	var deck: Array = []
 	for raw_id in ids:
-		var id := String(raw_id)
-		if cards_by_id.has(id):
-			deck.append(cards_by_id[id].duplicate(true))
+		var card := get_card(String(raw_id))
+		if not card.is_empty():
+			deck.append(card)
 	return deck
+
+func _build_upgraded_card(id: String) -> Dictionary:
+	var base_id := id.trim_suffix("_plus")
+	if base_id.ends_with("_plus") or not cards_by_id.has(base_id):
+		return {}
+	var card: Dictionary = cards_by_id[base_id].duplicate(true)
+	card["id"] = id
+	card["name"] = "%s+" % String(card.get("name", ""))
+	if String(card.get("type", "")) == "unit":
+		card["attack"] = int(card.get("attack", 0)) + 1
+		card["health"] = int(card.get("health", 0)) + 1
+	elif base_id == "captain_order":
+		card["text"] = "내 모든 유닛 공격력 +2"
+	elif base_id == "elven_insight":
+		card["cost"] = max(0, int(card.get("cost", 0)) - 1)
+	elif base_id == "dark_bargain":
+		card["text"] = "내 영웅 체력 1 잃음. 카드 2장 드로우"
+	return card
 
 func _is_valid_card_def(card: Dictionary, index: int) -> bool:
 	var required_fields := ["id", "name", "type", "race", "attr", "cost", "art", "text"]

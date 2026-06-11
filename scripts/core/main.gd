@@ -12,10 +12,13 @@ const BattleCardEffectsScript := preload("res://scripts/battle/battle_card_effec
 const CardDatabaseScript := preload("res://scripts/services/card_database.gd")
 const DeckServiceScript := preload("res://scripts/services/deck_service.gd")
 const EnemyServiceScript := preload("res://scripts/services/enemy_service.gd")
+const EventRunServiceScript := preload("res://scripts/services/event_run_service.gd")
 const EventServiceScript := preload("res://scripts/services/event_service.gd")
 const ProfileStoreScript := preload("res://scripts/core/profile_store.gd")
 const RelicServiceScript := preload("res://scripts/services/relic_service.gd")
 const RewardServiceScript := preload("res://scripts/services/reward_service.gd")
+const ShopRunServiceScript := preload("res://scripts/services/shop_run_service.gd")
+const RunFlowCoordinatorScript := preload("res://scripts/core/run_flow_coordinator.gd")
 const RunGeneratorScript := preload("res://scripts/services/run_generator.gd")
 const RunStateScript := preload("res://scripts/services/run_state.gd")
 const UiFactoryScript := preload("res://scripts/ui/ui_factory.gd")
@@ -29,13 +32,17 @@ var card_db
 var deck_service
 var enemy_service
 var event_service
+var event_run_service
 var profile_store
 var relic_service
 var reward_service
+var shop_run_service
 var run_generator
 var run_store
 var ui
 var battle_effects
+var run_flow
+var battle_screen
 
 var card_defs: Array[Dictionary] = []
 var cards_by_id := {}
@@ -43,7 +50,6 @@ var player_profile := {}
 var current_run := {}
 var collection_filter := "전체"
 var active_screen := "main_menu"
-var pending_return_screen := "map"
 
 var root_box: VBoxContainer
 var root_scroll: ScrollContainer
@@ -56,14 +62,18 @@ func _ready() -> void:
 	deck_service = DeckServiceScript.new()
 	enemy_service = EnemyServiceScript.new()
 	event_service = EventServiceScript.new()
+	event_run_service = EventRunServiceScript.new()
 	profile_store = ProfileStoreScript.new()
 	relic_service = RelicServiceScript.new()
 	reward_service = RewardServiceScript.new()
+	shop_run_service = ShopRunServiceScript.new()
 	run_generator = RunGeneratorScript.new()
 	run_store = RunStateScript.new()
 	ui = UiFactoryScript.new()
 	ui.setup(CARD_ART_SHEET, CARD_ART_COLS, CARD_ART_ROWS)
 	battle_effects = BattleCardEffectsScript.new()
+	run_flow = RunFlowCoordinatorScript.new(self)
+	battle_screen = load("res://scripts/ui/screens/battle_screen.gd").new(self)
 
 	_build_base_ui()
 	if not card_db.load_cards(CARD_DATA_PATH):
@@ -210,39 +220,10 @@ func _show_main_menu() -> void:
 	body.add_child(_make_label("MVP 구조: Act 1 국경지대 -> Act 2 죽음의 성", 14, Color(0.78, 0.82, 0.9, 1.0)))
 
 func _start_new_run() -> void:
-	var acts: Array[Dictionary] = run_generator.load_acts()
-	var upgrades := _profile_upgrades()
-	var start_hp := 50 + int(upgrades.get("start_hp", 0)) * 5
-	var start_gold := 100 + int(upgrades.get("start_gold", 0)) * 20
-	current_run = run_store.create_new_run(acts, run_generator.starter_deck(), start_hp, start_gold)
-	_save_run()
-	_show_map()
+	run_flow.start_new_run()
 
 func _continue_run() -> void:
-	current_run = run_store.load_or_empty(RUN_PATH)
-	if current_run.is_empty():
-		_show_main_menu()
-		return
-	if String(current_run.get("result", "")) == "win":
-		_show_run_result(true)
-		return
-	if String(current_run.get("result", "")) == "loss":
-		_show_run_result(false)
-		return
-	if not Dictionary(current_run.get("pending_card_reward", {})).is_empty():
-		_show_card_reward()
-		return
-	if not Dictionary(current_run.get("pending_event", {})).is_empty():
-		_show_event()
-		return
-	if not Dictionary(current_run.get("pending_shop", {})).is_empty():
-		_show_shop()
-		return
-	if not Dictionary(current_run.get("active_enemy", {})).is_empty():
-		var bs = load("res://scripts/ui/screens/battle_screen.gd").new(self)
-		bs.start_battle()
-		return
-	_show_map()
+	run_flow.continue_run()
 
 func _show_meta_upgrade() -> void:
 	active_screen = "meta_upgrade"
@@ -320,96 +301,43 @@ func _upgrade_second_chance() -> void:
 	_show_meta_upgrade()
 
 func _show_map() -> void:
-	active_screen = "map"
-	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen(String(_current_act().get("name", "맵")))
-	var MapScreenClass = load("res://scripts/ui/screens/map_screen.gd")
-	var map_screen = MapScreenClass.new(self)
-	map_screen.build(body, _current_act())
+	run_flow.show_map()
 
 func _enter_current_node() -> void:
-	var node: Dictionary = run_store.current_node(current_run)
-	match String(node.get("type", "")):
-		"battle":
-			_prepare_battle("normal")
-		"elite":
-			_prepare_battle("elite")
-		"boss":
-			_prepare_battle("boss")
-		"event":
-			current_run["pending_event"] = event_service.roll_event()
-			_save_run()
-			_show_event()
-		"shop":
-			var ShopScreenClass = load("res://scripts/ui/screens/shop_screen.gd")
-			current_run["pending_shop"] = ShopScreenClass.generate_shop_state(self)
-			_save_run()
-			_show_shop()
-		"rest":
-			_show_rest()
+	run_flow.enter_current_node()
 
 func _show_card_reward() -> void:
-	active_screen = "card_reward"
-	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("전투 보상")
-	var RewardScreenClass = load("res://scripts/ui/screens/reward_screen.gd")
-	var screen = RewardScreenClass.new(self)
-	screen.build(body)
+	run_flow.show_card_reward()
 
 func _show_event() -> void:
-	active_screen = "event"
-	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("이벤트")
-	var EventScreenClass = load("res://scripts/ui/screens/event_screen.gd")
-	var screen = EventScreenClass.new(self)
-	screen.build(body)
+	run_flow.show_event()
 
 func _complete_event_and_return() -> void:
-	current_run["pending_event"] = {}
-	run_store.mark_node_cleared(current_run)
-	run_store.advance_after_node(current_run)
-	_save_run()
-	_show_map()
+	run_flow.complete_event_and_return()
 
 func _show_shop() -> void:
-	active_screen = "shop"
-	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("상점")
-	var ShopScreenClass = load("res://scripts/ui/screens/shop_screen.gd")
-	var screen = ShopScreenClass.new(self)
-	screen.build(body)
+	run_flow.show_shop()
 
 func _show_rest() -> void:
-	active_screen = "rest"
-	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("휴식")
-	body.add_child(_make_run_summary_panel())
-	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
-	body.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
-	panel.add_child(box)
-	box.add_child(_make_label("체력을 회복하거나 카드 1장을 강화할 수 있습니다.", 16, Color(0.92, 0.94, 0.98, 1.0)))
-	_add_menu_button(box, "체력 30% 회복", "_rest_heal", Color(0.18, 0.4, 0.24, 1.0))
-	_add_menu_button(box, "카드 1장 강화", "_rest_upgrade_card", Color(0.32, 0.18, 0.18, 1.0))
-	_add_menu_button(box, "그냥 쉰다", "_complete_rest", Color(0.22, 0.24, 0.28, 1.0))
+	run_flow.show_rest()
 
 func _rest_heal() -> void:
-	var heal_amount := maxi(1, int(round(float(int(current_run.get("max_hp", 50))) * 0.3)))
-	current_run["hp"] = min(int(current_run.get("max_hp", 50)), int(current_run.get("hp", 0)) + heal_amount)
-	_complete_rest()
+	run_flow.rest_heal()
 
 func _rest_upgrade_card() -> void:
-	pending_return_screen = "rest_upgrade"
-	_show_upgrade_card_screen()
+	run_flow.rest_upgrade_card()
 
 func _complete_rest() -> void:
-	run_store.mark_node_cleared(current_run)
-	run_store.advance_after_node(current_run)
-	_save_run()
-	_show_map()
+	run_flow.complete_rest()
 
-func _show_remove_card_screen(reason: String) -> void:
+func _show_remove_card_screen(reason: String, source: String = "") -> void:
+	if not source.is_empty():
+		current_run["pending_subscreen"] = {
+			"type": "remove_card",
+			"reason": reason,
+			"source": source,
+		}
+		_save_run()
 	active_screen = "remove_card"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("%s - 카드 제거" % reason)
@@ -421,16 +349,19 @@ func _show_remove_card_screen(reason: String) -> void:
 	panel.add_child(box)
 	box.add_child(_make_label("덱에서 제거할 카드 1장을 고르세요.", 16, Color(0.92, 0.94, 0.98, 1.0)))
 	var unique_ids := {}
+	var has_options := false
 	for card_id in current_run.get("deck_ids", []):
 		unique_ids[String(card_id)] = true
 	for card_id in unique_ids.keys():
-		if not cards_by_id.has(String(card_id)):
+		var card: Dictionary = card_db.get_card(String(card_id))
+		if card.is_empty():
 			continue
+		has_options = true
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
 		box.add_child(row)
 		var count: int = deck_service.count_in_array(current_run.get("deck_ids", []), String(card_id))
-		var label := _make_label("%s x%d" % [String(cards_by_id[String(card_id)].get("name", "")), count], 15, Color(0.92, 0.94, 0.98, 1.0))
+		var label := _make_label("%s x%d" % [String(card.get("name", "")), count], 15, Color(0.92, 0.94, 0.98, 1.0))
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
@@ -440,8 +371,17 @@ func _show_remove_card_screen(reason: String) -> void:
 		ui.style_button(button, Color(0.32, 0.18, 0.18, 1.0))
 		button.pressed.connect(Callable(self, "_remove_card_from_run").bind(String(card_id)))
 		row.add_child(button)
+	if not has_options:
+		box.add_child(_make_label("제거할 카드가 없습니다.", 15, Color(0.92, 0.94, 0.98, 1.0)))
+	_add_menu_button(box, "돌아가기", "_cancel_pending_subscreen", Color(0.22, 0.24, 0.28, 1.0))
 
-func _show_upgrade_card_screen() -> void:
+func _show_upgrade_card_screen(source: String = "") -> void:
+	if not source.is_empty():
+		current_run["pending_subscreen"] = {
+			"type": "upgrade_card",
+			"source": source,
+		}
+		_save_run()
 	active_screen = "upgrade_card"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("휴식 - 카드 강화")
@@ -453,15 +393,20 @@ func _show_upgrade_card_screen() -> void:
 	panel.add_child(box)
 	box.add_child(_make_label("강화할 카드 1장을 고르세요.", 16, Color(0.92, 0.94, 0.98, 1.0)))
 	var unique_ids := {}
+	var has_options := false
 	for card_id in current_run.get("deck_ids", []):
 		unique_ids[String(card_id)] = true
 	for card_id in unique_ids.keys():
-		if not cards_by_id.has(String(card_id)):
+		if String(card_id).ends_with("_plus"):
 			continue
+		var card: Dictionary = card_db.get_card(String(card_id))
+		if card.is_empty():
+			continue
+		has_options = true
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
 		box.add_child(row)
-		var label := _make_label("%s" % String(cards_by_id[String(card_id)].get("name", "")), 15, Color(0.92, 0.94, 0.98, 1.0))
+		var label := _make_label("%s" % String(card.get("name", "")), 15, Color(0.92, 0.94, 0.98, 1.0))
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
@@ -471,15 +416,28 @@ func _show_upgrade_card_screen() -> void:
 		ui.style_button(button, Color(0.32, 0.18, 0.18, 1.0))
 		button.pressed.connect(Callable(self, "_upgrade_card_in_run").bind(String(card_id)))
 		row.add_child(button)
+	if not has_options:
+		box.add_child(_make_label("강화할 카드가 없습니다.", 15, Color(0.92, 0.94, 0.98, 1.0)))
+	_add_menu_button(box, "돌아가기", "_cancel_pending_subscreen", Color(0.22, 0.24, 0.28, 1.0))
 
 func _remove_card_from_run(card_id: String) -> void:
+	var pending_subscreen: Dictionary = current_run.get("pending_subscreen", {})
+	var source := String(pending_subscreen.get("source", ""))
+	if source == "shop":
+		var charge_result: Dictionary = shop_run_service.confirm_remove(current_run)
+		if not bool(charge_result.get("ok", false)):
+			current_run["pending_subscreen"] = {}
+			_save_run()
+			_show_shop()
+			return
 	var deck_ids: Array = current_run.get("deck_ids", [])
 	var index := deck_ids.find(card_id)
 	if index != -1:
 		deck_ids.remove_at(index)
 	current_run["deck_ids"] = deck_ids
+	current_run["pending_subscreen"] = {}
 	_save_run()
-	match pending_return_screen:
+	match source:
 		"event_complete":
 			_complete_event_and_return()
 		"event_complete_upgrade":
@@ -492,36 +450,38 @@ func _remove_card_from_run(card_id: String) -> void:
 			_show_shop()
 
 func _upgrade_card_in_run(card_id: String) -> void:
+	if card_id.ends_with("_plus"):
+		return
 	var deck_ids: Array = current_run.get("deck_ids", [])
 	var upgraded_id := card_id
-	if cards_by_id.has(card_id):
-		var card: Dictionary = cards_by_id[card_id]
-		var plus_id := "%s_plus" % card_id
-		if not cards_by_id.has(plus_id):
-			var plus_card := card.duplicate(true)
-			plus_card["id"] = plus_id
-			plus_card["name"] = "%s+" % String(card.get("name", ""))
-			if String(card.get("type", "")) == "unit":
-				plus_card["attack"] = int(card.get("attack", 0)) + 1
-				plus_card["health"] = int(card.get("health", 0)) + 1
-			elif String(card.get("id", "")) == "captain_order":
-				plus_card["text"] = "내 모든 유닛 공격력 +2"
-			elif String(card.get("id", "")) == "elven_insight":
-				plus_card["cost"] = max(0, int(card.get("cost", 0)) - 1)
-			elif String(card.get("id", "")) == "dark_bargain":
-				plus_card["text"] = "내 영웅 체력 1 잃음. 카드 2장 드로우"
-			cards_by_id[plus_id] = plus_card
-			card_defs.append(plus_card)
+	var plus_id := "%s_plus" % card_id
+	if not card_db.get_card(plus_id).is_empty():
 		upgraded_id = plus_id
 	var index := deck_ids.find(card_id)
 	if index != -1:
 		deck_ids[index] = upgraded_id
 	current_run["deck_ids"] = deck_ids
+	var pending_subscreen: Dictionary = current_run.get("pending_subscreen", {})
+	var source := String(pending_subscreen.get("source", ""))
+	current_run["pending_subscreen"] = {}
 	_save_run()
-	if pending_return_screen == "event_complete_upgrade":
+	if source == "event_complete_upgrade":
 		_complete_event_and_return()
 		return
 	_complete_rest()
+
+func _cancel_pending_subscreen() -> void:
+	var pending_subscreen: Dictionary = current_run.get("pending_subscreen", {})
+	var source := String(pending_subscreen.get("source", ""))
+	current_run["pending_subscreen"] = {}
+	_save_run()
+	match source:
+		"event_complete", "event_complete_upgrade":
+			_complete_event_and_return()
+		"rest", "rest_upgrade":
+			_complete_rest()
+		_:
+			_show_shop()
 
 func _show_run_result(is_win: bool) -> void:
 	active_screen = "run_result"
@@ -549,8 +509,11 @@ func _finish_run(is_win: bool) -> void:
 	player_profile["soul_stones"] = int(player_profile.get("soul_stones", 0)) + earned_soul_stones
 	_save_profile()
 	current_run["active_enemy"] = {}
+	current_run["battle_snapshot"] = {}
 	current_run["pending_event"] = {}
+	current_run["pending_message"] = {}
 	current_run["pending_shop"] = {}
+	current_run["pending_subscreen"] = {}
 	current_run["pending_card_reward"] = {}
 	_save_run()
 	_show_run_result(is_win)
@@ -607,7 +570,7 @@ func _reset_profile() -> void:
 	_save_profile()
 	_show_message("로컬 프로필을 초기화했습니다.", "_show_main_menu")
 
-func _show_message(message: String, callback_method: String) -> void:
+func _show_message(message: String, callback_method: String, target: Object = null) -> void:
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("알림", false)
 	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
@@ -616,7 +579,7 @@ func _show_message(message: String, callback_method: String) -> void:
 	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
 	box.add_child(_make_label(message, 18, Color(0.92, 0.94, 0.98, 1.0)))
-	_add_menu_button(box, "확인", callback_method, Color(0.18, 0.34, 0.48, 1.0))
+	_add_menu_button(box, "확인", callback_method, Color(0.18, 0.34, 0.48, 1.0), target)
 
 func _make_run_summary_panel() -> Control:
 	var compact := _is_compact_layout()
@@ -770,8 +733,9 @@ func _make_art_rect(art_index: int, size: Vector2) -> TextureRect:
 func _make_label(text: String, font_size: int, color: Color) -> Label:
 	return ui.make_label(text, font_size, color)
 
-func _add_menu_button(parent: Node, text: String, callback_method: String, color: Color) -> Button:
-	return ui.add_menu_button(parent, self, text, callback_method, color)
+func _add_menu_button(parent: Node, text: String, callback_method: String, color: Color, target: Object = null) -> Button:
+	var callback_target: Object = self if target == null else target
+	return ui.add_menu_button(parent, callback_target, text, callback_method, color)
 
 func _add_title(text: String) -> void:
 	ui.add_title(root_box, text)
@@ -780,8 +744,4 @@ func _quit_game() -> void:
 	get_tree().quit()
 
 func _prepare_battle(tier: String) -> void:
-	active_screen = "battle"
-	_clear_screen()
-	var BattleScreenClass = load("res://scripts/ui/screens/battle_screen.gd")
-	var battle_screen = BattleScreenClass.new(self)
-	battle_screen._prepare_battle(tier)
+	run_flow.prepare_battle(tier)
