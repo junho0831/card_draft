@@ -149,7 +149,7 @@ func _reset_battle_state() -> void:
 		"log": Callable(self, "_add_log"),
 		"cleanup_dead_units": Callable(self, "_cleanup_dead_units"),
 		"calculate_damage": Callable(self, "_calculate_damage"),
-		"main.relic_service": main.relic_service,
+		"relic_service": main.relic_service,
 		"run_data": main.current_run,
 		"max_health": int(main.current_run.get("max_hp", 50)),
 		"player_state": player,
@@ -284,7 +284,7 @@ func _build_battle_ui() -> void:
 	turn_timer = Timer.new()
 	turn_timer.one_shot = true
 	turn_timer.timeout.connect(Callable(self, "_on_turn_timeout"))
-	main.add_child(turn_timer)
+	main.root_box.add_child(turn_timer)
 
 	var side_panel = main._make_panel_container(Color(0.105, 0.115, 0.135, 1.0))
 	side_panel.custom_minimum_size = Vector2(330 if not compact else 220, 0)
@@ -442,7 +442,7 @@ func _battle_effect_context() -> Dictionary:
 		"log": Callable(self, "_add_log"),
 		"cleanup_dead_units": Callable(self, "_cleanup_dead_units"),
 		"calculate_damage": Callable(self, "_calculate_damage"),
-		"main.relic_service": main.relic_service,
+		"relic_service": main.relic_service,
 		"run_data": main.current_run,
 		"max_health": int(main.current_run.get("max_hp", 50)),
 	}

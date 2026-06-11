@@ -29,15 +29,6 @@ func load_cards(path: String) -> bool:
 		cards_by_id[String(card["id"])] = card.duplicate(true)
 	return not card_defs.is_empty()
 
-func build_starter_deck(deck_size: int) -> Array:
-	var deck: Array = []
-	while deck.size() < deck_size:
-		for card in card_defs:
-			if deck.size() >= deck_size:
-				break
-			deck.append(card.duplicate(true))
-	return deck
-
 func has_card(id: String) -> bool:
 	return not get_card(id).is_empty()
 

@@ -16,7 +16,6 @@ const EventRunServiceScript := preload("res://scripts/services/event_run_service
 const EventServiceScript := preload("res://scripts/services/event_service.gd")
 const ProfileStoreScript := preload("res://scripts/core/profile_store.gd")
 const RelicServiceScript := preload("res://scripts/services/relic_service.gd")
-const RewardServiceScript := preload("res://scripts/services/reward_service.gd")
 const ShopRunServiceScript := preload("res://scripts/services/shop_run_service.gd")
 const RunFlowCoordinatorScript := preload("res://scripts/core/run_flow_coordinator.gd")
 const RunGeneratorScript := preload("res://scripts/services/run_generator.gd")
@@ -33,7 +32,6 @@ var event_service
 var event_run_service
 var profile_store
 var relic_service
-var reward_service
 var shop_run_service
 var run_generator
 var run_store
@@ -63,7 +61,6 @@ func _ready() -> void:
 	event_run_service = EventRunServiceScript.new()
 	profile_store = ProfileStoreScript.new()
 	relic_service = RelicServiceScript.new()
-	reward_service = RewardServiceScript.new()
 	shop_run_service = ShopRunServiceScript.new()
 	run_generator = RunGeneratorScript.new()
 	run_store = RunStateScript.new()

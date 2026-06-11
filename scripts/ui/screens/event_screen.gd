@@ -9,7 +9,7 @@ func _init(_main: Node) -> void:
 func build(body: VBoxContainer) -> void:
 	var event_data: Dictionary = main.current_run.get("pending_event", {})
 	body.add_child(main._make_run_summary_panel())
-	var panel = main._make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 640)
+	var panel := main._make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 640)
 	body.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
@@ -19,128 +19,47 @@ func build(body: VBoxContainer) -> void:
 	for option in event_data.get("options", []):
 		if typeof(option) != TYPE_DICTIONARY:
 			continue
-		var button := Button.new()
-		button.text = String(option.get("label", ""))
-		button.custom_minimum_size = Vector2(220, 48)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		main.ui.style_button(button, Color(0.22, 0.31, 0.38, 1.0))
+		var button := main._add_menu_button(box, String(option.get("label", "")), "_noop", Color(0.22, 0.31, 0.38, 1.0))
 		button.pressed.connect(Callable(self, "_resolve_event_option").bind(String(option.get("effect", ""))))
-		box.add_child(button)
 
 func _resolve_event_option(effect: String) -> void:
-	match effect:
-		"merchant_card":
-			main.current_run["hp"] = max(1, int(main.current_run.get("hp", 1)) - 5)
-			var premium_choices = main._roll_high_cost_cards(3)
-			main.current_run["pending_card_reward"] = {
-				"choices": premium_choices,
-				"bonus_relic": {},
-				"battle_tier": "event",
-			}
-			main.current_run["pending_event"] = {}
+	var result: Dictionary = main.event_run_service.resolve_effect(main.current_run, effect, {
+		"roll_high_cost_cards": Callable(main, "_roll_high_cost_cards"),
+		"roll_card_choices": Callable(main, "_roll_card_choices"),
+		"roll_card_choice_filtered": Callable(main, "_roll_card_choice_filtered"),
+		"random_relic": Callable(main.relic_service, "random_relic"),
+		"apply_relic": Callable(main.relic_service, "apply_on_acquire"),
+		"card_name": Callable(self, "_card_name"),
+	})
+	match String(result.get("action", "")):
+		"show_card_reward":
 			main._save_run()
-			main._show_card_reward()
-			return
-		"merchant_relic":
-			if int(main.current_run.get("gold", 0)) < 50:
-				main._show_message("골드가 부족합니다.", "_show_event")
-				return
-			main.current_run["gold"] = int(main.current_run["gold"]) - 50
-			var merchant_relic: Dictionary = main.relic_service.random_relic(main.current_run.get("relic_ids", []))
-			if merchant_relic.is_empty():
-				main._show_message("얻을 유물이 없습니다.", "_complete_event_and_return")
-				return
-			var merchant_relic_id := String(merchant_relic.get("id", ""))
-			(main.current_run.get("relic_ids", []) as Array).append(merchant_relic_id)
-			main.relic_service.apply_on_acquire(main.current_run, merchant_relic_id)
-			main._show_message("수상한 상인: %s 획득" % String(merchant_relic.get("name", "")), "_complete_event_and_return")
-			return
-		"gamble_small":
-			if int(main.current_run.get("gold", 0)) < 30:
-				main._show_message("골드가 부족합니다.", "_show_event")
-				return
-			main.current_run["gold"] = int(main.current_run["gold"]) - 30
-			if randi() % 2 == 0:
-				main.current_run["gold"] = int(main.current_run["gold"]) + 80
-				main._show_message("도박 성공: 골드 80 획득", "_complete_event_and_return")
-				return
-			main._show_message("도박 실패: 골드를 잃었습니다.", "_complete_event_and_return")
-			return
-		"gamble_relic":
-			if int(main.current_run.get("gold", 0)) < 60:
-				main._show_message("골드가 부족합니다.", "_show_event")
-				return
-			main.current_run["gold"] = int(main.current_run["gold"]) - 60
-			if randi() % 10 < 3:
-				var relic: Dictionary = main.relic_service.random_relic(main.current_run.get("relic_ids", []))
-				if not relic.is_empty():
-					var relic_id := String(relic.get("id", ""))
-					(main.current_run.get("relic_ids", []) as Array).append(relic_id)
-					main.relic_service.apply_on_acquire(main.current_run, relic_id)
-					main._show_message("대박: %s 획득" % String(relic.get("name", "")), "_complete_event_and_return")
-					return
-			main._show_message("도박 실패: 아무것도 얻지 못했습니다.", "_complete_event_and_return")
-			return
-		"remove_card":
-			main._show_remove_card_screen("이벤트", "event_complete")
-			return
-		"heal_10":
-			main.current_run["hp"] = min(int(main.current_run.get("max_hp", 50)), int(main.current_run.get("hp", 0)) + 10)
-			main._show_message("버려진 성당: 체력 10 회복", "_complete_event_and_return")
-			return
-		"curse_relic":
-			main.current_run["max_hp"] = max(10, int(main.current_run.get("max_hp", 50)) - 5)
-			main.current_run["hp"] = min(int(main.current_run.get("max_hp", 50)), int(main.current_run.get("hp", 0)))
-			var curse_relic: Dictionary = main.relic_service.random_relic(main.current_run.get("relic_ids", []))
-			if not curse_relic.is_empty():
-				var curse_relic_id := String(curse_relic.get("id", ""))
-				(main.current_run.get("relic_ids", []) as Array).append(curse_relic_id)
-				main.relic_service.apply_on_acquire(main.current_run, curse_relic_id)
-				main._show_message("저주를 받고 %s 획득" % String(curse_relic.get("name", "")), "_complete_event_and_return")
-				return
-			main._complete_event_and_return()
-			return
-		"heal":
-			var heal_amount = main.run_flow.rest_heal_amount(int(main.current_run.get("max_hp", 50)))
-			main.current_run["hp"] = min(int(main.current_run.get("max_hp", 50)), int(main.current_run.get("hp", 0)) + heal_amount)
-			main._show_message("마법 샘: 체력 %d 회복" % heal_amount, "_complete_event_and_return")
-			return
-		"upgrade_card":
-			main._show_upgrade_card_screen("event_complete_upgrade")
-			return
-		"max_hp_trade":
-			main.current_run["max_hp"] = int(main.current_run.get("max_hp", 50)) + 5
-			main.current_run["hp"] = max(1, int(main.current_run.get("hp", 1)) - 10)
-			main._show_message("마법의 샘: 최대 체력 +5, 현재 체력 -10", "_complete_event_and_return")
-			return
-		"gain_equipment":
-			var gain_id := String(main._roll_card_choice_filtered("equipment", ""))
-			if gain_id.is_empty():
-				main._complete_event_and_return()
-				return
-			(main.current_run.get("deck_ids", []) as Array).append(gain_id)
-			main._show_message("전쟁터의 잔해: %s 획득" % String(main.cards_by_id[gain_id].get("name", "")), "_complete_event_and_return")
-			return
-		"gain_human":
-			var gain_human_id := String(main._roll_card_choice_filtered("", "인간"))
-			if gain_human_id.is_empty():
-				main._complete_event_and_return()
-				return
-			(main.current_run.get("deck_ids", []) as Array).append(gain_human_id)
-			main._show_message("전쟁터의 잔해: %s 획득" % String(main.cards_by_id[gain_human_id].get("name", "")), "_complete_event_and_return")
-			return
-		"gain_undead":
-			var gain_undead_id := String(main._roll_card_choice_filtered("", "언데드"))
-			if gain_undead_id.is_empty():
-				main._complete_event_and_return()
-				return
-			(main.current_run.get("deck_ids", []) as Array).append(gain_undead_id)
-			main._show_message("전쟁터의 잔해: %s 획득" % String(main.cards_by_id[gain_undead_id].get("name", "")), "_complete_event_and_return")
-			return
-		"gain_random_card":
-			var gain_id := String(main._roll_card_choices(1)[0])
-			(main.current_run.get("deck_ids", []) as Array).append(gain_id)
-			main._show_message("전쟁터: %s 획득" % String(main.cards_by_id[gain_id].get("name", "")), "_complete_event_and_return")
-			return
+			main.run_flow.show_card_reward()
+		"show_event":
+			main._show_message(String(result.get("message", "")), "show_event", main.run_flow)
+		"persisted_message":
+			_show_persisted_message(String(result.get("message", "")), String(result.get("callback_method", "complete_event_and_return")))
+		"show_remove_card":
+			main._show_remove_card_screen(String(result.get("reason", "이벤트")), String(result.get("source", "event_complete")))
+		"show_upgrade_card":
+			main._show_upgrade_card_screen(String(result.get("source", "event_complete_upgrade")))
+		"complete_event":
+			main.run_flow.complete_event_and_return()
 		_:
-			main._complete_event_and_return()
+			main.run_flow.complete_event_and_return()
+
+func _card_name(card_id: String) -> String:
+	var card: Dictionary = main.card_db.get_card(card_id)
+	if card.is_empty():
+		return card_id
+	return String(card.get("name", ""))
+
+func _show_persisted_message(message: String, callback_method: String) -> void:
+	main.current_run["pending_event"] = {}
+	main.current_run["pending_message"] = {
+		"target": "event",
+		"message": message,
+		"callback_method": callback_method,
+	}
+	main._save_run()
+	main._show_message(message, callback_method, main.run_flow)
