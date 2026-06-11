@@ -16,13 +16,36 @@ func load_acts() -> Array[Dictionary]:
 			acts.append((raw_act as Dictionary).duplicate(true))
 	return acts
 
-func starter_deck() -> Array[String]:
+func starter_deck(race_id: String = "") -> Array[String]:
+	if race_id == "elf":
+		return [
+			"elf_ranger", "elf_ranger", "elf_ranger",
+			"forest_archer", "forest_archer", "forest_archer",
+			"elven_insight", "elven_insight",
+			"nature_blessing", "nature_communion",
+		]
+	if race_id == "undead":
+		return [
+			"bone_soldier", "bone_soldier", "bone_soldier",
+			"grave_knight", "grave_knight", "grave_knight",
+			"dark_bargain", "dark_bargain",
+			"call_of_dead", "plague_spread",
+		]
+	
+	# Default (Human or empty)
 	return [
 		"militia", "militia", "militia",
 		"trainee_swordsman", "trainee_swordsman", "trainee_swordsman",
 		"small_flame", "small_flame",
 		"first_aid", "first_aid",
 	]
+
+func get_starting_relic(race_id: String) -> String:
+	match race_id:
+		"human": return "knight_banner"
+		"elf": return "world_tree_leaf"
+		"undead": return "necromancer_ring"
+		_: return ""
 
 func create_map_nodes(acts: Array[Dictionary]) -> Array[Dictionary]:
 	var nodes: Array[Dictionary] = []
