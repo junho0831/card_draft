@@ -30,7 +30,10 @@ func create_new_run(acts: Array[Dictionary], deck_ids: Array[String], start_hp: 
 		"pending_card_choices": [],
 		"pending_shop": {},
 		"pending_event": {},
+		"pending_message": {},
+		"pending_subscreen": {},
 		"active_enemy": {},
+		"battle_snapshot": {},
 		"result": "",
 	}
 

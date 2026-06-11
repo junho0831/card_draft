@@ -11,6 +11,9 @@
 - 전투 규칙: 영웅 체력 0 승패, 마나 1부터 시작, 턴마다 +1, 필드 5칸
 - 런 저장: `user://run_state.json`
 - 메타/설정용 로컬 프로필: `user://meta_profile.json`
+- 이어하기 복원 범위
+  - 전투 중 손패/필드/턴/로그/타이머 복원
+  - 카드 제거/카드 강화 같은 서브 화면도 런 상태 기준으로 복원
 
 ## 실행
 
@@ -33,12 +36,29 @@ res://scenes/Main.tscn
 
 ## 주요 파일
 
-- 메인 허브/전투/UI 흐름: `res://scripts/main.gd`
+- 메인 허브: `res://scripts/core/main.gd`
+- 런 흐름 코디네이터: `res://scripts/core/run_flow_coordinator.gd`
+- 전투 화면: `res://scripts/ui/screens/battle_screen.gd`
+- 런 저장/진행 상태: `res://scripts/services/run_state.gd`
 - 카드 데이터: `res://data/cards.json`
 - 유물 데이터: `res://data/relics.json`
 - 이벤트 데이터: `res://data/events.json`
 - 적 데이터: `res://data/enemies.json`
 - Act 데이터: `res://data/acts.json`
+
+## 테스트
+
+최소 로직 회귀 테스트를 headless Godot script로 실행할 수 있다.
+
+```bash
+godot4 --headless -s res://tests/godot/run_tests.gd
+```
+
+현재 포함:
+- `RunState` 저장/진행 회귀
+- `CardDatabase`의 `*_plus` 카드 복원 회귀
+- `EventRunService` 이벤트 해결 로직 회귀
+- `ShopRunService` 상점 구매/회복/제거 로직 회귀
 
 ## 문서
 
