@@ -128,6 +128,24 @@ func make_status_badge(title: String, value: String, color: Color) -> PanelConta
 	row.add_child(value_label)
 	return panel
 
+func make_guidance_banner(title: String, value: String, color: Color, compact: bool = false) -> PanelContainer:
+	var panel := make_panel_container(color)
+	panel.custom_minimum_size = Vector2(0, 54 if compact else 62)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	panel.add_child(row)
+	var title_label := make_label(title, 12 if compact else 13, Color(0.9, 0.94, 0.96, 1.0))
+	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title_label.custom_minimum_size = Vector2(82 if compact else 110, 0)
+	var value_label := make_label(value, 16 if compact else 18, Color(1.0, 0.98, 0.86, 1.0))
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(title_label)
+	row.add_child(value_label)
+	return panel
+
 func add_title(parent: Node, text: String) -> void:
 	var title := make_label(text, 40, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -220,6 +238,15 @@ func style_button(button: Button, base_color: Color) -> void:
 	button.add_theme_color_override("font_color", Color(0.98, 0.98, 0.96, 1.0))
 	button.add_theme_color_override("font_disabled_color", Color(0.55, 0.57, 0.62, 1.0))
 	button.add_theme_font_size_override("font_size", 16)
+
+func style_primary_button(button: Button, base_color: Color = Color(0.55, 0.36, 0.1, 1.0)) -> void:
+	button.add_theme_stylebox_override("normal", make_style_box(base_color, Color(1.0, 0.78, 0.34, 1.0), 3, 6))
+	button.add_theme_stylebox_override("hover", make_style_box(base_color.lightened(0.16), Color(1.0, 0.92, 0.58, 1.0), 3, 6))
+	button.add_theme_stylebox_override("pressed", make_style_box(base_color.darkened(0.14), Color(1.0, 0.88, 0.55, 1.0), 3, 6))
+	button.add_theme_stylebox_override("disabled", make_style_box(Color(0.16, 0.17, 0.19, 1.0), Color(0.28, 0.3, 0.34, 1.0), 1, 6))
+	button.add_theme_color_override("font_color", Color(1.0, 0.98, 0.88, 1.0))
+	button.add_theme_color_override("font_disabled_color", Color(0.55, 0.57, 0.62, 1.0))
+	button.add_theme_font_size_override("font_size", 17)
 
 func make_card_frame() -> PanelContainer:
 	var frame := PanelContainer.new()

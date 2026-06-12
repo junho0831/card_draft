@@ -4,12 +4,11 @@ const MAX_MANA := 10
 const MAX_FIELD := 5
 const START_HAND := 4
 const TURN_TIME_SECONDS := 60.0
-const CURSE_VICTORY_GOAL := 10
-const RITUAL_VICTORY_GOAL := 8
 
 var main
 var root_box: VBoxContainer
 var status_label: Label
+var battle_guidance_label: Label
 var opponent_info: Label
 var opponent_gauge_info: Label
 var opponent_field_box: HBoxContainer
@@ -84,17 +83,54 @@ func _is_battle_cutscene_enabled() -> bool:
 func _is_player_input_locked() -> bool:
 	return input_locked or game_over or current_player != "player"
 
-func _format_side_status(side: Dictionary, fallback_name: String) -> String:
+func _format_side_status(side: Dictionary, fallback_name: String, is_enemy_hero: bool = false) -> String:
+	if is_enemy_hero:
+		return "적 영웅 HP %d/%d" % [int(side.get("health", 0)), int(side.get("max_health", 0))]
 	return "%s  HP %d/%d" % [String(side.get("name", fallback_name)), int(side.get("health", 0)), int(side.get("max_health", 0))]
 
 func _format_side_resources(side: Dictionary) -> String:
 	return "마나 %d/%d | 손패 %d | 덱 %d" % [int(side.get("mana", 0)), int(side.get("max_mana", 0)), (side.get("hand", []) as Array).size(), (side.get("deck", []) as Array).size()]
 
 func _format_opponent_victory_gauge() -> String:
-	return "저주 %d/%d | %s" % [int(opponent.get("curses", 0)), CURSE_VICTORY_GOAL, _format_side_resources(opponent)]
+	return "현재 목표: 적 영웅 체력을 0으로 만드세요. | %s" % _format_side_resources(opponent)
 
 func _format_player_victory_gauge() -> String:
-	return "의식 %d/%d | %s" % [int(player.get("ritual_stacks", 0)), RITUAL_VICTORY_GOAL, _format_side_resources(player)]
+	return "%s | %s" % [main._battle_build_hint_text(), _format_side_resources(player)]
+
+func _current_battle_guidance_text() -> String:
+	if game_over:
+		return "전투가 끝났습니다."
+	if input_locked or current_player != "player":
+		return "적 행동을 확인하세요."
+	if selected_attacker != -1:
+		if opponent.field.is_empty():
+			return "상대 영웅 공격 버튼을 누르세요."
+		return "공격할 적 유닛을 고르거나 상대 영웅을 공격하세요."
+	for card in player.hand:
+		if _can_play_card(player, card, "player"):
+			return "밝게 표시된 카드를 내거나 공격 가능한 유닛을 선택하세요."
+	for unit in player.field:
+		if bool(unit.get("can_attack", false)):
+			return "밝게 표시된 유닛을 선택해 공격하세요."
+	return "할 행동이 없으면 턴 종료를 누르세요."
+
+func _make_battle_guidance_panel(compact: bool) -> PanelContainer:
+	var panel: PanelContainer = main.ui.make_panel_container(Color(0.2, 0.24, 0.18, 1.0))
+	panel.custom_minimum_size = Vector2(0, 54 if compact else 60)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	panel.add_child(row)
+	var title: Label = main._make_label("다음 행동", 12 if compact else 13, Color(0.9, 0.94, 0.96, 1.0))
+	title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title.custom_minimum_size = Vector2(82 if compact else 110, 0)
+	row.add_child(title)
+	battle_guidance_label = main._make_label("", 15 if compact else 17, Color(1.0, 0.98, 0.86, 1.0))
+	battle_guidance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	battle_guidance_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(battle_guidance_label)
+	return panel
 
 func _is_fast_ai_enabled() -> bool:
 	return bool(main.player_profile["settings"]["fast_ai"])
@@ -103,7 +139,7 @@ func _is_compact_layout() -> bool:
 	return main._is_compact_layout_for(860.0, 820.0)
 
 func _battle_reward_choices() -> Array[String]:
-	return _roll_high_cost_cards(3) if battle_tier == "boss" else _roll_card_choices(3)
+	return main._roll_card_reward_choices(3, battle_tier == "boss")
 
 func _apply_battle_victory_rewards() -> Dictionary:
 	var bonus_relic := {}
@@ -158,8 +194,8 @@ func _reset_battle_state() -> void:
 		"cards_played_this_turn": 0,
 		"necromancer_ring_used": false,
 		"second_chance_used": false,
-		"curse_goal": CURSE_VICTORY_GOAL,
-		"ritual_goal": RITUAL_VICTORY_GOAL,
+		"active_build_tags": main._active_build_tags(main._current_build_scores()),
+		"summon_build_started": false,
 	}
 
 func _prepare_battle(tier: String) -> void:
@@ -188,6 +224,57 @@ func _new_side(display_name: String, deck: Array, hp: int, max_hp: int) -> Dicti
 		"ritual_stacks": 0,
 	}
 
+func _is_build_active(tag: String) -> bool:
+	return (battle_state.get("active_build_tags", []) as Array).has(tag)
+
+func _add_build_log(message: String) -> void:
+	_add_log("빌드 효과: %s" % message)
+
+func _spawn_build_token() -> void:
+	if not _is_build_active("summon") or bool(battle_state.get("summon_build_started", false)):
+		return
+	if player.field.size() >= MAX_FIELD:
+		return
+	var token: Dictionary = {
+		"id": "build_token",
+		"name": "전열 토큰",
+		"race": "중립",
+		"attr": "대지",
+		"attack": 1,
+		"health": 1,
+		"max_health": 1,
+		"art": 0,
+		"can_attack": false,
+	}
+	player.field.append(token)
+	_apply_build_on_unit_summoned(player, token)
+	battle_state["summon_build_started"] = true
+	_add_build_log("소환 빌드 활성, 전투 시작 시 1/1 토큰 소환")
+
+func _apply_build_on_turn_start() -> void:
+	if _is_build_active("draw"):
+		_draw_cards(player, 1)
+		_add_build_log("드로우 빌드 활성, 카드 1장 추가 드로우")
+
+func _apply_build_on_unit_summoned(owner_state: Dictionary, unit: Dictionary) -> void:
+	if owner_state == player and _is_build_active("buff"):
+		unit["health"] = int(unit.get("health", 0)) + 1
+		unit["max_health"] = int(unit.get("max_health", 0)) + 1
+		_add_build_log("버프 빌드 활성, %s 체력 +1" % String(unit.get("name", "유닛")))
+
+func _apply_build_on_ally_died(enemy_state: Dictionary) -> void:
+	if _is_build_active("death"):
+		enemy_state["health"] = int(enemy_state.get("health", 0)) - 1
+		_add_build_log("사망 빌드 활성, 적 영웅 피해 1")
+
+func _build_damage_bonus(source: Dictionary, is_spell: bool, owner_state: Dictionary) -> int:
+	var bonus := 0
+	if _is_build_active("fire") and String(source.get("attr", "")) == "화염":
+		bonus += 2
+	if _is_build_active("low_hp") and not is_spell and owner_state == player and int(player.get("health", 0)) <= int(player.get("max_health", 0)) / 2:
+		bonus += 1
+	return bonus
+
 
 func _build_battle_ui() -> void:
 	var compact := _is_compact_layout()
@@ -210,6 +297,8 @@ func _build_battle_ui() -> void:
 	turn_timer_label.custom_minimum_size = Vector2(120 if not compact else 84, 0)
 	turn_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	status_row.add_child(turn_timer_label)
+	root_box.add_child(main._make_build_status_panel())
+	root_box.add_child(_make_battle_guidance_panel(compact))
 
 	var content_row := HBoxContainer.new()
 	content_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -225,7 +314,7 @@ func _build_battle_ui() -> void:
 	board_box.add_theme_constant_override("separation", 10 if not compact else 6)
 	board_panel.add_child(board_box)
 
-	opponent_info = main._make_label("", 16 if not compact else 13, Color(1.0, 0.78, 0.78, 1.0))
+	opponent_info = main._make_label("", 28 if not compact else 22, Color(1.0, 0.82, 0.78, 1.0))
 	board_box.add_child(opponent_info)
 	opponent_gauge_info = main._make_label("", 14 if not compact else 12, Color(0.8, 0.6, 1.0, 1.0))
 	board_box.add_child(opponent_gauge_info)
@@ -253,7 +342,7 @@ func _build_battle_ui() -> void:
 	player_field_box.custom_minimum_size = Vector2(0, field_height)
 	player_field_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	player_field_scroll.add_child(player_field_box)
-	player_info = main._make_label("", 16 if not compact else 13, Color(0.78, 0.9, 1.0, 1.0))
+	player_info = main._make_label("", 18 if not compact else 14, Color(0.78, 0.9, 1.0, 1.0))
 	board_box.add_child(player_info)
 	player_gauge_info = main._make_label("", 14 if not compact else 12, Color(0.6, 1.0, 0.6, 1.0))
 	board_box.add_child(player_gauge_info)
@@ -372,6 +461,7 @@ func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
 	if is_player_turn:
 		battle_state["cards_played_this_turn"] = 0
 		main.relic_service.on_turn_start(main.current_run, battle_state, player)
+		_apply_build_on_turn_start()
 	_add_log("%s 턴 시작: 마나 %d/%d" % [side.name, side.mana, side.max_mana])
 
 
@@ -449,14 +539,16 @@ func _battle_effect_context() -> Dictionary:
 		"log": Callable(self, "_add_log"),
 		"cleanup_dead_units": Callable(self, "_cleanup_dead_units"),
 		"calculate_damage": Callable(self, "_calculate_damage"),
+		"on_unit_summoned": Callable(self, "_apply_build_on_unit_summoned"),
 		"relic_service": main.relic_service,
 		"run_data": main.current_run,
 		"max_health": int(main.current_run.get("max_hp", 50)),
+		"cards_played_this_turn": int(battle_state.get("cards_played_this_turn", 0)),
 	}
 
 
 func _calculate_damage(card_or_unit: Dictionary, is_spell: bool, owner_state: Dictionary, base_damage: int) -> int:
-	return base_damage + main.relic_service.damage_bonus(main.current_run, card_or_unit, is_spell, owner_state)
+	return base_damage + main.relic_service.damage_bonus(main.current_run, card_or_unit, is_spell, owner_state) + _build_damage_bonus(card_or_unit, is_spell, owner_state)
 
 
 func _on_player_unit_pressed(index: int) -> void:
@@ -574,6 +666,7 @@ func _cleanup_side_dead(owner: Dictionary, enemy: Dictionary) -> void:
 			main.battle_effects.on_unit_died(dead_unit, owner, enemy, _battle_effect_context())
 			if owner == player:
 				main.relic_service.on_ally_unit_died(main.current_run, battle_state, dead_unit)
+				_apply_build_on_ally_died(enemy)
 			_add_log("%s 사망" % String(dead_unit.get("name", "")))
 
 
@@ -671,28 +764,12 @@ func _check_game_over() -> void:
 		_add_log("적 영웅을 쓰러뜨려 승리했습니다.")
 		_finish_player_victory("health")
 		await _finish_battle_victory()
-	elif _has_curse_victory():
-		_add_log("저주가 완성되어 승리했습니다.")
-		_finish_player_victory("curse")
-		await _finish_battle_victory()
-	elif _has_ritual_victory():
-		_add_log("의식이 완성되어 승리했습니다.")
-		_finish_player_victory("ritual")
-		await _finish_battle_victory()
-
 
 func _finish_battle_victory() -> void:
 	main.current_run["active_enemy"] = {}
 	main.current_run["pending_card_reward"] = _apply_battle_victory_rewards()
 	_save_run()
 	_show_card_reward()
-
-func _has_curse_victory() -> bool:
-	return int(opponent.get("curses", 0)) >= int(battle_state.get("curse_goal", CURSE_VICTORY_GOAL))
-
-func _has_ritual_victory() -> bool:
-	return int(player.get("ritual_stacks", 0)) >= int(battle_state.get("ritual_goal", RITUAL_VICTORY_GOAL))
-
 
 func _spawn_floating_text(target: Control, delta: int) -> void:
 	if delta == 0 or target == null or not is_instance_valid(target):
@@ -734,10 +811,17 @@ func _configure_field_button(button: Button, unit: Dictionary, index: int, is_pl
 		button.disabled = _is_player_input_locked() or not bool(unit.can_attack)
 		button.pressed.connect(Callable(self, "_on_player_unit_pressed").bind(index))
 		if index == selected_attacker:
-			button.text = "[선택] " + button.text
+			button.text = "선택됨\n" + button.text
+			main.ui.style_primary_button(button, Color(0.48, 0.34, 0.08, 1.0))
+		elif not button.disabled:
+			button.text = "공격 가능\n" + button.text
+			main.ui.style_primary_button(button, Color(0.18, 0.38, 0.24, 1.0))
 	else:
 		button.disabled = _is_player_input_locked() or selected_attacker == -1
 		button.pressed.connect(Callable(self, "_on_opponent_unit_pressed").bind(index))
+		if not button.disabled:
+			button.text = "공격 대상\n" + button.text
+			main.ui.style_primary_button(button, Color(0.55, 0.18, 0.12, 1.0))
 
 func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> Control:
 	var compact := _is_compact_layout()
@@ -785,9 +869,14 @@ func _render_hand() -> void:
 		var button := Button.new()
 		var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "player")
 		button.custom_minimum_size = Vector2(145, 68) if not compact else Vector2(118, 60)
-		button.text = "%s\n비용 %d | %s\n%s" % [String(card.get("name", "")), cost, main.deck_service.type_name(String(card.get("type", ""))), String(card.get("text", ""))]
-		button.disabled = _is_player_input_locked() or not _can_play_card(player, card, "player")
-		main.ui.style_button(button, Color(0.18, 0.24, 0.3, 1.0))
+		var playable: bool = not _is_player_input_locked() and _can_play_card(player, card, "player")
+		button.text = "%s%s\n비용 %d | %s\n%s" % ["사용 ▶ " if playable else "", String(card.get("name", "")), cost, main.deck_service.type_name(String(card.get("type", ""))), String(card.get("text", ""))]
+		button.disabled = not playable
+		if playable:
+			main.ui.style_primary_button(button, Color(0.18, 0.34, 0.48, 1.0))
+		else:
+			frame.modulate = Color(0.62, 0.65, 0.7, 0.78)
+			main.ui.style_button(button, Color(0.13, 0.15, 0.18, 1.0))
 		button.pressed.connect(Callable(self, "_on_hand_card_pressed").bind(i))
 		card_box.add_child(button)
 		hand_box.add_child(frame)
@@ -809,19 +898,27 @@ func _refresh_timer_label() -> void:
 
 func _refresh_status_labels() -> void:
 	if status_label != null:
-		status_label.text = "전투 중"
+		status_label.text = "전투 목표: 적 영웅 처치"
 	if opponent_info != null:
-		opponent_info.text = _format_side_status(opponent, "적")
+		opponent_info.text = _format_side_status(opponent, "적", true)
 	if opponent_gauge_info != null:
 		opponent_gauge_info.text = _format_opponent_victory_gauge()
 	if player_info != null:
 		player_info.text = _format_side_status(player, "플레이어")
 	if player_gauge_info != null:
 		player_gauge_info.text = _format_player_victory_gauge()
+	if battle_guidance_label != null:
+		battle_guidance_label.text = _current_battle_guidance_text()
 
 func _refresh_action_buttons() -> void:
 	if hero_attack_button != null:
-		hero_attack_button.disabled = _is_player_input_locked() or selected_attacker == -1
+		var can_attack_hero: bool = not _is_player_input_locked() and selected_attacker != -1
+		hero_attack_button.disabled = not can_attack_hero
+		hero_attack_button.text = "영웅 공격 ▶" if can_attack_hero else "영웅 공격"
+		if can_attack_hero:
+			main.ui.style_primary_button(hero_attack_button, Color(0.55, 0.18, 0.12, 1.0))
+		else:
+			main.ui.style_button(hero_attack_button, Color(0.5, 0.13, 0.13, 1.0))
 	if end_turn_button != null:
 		end_turn_button.disabled = _is_player_input_locked()
 
@@ -852,6 +949,7 @@ func start_battle() -> void:
 	_reset_battle_state()
 	_build_battle_ui()
 	main.relic_service.on_battle_start(main.current_run, player, battle_state)
+	_spawn_build_token()
 	player.health = int(main.current_run.get("hp", player.health))
 	_add_log("%s 전투 시작. 적 영웅 체력을 0으로 만드세요." % _node_type_name(String(main.run_store.current_node(main.current_run).get("type", "battle"))))
 	_refresh_ui()

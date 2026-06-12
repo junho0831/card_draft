@@ -4,7 +4,7 @@ class_name ProfileStore
 const LOCAL_DEBUG_GOLD := 999999999999999999
 const LOCAL_DEBUG_CARD_COPIES := 3
 
-func load_or_create(path: String, card_defs: Array, deck_service, deck_size: int, max_copies: int) -> Dictionary:
+func load_or_create(path: String, card_defs: Array) -> Dictionary:
 	var profile := {}
 	var loaded := false
 	if FileAccess.file_exists(path):
@@ -15,30 +15,24 @@ func load_or_create(path: String, card_defs: Array, deck_service, deck_size: int
 				profile = json.data
 				loaded = true
 	if not loaded:
-		profile = make_default_profile(card_defs, deck_size)
-	profile = normalize(profile, card_defs, deck_service, deck_size, max_copies)
+		profile = make_default_profile(card_defs)
+	profile = normalize(profile, card_defs)
 	save(path, profile)
 	return profile
 
-func make_default_profile(card_defs: Array, deck_size: int) -> Dictionary:
+func make_default_profile(card_defs: Array) -> Dictionary:
 	var owned := {}
-	var deck: Array = []
 	for i in range(card_defs.size()):
 		var card: Dictionary = card_defs[i]
 		var count := 2
 		if i < 6:
 			count = 3
 		owned[String(card["id"])] = count
-		for j in range(count):
-			if deck.size() < deck_size:
-				deck.append(String(card["id"]))
 	return {
 		"player_name": "플레이어",
 		"gold": LOCAL_DEBUG_GOLD,
-		"rank_points": 0,
 		"soul_stones": 0,
 		"owned_cards": owned,
-		"selected_deck": deck,
 		"unlocked_cards": [],
 		"unlocked_relics": [],
 		"upgrades": {
@@ -52,19 +46,15 @@ func make_default_profile(card_defs: Array, deck_size: int) -> Dictionary:
 		},
 	}
 
-func normalize(profile: Dictionary, card_defs: Array, deck_service, deck_size: int, max_copies: int) -> Dictionary:
+func normalize(profile: Dictionary, card_defs: Array) -> Dictionary:
 	if not profile.has("player_name"):
 		profile["player_name"] = "플레이어"
 	if not profile.has("gold"):
 		profile["gold"] = LOCAL_DEBUG_GOLD
-	if not profile.has("rank_points"):
-		profile["rank_points"] = 0
 	if not profile.has("soul_stones"):
 		profile["soul_stones"] = 0
 	if not profile.has("owned_cards") or typeof(profile["owned_cards"]) != TYPE_DICTIONARY:
 		profile["owned_cards"] = {}
-	if not profile.has("selected_deck") or typeof(profile["selected_deck"]) != TYPE_ARRAY:
-		profile["selected_deck"] = []
 	if not profile.has("unlocked_cards") or typeof(profile["unlocked_cards"]) != TYPE_ARRAY:
 		profile["unlocked_cards"] = []
 	if not profile.has("unlocked_relics") or typeof(profile["unlocked_relics"]) != TYPE_ARRAY:
@@ -84,16 +74,14 @@ func normalize(profile: Dictionary, card_defs: Array, deck_service, deck_size: i
 	if not profile["settings"].has("fast_ai"):
 		profile["settings"]["fast_ai"] = false
 
-	var cards_by_id := {}
 	var index := 0
 	for card in card_defs:
 		var id := String(card["id"])
-		cards_by_id[id] = card
 		if not profile["owned_cards"].has(id):
 			profile["owned_cards"][id] = 3 if index < 6 else 2
 		index += 1
-	if not deck_service.is_deck_valid(profile["selected_deck"], cards_by_id, profile["owned_cards"], deck_size, max_copies):
-		profile["selected_deck"] = deck_service.make_owned_starter_deck(card_defs, profile["owned_cards"], deck_size, max_copies)
+	profile.erase("rank_points")
+	profile.erase("selected_deck")
 	return profile
 
 func apply_local_debug_defaults(profile: Dictionary, card_defs: Array = []) -> Dictionary:

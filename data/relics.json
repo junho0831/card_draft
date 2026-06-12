@@ -2,76 +2,91 @@
 	{
 		"id": "book_of_death",
 		"name": "죽음의 서",
-		"text": "아군 유닛이 죽을 때 카드 1장 드로우"
+		"text": "아군 유닛이 죽을 때 카드 1장 드로우",
+		"build_tags": ["death", "draw"]
 	},
 	{
 		"id": "knight_banner",
 		"name": "기사단 깃발",
-		"text": "아군 유닛은 소환될 때 공격력 +1"
+		"text": "아군 유닛은 소환될 때 공격력 +1",
+		"build_tags": ["buff", "summon"]
 	},
 	{
 		"id": "world_tree_leaf",
 		"name": "세계수 잎",
-		"text": "내 턴 시작 시 카드 1장 추가 드로우"
+		"text": "내 턴 시작 시 카드 1장 추가 드로우",
+		"build_tags": ["draw"]
 	},
 	{
 		"id": "mana_crystal",
 		"name": "마나 수정",
-		"text": "전투 첫 턴 마나 +1"
+		"text": "전투 첫 턴 마나 +1",
+		"build_tags": ["draw", "summon"]
 	},
 	{
 		"id": "tactical_manual",
 		"name": "전술 교본",
-		"text": "매 턴 첫 카드 비용 -1"
+		"text": "매 턴 첫 카드 비용 -1",
+		"build_tags": ["draw"]
 	},
 	{
 		"id": "burning_heart",
 		"name": "불타는 심장",
-		"text": "화염 피해 +2"
+		"text": "화염 피해 +2",
+		"build_tags": ["fire"]
 	},
 	{
 		"id": "blood_chalice",
 		"name": "피의 성배",
-		"text": "내 영웅 체력이 감소할 때 가장 앞의 아군 공격력 +1"
+		"text": "내 영웅 체력이 감소할 때 가장 앞의 아군 공격력 +1",
+		"build_tags": ["low_hp", "buff"]
 	},
 	{
 		"id": "cursed_crown",
 		"name": "낡은 왕관",
-		"text": "최대 체력 +15, 전투 시작 시 체력 -3"
+		"text": "최대 체력 +15, 전투 시작 시 체력 -3",
+		"build_tags": ["low_hp"]
 	},
 	{
 		"id": "holy_shield",
 		"name": "성스러운 방패",
-		"text": "전투마다 처음 받는 영웅 피해를 0으로 만듦"
+		"text": "전투마다 처음 받는 영웅 피해를 0으로 만듦",
+		"build_tags": ["low_hp"]
 	},
 	{
 		"id": "necromancer_ring",
 		"name": "사령술사의 반지",
-		"text": "전투마다 처음 사망한 아군 유닛을 1/1 해골로 되살림"
+		"text": "전투마다 처음 사망한 아군 유닛을 1/1 해골로 되살림",
+		"build_tags": ["death", "summon"]
 	},
 	{
 		"id": "alchemy_bag",
 		"name": "연금술 가방",
-		"text": "전투 승리 시 골드 +10"
+		"text": "전투 승리 시 골드 +10",
+		"build_tags": []
 	},
 	{
 		"id": "gladiator_helm",
 		"name": "검투사 투구",
-		"text": "내 필드에 유닛이 3장 이상이면 턴 시작 시 가장 앞의 아군 공격력 +1"
+		"text": "내 필드에 유닛이 3장 이상이면 턴 시작 시 가장 앞의 아군 공격력 +1",
+		"build_tags": ["buff", "summon"]
 	},
 	{
 		"id": "wind_feather",
 		"name": "바람의 깃털",
-		"text": "한 턴에 카드 3장 사용 시 카드 1장 드로우"
+		"text": "한 턴에 카드 3장 사용 시 카드 1장 드로우",
+		"build_tags": ["draw"]
 	},
 	{
 		"id": "dark_heart",
 		"name": "어둠의 심장",
-		"text": "체력을 잃는 카드의 비용 -1"
+		"text": "체력을 잃는 카드의 비용 -1",
+		"build_tags": ["low_hp", "death"]
 	},
 	{
 		"id": "war_drum",
 		"name": "전장의 북",
-		"text": "전투 시작 시 카드 1장 드로우, 마나 +1"
+		"text": "전투 시작 시 카드 1장 드로우, 마나 +1",
+		"build_tags": ["draw", "summon"]
 	}
 ]

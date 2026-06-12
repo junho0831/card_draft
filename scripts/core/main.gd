@@ -80,7 +80,7 @@ func _ready() -> void:
 
 	card_defs = card_db.card_defs
 	cards_by_id = card_db.cards_by_id
-	player_profile = profile_store.load_or_create(PROFILE_PATH, card_defs, deck_service, 30, 3)
+	player_profile = profile_store.load_or_create(PROFILE_PATH, card_defs)
 	player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
 	_save_profile()
 	current_run = run_store.load_or_empty(RUN_PATH)
@@ -170,6 +170,7 @@ func _show_main_menu() -> void:
 	showcase.add_child(showcase_box)
 	showcase_box.add_child(_make_label("RUN BUILD PROTOTYPE", 13, Color(0.82, 0.88, 0.95, 1.0)))
 	showcase_box.add_child(_make_label("약한 스타터 덱에서 시작해 빌드를 완성하세요", 20, Color(1.0, 0.88, 0.55, 1.0)))
+	showcase_box.add_child(ui.make_guidance_banner("다음 행동", "새 런을 시작해 첫 전투로 진입", Color(0.22, 0.29, 0.22, 1.0), compact))
 
 	var art_row := HBoxContainer.new()
 	art_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -204,8 +205,11 @@ func _show_main_menu() -> void:
 	menu_panel.add_child(menu)
 	menu.add_child(_make_label("COMMAND", 13, Color(0.82, 0.88, 0.95, 1.0)))
 	if not current_run.is_empty():
-		_add_menu_button(menu, "이어하기", "_continue_run", Color(0.18, 0.45, 0.28, 1.0))
-	_add_menu_button(menu, "새 런 시작", "_start_new_run", Color(0.16, 0.38, 0.54, 1.0))
+		var continue_button := _add_menu_button(menu, "이어하기 ▶", "_continue_run", Color(0.18, 0.45, 0.28, 1.0))
+		ui.style_primary_button(continue_button, Color(0.22, 0.48, 0.24, 1.0))
+	var start_button := _add_menu_button(menu, "새 런 시작 ▶", "_start_new_run", Color(0.16, 0.38, 0.54, 1.0))
+	if current_run.is_empty():
+		ui.style_primary_button(start_button)
 	_add_menu_button(menu, "메타 강화", "_show_meta_upgrade", Color(0.34, 0.28, 0.52, 1.0))
 	_add_menu_button(menu, "카드 도감", "_show_compendium", Color(0.22, 0.31, 0.38, 1.0))
 	_add_menu_button(menu, "카드 보관함", "_show_collection", Color(0.22, 0.31, 0.38, 1.0))
@@ -562,7 +566,7 @@ func _on_fast_ai_toggled(enabled: bool) -> void:
 	_save_profile()
 
 func _reset_profile() -> void:
-	player_profile = profile_store.make_default_profile(card_defs, 30)
+	player_profile = profile_store.make_default_profile(card_defs)
 	player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
 	_save_profile()
 	_show_message("로컬 프로필을 초기화했습니다.", "_show_main_menu")
@@ -580,6 +584,8 @@ func _show_message(message: String, callback_method: String, target: Object = nu
 
 func _make_run_summary_panel() -> Control:
 	var compact := _is_compact_layout()
+	var wrapper := VBoxContainer.new()
+	wrapper.add_theme_constant_override("separation", 8)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 6)
@@ -587,7 +593,9 @@ func _make_run_summary_panel() -> Control:
 	row.add_child(ui.make_stat_tile("체력", "%d/%d" % [int(current_run.get("hp", 0)), int(current_run.get("max_hp", 0))], Color(0.46, 0.2, 0.2, 1.0), compact))
 	row.add_child(ui.make_stat_tile("골드", "%d" % int(current_run.get("gold", 0)), Color(0.52, 0.38, 0.16, 1.0), compact))
 	row.add_child(ui.make_stat_tile("덱", "%d장" % (current_run.get("deck_ids", []) as Array).size(), Color(0.22, 0.42, 0.34, 1.0), compact))
-	return row
+	wrapper.add_child(row)
+	wrapper.add_child(_make_build_status_panel())
+	return wrapper
 
 func _profile_upgrades() -> Dictionary:
 	if not player_profile.has("upgrades") or typeof(player_profile["upgrades"]) != TYPE_DICTIONARY:
@@ -597,6 +605,184 @@ func _profile_upgrades() -> Dictionary:
 			"second_chance": 0,
 		}
 	return player_profile["upgrades"]
+
+func _build_tag_meta() -> Dictionary:
+	return {
+		"fire": {"icon": "🔥", "name": "화염", "color": Color(0.84, 0.34, 0.16, 1.0), "bonus": "화염 피해 +2"},
+		"draw": {"icon": "📖", "name": "드로우", "color": Color(0.24, 0.46, 0.82, 1.0), "bonus": "드로우 엔진 성장"},
+		"death": {"icon": "💀", "name": "사망", "color": Color(0.48, 0.28, 0.58, 1.0), "bonus": "사망 시너지 성장"},
+		"buff": {"icon": "⚔", "name": "버프", "color": Color(0.7, 0.58, 0.18, 1.0), "bonus": "필드 강화 시너지 성장"},
+		"low_hp": {"icon": "❤️", "name": "저체력", "color": Color(0.76, 0.22, 0.28, 1.0), "bonus": "위험할수록 강해짐"},
+		"summon": {"icon": "👥", "name": "소환", "color": Color(0.22, 0.58, 0.32, 1.0), "bonus": "토큰/물량 시너지 성장"},
+	}
+
+func _build_threshold() -> int:
+	return 5
+
+func _valid_build_tags() -> Array[String]:
+	return ["fire", "draw", "death", "buff", "low_hp", "summon"]
+
+func _build_tags_from_data(source: Dictionary) -> Array[String]:
+	var tags: Array[String] = []
+	var raw_tags: Variant = source.get("build_tags", [])
+	if typeof(raw_tags) != TYPE_ARRAY:
+		return tags
+	var allowed := _valid_build_tags()
+	for raw_tag in raw_tags:
+		var tag := String(raw_tag)
+		if allowed.has(tag) and not tags.has(tag):
+			tags.append(tag)
+	return tags
+
+func _card_build_tags(card: Dictionary) -> Array[String]:
+	var data_tags := _build_tags_from_data(card)
+	if not data_tags.is_empty() or card.has("build_tags"):
+		return data_tags
+	var id := String(card.get("id", ""))
+	var tags: Array[String] = []
+	var attr := String(card.get("attr", ""))
+	if attr == "화염":
+		tags.append("fire")
+	if id in ["forest_archer", "elven_insight", "royal_support", "nature_communion", "wind_feather"]:
+		tags.append("draw")
+	if id in ["bone_soldier", "grave_knight", "dark_bargain", "call_of_dead", "corpse_explosion", "death_mark", "plague_spread", "bone_oracle", "soul_shackle", "funeral_fog"]:
+		tags.append("death")
+	if id in ["captain_order", "knight_spearman", "royal_support", "nature_blessing", "training_sword", "shield_guard"]:
+		tags.append("buff")
+	if id in ["dark_bargain", "thief", "healing_potion", "first_aid", "moonwell"]:
+		tags.append("low_hp")
+	if id in ["call_of_dead", "bone_soldier", "elf_ranger", "ritual_sapling", "mercenary", "militia"]:
+		tags.append("summon")
+	return tags
+
+func _relic_build_tags(relic: Dictionary) -> Array[String]:
+	var data_tags := _build_tags_from_data(relic)
+	if not data_tags.is_empty() or relic.has("build_tags"):
+		return data_tags
+	var id := String(relic.get("id", ""))
+	var tags: Array[String] = []
+	if id in ["burning_heart"]:
+		tags.append("fire")
+	if id in ["world_tree_leaf", "wind_feather", "tactical_manual", "war_drum"]:
+		tags.append("draw")
+	if id in ["book_of_death", "necromancer_ring"]:
+		tags.append("death")
+	if id in ["knight_banner", "gladiator_helm"]:
+		tags.append("buff")
+	if id in ["blood_chalice", "dark_heart", "cursed_crown", "holy_shield"]:
+		tags.append("low_hp")
+	if id in ["necromancer_ring", "gladiator_helm"]:
+		tags.append("summon")
+	return tags
+
+func _current_build_scores() -> Dictionary:
+	var scores := {
+		"fire": 0,
+		"draw": 0,
+		"death": 0,
+		"buff": 0,
+		"low_hp": 0,
+		"summon": 0,
+	}
+	if current_run.is_empty():
+		return scores
+	for card_id_variant in current_run.get("deck_ids", []):
+		var card: Dictionary = card_db.get_card(String(card_id_variant))
+		if card.is_empty():
+			continue
+		for tag in _card_build_tags(card):
+			scores[tag] = int(scores.get(tag, 0)) + 1
+	for relic_id_variant in current_run.get("relic_ids", []):
+		var relic: Dictionary = relic_service.get_relic(String(relic_id_variant))
+		if relic.is_empty():
+			continue
+		for tag in _relic_build_tags(relic):
+			scores[tag] = int(scores.get(tag, 0)) + 2
+	return scores
+
+func _active_build_tags(scores: Dictionary) -> Array[String]:
+	var active: Array[String] = []
+	for tag in _build_tag_meta().keys():
+		if int(scores.get(tag, 0)) >= _build_threshold():
+			active.append(String(tag))
+	return active
+
+func _primary_build_tag(scores: Dictionary) -> String:
+	var best_tag := ""
+	var best_score := 0
+	for tag in _build_tag_meta().keys():
+		var score := int(scores.get(tag, 0))
+		if score > best_score:
+			best_score = score
+			best_tag = String(tag)
+	return best_tag
+
+func _build_status_text(scores: Dictionary) -> String:
+	var meta := _build_tag_meta()
+	var order := ["fire", "draw", "death", "buff", "low_hp", "summon"]
+	var parts: Array[String] = []
+	for tag in order:
+		var tag_meta: Dictionary = meta.get(tag, {})
+		parts.append("%s %s %d" % [String(tag_meta.get("icon", "")), String(tag_meta.get("name", "")), int(scores.get(tag, 0))])
+	return "현재 빌드  " + " | ".join(parts)
+
+func _active_build_text(scores: Dictionary) -> String:
+	var active := _active_build_tags(scores)
+	if active.is_empty():
+		var primary := _primary_build_tag(scores)
+		if primary.is_empty():
+			return "지금은 초반 빌드 탐색 구간입니다."
+		var meta: Dictionary = _build_tag_meta().get(primary, {})
+		return "추천 방향: %s %s" % [String(meta.get("icon", "")), String(meta.get("name", ""))]
+	var lines: Array[String] = []
+	for tag in active:
+		var meta: Dictionary = _build_tag_meta().get(tag, {})
+		lines.append("%s %s 빌드 활성 - %s" % [String(meta.get("icon", "")), String(meta.get("name", "")), String(meta.get("bonus", ""))])
+	return "\n".join(lines)
+
+func _make_build_status_panel() -> Control:
+	var compact := _is_compact_layout()
+	var panel := _make_screen_panel(Color(0.1, 0.115, 0.145, 1.0), 960 if not compact else 420)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	panel.add_child(box)
+	var scores := _current_build_scores()
+	var status := _make_label(_build_status_text(scores), 13 if compact else 14, Color(0.92, 0.94, 0.98, 1.0))
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	box.add_child(status)
+	var active_text := _make_label(_active_build_text(scores), 13 if compact else 14, Color(1.0, 0.88, 0.55, 1.0))
+	active_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	box.add_child(active_text)
+	var goal := _make_label("현재 목표: 적 영웅 체력을 0으로 만드세요.", 13 if compact else 14, Color(0.78, 0.84, 0.94, 1.0))
+	goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	box.add_child(goal)
+	return panel
+
+func _format_card_tag_text(card: Dictionary) -> String:
+	var tags := _card_build_tags(card)
+	if tags.is_empty():
+		return ""
+	var meta := _build_tag_meta()
+	var parts: Array[String] = []
+	for tag in tags:
+		var tag_meta: Dictionary = meta.get(tag, {})
+		parts.append("%s %s" % [String(tag_meta.get("icon", "")), String(tag_meta.get("name", ""))])
+	return " / ".join(parts)
+
+func _battle_build_hint_text() -> String:
+	var scores := _current_build_scores()
+	var active := _active_build_tags(scores)
+	if not active.is_empty():
+		var primary := active[0]
+		var meta: Dictionary = _build_tag_meta().get(primary, {})
+		return "%s %s 활성" % [String(meta.get("icon", "")), String(meta.get("name", ""))]
+	return _build_status_text(scores)
+
+func _build_active_in_current_run(tag: String) -> bool:
+	return _active_build_tags(_current_build_scores()).has(tag)
+
+func _card_matches_build_tag(card: Dictionary, tag: String) -> bool:
+	return not tag.is_empty() and _card_build_tags(card).has(tag)
 
 func _run_soul_stones(is_win: bool) -> int:
 	var stones := 0
@@ -626,14 +812,24 @@ func _run_soul_stones(is_win: bool) -> int:
 
 func _roll_card_choices(count: int) -> Array[String]:
 	var ids: Array[String] = []
-	var pool: Array[String] = []
-	for card in card_defs:
-		var card_id := String(card.get("id", ""))
-		if bool(card.get("starter", false)):
-			continue
-		if card_id.ends_with("_plus"):
-			continue
-		pool.append(card_id)
+	var pool: Array[String] = _reward_card_pool()
+	while ids.size() < count and not pool.is_empty():
+		var index := randi() % pool.size()
+		ids.append(pool[index])
+		pool.remove_at(index)
+	return ids
+
+func _roll_card_reward_choices(count: int, high_cost_only: bool = false) -> Array[String]:
+	var ids: Array[String] = []
+	var primary_tag := _primary_build_tag(_current_build_scores())
+	if not primary_tag.is_empty():
+		var tagged_pool := _reward_card_pool(primary_tag, high_cost_only)
+		if not tagged_pool.is_empty():
+			var tagged_index := randi() % tagged_pool.size()
+			ids.append(tagged_pool[tagged_index])
+	var pool: Array[String] = _reward_card_pool("", high_cost_only)
+	for picked_id in ids:
+		pool.erase(picked_id)
 	while ids.size() < count and not pool.is_empty():
 		var index := randi() % pool.size()
 		ids.append(pool[index])
@@ -641,13 +837,7 @@ func _roll_card_choices(count: int) -> Array[String]:
 	return ids
 
 func _roll_high_cost_cards(count: int) -> Array[String]:
-	var pool: Array[String] = []
-	for card in card_defs:
-		var card_id := String(card.get("id", ""))
-		if bool(card.get("starter", false)) or card_id.ends_with("_plus"):
-			continue
-		if int(card.get("cost", 0)) >= 3:
-			pool.append(card_id)
+	var pool: Array[String] = _reward_card_pool("", true)
 	if pool.is_empty():
 		return _roll_card_choices(count)
 	var ids: Array[String] = []
@@ -656,6 +846,19 @@ func _roll_high_cost_cards(count: int) -> Array[String]:
 		ids.append(pool[index])
 		pool.remove_at(index)
 	return ids
+
+func _reward_card_pool(tag_filter: String = "", high_cost_only: bool = false) -> Array[String]:
+	var pool: Array[String] = []
+	for card in card_defs:
+		var card_id := String(card.get("id", ""))
+		if bool(card.get("starter", false)) or card_id.ends_with("_plus"):
+			continue
+		if high_cost_only and int(card.get("cost", 0)) < 3:
+			continue
+		if not tag_filter.is_empty() and not _card_build_tags(card).has(tag_filter):
+			continue
+		pool.append(card_id)
+	return pool
 
 func _roll_card_choice_filtered(type_filter: String, race_filter: String) -> String:
 	var pool: Array[String] = []

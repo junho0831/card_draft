@@ -25,6 +25,9 @@ func play_card(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: 
 			if relic_service != null:
 				relic_service.on_unit_summoned(context.get("run_data", {}), unit)
 			owner.field.append(unit)
+			var on_unit_summoned: Callable = context.get("on_unit_summoned", Callable())
+			if on_unit_summoned.is_valid():
+				on_unit_summoned.call(owner, unit)
 			if log.is_valid():
 				log.call("%s: %s 소환" % [owner.name, card.name])
 			_resolve_unit_play(owner, enemy, unit, context)

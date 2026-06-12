@@ -1,7 +1,6 @@
 extends RefCounted
 class_name RunFlowCoordinator
 
-const ClassSelectionScreenScript := preload("res://scripts/ui/screens/class_selection_screen.gd")
 const EventScreenScript := preload("res://scripts/ui/screens/event_screen.gd")
 const MapScreenScript := preload("res://scripts/ui/screens/map_screen.gd")
 const RestScreenScript := preload("res://scripts/ui/screens/rest_screen.gd")
@@ -24,11 +23,7 @@ func _ensure_battle_screen() -> bool:
 	return true
 
 func start_new_run() -> void:
-	main.active_screen = "class_selection"
-	main._clear_screen()
-	var body: VBoxContainer = main._begin_menu_screen("출신 선택")
-	var screen = ClassSelectionScreenScript.new(main)
-	screen.build(body)
+	init_run("")
 
 func init_run(race_id: String) -> void:
 	var acts: Array[Dictionary] = main.run_generator.load_acts()

@@ -5,9 +5,13 @@ const TEST_SCRIPTS := [
 	preload("res://tests/godot/card_database_test.gd"),
 	preload("res://tests/godot/event_run_service_test.gd"),
 	preload("res://tests/godot/shop_run_service_test.gd"),
+	preload("res://tests/godot/main_flow_smoke_test.gd"),
 ]
 
 func _init() -> void:
+	call_deferred("_run_all_tests")
+
+func _run_all_tests() -> void:
 	var failures: Array[String] = []
 	var total := 0
 	for script in TEST_SCRIPTS:

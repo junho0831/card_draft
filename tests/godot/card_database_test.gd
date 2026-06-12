@@ -12,15 +12,21 @@ func run() -> Dictionary:
 	var card_db = CardDatabaseScript.new()
 	_assert_true(card_db.load_cards(CARD_DATA_PATH), "card database loads sample cards")
 	if _failures.is_empty():
+		_test_build_tags_loaded(card_db)
 		_test_build_upgraded_unit(card_db)
 		_test_build_upgraded_spells(card_db)
 		_test_get_card_restores_upgraded_card(card_db)
+		_test_upgraded_card_preserves_build_tags(card_db)
 		_test_nested_upgraded_card_is_ignored(card_db)
 		_test_unknown_upgraded_card_is_ignored(card_db)
 	return {
 		"count": _count,
 		"failures": _failures,
 	}
+
+func _test_build_tags_loaded(card_db) -> void:
+	var card: Dictionary = card_db.get_card("fireball")
+	_assert_true((card.get("build_tags", []) as Array).has("fire"), "fireball has fire build tag")
 
 func _test_build_upgraded_unit(card_db) -> void:
 	var deck: Array = card_db.build_deck_from_ids(["militia_plus"])
@@ -51,6 +57,10 @@ func _test_get_card_restores_upgraded_card(card_db) -> void:
 	var card: Dictionary = card_db.get_card("militia_plus")
 	_assert_eq(String(card.get("id", "")), "militia_plus", "get_card restores upgraded unit")
 	_assert_eq(int(card.get("attack", 0)), 2, "get_card returns upgraded attack")
+
+func _test_upgraded_card_preserves_build_tags(card_db) -> void:
+	var card: Dictionary = card_db.get_card("fireball_plus")
+	_assert_true((card.get("build_tags", []) as Array).has("fire"), "upgraded card preserves build tags")
 
 func _test_nested_upgraded_card_is_ignored(card_db) -> void:
 	var deck: Array = card_db.build_deck_from_ids(["militia_plus_plus"])

@@ -16,9 +16,10 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 
 	# 1. Summary
 	body.add_child(main._make_run_summary_panel())
+	var compact: bool = main._is_compact_layout()
+	body.add_child(main.ui.make_guidance_banner("다음 행동", "빛나는 노드를 눌러 다음 장소로 진입", Color(0.2, 0.24, 0.18, 1.0), compact))
 
 	# 2. Map Panel
-	var compact: bool = main._is_compact_layout()
 	var panel = main._make_screen_panel(Color(0.105, 0.115, 0.135, 1.0), 960 if not compact else 420)
 	panel.custom_minimum_size.y = 360
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -34,6 +35,8 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	var node_spacing = 160
 	var canvas_width = max(960, nodes_data.size() * node_spacing + 200)
 	map_canvas.custom_minimum_size = Vector2(canvas_width, 340)
+	map_canvas.size = map_canvas.custom_minimum_size
+	map_canvas.mouse_filter = Control.MOUSE_FILTER_PASS
 	map_scroll.add_child(map_canvas)
 
 	_draw_map(node_spacing)
@@ -41,6 +44,8 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	# 3. Actions
 	var actions: BoxContainer = main.ui.make_action_bar(compact, 10)
 	body.add_child(actions)
+	var enter_button: Button = main._add_menu_button(actions, "현재 노드 진입 ▶", "_enter_current_node", Color(0.55, 0.36, 0.1, 1.0))
+	main.ui.style_primary_button(enter_button)
 	main._add_menu_button(actions, "메인 메뉴", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
 	main._add_menu_button(actions, "런 포기", "_abandon_run", Color(0.42, 0.18, 0.18, 1.0))
 
@@ -111,6 +116,8 @@ func _draw_map(spacing: int) -> void:
 
 		# Scroll animation
 		main.get_tree().create_timer(0.05).timeout.connect(func():
+			if main == null or not is_instance_valid(main) or map_scroll == null or not is_instance_valid(map_scroll):
+				return
 			var target_scroll = max(0, points[current_index].x - 480)
 			var scroll_tween = main.create_tween()
 			scroll_tween.tween_property(map_scroll, "scroll_horizontal", target_scroll, 0.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
@@ -152,10 +159,17 @@ func _make_node_button(index: int, type: String, pos: Vector2) -> Control:
 		text = "✔"
 		btn.disabled = true
 	elif index == current_index:
+		text = "%s\n진입" % text
+		size += 8
 		btn.pressed.connect(Callable(main, "_enter_current_node"))
 	else:
 		color = color.darkened(0.4)
 		btn.disabled = true
+
+	btn.custom_minimum_size = Vector2(size, size)
+	btn.size = btn.custom_minimum_size
+	btn.position = pos - Vector2(size / 2.0, size / 2.0)
+	btn.z_index = 3
 
 	# Circular button
 	var style = StyleBoxFlat.new()
@@ -169,6 +183,15 @@ func _make_node_button(index: int, type: String, pos: Vector2) -> Control:
 	style.corner_radius_top_right = size/2
 	style.corner_radius_bottom_left = size/2
 	style.corner_radius_bottom_right = size/2
+	if index == current_index:
+		style.bg_color = color.lightened(0.18)
+		style.border_color = Color(1.0, 0.9, 0.4, 1.0)
+		style.border_width_left = 4
+		style.border_width_right = 4
+		style.border_width_top = 4
+		style.border_width_bottom = 4
+	elif index > current_index:
+		btn.modulate = Color(0.45, 0.48, 0.52, 0.75)
 	btn.add_theme_stylebox_override("normal", style)
 	
 	var hover = style.duplicate()
