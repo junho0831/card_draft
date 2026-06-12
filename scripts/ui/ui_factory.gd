@@ -238,6 +238,6 @@ func make_art_rect(art_index: int, size: Vector2) -> TextureRect:
 	var rect := TextureRect.new()
 	rect.texture = texture
 	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	rect.custom_minimum_size = size
 	return rect

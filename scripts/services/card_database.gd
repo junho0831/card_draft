@@ -29,9 +29,6 @@ func load_cards(path: String) -> bool:
 		cards_by_id[String(card["id"])] = card.duplicate(true)
 	return not card_defs.is_empty()
 
-func has_card(id: String) -> bool:
-	return not get_card(id).is_empty()
-
 func get_card(id: String) -> Dictionary:
 	if cards_by_id.has(id):
 		return cards_by_id[id].duplicate(true)

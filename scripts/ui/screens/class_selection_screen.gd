@@ -7,8 +7,8 @@ func _init(_main: Node) -> void:
 	main = _main
 
 func build(body: VBoxContainer) -> void:
-	var compact = main._is_compact_layout()
-	var panel = main._make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 760 if not compact else 420)
+	var compact: bool = main._is_compact_layout_for(980.0)
+	var panel: PanelContainer = main._make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 760 if not compact else 420)
 	body.add_child(panel)
 
 	var list := VBoxContainer.new()

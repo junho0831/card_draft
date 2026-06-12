@@ -697,7 +697,13 @@ func _node_type_name(node_type: String) -> String:
 			return node_type
 
 func _is_compact_layout() -> bool:
-	return ui.is_compact(get_viewport_rect().size.x)
+	return _is_compact_layout_for()
+
+func _is_compact_layout_for(width_breakpoint: float = 860.0, height_breakpoint: float = 0.0) -> bool:
+	var viewport_size := get_viewport_rect().size
+	if viewport_size.x < width_breakpoint:
+		return true
+	return height_breakpoint > 0.0 and viewport_size.y < height_breakpoint
 
 func _begin_menu_screen(title: String, with_profile: bool = false) -> VBoxContainer:
 	var summary: Control = null

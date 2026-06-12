@@ -100,7 +100,7 @@ func _is_fast_ai_enabled() -> bool:
 	return bool(main.player_profile["settings"]["fast_ai"])
 
 func _is_compact_layout() -> bool:
-	return main._is_compact_layout()
+	return main._is_compact_layout_for(860.0, 820.0)
 
 func _battle_reward_choices() -> Array[String]:
 	return _roll_high_cost_cards(3) if battle_tier == "boss" else _roll_card_choices(3)
@@ -190,8 +190,12 @@ func _new_side(display_name: String, deck: Array, hp: int, max_hp: int) -> Dicti
 
 
 func _build_battle_ui() -> void:
-	main._add_title("CARD DRAFT")
 	var compact := _is_compact_layout()
+	var field_height := 98 if not compact else 84
+	var hand_height := 144 if not compact else 118
+	var side_width := 280 if not compact else 220
+	var deck_height := 160 if not compact else 96
+	var log_height := 100 if not compact else 72
 	var status_row = HBoxContainer.new()
 	status_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	status_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -229,11 +233,12 @@ func _build_battle_ui() -> void:
 	opponent_field_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	opponent_field_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	opponent_field_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	opponent_field_scroll.custom_minimum_size = Vector2(0, 124 if not compact else 98)
+	opponent_field_scroll.custom_minimum_size = Vector2(0, field_height)
 	board_box.add_child(opponent_field_scroll)
 	opponent_field_box = HBoxContainer.new()
 	opponent_field_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	opponent_field_box.custom_minimum_size = Vector2(720 if not compact else 420, 124 if not compact else 98)
+	opponent_field_box.custom_minimum_size = Vector2(0, field_height)
+	opponent_field_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	opponent_field_scroll.add_child(opponent_field_box)
 	board_box.add_child(HSeparator.new())
 
@@ -241,11 +246,12 @@ func _build_battle_ui() -> void:
 	player_field_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	player_field_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	player_field_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	player_field_scroll.custom_minimum_size = Vector2(0, 124 if not compact else 98)
+	player_field_scroll.custom_minimum_size = Vector2(0, field_height)
 	board_box.add_child(player_field_scroll)
 	player_field_box = HBoxContainer.new()
 	player_field_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	player_field_box.custom_minimum_size = Vector2(720 if not compact else 420, 124 if not compact else 98)
+	player_field_box.custom_minimum_size = Vector2(0, field_height)
+	player_field_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	player_field_scroll.add_child(player_field_box)
 	player_info = main._make_label("", 16 if not compact else 13, Color(0.78, 0.9, 1.0, 1.0))
 	board_box.add_child(player_info)
@@ -257,11 +263,12 @@ func _build_battle_ui() -> void:
 	hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	hand_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	hand_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hand_scroll.custom_minimum_size = Vector2(0, 166 if not compact else 142)
+	hand_scroll.custom_minimum_size = Vector2(0, hand_height)
 	board_box.add_child(hand_scroll)
 	hand_box = HBoxContainer.new()
 	hand_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	hand_box.custom_minimum_size = Vector2(760 if not compact else 420, 166 if not compact else 142)
+	hand_box.custom_minimum_size = Vector2(0, hand_height)
+	hand_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hand_scroll.add_child(hand_box)
 
 	turn_overlay = Panel.new()
@@ -287,7 +294,7 @@ func _build_battle_ui() -> void:
 	main.root_box.add_child(turn_timer)
 
 	var side_panel = main._make_panel_container(Color(0.105, 0.115, 0.135, 1.0))
-	side_panel.custom_minimum_size = Vector2(330 if not compact else 220, 0)
+	side_panel.custom_minimum_size = Vector2(side_width, 0)
 	side_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content_row.add_child(side_panel)
 	var side_box := VBoxContainer.new()
@@ -299,12 +306,12 @@ func _build_battle_ui() -> void:
 	side_box.add_child(deck_count_label)
 
 	var deck_scroll := ScrollContainer.new()
-	deck_scroll.custom_minimum_size = Vector2(0, 230 if not compact else 110)
+	deck_scroll.custom_minimum_size = Vector2(0, deck_height)
 	deck_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	side_box.add_child(deck_scroll)
 
 	deck_list_label = RichTextLabel.new()
-	deck_list_label.custom_minimum_size = Vector2(290 if not compact else 180, 220 if not compact else 96)
+	deck_list_label.custom_minimum_size = Vector2(0, deck_height)
 	deck_list_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	deck_list_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	deck_list_label.bbcode_enabled = false
@@ -315,7 +322,7 @@ func _build_battle_ui() -> void:
 
 	side_box.add_child(main._make_label("게임 로그", 20 if not compact else 15, Color(0.96, 0.88, 0.55, 1.0)))
 	log_label = RichTextLabel.new()
-	log_label.custom_minimum_size = Vector2(0, 140 if not compact else 72)
+	log_label.custom_minimum_size = Vector2(0, log_height)
 	log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	log_label.bbcode_enabled = false
 	log_label.fit_content = false
@@ -324,7 +331,7 @@ func _build_battle_ui() -> void:
 
 	side_box.add_child(HSeparator.new())
 
-	var action_row := VBoxContainer.new() if compact else HBoxContainer.new()
+	var action_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	action_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	action_row.add_theme_constant_override("separation", 10 if not compact else 6)
 	side_box.add_child(action_row)

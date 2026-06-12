@@ -58,15 +58,19 @@ func continue_run() -> void:
 	if result == "loss":
 		main._show_run_result(false)
 		return
+	var pending_message: Dictionary = main.current_run.get("pending_message", {})
+	if not pending_message.is_empty():
+		main._show_message(String(pending_message.get("message", "")), String(pending_message.get("callback_method", "_show_map")))
+		return
 	var pending_subscreen: Dictionary = main.current_run.get("pending_subscreen", {})
 	if not pending_subscreen.is_empty():
-		var subscreen_type := String(pending_subscreen.get("type", ""))
-		match subscreen_type:
+		var source := String(pending_subscreen.get("source", ""))
+		match String(pending_subscreen.get("type", "")):
 			"remove_card":
-				main._show_remove_card_screen(String(pending_subscreen.get("reason", "보상")))
+				main._show_remove_card_screen(String(pending_subscreen.get("reason", "보상")), source)
 				return
 			"upgrade_card":
-				main._show_upgrade_card_screen()
+				main._show_upgrade_card_screen(source)
 				return
 	if not Dictionary(main.current_run.get("active_enemy", {})).is_empty():
 		if _ensure_battle_screen():
@@ -144,11 +148,15 @@ func advance_from_current_node(pending_keys: Array[String] = []) -> void:
 	show_map()
 
 func complete_event_and_return() -> void:
-	advance_from_current_node(["pending_event"])
+	advance_from_current_node(["pending_event", "pending_message"])
 
 func show_shop() -> void:
 	if Dictionary(main.current_run.get("pending_shop", {})).is_empty():
-		main.current_run["pending_shop"] = ShopScreenScript.generate_shop_state(main)
+		main.current_run["pending_shop"] = main.shop_run_service.generate_shop_state({
+			"roll_card_choices": Callable(main, "_roll_card_choices"),
+			"random_relic": Callable(main.relic_service, "random_relic"),
+			"relic_ids": main.current_run.get("relic_ids", []),
+		})
 		main._save_run()
 	main.active_screen = "shop"
 	main._clear_screen()
@@ -162,6 +170,10 @@ func show_rest() -> void:
 	var body: VBoxContainer = main._begin_menu_screen("휴식")
 	var screen = RestScreenScript.new(main)
 	screen.build(body)
+
+func leave_shop() -> void:
+	main.shop_run_service.leave_shop(main.current_run)
+	advance_from_current_node()
 
 func rest_heal_amount(max_hp: int) -> int:
 	return maxi(1, int(round(float(max_hp) * 0.3)))
