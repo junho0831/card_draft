@@ -143,7 +143,8 @@ func advance_from_current_node(pending_keys: Array[String] = []) -> void:
 	show_map()
 
 func complete_event_and_return() -> void:
-	advance_from_current_node(["pending_event", "pending_message"])
+	var pending_keys: Array[String] = ["pending_event", "pending_message"]
+	advance_from_current_node(pending_keys)
 
 func show_shop() -> void:
 	if Dictionary(main.current_run.get("pending_shop", {})).is_empty():

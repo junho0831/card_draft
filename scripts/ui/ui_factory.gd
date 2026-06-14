@@ -7,6 +7,16 @@ var card_art_rows := 3
 const COMPACT_BREAKPOINT := 860.0
 const SCREEN_MARGIN := 18.0
 const MIN_RESPONSIVE_WIDTH := 280.0
+const THEME_BG := Color(0.025, 0.032, 0.042, 1.0)
+const THEME_PANEL := Color(0.065, 0.075, 0.085, 0.98)
+const THEME_PANEL_DARK := Color(0.035, 0.045, 0.055, 1.0)
+const THEME_GOLD := Color(0.86, 0.65, 0.28, 1.0)
+const THEME_GOLD_SOFT := Color(1.0, 0.86, 0.52, 1.0)
+const THEME_BLUE := Color(0.12, 0.28, 0.48, 1.0)
+const THEME_GREEN := Color(0.15, 0.3, 0.16, 1.0)
+const THEME_RED := Color(0.42, 0.13, 0.12, 1.0)
+const THEME_TEXT := Color(0.94, 0.96, 0.94, 1.0)
+const THEME_TEXT_MUTED := Color(0.72, 0.76, 0.8, 1.0)
 
 func setup(art_sheet: Texture2D, cols: int, rows: int) -> void:
 	card_art_sheet = art_sheet
@@ -100,14 +110,14 @@ func make_showcase_card(title: String, art_index: int, compact: bool = false) ->
 	return panel
 
 func make_stat_tile(title: String, value: String, color: Color, compact: bool = false) -> PanelContainer:
-	var panel := make_panel_container(color)
-	panel.custom_minimum_size = Vector2(96 if compact else 126, 64 if compact else 72)
+	var panel := make_surface_panel(color.darkened(0.04), color.lightened(0.08), 1, 10, 10)
+	panel.custom_minimum_size = Vector2(96 if compact else 126, 68 if compact else 76)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 2)
+	box.add_theme_constant_override("separation", 3)
 	panel.add_child(box)
-	var title_label := make_label(title, 12, Color(0.88, 0.9, 0.92, 1.0))
+	var title_label := make_label(title, 12, Color(0.9, 0.92, 0.94, 1.0))
 	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	var value_label := make_label(value, 18, Color(1.0, 0.98, 0.9, 1.0))
+	var value_label := make_label(value, 19 if compact else 20, Color(1.0, 0.98, 0.9, 1.0))
 	value_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	box.add_child(title_label)
 	box.add_child(value_label)
@@ -129,14 +139,14 @@ func make_status_badge(title: String, value: String, color: Color) -> PanelConta
 	return panel
 
 func make_guidance_banner(title: String, value: String, color: Color, compact: bool = false) -> PanelContainer:
-	var panel := make_panel_container(color)
+	var panel := make_surface_panel(color.darkened(0.08), Color(0.38, 0.34, 0.18, 1.0), 1, 10, 12)
 	panel.custom_minimum_size = Vector2(0, 54 if compact else 62)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 10)
 	panel.add_child(row)
-	var title_label := make_label(title, 12 if compact else 13, Color(0.9, 0.94, 0.96, 1.0))
+	var title_label := make_label(title, 12 if compact else 13, Color(1.0, 0.88, 0.55, 1.0))
 	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title_label.custom_minimum_size = Vector2(82 if compact else 110, 0)
 	var value_label := make_label(value, 16 if compact else 18, Color(1.0, 0.98, 0.86, 1.0))
@@ -149,12 +159,12 @@ func make_guidance_banner(title: String, value: String, color: Color, compact: b
 func add_title(parent: Node, text: String) -> void:
 	var title := make_label(text, 40, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_constant_override("outline_size", 4)
-	title.add_theme_color_override("font_outline_color", Color(0.08, 0.075, 0.07, 1.0))
+	title.add_theme_constant_override("outline_size", 6)
+	title.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.018, 1.0))
 	parent.add_child(title)
 
 func begin_screen(root: Node, title: String, summary: Control = null, spacing: int = 12) -> VBoxContainer:
-	add_title(root, title)
+	root.add_child(make_screen_header(title, "지금 무엇을 해야 하는지와 이번 런의 빌드를 확인하세요."))
 	if summary != null:
 		root.add_child(summary)
 	var body := VBoxContainer.new()
@@ -209,7 +219,114 @@ func add_menu_button(parent: Node, target: Object, text: String, callback_method
 
 func make_panel_container(color: Color) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", make_style_box(color, Color(0.38, 0.43, 0.5, 1.0), 2, 8))
+	panel.add_theme_stylebox_override("panel", make_style_box(color, Color(0.34, 0.29, 0.17, 1.0), 1, 8))
+	return panel
+
+func make_premium_panel(min_height: int = 0, prominent: bool = false) -> PanelContainer:
+	var border_color := THEME_GOLD if prominent else Color(0.24, 0.21, 0.15, 1.0)
+	var border_width := 2 if prominent else 1
+	var panel := make_surface_panel(THEME_PANEL, border_color, border_width, 12, 16)
+	if min_height > 0:
+		panel.custom_minimum_size = Vector2(0, min_height)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return panel
+
+func make_screen_header(title: String, subtitle: String, compact: bool = false) -> PanelContainer:
+	var panel := make_surface_panel(THEME_PANEL_DARK, Color(0.34, 0.27, 0.15, 1.0), 1, 12, 14)
+	panel.custom_minimum_size = Vector2(0, 74 if compact else 84)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	panel.add_child(row)
+	var title_box := VBoxContainer.new()
+	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_box.add_theme_constant_override("separation", 4)
+	row.add_child(title_box)
+	var title_label := make_label(title, 24 if compact else 30, THEME_GOLD_SOFT)
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title_label.add_theme_color_override("font_outline_color", Color(0.01, 0.012, 0.014, 1.0))
+	title_label.add_theme_constant_override("outline_size", 5)
+	title_box.add_child(title_label)
+	if not subtitle.is_empty():
+		var subtitle_label := make_label(subtitle, 13 if compact else 15, THEME_TEXT_MUTED)
+		subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		title_box.add_child(subtitle_label)
+	var accent_chip := make_chip("UX 중심", Color(0.15, 0.17, 0.1, 1.0), Color(1.0, 0.9, 0.68, 1.0), 12 if compact else 13)
+	accent_chip.custom_minimum_size = Vector2(88 if compact else 104, 42)
+	row.add_child(accent_chip)
+	return panel
+
+func make_large_action_button(title: String, subtitle: String, icon_text: String, base_color: Color, compact: bool = false) -> Button:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(0, 82 if compact else 96)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.text = "%s  %s\n%s" % [icon_text, title, subtitle]
+	button.add_theme_font_size_override("font_size", 16 if compact else 18)
+	button.add_theme_stylebox_override("normal", make_style_box(base_color.darkened(0.1), Color(0.36, 0.31, 0.2, 1.0), 1, 10))
+	button.add_theme_stylebox_override("hover", make_style_box(base_color.lightened(0.12), THEME_GOLD_SOFT, 2, 10))
+	button.add_theme_stylebox_override("pressed", make_style_box(base_color.darkened(0.18), THEME_GOLD, 2, 10))
+	button.add_theme_stylebox_override("disabled", make_style_box(Color(0.08, 0.09, 0.1, 1.0), Color(0.18, 0.19, 0.21, 1.0), 1, 10))
+	button.add_theme_color_override("font_color", THEME_TEXT)
+	button.add_theme_color_override("font_disabled_color", Color(0.5, 0.52, 0.56, 1.0))
+	button.add_theme_color_override("font_outline_color", Color(0.01, 0.012, 0.014, 1.0))
+	button.add_theme_constant_override("outline_size", 4)
+	return button
+
+func make_objective_panel(title: String, objective: String, compact: bool = false) -> PanelContainer:
+	var panel := make_surface_panel(Color(0.09, 0.11, 0.08, 0.98), Color(0.48, 0.4, 0.18, 1.0), 1, 10, 12)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	panel.add_child(box)
+	var title_label := make_label(title, 12 if compact else 13, THEME_GOLD_SOFT)
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	box.add_child(title_label)
+	var objective_label := make_label(objective, 15 if compact else 17, Color(0.98, 0.96, 0.82, 1.0))
+	objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	box.add_child(objective_label)
+	return panel
+
+func make_surface_panel(bg_color: Color, border_color: Color = Color(0.32, 0.35, 0.4, 1.0), border_width: int = 1, radius: int = 10, margins: int = 12) -> PanelContainer:
+	var panel := PanelContainer.new()
+	var style := make_style_box(bg_color, border_color, border_width, radius)
+	style.content_margin_left = margins
+	style.content_margin_top = margins
+	style.content_margin_right = margins
+	style.content_margin_bottom = margins
+	panel.add_theme_stylebox_override("panel", style)
+	return panel
+
+func make_chip(text: String, bg_color: Color, text_color: Color = Color(0.96, 0.97, 0.94, 1.0), font_size: int = 14) -> PanelContainer:
+	var panel := make_surface_panel(bg_color, bg_color.lightened(0.22), 1, 8, 10)
+	panel.custom_minimum_size = Vector2(0, 44)
+	var label := make_label(text, font_size, text_color)
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	panel.add_child(label)
+	return panel
+
+func make_cost_badge(value: String, compact: bool = false) -> PanelContainer:
+	var size := 32 if compact else 38
+	var panel := make_surface_panel(Color(0.08, 0.24, 0.48, 1.0), Color(0.9, 0.72, 0.32, 1.0), 2, size / 2, 4)
+	panel.custom_minimum_size = Vector2(size, size)
+	var label := make_label(value, 16 if compact else 19, Color(1.0, 0.96, 0.84, 1.0))
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.add_theme_color_override("font_outline_color", Color(0.01, 0.02, 0.04, 1.0))
+	label.add_theme_constant_override("outline_size", 3)
+	panel.add_child(label)
+	return panel
+
+func make_stat_badge(value: String, bg_color: Color, compact: bool = false) -> PanelContainer:
+	var panel := make_surface_panel(bg_color, bg_color.lightened(0.2), 1, 8, 6)
+	panel.custom_minimum_size = Vector2(42 if compact else 48, 28 if compact else 32)
+	var label := make_label(value, 13 if compact else 15, Color(1.0, 0.96, 0.86, 1.0))
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.02, 1.0))
+	label.add_theme_constant_override("outline_size", 2)
+	panel.add_child(label)
 	return panel
 
 func make_style_box(bg_color: Color, border_color: Color, border_width: int = 1, radius: int = 6) -> StyleBoxFlat:
@@ -224,6 +341,11 @@ func make_style_box(bg_color: Color, border_color: Color, border_width: int = 1,
 	style.corner_radius_top_right = radius
 	style.corner_radius_bottom_left = radius
 	style.corner_radius_bottom_right = radius
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.58)
+	style.shadow_size = 8
+	style.shadow_offset = Vector2(0, 3)
+	style.anti_aliasing = true
+	style.anti_aliasing_size = 1.0
 	style.content_margin_left = 14
 	style.content_margin_top = 12
 	style.content_margin_right = 14
@@ -231,26 +353,30 @@ func make_style_box(bg_color: Color, border_color: Color, border_width: int = 1,
 	return style
 
 func style_button(button: Button, base_color: Color) -> void:
-	button.add_theme_stylebox_override("normal", make_style_box(base_color, Color(0.58, 0.64, 0.72, 1.0), 1, 6))
-	button.add_theme_stylebox_override("hover", make_style_box(base_color.lightened(0.14), Color(1.0, 0.78, 0.34, 1.0), 2, 6))
-	button.add_theme_stylebox_override("pressed", make_style_box(base_color.darkened(0.14), Color(1.0, 0.88, 0.55, 1.0), 2, 6))
-	button.add_theme_stylebox_override("disabled", make_style_box(Color(0.16, 0.17, 0.19, 1.0), Color(0.28, 0.3, 0.34, 1.0), 1, 6))
+	button.add_theme_stylebox_override("normal", make_style_box(base_color.darkened(0.04), Color(0.42, 0.35, 0.22, 1.0), 1, 7))
+	button.add_theme_stylebox_override("hover", make_style_box(base_color.lightened(0.12), Color(1.0, 0.82, 0.38, 1.0), 2, 7))
+	button.add_theme_stylebox_override("pressed", make_style_box(base_color.darkened(0.16), Color(1.0, 0.9, 0.58, 1.0), 2, 7))
+	button.add_theme_stylebox_override("disabled", make_style_box(Color(0.11, 0.12, 0.14, 1.0), Color(0.22, 0.23, 0.26, 1.0), 1, 7))
 	button.add_theme_color_override("font_color", Color(0.98, 0.98, 0.96, 1.0))
 	button.add_theme_color_override("font_disabled_color", Color(0.55, 0.57, 0.62, 1.0))
+	button.add_theme_color_override("font_outline_color", Color(0.02, 0.025, 0.03, 1.0))
+	button.add_theme_constant_override("outline_size", 3)
 	button.add_theme_font_size_override("font_size", 16)
 
 func style_primary_button(button: Button, base_color: Color = Color(0.55, 0.36, 0.1, 1.0)) -> void:
-	button.add_theme_stylebox_override("normal", make_style_box(base_color, Color(1.0, 0.78, 0.34, 1.0), 3, 6))
-	button.add_theme_stylebox_override("hover", make_style_box(base_color.lightened(0.16), Color(1.0, 0.92, 0.58, 1.0), 3, 6))
-	button.add_theme_stylebox_override("pressed", make_style_box(base_color.darkened(0.14), Color(1.0, 0.88, 0.55, 1.0), 3, 6))
-	button.add_theme_stylebox_override("disabled", make_style_box(Color(0.16, 0.17, 0.19, 1.0), Color(0.28, 0.3, 0.34, 1.0), 1, 6))
+	button.add_theme_stylebox_override("normal", make_style_box(base_color, Color(1.0, 0.8, 0.32, 1.0), 3, 7))
+	button.add_theme_stylebox_override("hover", make_style_box(base_color.lightened(0.16), Color(1.0, 0.95, 0.62, 1.0), 3, 7))
+	button.add_theme_stylebox_override("pressed", make_style_box(base_color.darkened(0.16), Color(1.0, 0.9, 0.58, 1.0), 3, 7))
+	button.add_theme_stylebox_override("disabled", make_style_box(Color(0.11, 0.12, 0.14, 1.0), Color(0.22, 0.23, 0.26, 1.0), 1, 7))
 	button.add_theme_color_override("font_color", Color(1.0, 0.98, 0.88, 1.0))
 	button.add_theme_color_override("font_disabled_color", Color(0.55, 0.57, 0.62, 1.0))
+	button.add_theme_color_override("font_outline_color", Color(0.02, 0.025, 0.03, 1.0))
+	button.add_theme_constant_override("outline_size", 4)
 	button.add_theme_font_size_override("font_size", 17)
 
 func make_card_frame() -> PanelContainer:
 	var frame := PanelContainer.new()
-	frame.add_theme_stylebox_override("panel", make_style_box(Color(0.16, 0.18, 0.21, 1.0), Color(0.43, 0.38, 0.25, 1.0), 1, 7))
+	frame.add_theme_stylebox_override("panel", make_style_box(Color(0.09, 0.1, 0.105, 1.0), Color(0.62, 0.48, 0.24, 1.0), 2, 8))
 	return frame
 
 func make_art_rect(art_index: int, size: Vector2) -> TextureRect:

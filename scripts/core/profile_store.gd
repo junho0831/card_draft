@@ -32,6 +32,8 @@ func make_default_profile(card_defs: Array) -> Dictionary:
 		"player_name": "플레이어",
 		"gold": LOCAL_DEBUG_GOLD,
 		"soul_stones": 0,
+		"last_daily_reward_day": "",
+		"recent_runs": [],
 		"owned_cards": owned,
 		"unlocked_cards": [],
 		"unlocked_relics": [],
@@ -53,6 +55,10 @@ func normalize(profile: Dictionary, card_defs: Array) -> Dictionary:
 		profile["gold"] = LOCAL_DEBUG_GOLD
 	if not profile.has("soul_stones"):
 		profile["soul_stones"] = 0
+	if not profile.has("last_daily_reward_day"):
+		profile["last_daily_reward_day"] = ""
+	if not profile.has("recent_runs") or typeof(profile["recent_runs"]) != TYPE_ARRAY:
+		profile["recent_runs"] = []
 	if not profile.has("owned_cards") or typeof(profile["owned_cards"]) != TYPE_DICTIONARY:
 		profile["owned_cards"] = {}
 	if not profile.has("unlocked_cards") or typeof(profile["unlocked_cards"]) != TYPE_ARRAY:

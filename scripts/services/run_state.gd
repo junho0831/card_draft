@@ -27,7 +27,6 @@ func create_new_run(acts: Array[Dictionary], deck_ids: Array[String], start_hp: 
 		"relic_ids": [],
 		"map_nodes": acts.duplicate(true),
 		"visited_nodes": [],
-		"pending_card_choices": [],
 		"pending_shop": {},
 		"pending_event": {},
 		"pending_message": {},
