@@ -5,7 +5,7 @@ var card_art_sheet: Texture2D
 var card_art_cols := 4
 var card_art_rows := 3
 const COMPACT_BREAKPOINT := 860.0
-const SCREEN_MARGIN := 18.0
+const SCREEN_MARGIN := 10.0
 const MIN_RESPONSIVE_WIDTH := 280.0
 const THEME_BG := Color(0.025, 0.032, 0.042, 1.0)
 const THEME_PANEL := Color(0.065, 0.075, 0.085, 0.98)
@@ -233,7 +233,7 @@ func make_premium_panel(min_height: int = 0, prominent: bool = false) -> PanelCo
 
 func make_screen_header(title: String, subtitle: String, compact: bool = false) -> PanelContainer:
 	var panel := make_surface_panel(THEME_PANEL_DARK, Color(0.34, 0.27, 0.15, 1.0), 1, 12, 14)
-	panel.custom_minimum_size = Vector2(0, 74 if compact else 84)
+	panel.custom_minimum_size = Vector2(0, 58 if compact else 66)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -243,19 +243,16 @@ func make_screen_header(title: String, subtitle: String, compact: bool = false) 
 	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_box.add_theme_constant_override("separation", 4)
 	row.add_child(title_box)
-	var title_label := make_label(title, 24 if compact else 30, THEME_GOLD_SOFT)
+	var title_label := make_label(title, 22 if compact else 26, THEME_GOLD_SOFT)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title_label.add_theme_color_override("font_outline_color", Color(0.01, 0.012, 0.014, 1.0))
 	title_label.add_theme_constant_override("outline_size", 5)
 	title_box.add_child(title_label)
 	if not subtitle.is_empty():
-		var subtitle_label := make_label(subtitle, 13 if compact else 15, THEME_TEXT_MUTED)
+		var subtitle_label := make_label(subtitle, 12 if compact else 13, THEME_TEXT_MUTED)
 		subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		title_box.add_child(subtitle_label)
-	var accent_chip := make_chip("UX 중심", Color(0.15, 0.17, 0.1, 1.0), Color(1.0, 0.9, 0.68, 1.0), 12 if compact else 13)
-	accent_chip.custom_minimum_size = Vector2(88 if compact else 104, 42)
-	row.add_child(accent_chip)
 	return panel
 
 func make_large_action_button(title: String, subtitle: String, icon_text: String, base_color: Color, compact: bool = false) -> Button:

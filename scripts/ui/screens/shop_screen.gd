@@ -112,6 +112,10 @@ func _make_shop_service_panel(shop_state: Dictionary, compact: bool) -> PanelCon
 	heal_button.pressed.connect(Callable(self, "_buy_shop_heal"))
 	box.add_child(heal_button)
 
+	var deck_button: Button = _make_service_button("덱 확인", "현재 덱 구성과 빌드 태그 확인", Color(0.16, 0.22, 0.32, 1.0), compact)
+	deck_button.pressed.connect(Callable(main, "_show_collection"))
+	box.add_child(deck_button)
+
 	var leave_button: Button = _make_service_button("나가기 ▶", "상점을 마치고 다음 노드로 이동", Color(0.18, 0.34, 0.48, 1.0), compact)
 	main.ui.style_primary_button(leave_button, Color(0.18, 0.34, 0.48, 1.0))
 	leave_button.pressed.connect(Callable(self, "_leave_shop"))
@@ -147,6 +151,8 @@ func _make_service_button(title: String, detail: String, color: Color, compact: 
 		icon = "⌫"
 	elif title.begins_with("체력"):
 		icon = "♥"
+	elif title.begins_with("덱"):
+		icon = "▣"
 	elif title.begins_with("나가기"):
 		icon = "➜"
 	var button: Button = main.ui.make_large_action_button(title, detail, icon, color, compact)
@@ -161,7 +167,7 @@ func _make_shop_card_product(card: Dictionary, shop_state: Dictionary, compact: 
 	var inner := VBoxContainer.new()
 	inner.add_theme_constant_override("separation", 4 if tight else 5)
 	frame.add_child(inner)
-	var type_label: Label = main._make_label("카드", 11 if tight else 12, Color(1.0, 0.88, 0.55, 1.0))
+	var type_label: Label = main._make_label("%s / %s" % [main.deck_service.type_name(String(card.get("type", ""))), String(card.get("attr", ""))], 11 if tight else 12, Color(1.0, 0.88, 0.55, 1.0))
 	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	inner.add_child(type_label)
 	inner.add_child(main._make_art_rect(int(card.get("art", 0)), Vector2(142, 82) if tight else (Vector2(132, 84) if compact else Vector2(154, 94))))
@@ -173,6 +179,11 @@ func _make_shop_card_product(card: Dictionary, shop_state: Dictionary, compact: 
 	text_label.custom_minimum_size = Vector2(0, 28 if tight else 30)
 	text_label.clip_text = true
 	inner.add_child(text_label)
+	var tag_text: String = main._format_card_tag_text(card)
+	if not tag_text.is_empty():
+		var tag_label: Label = main._make_label(tag_text, 10 if tight else 11, Color(1.0, 0.82, 0.56, 1.0))
+		tag_label.clip_text = true
+		inner.add_child(tag_label)
 	var button := Button.new()
 	button.text = "구매 ▶"
 	button.custom_minimum_size = Vector2(120, 36)
@@ -208,9 +219,18 @@ func _make_shop_relic_product(relic: Dictionary, shop_state: Dictionary, compact
 	box.add_child(relic_name)
 	box.add_child(main.ui.make_chip("골드 %d" % main.shop_run_service.SHOP_RELIC_COST, Color(0.34, 0.23, 0.08, 1.0), Color(1.0, 0.86, 0.46, 1.0), 12))
 	var relic_text: Label = main._make_label(String(relic.get("text", "")), 11 if tight else (12 if compact else 13), Color(0.9, 0.86, 0.98, 1.0))
-	relic_text.custom_minimum_size = Vector2(0, 84 if tight else 92)
+	relic_text.custom_minimum_size = Vector2(0, 58 if tight else 64)
 	relic_text.clip_text = true
 	box.add_child(relic_text)
+	var relic_tags: Array[String] = main._relic_build_tags(relic)
+	if not relic_tags.is_empty():
+		var tag_names: Array[String] = []
+		for tag in relic_tags:
+			var meta: Dictionary = main._build_tag_meta().get(tag, {})
+			tag_names.append("%s %s" % [String(meta.get("icon", "")), String(meta.get("name", ""))])
+		var relic_tag_label: Label = main._make_label(" / ".join(tag_names), 10 if tight else 11, Color(1.0, 0.82, 0.56, 1.0))
+		relic_tag_label.clip_text = true
+		box.add_child(relic_tag_label)
 	var button := Button.new()
 	button.text = "유물 구매 ▶"
 	button.custom_minimum_size = Vector2(120, 34)

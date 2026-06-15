@@ -81,6 +81,7 @@ func _capture_all() -> void:
 	quit(0)
 
 func _capture(file_name: String) -> void:
+	await RenderingServer.frame_post_draw
 	var texture := root.get_viewport().get_texture()
 	if texture == null:
 		printerr("Viewport texture is unavailable. Run this capture script without --headless.")

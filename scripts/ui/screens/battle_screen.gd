@@ -274,6 +274,8 @@ func _apply_battle_victory_rewards() -> Dictionary:
 		main.current_run["hp"] = int(player.health)
 	gold_reward += main.relic_service.victory_gold_bonus(main.current_run)
 	main.current_run["gold"] = int(main.current_run.get("gold", 0)) + gold_reward
+	main.current_run["gold_earned"] = int(main.current_run.get("gold_earned", 0)) + gold_reward
+	main.current_run["enemies_defeated"] = int(main.current_run.get("enemies_defeated", 0)) + 1
 	return {
 		"choices": _battle_reward_choices(),
 		"bonus_relic": bonus_relic,
@@ -876,12 +878,12 @@ func _build_battle_ui() -> void:
 	mana_status_label = null
 	player_deck_status_label = null
 	player_field_status_label = null
-	var field_height := 116 if tight else (88 if not compact else 84)
-	var board_width := 740 if not compact else 0
-	var sidebar_width := 188 if tight else (190 if not compact else 0)
-	var hand_height := 132 if tight else (150 if not compact else 138)
-	var deck_height := 118 if tight else (82 if not compact else 74)
-	var log_height := 202 if tight else (158 if not compact else 136)
+	var field_height := 64 if tight else (122 if not compact else 96)
+	var board_width := 760 if not compact else 0
+	var sidebar_width := 170 if tight else (178 if not compact else 0)
+	var hand_height := 94 if tight else (170 if not compact else 142)
+	var deck_height := 58 if tight else (108 if not compact else 78)
+	var log_height := 122 if tight else (220 if not compact else 140)
 
 	root_box.add_child(_make_top_status_bar(compact))
 	root_box.add_child(_make_battle_guidance_panel(compact))
@@ -900,7 +902,7 @@ func _build_battle_ui() -> void:
 
 	left_column.add_child(_make_side_info_card("적 영웅", opponent, ENEMY_HERO_ART, compact, true))
 
-	var enemy_meta: Dictionary = _make_section_panel("적 정보", compact, 92 if tight else (118 if not compact else 96))
+	var enemy_meta: Dictionary = _make_section_panel("적 효과", compact, 92 if tight else (118 if not compact else 96))
 	left_column.add_child(enemy_meta["panel"])
 	var enemy_meta_box: VBoxContainer = enemy_meta["content"]
 	var enemy_state: Label = main._make_label("현재 전투: %s" % main._node_type_name(battle_tier), 12 if tight else (14 if compact else 15), Color(0.84, 0.88, 0.94, 1.0))
@@ -911,7 +913,7 @@ func _build_battle_ui() -> void:
 	enemy_meta_box.add_child(enemy_stat_row)
 	enemy_stat_row.add_child(main.ui.make_stat_tile("손패", str((opponent.get("hand", []) as Array).size()), Color(0.22, 0.18, 0.42, 1.0), compact))
 	enemy_stat_row.add_child(main.ui.make_stat_tile("덱", str((opponent.get("deck", []) as Array).size()), Color(0.16, 0.18, 0.24, 1.0), compact))
-	enemy_meta_box.add_child(main.ui.make_objective_panel("위협 요약", "적 영웅 HP와 남은 덱을 먼저 확인한 뒤 전장을 정리하세요.", tight or compact))
+	enemy_meta_box.add_child(main.ui.make_objective_panel("위협 요약", "손패와 덱 수를 보고 다음 턴 압박을 예측하세요.", tight or compact))
 	if tight:
 		var enemy_hint_chip: PanelContainer = main.ui.make_chip("상대 영웅 HP를 우선 확인하세요", Color(0.16, 0.16, 0.11, 1.0), Color(0.96, 0.92, 0.78, 1.0), 10)
 		enemy_meta_box.add_child(enemy_hint_chip)
@@ -936,6 +938,7 @@ func _build_battle_ui() -> void:
 
 	var board_panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.24, 0.2, 0.12, 1.0), 1, 12, 6 if tight else 10)
 	board_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	board_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	center_column.add_child(board_panel)
 	var board_box := VBoxContainer.new()
 	board_box.add_theme_constant_override("separation", 4 if tight else 7)
@@ -957,6 +960,7 @@ func _build_battle_ui() -> void:
 	opponent_field_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	opponent_field_scroll.custom_minimum_size = Vector2(0, field_height)
 	opponent_field_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	opponent_field_scroll.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	board_box.add_child(opponent_field_scroll)
 	opponent_field_box = HBoxContainer.new()
 	opponent_field_box.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -975,6 +979,7 @@ func _build_battle_ui() -> void:
 	player_field_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	player_field_scroll.custom_minimum_size = Vector2(0, field_height)
 	player_field_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	player_field_scroll.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	board_box.add_child(player_field_scroll)
 	player_field_box = HBoxContainer.new()
 	player_field_box.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1037,32 +1042,13 @@ func _build_battle_ui() -> void:
 	if tight:
 		var tight_hand_panel: PanelContainer = main.ui.make_surface_panel(Color(0.06, 0.07, 0.09, 1.0), Color(0.22, 0.18, 0.1, 1.0), 1, 12, 8)
 		tight_hand_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tight_hand_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		center_column.add_child(tight_hand_panel)
 		var tight_hand_box := VBoxContainer.new()
 		tight_hand_box.add_theme_constant_override("separation", 4)
 		tight_hand_panel.add_child(tight_hand_box)
-		var tight_header := HBoxContainer.new()
-		tight_header.add_theme_constant_override("separation", 8)
-		tight_hand_box.add_child(tight_header)
-		var tight_title: Label = main._make_label("내 손패", 11, Color(1.0, 0.88, 0.55, 1.0))
-		tight_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		tight_header.add_child(tight_title)
-		var tight_deck_chip_data: Dictionary = _make_tight_info_chip("덱 %d" % (player.get("deck", []) as Array).size(), Color(0.16, 0.12, 0.28, 1.0), 64)
-		player_deck_status_label = tight_deck_chip_data["label"]
-		var tight_deck_chip: PanelContainer = tight_deck_chip_data["panel"]
-		tight_deck_chip.custom_minimum_size = Vector2(64, 24)
-		tight_header.add_child(tight_deck_chip)
-		var tight_field_chip_data: Dictionary = _make_tight_info_chip("필드 %d/%d" % [player.field.size(), MAX_FIELD], Color(0.12, 0.14, 0.18, 1.0), 78)
-		player_field_status_label = tight_field_chip_data["label"]
-		var tight_field_chip: PanelContainer = tight_field_chip_data["panel"]
-		tight_field_chip.custom_minimum_size = Vector2(78, 24)
-		tight_header.add_child(tight_field_chip)
-		var tight_hint: Label = main._make_label("밝은 카드를 내거나 공격하세요", 10, Color(0.76, 0.82, 0.9, 1.0))
-		tight_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		tight_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tight_header.add_child(tight_hint)
-		var tight_goal_chip: PanelContainer = main.ui.make_chip("핵심 카드부터 사용", Color(0.16, 0.16, 0.1, 1.0), Color(0.96, 0.94, 0.82, 1.0), 10)
-		tight_hand_box.add_child(tight_goal_chip)
+		player_deck_status_label = deck_count_label
+		player_field_status_label = null
 		var tight_hand_scroll := ScrollContainer.new()
 		tight_hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		tight_hand_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -1558,16 +1544,16 @@ func _configure_field_button(button: Button, unit: Dictionary, index: int, is_pl
 func _make_empty_field_slot(compact: bool) -> PanelContainer:
 	var tight := _is_tight_battle_layout()
 	var placeholder := PanelContainer.new()
-	placeholder.add_theme_stylebox_override("panel", _make_field_slot_style(Color(0.032, 0.035, 0.03, 1.0), Color(0.5, 0.38, 0.16, 0.98), 2))
-	placeholder.custom_minimum_size = Vector2(84, 98) if tight else (Vector2(94, 86) if not compact else Vector2(82, 78))
+	placeholder.add_theme_stylebox_override("panel", _make_field_slot_style(Color(0.025, 0.03, 0.032, 1.0), Color(0.42, 0.34, 0.2, 0.9), 2))
+	placeholder.custom_minimum_size = Vector2(62, 62) if tight else (Vector2(116, 110) if not compact else Vector2(88, 82))
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 3)
 	placeholder.add_child(box)
-	var emblem: Label = main._make_label("✦", 18 if tight else (22 if compact else 26), Color(0.62, 0.52, 0.28, 0.72))
+	var emblem: Label = main._make_label("✦", 14 if tight else (24 if compact else 30), Color(0.62, 0.52, 0.28, 0.46))
 	emblem.autowrap_mode = TextServer.AUTOWRAP_OFF
 	box.add_child(emblem)
-	var text: Label = main._make_label("대기 슬롯", 8 if tight else (9 if compact else 10), Color(0.56, 0.53, 0.42, 0.95))
+	var text: Label = main._make_label("빈 슬롯", 7 if tight else (9 if compact else 10), Color(0.56, 0.53, 0.42, 0.8))
 	text.autowrap_mode = TextServer.AUTOWRAP_OFF
 	box.add_child(text)
 	return placeholder
@@ -1578,9 +1564,9 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	if index >= side.field.size():
 		return _make_empty_field_slot(compact)
 	var frame := PanelContainer.new()
-	frame.custom_minimum_size = Vector2(90, 104) if tight else Vector2(102 if not compact else 90, 94 if not compact else 86)
+	frame.custom_minimum_size = Vector2(64, 70) if tight else Vector2(118 if not compact else 92, 114 if not compact else 88)
 	var slot := VBoxContainer.new()
-	slot.custom_minimum_size = Vector2(80, 94) if tight else Vector2(90 if not compact else 80, 84 if not compact else 76)
+	slot.custom_minimum_size = Vector2(56, 62) if tight else Vector2(106 if not compact else 82, 104 if not compact else 78)
 	slot.add_theme_constant_override("separation", 1 if tight else 2)
 	frame.add_child(slot)
 	var unit: Dictionary = side.field[index]
@@ -1596,22 +1582,23 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 		slot_border = Color(0.9, 0.34, 0.24, 1.0)
 		slot_bg = Color(0.1, 0.045, 0.04, 1.0)
 	frame.add_theme_stylebox_override("panel", _make_field_slot_style(slot_bg, slot_border, 2))
-	var role_chip: PanelContainer = main.ui.make_surface_panel(Color(0.1, 0.09, 0.06, 0.96), slot_border.lightened(0.1), 1, 6, 2)
-	slot.add_child(role_chip)
-	var role_label: Label = main._make_label("전열", 7 if tight else 8, Color(0.96, 0.9, 0.74, 1.0))
-	role_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	role_chip.add_child(role_label)
+	if not tight:
+		var role_chip: PanelContainer = main.ui.make_surface_panel(Color(0.1, 0.09, 0.06, 0.96), slot_border.lightened(0.1), 1, 6, 2)
+		slot.add_child(role_chip)
+		var role_label: Label = main._make_label("전장", 8, Color(0.96, 0.9, 0.74, 1.0))
+		role_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		role_chip.add_child(role_label)
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(76, 24) if tight else Vector2(86 if not compact else 76, 20 if not compact else 20)
+	button.custom_minimum_size = Vector2(52, 18) if tight else Vector2(98 if not compact else 78, 22 if not compact else 20)
 	main.ui.style_button(button, Color(0.12, 0.14, 0.18, 1.0))
 	button.add_theme_font_size_override("font_size", 10 if tight else 11)
 	var name_band: PanelContainer = main.ui.make_surface_panel(Color(0.11, 0.09, 0.055, 1.0), Color(0.54, 0.42, 0.2, 1.0), 1, 4, 2)
 	slot.add_child(name_band)
-	var name_label: Label = main._make_label(String(unit.get("name", "")), 10 if tight else (10 if compact else 11), Color(1.0, 0.94, 0.72, 1.0))
+	var name_label: Label = main._make_label(String(unit.get("name", "")), 7 if tight else (10 if compact else 11), Color(1.0, 0.94, 0.72, 1.0))
 	name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	name_label.clip_text = true
 	name_band.add_child(name_label)
-	slot.add_child(main._make_art_rect(int(unit.get("art", 0)), Vector2(78, 34) if tight else (Vector2(90, 38) if not compact else Vector2(80, 32))))
+	slot.add_child(main._make_art_rect(int(unit.get("art", 0)), Vector2(52, 20) if tight else (Vector2(104, 42) if not compact else Vector2(82, 32))))
 	var stat_row := HBoxContainer.new()
 	stat_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	stat_row.add_theme_constant_override("separation", 4)
@@ -1640,7 +1627,7 @@ func _render_hand() -> void:
 		var frame := Button.new()
 		frame.text = ""
 		frame.focus_mode = Control.FOCUS_NONE
-		frame.custom_minimum_size = Vector2(96, 128) if tight else (Vector2(132, 152) if not compact else Vector2(116, 138))
+		frame.custom_minimum_size = Vector2(80, 94) if tight else (Vector2(146, 168) if not compact else Vector2(120, 140))
 		frame.add_theme_stylebox_override("normal", _make_hand_card_style(Color(0.075, 0.068, 0.052, 1.0), Color(1.0, 0.8, 0.28, 1.0) if playable else accent.darkened(0.12), 3 if playable else 2))
 		frame.add_theme_stylebox_override("hover", _make_hand_card_style(Color(0.095, 0.082, 0.055, 1.0), Color(1.0, 0.92, 0.46, 1.0), 3))
 		frame.add_theme_stylebox_override("pressed", _make_hand_card_style(Color(0.05, 0.045, 0.038, 1.0), Color(1.0, 0.7, 0.22, 1.0), 3))
@@ -1649,7 +1636,7 @@ func _render_hand() -> void:
 		if not playable:
 			frame.modulate = Color(0.66, 0.68, 0.72, 0.86)
 		var card_box := VBoxContainer.new()
-		card_box.custom_minimum_size = Vector2(86, 118) if tight else (Vector2(122, 142) if not compact else Vector2(106, 128))
+		card_box.custom_minimum_size = Vector2(70, 86) if tight else (Vector2(136, 158) if not compact else Vector2(110, 130))
 		card_box.add_theme_constant_override("separation", 1 if tight else 2)
 		card_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		frame.add_child(card_box)
@@ -1669,21 +1656,23 @@ func _render_hand() -> void:
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		name_band.add_child(name_label)
-		var art_rect: TextureRect = main._make_art_rect(int(card.get("art", 0)), Vector2(82, 42) if tight else (Vector2(122, 56) if not compact else Vector2(106, 46)))
+		var art_rect: TextureRect = main._make_art_rect(int(card.get("art", 0)), Vector2(66, 26) if tight else (Vector2(134, 62) if not compact else Vector2(110, 46)))
 		art_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_box.add_child(art_rect)
-		var status_chip: PanelContainer = main.ui.make_surface_panel(accent.darkened(0.36), accent.lightened(0.06), 1, 5, 2)
-		status_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card_box.add_child(status_chip)
-		var status_label: Label = main._make_label("플레이 가능" if playable else _unplayable_card_hint(card, cost), 7 if tight else 8, Color(1.0, 0.92, 0.76, 1.0) if playable else Color(0.74, 0.78, 0.84, 1.0))
-		status_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-		status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		status_chip.add_child(status_label)
+		if not tight:
+			var status_chip: PanelContainer = main.ui.make_surface_panel(accent.darkened(0.36), accent.lightened(0.06), 1, 5, 2)
+			status_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			card_box.add_child(status_chip)
+			var status_label: Label = main._make_label("사용 가능" if playable else _unplayable_card_hint(card, cost), 8, Color(1.0, 0.92, 0.76, 1.0) if playable else Color(0.74, 0.78, 0.84, 1.0))
+			status_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+			status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			status_chip.add_child(status_label)
 		var type_line := "%s / %s" % [main.deck_service.type_name(String(card.get("type", ""))), String(card.get("attr", ""))]
 		var type_label: Label = main._make_label(type_line, 8 if tight else 9, Color(0.9, 0.86, 0.66, 1.0))
 		type_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		type_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card_box.add_child(type_label)
+		if not tight:
+			card_box.add_child(type_label)
 		if String(card.get("type", "")) == "unit":
 			var card_stat_row := HBoxContainer.new()
 			card_stat_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1698,10 +1687,11 @@ func _render_hand() -> void:
 			card_stat_row.add_child(health_badge)
 		var effect_label: Label = main._make_label(String(card.get("text", "")), 8 if tight else (10 if not compact else 9), Color(0.82, 0.88, 0.95, 1.0))
 		effect_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		effect_label.custom_minimum_size = Vector2(0, 22 if tight else (24 if compact else 30))
+		effect_label.custom_minimum_size = Vector2(0, 14 if tight else (24 if compact else 32))
 		effect_label.clip_text = true
 		effect_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card_box.add_child(effect_label)
+		if not tight:
+			card_box.add_child(effect_label)
 		var action_label: Label = main._make_label("즉시 사용" if playable else _unplayable_card_hint(card, cost), 8 if tight else (9 if not compact else 8), Color(1.0, 0.86, 0.48, 1.0) if playable else Color(0.58, 0.62, 0.68, 1.0))
 		action_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		action_label.clip_text = true
