@@ -36,6 +36,8 @@
   - 전투 UI, 전투 상태, 전투 스냅샷 복원
 - `res://scripts/ui/ui_factory.gd`
   - 공통 화면 패널, 버튼 스타일, 안내 배너
+- `res://docs/ui-card-draft-guide.md`
+  - 8개 핵심 화면의 역할, 정보 우선순위, 플레이어 유도 기준
 
 ## 데이터 파일
 

@@ -18,6 +18,15 @@ func _capture_all() -> void:
 	await process_frame
 	await _capture("01_main_menu")
 
+	main._show_ui_guide()
+	await process_frame
+	await process_frame
+	await _capture("01b_ui_guide")
+
+	main._show_main_menu()
+	await process_frame
+	await process_frame
+
 	main._start_new_run()
 	await process_frame
 	await process_frame

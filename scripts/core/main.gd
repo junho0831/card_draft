@@ -21,6 +21,11 @@ const RunFlowCoordinatorScript := preload("res://scripts/core/run_flow_coordinat
 const RunGeneratorScript := preload("res://scripts/services/run_generator.gd")
 const RunStateScript := preload("res://scripts/services/run_state.gd")
 const CollectionScreenScript := preload("res://scripts/ui/screens/collection_screen.gd")
+const CompendiumScreenScript := preload("res://scripts/ui/screens/compendium_screen.gd")
+const MetaUpgradeScreenScript := preload("res://scripts/ui/screens/meta_upgrade_screen.gd")
+const RunResultScreenScript := preload("res://scripts/ui/screens/run_result_screen.gd")
+const SettingsScreenScript := preload("res://scripts/ui/screens/settings_screen.gd")
+const UiGuideScreenScript := preload("res://scripts/ui/screens/ui_guide_screen.gd")
 const UiFactoryScript := preload("res://scripts/ui/ui_factory.gd")
 const CARD_ART_COLS := 4
 const CARD_ART_ROWS := 3
@@ -420,6 +425,7 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 	actions.add_theme_constant_override("separation", 8)
 	row.add_child(actions)
 	_small_hub_button(actions, "도감", "_show_compendium", "📖")
+	_small_hub_button(actions, "가이드", "_show_ui_guide", "🗺")
 	_small_hub_button(actions, "업적", "_show_achievements", "🏆")
 	_small_hub_button(actions, "설정", "_show_settings", "⚙")
 	_small_hub_button(actions, "종료", "_quit_game", "⏻")
@@ -430,7 +436,7 @@ func _make_main_menu_node_summary(compact: bool) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
-	var title := _make_label("이번 런 요약", 22 if compact else 24, Color(1.0, 0.96, 0.9, 1.0))
+	var title := _make_label("현재 런 정보", 22 if compact else 24, Color(1.0, 0.96, 0.9, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(title)
 	var headline_text := "새 런을 시작해 빌드를 완성하세요."
@@ -498,7 +504,7 @@ func _make_main_menu_recent_runs(compact: bool) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	panel.add_child(box)
-	var title := _make_label("최근 플레이 기록", 22 if compact else 24, Color(1.0, 0.96, 0.9, 1.0))
+	var title := _make_label("최근 런 기록", 22 if compact else 24, Color(1.0, 0.96, 0.9, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(title)
 	var stats: Dictionary = _main_menu_recent_stats()
@@ -544,7 +550,7 @@ func _make_main_menu_build_panel(compact: bool) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	panel.add_child(box)
-	var title := _make_label("현재 빌드", 20 if compact else 22, Color(1.0, 0.96, 0.9, 1.0))
+	var title := _make_label("빌드 통계", 20 if compact else 22, Color(1.0, 0.96, 0.9, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	var chip_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
@@ -578,9 +584,10 @@ func _make_main_menu_content(compact: bool) -> Control:
 	var continue_button := _menu_nav_button(left_column, "이어하기", continue_subtitle, "_continue_run", Color(0.18, 0.34, 0.16, 1.0), "✦")
 	continue_button.disabled = current_run.is_empty()
 	_menu_nav_button(left_column, "새 런 시작", "새로운 모험을 시작합니다.", "_start_new_run", Color(0.16, 0.32, 0.58, 1.0), "⚔")
-	_menu_nav_button(left_column, "카드 목록", "카드 도감과 보유 카드를 확인합니다.", "_show_collection", Color(0.12, 0.14, 0.18, 1.0), "🃏")
-	_menu_nav_button(left_column, "유물 목록", "현재 유물과 해금 유물을 확인합니다.", "_show_compendium", Color(0.12, 0.14, 0.18, 1.0), "🜂")
+	_menu_nav_button(left_column, "카드 컬렉션", "카드 도감과 보유 카드를 확인합니다.", "_show_collection", Color(0.12, 0.14, 0.18, 1.0), "🃏")
+	_menu_nav_button(left_column, "유물", "현재 유물과 해금 유물을 확인합니다.", "_show_compendium", Color(0.12, 0.14, 0.18, 1.0), "🜂")
 	_menu_nav_button(left_column, "메타 강화", "영혼석으로 시작 보너스를 강화합니다.", "_show_meta_upgrade", Color(0.12, 0.14, 0.18, 1.0), "🌿")
+	_menu_nav_button(left_column, "UI 설계 가이드", "8개 핵심 화면과 역할을 한 장으로 봅니다.", "_show_ui_guide", Color(0.12, 0.14, 0.18, 1.0), "🗺")
 
 	var center_column := VBoxContainer.new()
 	center_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -737,37 +744,13 @@ func _show_meta_upgrade() -> void:
 	active_screen = "meta_upgrade"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("메타 강화")
-	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 640)
-	body.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
-	panel.add_child(box)
-	var upgrades := _profile_upgrades()
-	box.add_child(_make_label("영혼석 %d" % int(player_profile.get("soul_stones", 0)), 20, Color(1.0, 0.88, 0.55, 1.0)))
-	box.add_child(_make_label("튼튼한 몸: 시작 최대 체력 +5 (현재 %d)" % int(upgrades.get("start_hp", 0)), 15, Color(0.92, 0.94, 0.98, 1.0)))
-	box.add_child(_make_label("왕실 지원금: 시작 골드 +20 (현재 %d)" % int(upgrades.get("start_gold", 0)), 15, Color(0.92, 0.94, 0.98, 1.0)))
-	box.add_child(_make_label("두 번째 기회: 런당 1회 체력 1로 버팀 (현재 %d)" % int(upgrades.get("second_chance", 0)), 15, Color(0.92, 0.94, 0.98, 1.0)))
-	_add_menu_button(box, "튼튼한 몸 강화", "_upgrade_start_hp", Color(0.18, 0.4, 0.24, 1.0))
-	_add_menu_button(box, "왕실 지원금 강화", "_upgrade_start_gold", Color(0.34, 0.28, 0.52, 1.0))
-	_add_menu_button(box, "두 번째 기회 강화", "_upgrade_second_chance", Color(0.46, 0.26, 0.18, 1.0))
-	_add_menu_button(box, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
+	MetaUpgradeScreenScript.new(self).build(body)
 
 func _show_compendium() -> void:
 	active_screen = "compendium"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("카드 도감")
-	var panel := _make_screen_panel(Color(0.105, 0.115, 0.135, 1.0), 760)
-	body.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 8)
-	panel.add_child(box)
-	box.add_child(_make_label("현재 카드 %d종 / 유물 %d개" % [card_defs.size(), relic_service.relics.size()], 16, Color(0.92, 0.94, 0.98, 1.0)))
-	for card in card_defs:
-		box.add_child(_make_label("%s [%s/%s] 비용 %d" % [String(card.get("name", "")), String(card.get("race", "")), String(card.get("attr", "")), int(card.get("cost", 0))], 14, Color(0.84, 0.88, 0.95, 1.0)))
-	box.add_child(HSeparator.new())
-	for relic in relic_service.relics:
-		box.add_child(_make_label("%s - %s" % [String(relic.get("name", "")), String(relic.get("text", ""))], 14, Color(1.0, 0.88, 0.55, 1.0)))
-	_add_menu_button(box, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
+	CompendiumScreenScript.new(self).build(body)
 
 func _upgrade_start_hp() -> void:
 	var upgrades: Dictionary = player_profile.get("upgrades", {})
@@ -996,139 +979,7 @@ func _show_run_result(is_win: bool) -> void:
 	active_screen = "run_result"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("런 결과")
-	var compact := _is_compact_layout()
-	var scores: Dictionary = _current_build_scores()
-	var primary_tag: String = _primary_build_tag(scores)
-	var tag_meta: Dictionary = _build_tag_meta().get(primary_tag, {})
-	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hub.add_theme_constant_override("separation", 10)
-	body.add_child(hub)
-
-	var hero_panel: PanelContainer = ui.make_surface_panel(Color(0.06, 0.07, 0.09, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 14, 16)
-	hero_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hero_panel.custom_minimum_size = Vector2(0, 310 if compact else 390)
-	hub.add_child(hero_panel)
-	var hero_box := VBoxContainer.new()
-	hero_box.add_theme_constant_override("separation", 8)
-	hero_panel.add_child(hero_box)
-	hero_box.add_child(_make_label("런 종료", 13 if compact else 14, Color(1.0, 0.86, 0.48, 1.0)))
-	var result_banner: PanelContainer = ui.make_chip("런 %s" % ("클리어" if is_win else "패배"), Color(0.18, 0.3, 0.18, 1.0) if is_win else Color(0.36, 0.14, 0.14, 1.0), Color(1.0, 0.96, 0.88, 1.0), 13 if compact else 14)
-	hero_box.add_child(result_banner)
-	hero_box.add_child(_make_art_rect(8 if is_win else 11, Vector2(260, 190) if compact else Vector2(340, 250)))
-	hero_box.add_child(_make_label("승리!" if is_win else "패배", 30 if compact else 38, Color(1.0, 0.88, 0.55, 1.0) if is_win else Color(1.0, 0.68, 0.62, 1.0)))
-	hero_box.add_child(_make_label("이번 런의 최종 빌드와 보상을 확인하세요.", 13 if compact else 15, Color(0.86, 0.9, 0.96, 1.0)))
-	var hero_result_panel: PanelContainer = ui.make_objective_panel("런 평가", _run_result_headline(is_win), compact)
-	hero_box.add_child(hero_result_panel)
-	var hero_chips: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	hero_chips.add_theme_constant_override("separation", 8)
-	hero_box.add_child(hero_chips)
-	hero_chips.add_child(ui.make_chip("최종 Act %d" % int(current_run.get("act", 1)), Color(0.14, 0.22, 0.34, 1.0), Color(0.86, 0.92, 1.0, 1.0), 13 if compact else 14))
-	hero_chips.add_child(ui.make_chip("%s %s" % [String(tag_meta.get("icon", "")), String(tag_meta.get("name", "빌드"))], Color(0.32, 0.22, 0.08, 1.0), Color(1.0, 0.88, 0.55, 1.0), 13 if compact else 14))
-	var hero_metrics: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	hero_metrics.add_theme_constant_override("separation", 8)
-	hero_box.add_child(hero_metrics)
-	hero_metrics.add_child(ui.make_stat_tile("덱", str((current_run.get("deck_ids", []) as Array).size()), Color(0.14, 0.18, 0.24, 1.0), compact))
-	hero_metrics.add_child(ui.make_stat_tile("유물", str((current_run.get("relic_ids", []) as Array).size()), Color(0.2, 0.16, 0.28, 1.0), compact))
-	hero_metrics.add_child(ui.make_stat_tile("영혼석", str(int(current_run.get("earned_soul_stones", 0))), Color(0.18, 0.14, 0.3, 1.0), compact))
-
-	var summary_panel: PanelContainer = ui.make_surface_panel(Color(0.08, 0.09, 0.11, 0.96), Color(0.22, 0.19, 0.11, 1.0), 1, 12, 16)
-	summary_panel.custom_minimum_size = Vector2(0 if compact else 320, 0)
-	hub.add_child(summary_panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 8)
-	summary_panel.add_child(box)
-	box.add_child(_make_label("이번 런 요약", 18 if compact else 20, Color(1.0, 0.88, 0.55, 1.0)))
-	var metric_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	metric_row.add_theme_constant_override("separation", 6)
-	box.add_child(metric_row)
-	metric_row.add_child(ui.make_chip("Act %d" % int(current_run.get("act", 1)), Color(0.12, 0.22, 0.34, 1.0), Color(0.86, 0.92, 1.0, 1.0), 13 if compact else 14))
-	metric_row.add_child(ui.make_chip("덱 %d" % (current_run.get("deck_ids", []) as Array).size(), Color(0.12, 0.18, 0.28, 1.0), Color(0.86, 0.92, 1.0, 1.0), 13 if compact else 14))
-	metric_row.add_child(ui.make_chip("유물 %d" % (current_run.get("relic_ids", []) as Array).size(), Color(0.22, 0.16, 0.32, 1.0), Color(0.92, 0.84, 1.0, 1.0), 13 if compact else 14))
-	box.add_child(HSeparator.new())
-	box.add_child(_make_label("런 정보", 16 if compact else 18, Color(1.0, 0.88, 0.55, 1.0)))
-	var run_info_grid: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	run_info_grid.add_theme_constant_override("separation", 6)
-	box.add_child(run_info_grid)
-	run_info_grid.add_child(ui.make_stat_tile("플레이 시간", _format_run_duration(), Color(0.14, 0.18, 0.24, 1.0), compact))
-	run_info_grid.add_child(ui.make_stat_tile("처치한 적", "%d" % int(current_run.get("enemies_defeated", 0)), Color(0.22, 0.13, 0.12, 1.0), compact))
-	var run_info_grid_2: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	run_info_grid_2.add_theme_constant_override("separation", 6)
-	box.add_child(run_info_grid_2)
-	run_info_grid_2.add_child(ui.make_stat_tile("획득 골드", "%d" % int(current_run.get("gold_earned", 0)), Color(0.32, 0.24, 0.08, 1.0), compact))
-	run_info_grid_2.add_child(ui.make_stat_tile("방문 노드", "%d" % (current_run.get("visited_nodes", []) as Array).size(), Color(0.12, 0.2, 0.24, 1.0), compact))
-	box.add_child(HSeparator.new())
-	box.add_child(_make_label("핵심 결과", 16 if compact else 18, Color(1.0, 0.88, 0.55, 1.0)))
-	box.add_child(ui.make_chip("상태: %s" % ("클리어" if is_win else "실패"), Color(0.18, 0.3, 0.18, 1.0) if is_win else Color(0.36, 0.14, 0.14, 1.0), Color(1.0, 0.96, 0.88, 1.0), 13 if compact else 14))
-	box.add_child(_make_label(_run_result_headline(is_win), 13 if compact else 14, Color(0.86, 0.9, 0.96, 1.0)))
-	box.add_child(_make_label("획득 보상", 17 if compact else 19, Color(1.0, 0.88, 0.55, 1.0)))
-	box.add_child(ui.make_chip("카드 %d장  |  유물 %d개  |  골드 +%d" % [
-		(current_run.get("deck_ids", []) as Array).size(),
-		(current_run.get("relic_ids", []) as Array).size(),
-		int(current_run.get("gold_earned", 0)),
-	], Color(0.16, 0.18, 0.24, 1.0), Color(0.92, 0.96, 1.0, 1.0), 13 if compact else 14))
-	box.add_child(ui.make_chip("영혼석 +%d  |  보유 %d" % [int(current_run.get("earned_soul_stones", 0)), int(player_profile.get("soul_stones", 0))], Color(0.22, 0.16, 0.34, 1.0), Color(0.9, 0.78, 1.0, 1.0), 13 if compact else 14))
-	var reward_hint := _make_label("이번 런의 핵심 성과가 메타 진행에 바로 반영됩니다.", 13 if compact else 14, Color(0.84, 0.88, 0.94, 1.0))
-	reward_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	box.add_child(reward_hint)
-	box.add_child(HSeparator.new())
-	box.add_child(_make_label("최종 빌드", 17 if compact else 19, Color(1.0, 0.88, 0.55, 1.0)))
-	var build_text := _build_status_text(scores).replace("현재 빌드  ", "")
-	box.add_child(_make_label(build_text, 12 if compact else 13, Color(0.86, 0.9, 0.96, 1.0)))
-	box.add_child(_make_label(_active_build_text(scores), 13 if compact else 14, Color(1.0, 0.82, 0.5, 1.0)))
-	box.add_child(ui.make_chip("주요 카드: %s  |  주요 유물: %s" % [_run_key_card_name(primary_tag), _run_key_relic_name(primary_tag)], Color(0.12, 0.16, 0.2, 1.0), Color(0.86, 0.92, 1.0, 1.0), 12 if compact else 13))
-	var build_chip_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	build_chip_row.add_theme_constant_override("separation", 6)
-	box.add_child(build_chip_row)
-	for tag in _valid_build_tags():
-		var meta: Dictionary = _build_tag_meta().get(tag, {})
-		build_chip_row.add_child(ui.make_chip("%s %d" % [String(meta.get("icon", "")), int(scores.get(tag, 0))], Color(0.14, 0.16, 0.2, 1.0), Color(0.88, 0.92, 0.98, 1.0), 12 if compact else 13))
-	box.add_child(HSeparator.new())
-	box.add_child(_make_label("다음 행동", 16 if compact else 18, Color(1.0, 0.88, 0.55, 1.0)))
-	var actions: BoxContainer = ui.make_action_bar(compact, 10)
-	box.add_child(actions)
-	_add_menu_button(actions, "메인 메뉴", "_return_to_main_after_run", Color(0.22, 0.24, 0.28, 1.0))
-	_add_menu_button(actions, "새 런 시작 ▶", "_start_new_run", Color(0.55, 0.36, 0.1, 1.0))
-
-func _format_run_duration() -> String:
-	var started_at := int(current_run.get("started_at", 0))
-	var finished_at := int(current_run.get("finished_at", 0))
-	if started_at <= 0:
-		return "--:--"
-	if finished_at <= 0:
-		finished_at = int(Time.get_unix_time_from_system())
-	var elapsed: int = max(0, finished_at - started_at)
-	var minutes := int(elapsed / 60)
-	var seconds := elapsed % 60
-	return "%02d:%02d" % [minutes, seconds]
-
-func _run_key_card_name(primary_tag: String) -> String:
-	for card_id_variant in current_run.get("deck_ids", []):
-		var card: Dictionary = card_db.get_card(String(card_id_variant))
-		if card.is_empty():
-			continue
-		if primary_tag.is_empty() or _card_build_tags(card).has(primary_tag):
-			return String(card.get("name", card_id_variant))
-	return "없음"
-
-func _run_key_relic_name(primary_tag: String) -> String:
-	for relic_id_variant in current_run.get("relic_ids", []):
-		var relic: Dictionary = relic_service.get_relic(String(relic_id_variant))
-		if relic.is_empty():
-			continue
-		if primary_tag.is_empty() or _relic_build_tags(relic).has(primary_tag):
-			return String(relic.get("name", relic_id_variant))
-	return "없음"
-
-func _run_result_headline(is_win: bool) -> String:
-	if is_win:
-		return "현재 빌드가 이번 런의 보스전까지 통했다는 뜻입니다."
-	var scores: Dictionary = _current_build_scores()
-	var primary: String = _primary_build_tag(scores)
-	if primary.is_empty():
-		return "초반 탐색 단계에서 런이 종료되었습니다. 다음 런에서 방향을 더 빠르게 고정하세요."
-	var meta: Dictionary = _build_tag_meta().get(primary, {})
-	return "이번 런은 %s %s 축을 중심으로 굴렀습니다. 다음에는 보완 카드나 유물을 더 일찍 확보하세요." % [String(meta.get("icon", "")), String(meta.get("name", ""))]
+	RunResultScreenScript.new(self).build(body, is_win)
 
 func _finish_run(is_win: bool) -> void:
 	current_run["result"] = "win" if is_win else "loss"
@@ -1163,27 +1014,18 @@ func _show_collection() -> void:
 	var screen = CollectionScreenScript.new(self)
 	screen.build(body)
 
+func _show_ui_guide() -> void:
+	active_screen = "ui_guide"
+	_clear_screen()
+	var body: VBoxContainer = _begin_menu_screen("UI 설계 가이드")
+	var screen = UiGuideScreenScript.new(self)
+	screen.build(body)
+
 func _show_settings() -> void:
 	active_screen = "settings"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("설정")
-	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 480)
-	body.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
-	panel.add_child(box)
-	var cutscene_toggle := CheckBox.new()
-	cutscene_toggle.text = "전투 연출 켜기"
-	cutscene_toggle.button_pressed = bool(player_profile["settings"]["battle_cutscene"])
-	cutscene_toggle.toggled.connect(Callable(self, "_on_cutscene_toggled"))
-	box.add_child(cutscene_toggle)
-	var fast_ai_toggle := CheckBox.new()
-	fast_ai_toggle.text = "AI 턴 빠르게"
-	fast_ai_toggle.button_pressed = bool(player_profile["settings"]["fast_ai"])
-	fast_ai_toggle.toggled.connect(Callable(self, "_on_fast_ai_toggled"))
-	box.add_child(fast_ai_toggle)
-	_add_menu_button(box, "로컬 프로필 초기화", "_reset_profile", Color(0.35, 0.16, 0.16, 1.0))
-	_add_menu_button(box, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
+	SettingsScreenScript.new(self).build(body)
 
 func _on_cutscene_toggled(enabled: bool) -> void:
 	player_profile["settings"]["battle_cutscene"] = enabled
