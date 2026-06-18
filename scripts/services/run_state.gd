@@ -78,6 +78,7 @@ func advance_after_node(run_data: Dictionary) -> void:
 func current_node(run_data: Dictionary) -> Dictionary:
 	var current_act := int(run_data.get("act", 1))
 	var current_node_index := int(run_data.get("current_node_index", 0))
+	var current_path_index := int(run_data.get("current_path_index", 0))
 	var acts: Array = run_data.get("map_nodes", [])
 	if current_act < 1 or current_act > acts.size():
 		return {}
@@ -85,10 +86,21 @@ func current_node(run_data: Dictionary) -> Dictionary:
 	var nodes: Variant = act.get("nodes", [])
 	if typeof(nodes) != TYPE_ARRAY or current_node_index < 0 or current_node_index >= nodes.size():
 		return {}
+	
+	var layer: Variant = nodes[current_node_index]
+	var node_type: String = "unknown"
+	if typeof(layer) == TYPE_ARRAY:
+		if current_path_index >= 0 and current_path_index < layer.size():
+			node_type = String(layer[current_path_index])
+		else:
+			node_type = String(layer[0])
+	else:
+		node_type = String(layer)
+
 	return {
 		"act": current_act,
 		"index": current_node_index,
-		"type": String(nodes[current_node_index]),
+		"type": node_type,
 	}
 
 func _node_key(act: int, node_index: int) -> String:

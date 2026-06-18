@@ -213,7 +213,8 @@ func add_menu_button(parent: Node, target: Object, text: String, callback_method
 	button.custom_minimum_size = Vector2(220, 48)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	style_button(button, color)
-	button.pressed.connect(Callable(target, callback_method))
+	if not callback_method.is_empty():
+		button.pressed.connect(Callable(target, callback_method))
 	parent.add_child(button)
 	return button
 

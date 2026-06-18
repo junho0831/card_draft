@@ -2,11 +2,29 @@
 	{
 		"id": 1,
 		"name": "국경지대",
-		"nodes": ["battle", "battle", "event", "battle", "shop", "elite", "rest", "boss"]
+		"nodes": [
+			["battle"],
+			["battle", "event"],
+			["event"],
+			["battle", "shop"],
+			["shop"],
+			["elite", "event"],
+			["rest"],
+			["boss"]
+		]
 	},
 	{
 		"id": 2,
 		"name": "죽음의 성",
-		"nodes": ["battle", "battle", "event", "battle", "shop", "elite", "rest", "boss"]
+		"nodes": [
+			["battle"],
+			["battle", "event"],
+			["event"],
+			["battle", "shop"],
+			["shop"],
+			["elite", "event"],
+			["rest"],
+			["boss"]
+		]
 	}
 ]

@@ -811,7 +811,8 @@ func _upgrade_second_chance() -> void:
 func _show_map() -> void:
 	run_flow.show_map()
 
-func _enter_current_node() -> void:
+func _enter_current_node(path_index: int = 0) -> void:
+	current_run["current_path_index"] = path_index
 	run_flow.enter_current_node()
 
 func _show_card_reward() -> void:

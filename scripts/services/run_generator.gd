@@ -60,11 +60,17 @@ func create_map_nodes(acts: Array[Dictionary]) -> Array[Dictionary]:
 		if typeof(raw_nodes) != TYPE_ARRAY:
 			continue
 		for node_index in range(raw_nodes.size()):
+			var layer: Variant = raw_nodes[node_index]
+			var primary_type: String = ""
+			if typeof(layer) == TYPE_ARRAY and (layer as Array).size() > 0:
+				primary_type = String(layer[0])
+			else:
+				primary_type = String(layer)
 			nodes.append({
 				"act": act_index + 1,
 				"index": node_index,
-				"type": String(raw_nodes[node_index]),
-				"label": _node_label(String(raw_nodes[node_index])),
+				"type": primary_type,
+				"label": _node_label(primary_type),
 			})
 	return nodes
 

@@ -148,8 +148,23 @@ func _make_objective_panel(compact: bool, act_data: Dictionary) -> PanelContaine
 	box.add_child(desc)
 
 	box.add_child(HSeparator.new())
-	var enter_button: Button = main._add_menu_button(box, "현재 노드 진입 ▶", "_enter_current_node", Color(0.55, 0.36, 0.1, 1.0))
-	main.ui.style_primary_button(enter_button)
+	var current_layer: Variant = nodes_data[current_index]
+	if typeof(current_layer) == TYPE_ARRAY and (current_layer as Array).size() > 1:
+		box.add_child(_make_panel_title("경로 선택", compact))
+		for path_idx in range((current_layer as Array).size()):
+			var ptype := String((current_layer as Array)[path_idx])
+			var btn: Button = main._add_menu_button(box, "%s 진입 ▶" % main._node_type_name(ptype), "", Color(0.55, 0.36, 0.1, 1.0))
+			btn.pressed.connect(func():
+				main._enter_current_node(path_idx)
+			)
+			if path_idx == 0:
+				main.ui.style_primary_button(btn)
+	else:
+		var enter_button: Button = main._add_menu_button(box, "현재 노드 진입 ▶", "", Color(0.55, 0.36, 0.1, 1.0))
+		enter_button.pressed.connect(func():
+			main._enter_current_node(0)
+		)
+		main.ui.style_primary_button(enter_button)
 
 	box.add_child(HSeparator.new())
 	box.add_child(_make_panel_title("예상 보상", compact))
@@ -195,7 +210,14 @@ func _make_panel_title(text: String, compact: bool) -> Label:
 func _current_node_type() -> String:
 	if current_index < 0 or current_index >= nodes_data.size():
 		return ""
-	return String(nodes_data[current_index])
+	var layer: Variant = nodes_data[current_index]
+	var path_index = int(main.current_run.get("current_path_index", 0))
+	if typeof(layer) == TYPE_ARRAY:
+		if path_index >= 0 and path_index < layer.size():
+			return String(layer[path_index])
+		else:
+			return String(layer[0])
+	return String(layer)
 
 func _node_description(node_type: String) -> String:
 	match node_type:
@@ -342,7 +364,14 @@ func _draw_map(spacing: int, canvas_height: int) -> void:
 		
 		var pos := Vector2(px, py)
 		points.append(pos)
-		var node_btn: Control = _make_node_button(i, String(nodes_data[i]), pos)
+		var node_type: String = ""
+		var layer_data: Variant = nodes_data[i]
+		if typeof(layer_data) == TYPE_ARRAY and (layer_data as Array).size() > 0:
+			node_type = String(layer_data[0])
+		else:
+			node_type = String(layer_data)
+			
+		var node_btn: Control = _make_node_button(i, node_type, pos)
 		node_controls.append(node_btn)
 
 	for i in range(1, points.size()):

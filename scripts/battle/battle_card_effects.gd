@@ -60,8 +60,6 @@ func on_unit_died(dead_unit: Dictionary, owner: Dictionary, enemy: Dictionary, c
 				log.call("시체 폭발 효과: %s에게 피해 %d" % [enemy.field[0].name, damage])
 			if cleanup.is_valid():
 				cleanup.call(owner, enemy)
-	if String(dead_unit.get("id", "")) == "bone_soldier" and draw_cards.is_valid():
-		pass
 
 func _resolve_unit_play(owner: Dictionary, enemy: Dictionary, unit: Dictionary, context: Dictionary) -> void:
 	var draw_cards: Callable = context.get("draw_cards", Callable())

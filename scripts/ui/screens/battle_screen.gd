@@ -69,6 +69,7 @@ func _serialize_side(side: Dictionary) -> Dictionary:
 		"mana": int(side.get("mana", 0)),
 		"max_mana": int(side.get("max_mana", 0)),
 		"deck": (side.get("deck", []) as Array).duplicate(true),
+		"discard_pile": (side.get("discard_pile", []) as Array).duplicate(true),
 		"hand": (side.get("hand", []) as Array).duplicate(true),
 		"field": (side.get("field", []) as Array).duplicate(true),
 		"corpse_explosion_stacks": int(side.get("corpse_explosion_stacks", 0)),
@@ -84,6 +85,7 @@ func _restore_side(snapshot: Dictionary, fallback_name: String) -> Dictionary:
 		"mana": int(snapshot.get("mana", 0)),
 		"max_mana": int(snapshot.get("max_mana", 0)),
 		"deck": (snapshot.get("deck", []) as Array).duplicate(true),
+		"discard_pile": (snapshot.get("discard_pile", []) as Array).duplicate(true),
 		"hand": (snapshot.get("hand", []) as Array).duplicate(true),
 		"field": (snapshot.get("field", []) as Array).duplicate(true),
 		"corpse_explosion_stacks": int(snapshot.get("corpse_explosion_stacks", 0)),
@@ -340,6 +342,7 @@ func _new_side(display_name: String, deck: Array, hp: int, max_hp: int) -> Dicti
 		"mana": 0,
 		"max_mana": 0,
 		"deck": deck,
+		"discard_pile": [],
 		"hand": [],
 		"field": [],
 		"corpse_explosion_stacks": 0,
@@ -824,7 +827,7 @@ func _refresh_side_info_cards() -> void:
 	if enemy_hero_hp_label != null and is_instance_valid(enemy_hero_hp_label):
 		enemy_hero_hp_label.text = "❤ %d / %d" % [int(opponent.get("health", 0)), int(opponent.get("max_health", 0))]
 	if enemy_hero_sub_label != null and is_instance_valid(enemy_hero_sub_label):
-		enemy_hero_sub_label.text = "⚔ %d  |  덱 %d" % [_total_field_attack(opponent), (opponent.get("deck", []) as Array).size()]
+		enemy_hero_sub_label.text = "⚔ %d  |  덱 %d / 버림 %d" % [_total_field_attack(opponent), (opponent.get("deck", []) as Array).size(), (opponent.get("discard_pile", []) as Array).size()]
 	if player_hero_name_label != null and is_instance_valid(player_hero_name_label):
 		player_hero_name_label.text = String(player.get("name", "플레이어"))
 	if player_hero_hp_label != null and is_instance_valid(player_hero_hp_label):
@@ -834,13 +837,13 @@ func _refresh_side_info_cards() -> void:
 	if enemy_hand_count_label != null and is_instance_valid(enemy_hand_count_label):
 		enemy_hand_count_label.text = "손패 %d" % (opponent.get("hand", []) as Array).size()
 	if enemy_deck_count_label != null and is_instance_valid(enemy_deck_count_label):
-		enemy_deck_count_label.text = "덱 %d" % (opponent.get("deck", []) as Array).size()
+		enemy_deck_count_label.text = "덱 %d | 버림 %d" % [(opponent.get("deck", []) as Array).size(), (opponent.get("discard_pile", []) as Array).size()]
 
 func _refresh_status_chips() -> void:
 	if mana_status_label != null and is_instance_valid(mana_status_label):
 		mana_status_label.text = "마나 %d / %d" % [int(player.get("mana", 0)), int(player.get("max_mana", 0))]
 	if player_deck_status_label != null and is_instance_valid(player_deck_status_label):
-		player_deck_status_label.text = "덱 %d" % (player.get("deck", []) as Array).size()
+		player_deck_status_label.text = "덱 %d | 버림 %d" % [(player.get("deck", []) as Array).size(), (player.get("discard_pile", []) as Array).size()]
 	if player_field_status_label != null and is_instance_valid(player_field_status_label):
 		player_field_status_label.text = "필드 %d / %d" % [player.field.size(), MAX_FIELD]
 
@@ -1141,7 +1144,7 @@ func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
 		battle_state["mana_crystal_bonus"] = false
 	for unit in side.field:
 		unit.can_attack = true
-	_draw_cards(side, 1)
+	_draw_cards(side, 5)
 	if is_player_turn:
 		battle_state["cards_played_this_turn"] = 0
 		main.relic_service.on_turn_start(main.current_run, battle_state, player)
@@ -1203,13 +1206,32 @@ func _show_turn_banner(text: String, is_player: bool) -> void:
 	await tween.finished
 
 
+func _discard_hand(side: Dictionary) -> void:
+	if side.hand.size() > 0:
+		for card in side.hand:
+			side.discard_pile.append(card)
+		side.hand.clear()
+		_add_log("%s 패 버림" % side.name)
+
 func _draw_cards(side: Dictionary, count: int) -> void:
 	for i in range(count):
 		if side.deck.is_empty():
-			side.health -= 1
-			_add_log("%s 덱 고갈: 피해 1" % side.name)
-			continue
-		side.hand.append(side.deck.pop_back())
+			if not side.discard_pile.is_empty():
+				side.deck = side.discard_pile.duplicate()
+				side.discard_pile.clear()
+				side.deck.shuffle()
+				_add_log("%s 덱 재정렬" % side.name)
+			else:
+				side.health -= 1
+				_add_log("%s 덱 고갈: 피해 1" % side.name)
+				continue
+		
+		if side.hand.size() < 10:
+			side.hand.append(side.deck.pop_back())
+		else:
+			var burned_card = side.deck.pop_back()
+			side.discard_pile.append(burned_card)
+			_add_log("패가 가득 차서 카드가 버려짐: %s" % burned_card.get("name", ""))
 
 
 func _on_hand_card_pressed(index: int) -> void:
@@ -1229,6 +1251,8 @@ func _on_hand_card_pressed(index: int) -> void:
 		return
 	player.mana -= cost
 	player.hand.remove_at(index)
+	if String(card.get("type", "")) != "unit":
+		player.discard_pile.append(card)
 	main.relic_service.consume_card_discount(battle_state)
 	battle_state["cards_played_this_turn"] = int(battle_state.get("cards_played_this_turn", 0)) + 1
 	main.battle_effects.play_card(player, opponent, card, _battle_effect_context())
@@ -1373,6 +1397,10 @@ func _cleanup_side_dead(owner: Dictionary, enemy: Dictionary) -> void:
 		if int(owner.field[i].health) <= 0:
 			var dead_unit: Dictionary = owner.field[i]
 			owner.field.remove_at(i)
+			if dead_unit.has("id") and String(dead_unit.get("id", "")) != "build_token":
+				var original_card = main.card_db.get_card(String(dead_unit.get("id", "")))
+				if not original_card.is_empty():
+					owner.discard_pile.append(original_card)
 			main.battle_effects.on_unit_died(dead_unit, owner, enemy, _battle_effect_context())
 			if owner == player:
 				main.relic_service.on_ally_unit_died(main.current_run, battle_state, dead_unit)
@@ -1384,6 +1412,7 @@ func _on_end_turn_pressed() -> void:
 	if input_locked or game_over or current_player != "player":
 		return
 	input_locked = true
+	_discard_hand(player)
 	current_player = "opponent"
 	selected_attacker = -1
 	await _start_turn(opponent, false)
@@ -1402,6 +1431,7 @@ func _run_ai_turn() -> void:
 	await _run_ai_play_cards()
 	await _run_ai_attack_sequence()
 	if not game_over:
+		_discard_hand(opponent)
 		current_player = "player"
 		await _start_turn(player, true)
 		input_locked = false
@@ -1418,6 +1448,8 @@ func _run_ai_play_cards() -> void:
 				var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "opponent")
 				opponent.mana -= cost
 				opponent.hand.remove_at(i)
+				if String(card.get("type", "")) != "unit":
+					opponent.discard_pile.append(card)
 				main.battle_effects.play_card(opponent, player, card, _battle_effect_context())
 				_check_game_over()
 				played = true
