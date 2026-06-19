@@ -22,6 +22,8 @@ const RunGeneratorScript := preload("res://scripts/services/run_generator.gd")
 const RunStateScript := preload("res://scripts/services/run_state.gd")
 const CollectionScreenScript := preload("res://scripts/ui/screens/collection_screen.gd")
 const CompendiumScreenScript := preload("res://scripts/ui/screens/compendium_screen.gd")
+const DeckEditScreenScript := preload("res://scripts/ui/screens/deck_edit_screen.gd")
+const MessageScreenScript := preload("res://scripts/ui/screens/message_screen.gd")
 const MetaUpgradeScreenScript := preload("res://scripts/ui/screens/meta_upgrade_screen.gd")
 const RunResultScreenScript := preload("res://scripts/ui/screens/run_result_screen.gd")
 const SettingsScreenScript := preload("res://scripts/ui/screens/settings_screen.gd")
@@ -111,6 +113,10 @@ func _build_base_ui() -> void:
 
 	root_scroll = ScrollContainer.new()
 	root_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root_scroll.offset_left = 10
+	root_scroll.offset_top = 10
+	root_scroll.offset_right = -10
+	root_scroll.offset_bottom = -10
 	root_scroll.follow_focus = true
 	root_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	root_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
@@ -123,7 +129,6 @@ func _build_base_ui() -> void:
 
 	root_box = VBoxContainer.new()
 	root_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_box.add_theme_constant_override("separation", 12)
 	root_scroll.add_child(root_box)
 	_apply_root_layout()
@@ -212,7 +217,7 @@ func _show_error_screen(message: String) -> void:
 func _show_main_menu() -> void:
 	active_screen = "main_menu"
 	_clear_screen()
-	var compact := _is_compact_layout()
+	var compact := _is_main_menu_compact_layout()
 	root_box.add_theme_constant_override("separation", 14)
 	root_box.add_child(_make_main_menu_top_bar(compact))
 	root_box.add_child(_make_main_menu_content(compact))
@@ -336,8 +341,8 @@ func _main_menu_recent_stats() -> Dictionary:
 		"win_rate": win_rate,
 	}
 
-func _menu_nav_button(parent: Node, title: String, subtitle: String, callback_method: String, color: Color, icon_text: String = "◆") -> Button:
-	var button: Button = ui.make_large_action_button(title, subtitle, icon_text, color, _is_compact_layout())
+func _menu_nav_button(parent: Node, title: String, subtitle: String, callback_method: String, color: Color, icon_text: String = "◆", compact: bool = false) -> Button:
+	var button: Button = ui.make_large_action_button(title, subtitle, icon_text, color, compact)
 	button.pressed.connect(Callable(self, callback_method))
 	parent.add_child(button)
 	return button
@@ -412,17 +417,37 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 	progress_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	level_row.add_child(progress_label)
 
-	var resources_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	resources_row.add_theme_constant_override("separation", 10)
+	var resources_row: Control
+	if compact:
+		var resource_grid := GridContainer.new()
+		resource_grid.columns = 2
+		resource_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		resource_grid.add_theme_constant_override("h_separation", 10)
+		resource_grid.add_theme_constant_override("v_separation", 10)
+		resources_row = resource_grid
+	else:
+		var resource_bar := HBoxContainer.new()
+		resource_bar.add_theme_constant_override("separation", 10)
+		resources_row = resource_bar
 	row.add_child(resources_row)
 	resources_row.add_child(_make_top_resource_chip("🔥", "%d/%d" % [1 if current_run.is_empty() else int(current_run.get("hp", 0)), 1 if current_run.is_empty() else int(current_run.get("max_hp", 0))], compact))
 	resources_row.add_child(_make_top_resource_chip("🗂", "%d" % card_defs.size(), compact))
 	resources_row.add_child(_make_top_resource_chip("🪙", _format_large_number(int(player_profile.get("gold", 0))), compact))
 	resources_row.add_child(_make_top_resource_chip("🔷", _format_large_number(int(player_profile.get("soul_stones", 0))), compact))
 
-	var actions := HBoxContainer.new()
-	actions.alignment = BoxContainer.ALIGNMENT_END
-	actions.add_theme_constant_override("separation", 8)
+	var actions: Control
+	if compact:
+		var action_grid := GridContainer.new()
+		action_grid.columns = 5
+		action_grid.size_flags_horizontal = Control.SIZE_SHRINK_END
+		action_grid.add_theme_constant_override("h_separation", 8)
+		action_grid.add_theme_constant_override("v_separation", 8)
+		actions = action_grid
+	else:
+		var action_bar := HBoxContainer.new()
+		action_bar.alignment = BoxContainer.ALIGNMENT_END
+		action_bar.add_theme_constant_override("separation", 8)
+		actions = action_bar
 	row.add_child(actions)
 	_small_hub_button(actions, "도감", "_show_compendium", "📖")
 	_small_hub_button(actions, "가이드", "_show_ui_guide", "🗺")
@@ -581,13 +606,13 @@ func _make_main_menu_content(compact: bool) -> Control:
 	var continue_subtitle := "진행 중인 런이 없습니다.\n새 런을 시작해 흐름을 여세요."
 	if not current_run.is_empty():
 		continue_subtitle = "Act %d - %s\n노드 %d / 8" % [int(current_run.get("act", 1)), String(_current_act().get("name", "")), int(current_run.get("current_node_index", 0)) + 1]
-	var continue_button := _menu_nav_button(left_column, "이어하기", continue_subtitle, "_continue_run", Color(0.18, 0.34, 0.16, 1.0), "✦")
+	var continue_button := _menu_nav_button(left_column, "이어하기", continue_subtitle, "_continue_run", Color(0.18, 0.34, 0.16, 1.0), "✦", compact)
 	continue_button.disabled = current_run.is_empty()
-	_menu_nav_button(left_column, "새 런 시작", "새로운 모험을 시작합니다.", "_start_new_run", Color(0.16, 0.32, 0.58, 1.0), "⚔")
-	_menu_nav_button(left_column, "카드 컬렉션", "카드 도감과 보유 카드를 확인합니다.", "_show_collection", Color(0.12, 0.14, 0.18, 1.0), "🃏")
-	_menu_nav_button(left_column, "유물", "현재 유물과 해금 유물을 확인합니다.", "_show_compendium", Color(0.12, 0.14, 0.18, 1.0), "🜂")
-	_menu_nav_button(left_column, "메타 강화", "영혼석으로 시작 보너스를 강화합니다.", "_show_meta_upgrade", Color(0.12, 0.14, 0.18, 1.0), "🌿")
-	_menu_nav_button(left_column, "UI 설계 가이드", "8개 핵심 화면과 역할을 한 장으로 봅니다.", "_show_ui_guide", Color(0.12, 0.14, 0.18, 1.0), "🗺")
+	_menu_nav_button(left_column, "새 런 시작", "새로운 모험을 시작합니다.", "_start_new_run", Color(0.16, 0.32, 0.58, 1.0), "⚔", compact)
+	_menu_nav_button(left_column, "카드 컬렉션", "카드 도감과 보유 카드를 확인합니다.", "_show_collection", Color(0.12, 0.14, 0.18, 1.0), "🃏", compact)
+	_menu_nav_button(left_column, "유물", "현재 유물과 해금 유물을 확인합니다.", "_show_compendium", Color(0.12, 0.14, 0.18, 1.0), "🜂", compact)
+	_menu_nav_button(left_column, "메타 강화", "영혼석으로 시작 보너스를 강화합니다.", "_show_meta_upgrade", Color(0.12, 0.14, 0.18, 1.0), "🌿", compact)
+	_menu_nav_button(left_column, "UI 설계 가이드", "8개 핵심 화면과 역할을 한 장으로 봅니다.", "_show_ui_guide", Color(0.12, 0.14, 0.18, 1.0), "🗺", compact)
 
 	var center_column := VBoxContainer.new()
 	center_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -833,39 +858,7 @@ func _show_remove_card_screen(reason: String, source: String = "") -> void:
 	active_screen = "remove_card"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("%s - 카드 제거" % reason)
-	body.add_child(_make_run_summary_panel())
-	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 760)
-	body.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 8)
-	panel.add_child(box)
-	box.add_child(_make_label("덱에서 제거할 카드 1장을 고르세요.", 16, Color(0.92, 0.94, 0.98, 1.0)))
-	var unique_ids := {}
-	var has_options := false
-	for card_id in current_run.get("deck_ids", []):
-		unique_ids[String(card_id)] = true
-	for card_id in unique_ids.keys():
-		var card: Dictionary = card_db.get_card(String(card_id))
-		if card.is_empty():
-			continue
-		has_options = true
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
-		box.add_child(row)
-		var count: int = deck_service.count_in_array(current_run.get("deck_ids", []), String(card_id))
-		var label := _make_label("%s x%d" % [String(card.get("name", "")), count], 15, Color(0.92, 0.94, 0.98, 1.0))
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(label)
-		var button := Button.new()
-		button.text = "제거"
-		button.custom_minimum_size = Vector2(96, 40)
-		ui.style_button(button, Color(0.32, 0.18, 0.18, 1.0))
-		button.pressed.connect(Callable(self, "_remove_card_from_run").bind(String(card_id)))
-		row.add_child(button)
-	if not has_options:
-		box.add_child(_make_label("제거할 카드가 없습니다.", 15, Color(0.92, 0.94, 0.98, 1.0)))
-	_add_menu_button(box, "돌아가기", "_cancel_pending_subscreen", Color(0.22, 0.24, 0.28, 1.0))
+	DeckEditScreenScript.new(self).build_remove(body, reason)
 
 func _show_upgrade_card_screen(source: String = "") -> void:
 	if not source.is_empty():
@@ -877,40 +870,7 @@ func _show_upgrade_card_screen(source: String = "") -> void:
 	active_screen = "upgrade_card"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("휴식 - 카드 강화")
-	body.add_child(_make_run_summary_panel())
-	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 760)
-	body.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 8)
-	panel.add_child(box)
-	box.add_child(_make_label("강화할 카드 1장을 고르세요.", 16, Color(0.92, 0.94, 0.98, 1.0)))
-	var unique_ids := {}
-	var has_options := false
-	for card_id in current_run.get("deck_ids", []):
-		unique_ids[String(card_id)] = true
-	for card_id in unique_ids.keys():
-		if String(card_id).ends_with("_plus"):
-			continue
-		var card: Dictionary = card_db.get_card(String(card_id))
-		if card.is_empty():
-			continue
-		has_options = true
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
-		box.add_child(row)
-		var label := _make_label("%s" % String(card.get("name", "")), 15, Color(0.92, 0.94, 0.98, 1.0))
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(label)
-		var button := Button.new()
-		button.text = "강화"
-		button.custom_minimum_size = Vector2(96, 40)
-		ui.style_button(button, Color(0.32, 0.18, 0.18, 1.0))
-		button.pressed.connect(Callable(self, "_upgrade_card_in_run").bind(String(card_id)))
-		row.add_child(button)
-	if not has_options:
-		box.add_child(_make_label("강화할 카드가 없습니다.", 15, Color(0.92, 0.94, 0.98, 1.0)))
-	_add_menu_button(box, "돌아가기", "_cancel_pending_subscreen", Color(0.22, 0.24, 0.28, 1.0))
+	DeckEditScreenScript.new(self).build_upgrade(body)
 
 func _remove_card_from_run(card_id: String) -> void:
 	var pending_subscreen: Dictionary = current_run.get("pending_subscreen", {})
@@ -1017,7 +977,11 @@ func _show_collection() -> void:
 func _show_ui_guide() -> void:
 	active_screen = "ui_guide"
 	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("UI 설계 가이드")
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", 8)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	root_box.add_child(body)
 	var screen = UiGuideScreenScript.new(self)
 	screen.build(body)
 
@@ -1044,13 +1008,7 @@ func _reset_profile() -> void:
 func _show_message(message: String, callback_method: String, target: Object = null) -> void:
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("알림", false)
-	var panel := _make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 520)
-	body.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
-	panel.add_child(box)
-	box.add_child(_make_label(message, 18, Color(0.92, 0.94, 0.98, 1.0)))
-	_add_menu_button(box, "확인", callback_method, Color(0.18, 0.34, 0.48, 1.0), target)
+	MessageScreenScript.new(self).build(body, message, callback_method, target)
 
 func _make_run_summary_panel() -> Control:
 	var compact := _is_compact_layout()
@@ -1383,6 +1341,9 @@ func _node_type_name(node_type: String) -> String:
 
 func _is_compact_layout() -> bool:
 	return _is_compact_layout_for()
+
+func _is_main_menu_compact_layout() -> bool:
+	return _is_compact_layout_for(1480.0, 860.0)
 
 func _is_compact_layout_for(width_breakpoint: float = 860.0, height_breakpoint: float = 0.0) -> bool:
 	var viewport_size := get_viewport_rect().size

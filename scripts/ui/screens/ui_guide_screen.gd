@@ -111,30 +111,36 @@ func _init(_main: Node) -> void:
 
 func build(body: VBoxContainer) -> void:
 	var compact: bool = main._is_compact_layout()
-	var panel: PanelContainer = main._make_screen_panel(Color(0.05, 0.055, 0.065, 0.98), 1820 if not compact else 460)
+	var panel: PanelContainer = main._make_screen_panel(Color(0.045, 0.05, 0.06, 0.985), 1880 if not compact else 460)
 	body.add_child(panel)
 
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
+	box.add_theme_constant_override("separation", 8)
 	panel.add_child(box)
 
-	var title_row := VBoxContainer.new()
-	title_row.add_theme_constant_override("separation", 4)
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", 10)
 	title_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(title_row)
 	var title: Label = main._make_label("Card Draft UI 설계 가이드", 22 if compact else 24, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.custom_minimum_size = Vector2(0, 30)
 	title_row.add_child(title)
-	var subtitle: Label = main._make_label("주요 화면 구성과 역할 설명", 12 if compact else 13, Color(0.8, 0.84, 0.9, 1.0))
+	var subtitle: Label = main._make_label("주요 화면 구성과 역할 설명", 13 if compact else 14, Color(0.74, 0.78, 0.84, 1.0))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_OFF
 	subtitle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(subtitle)
 
-	var intro: PanelContainer = main.ui.make_objective_panel("설계 기준", "플레이어가 지금 해야 할 일, 현재 빌드 방향, 선택의 이유를 모든 화면에서 즉시 이해하게 만듭니다.", compact)
-	box.add_child(intro)
+	var guide_summary: Label = main._make_label("플레이어가 지금 무엇을 해야 하는지, 이번 런이 어떤 빌드로 성장하는지, 왜 그 선택이 맞는지를 한 장에서 설명합니다.", 11 if compact else 12, Color(0.82, 0.86, 0.9, 1.0))
+	guide_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	box.add_child(guide_summary)
+
+	var divider := ColorRect.new()
+	divider.color = Color(0.28, 0.22, 0.12, 0.7)
+	divider.custom_minimum_size = Vector2(0, 1)
+	box.add_child(divider)
 
 	var grid := GridContainer.new()
 	var viewport_width: float = main.get_viewport_rect().size.x
@@ -160,7 +166,7 @@ func build(body: VBoxContainer) -> void:
 
 func _make_guide_panel(panel_data: Dictionary, compact: bool) -> PanelContainer:
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.05, 0.06, 0.075, 0.98), Color(0.24, 0.2, 0.12, 1.0), 1, 10, 10)
-	panel.custom_minimum_size = Vector2(0, 280 if compact else 224)
+	panel.custom_minimum_size = Vector2(0, 300 if compact else 252)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
 	panel.add_child(box)
