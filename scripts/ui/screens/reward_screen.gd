@@ -7,11 +7,14 @@ func _init(_main: Node) -> void:
 	main = _main
 
 func _is_tight_reward_layout() -> bool:
-	return not main._is_compact_layout() and main.get_viewport_rect().size.y <= 760.0
+	return not _is_reward_compact_layout() and main._layout_viewport_size().y <= 760.0
+
+func _is_reward_compact_layout() -> bool:
+	return main._is_compact_layout_for(1360.0, 900.0)
 
 func build(body: VBoxContainer) -> void:
 	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
-	var compact: bool = main._is_compact_layout()
+	var compact: bool = _is_reward_compact_layout()
 	body.add_child(main._make_run_summary_panel())
 	body.add_child(main.ui.make_guidance_banner("다음 행동", "카드 1장을 골라 현재 빌드를 강화", Color(0.24, 0.2, 0.12, 1.0), compact))
 	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
@@ -119,7 +122,7 @@ func _make_reward_side_panel(reward: Dictionary, compact: bool) -> PanelContaine
 	return panel
 
 func _make_reward_choice(card: Dictionary) -> Control:
-	var compact: bool = main._is_compact_layout()
+	var compact: bool = _is_reward_compact_layout()
 	var tight: bool = _is_tight_reward_layout()
 	var primary_tag: String = main._primary_build_tag(main._current_build_scores())
 	var matches_primary: bool = main._card_matches_build_tag(card, primary_tag)

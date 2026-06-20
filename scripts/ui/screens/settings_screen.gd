@@ -23,5 +23,10 @@ func build(body: VBoxContainer) -> void:
 	fast_ai_toggle.button_pressed = bool(main.player_profile["settings"]["fast_ai"])
 	fast_ai_toggle.toggled.connect(Callable(main, "_on_fast_ai_toggled"))
 	box.add_child(fast_ai_toggle)
+	var fullscreen_toggle := CheckBox.new()
+	fullscreen_toggle.text = "전체 화면"
+	fullscreen_toggle.button_pressed = bool(main.player_profile["settings"].get("fullscreen", true))
+	fullscreen_toggle.toggled.connect(Callable(main, "_on_fullscreen_toggled"))
+	box.add_child(fullscreen_toggle)
 	main._add_menu_button(box, "로컬 프로필 초기화", "_reset_profile", Color(0.35, 0.16, 0.16, 1.0))
 	main._add_menu_button(box, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))

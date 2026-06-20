@@ -90,6 +90,7 @@ func _ready() -> void:
 	player_profile = profile_store.load_or_create(PROFILE_PATH, card_defs)
 	player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
 	_save_profile()
+	_apply_window_mode()
 	current_run = run_store.load_or_empty(RUN_PATH)
 	_show_main_menu()
 
@@ -137,7 +138,7 @@ func _build_base_ui() -> void:
 	add_child(battle_cutscene)
 
 func _build_backdrop_layer(parent: Control) -> void:
-	var viewport_size := get_viewport_rect().size
+	var viewport_size: Vector2 = _layout_viewport_size()
 	var hero_art := _make_art_rect(11, Vector2(520, 520))
 	hero_art.modulate = Color(0.42, 0.48, 0.56, 0.12)
 	hero_art.position = Vector2(max(260.0, viewport_size.x * 0.52), max(70.0, viewport_size.y * 0.08))
@@ -180,7 +181,7 @@ func _notification(what: int) -> void:
 func _apply_root_layout() -> void:
 	if root_box == null:
 		return
-	ui.apply_root_layout(root_box, get_viewport_rect().size)
+	ui.apply_root_layout(root_box, _layout_viewport_size())
 
 
 func _clear_screen() -> void:
@@ -627,7 +628,7 @@ func _make_main_menu_content(compact: bool) -> Control:
 	hero_layer.add_theme_constant_override("margin_right", 14)
 	hero_layer.add_theme_constant_override("margin_bottom", 14)
 	hero_panel.add_child(hero_layer)
-	var hero_stack := HBoxContainer.new()
+	var hero_stack: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	hero_stack.add_theme_constant_override("separation", 12)
 	hero_layer.add_child(hero_stack)
 	var hero_text_box := VBoxContainer.new()
@@ -636,7 +637,7 @@ func _make_main_menu_content(compact: bool) -> Control:
 	hero_stack.add_child(hero_text_box)
 	var hero_kicker: PanelContainer = ui.make_chip("빌드 중심 로그라이크 덱빌딩", Color(0.14, 0.18, 0.1, 1.0), Color(0.98, 0.92, 0.72, 1.0), 12 if compact else 13)
 	hero_text_box.add_child(hero_kicker)
-	var logo_label := _make_label("CARD\nDRAFT", 50 if compact else 60, Color(0.95, 0.92, 0.86, 1.0))
+	var logo_label := _make_label("CARD\nDRAFT", 42 if compact else 60, Color(0.95, 0.92, 0.86, 1.0))
 	logo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hero_text_box.add_child(logo_label)
 	var tag_label := _make_label("약한 시작 덱으로 출발해\n이번 런만의 빌드를 완성하세요.", 16 if compact else 19, Color(0.88, 0.9, 0.94, 1.0))
@@ -673,7 +674,7 @@ func _make_main_menu_content(compact: bool) -> Control:
 	var hero_art_box := VBoxContainer.new()
 	hero_art_box.add_theme_constant_override("separation", 8)
 	hero_art_panel.add_child(hero_art_box)
-	var hero_art_header := HBoxContainer.new()
+	var hero_art_header: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	hero_art_header.add_theme_constant_override("separation", 8)
 	hero_art_box.add_child(hero_art_header)
 	hero_art_header.add_child(ui.make_chip("필드전 중심", Color(0.18, 0.16, 0.08, 1.0), Color(1.0, 0.92, 0.7, 1.0), 12 if compact else 13))
@@ -999,10 +1000,17 @@ func _on_fast_ai_toggled(enabled: bool) -> void:
 	player_profile["settings"]["fast_ai"] = enabled
 	_save_profile()
 
+func _on_fullscreen_toggled(enabled: bool) -> void:
+	player_profile["settings"]["fullscreen"] = enabled
+	player_profile["settings"]["fullscreen_setting_initialized"] = true
+	_save_profile()
+	_apply_window_mode()
+
 func _reset_profile() -> void:
 	player_profile = profile_store.make_default_profile(card_defs)
 	player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
 	_save_profile()
+	_apply_window_mode()
 	_show_message("로컬 프로필을 초기화했습니다.", "_show_main_menu")
 
 func _show_message(message: String, callback_method: String, target: Object = null) -> void:
@@ -1346,10 +1354,30 @@ func _is_main_menu_compact_layout() -> bool:
 	return _is_compact_layout_for(1480.0, 860.0)
 
 func _is_compact_layout_for(width_breakpoint: float = 860.0, height_breakpoint: float = 0.0) -> bool:
-	var viewport_size := get_viewport_rect().size
+	var viewport_size: Vector2 = _layout_viewport_size()
 	if viewport_size.x < width_breakpoint:
 		return true
 	return height_breakpoint > 0.0 and viewport_size.y < height_breakpoint
+
+func _layout_viewport_size() -> Vector2:
+	if has_meta("layout_viewport_override"):
+		var layout_override: Variant = get_meta("layout_viewport_override")
+		if layout_override is Vector2i:
+			return Vector2(layout_override)
+		if layout_override is Vector2:
+			return layout_override
+	var window_size: Vector2i = DisplayServer.window_get_size()
+	if window_size.x > 0 and window_size.y > 0:
+		return Vector2(window_size.x, window_size.y)
+	return get_viewport_rect().size
+
+func _apply_window_mode() -> void:
+	if DisplayServer.get_name() == "headless" or bool(get_meta("disable_window_mode_changes", false)):
+		return
+	var fullscreen_enabled := bool(player_profile.get("settings", {}).get("fullscreen", true))
+	DisplayServer.window_set_mode(
+		DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen_enabled else DisplayServer.WINDOW_MODE_WINDOWED
+	)
 
 func _begin_menu_screen(title: String, with_profile: bool = false) -> VBoxContainer:
 	var summary: Control = null
@@ -1358,10 +1386,10 @@ func _begin_menu_screen(title: String, with_profile: bool = false) -> VBoxContai
 	return ui.begin_screen(root_box, title, summary)
 
 func _make_screen_panel(color: Color, preferred_width: int, min_height: int = 0) -> PanelContainer:
-	return ui.make_screen_panel(color, get_viewport_rect().size.x, preferred_width, min_height)
+	return ui.make_screen_panel(color, _layout_viewport_size().x, preferred_width, min_height)
 
 func _make_responsive_panel(color: Color, preferred_width: int, min_height: int = 0) -> PanelContainer:
-	return ui.make_responsive_panel(color, get_viewport_rect().size.x, preferred_width, min_height)
+	return ui.make_responsive_panel(color, _layout_viewport_size().x, preferred_width, min_height)
 
 func _make_panel_container(color: Color) -> PanelContainer:
 	return ui.make_panel_container(color)

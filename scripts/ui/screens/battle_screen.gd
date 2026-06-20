@@ -16,7 +16,7 @@ var hero_attack_button: Button
 var player_field_box: HBoxContainer
 var player_info: Label
 var player_gauge_info: Label
-var hand_box: HBoxContainer
+var hand_box: Control
 var deck_count_label: Label
 var turn_overlay: Panel
 var turn_timer: Timer
@@ -255,10 +255,11 @@ func _should_skip_timed_battle_fx() -> bool:
 	return DisplayServer.get_name() == "headless" or bool(main.get_meta("disable_timed_battle_fx", false))
 
 func _is_compact_layout() -> bool:
-	return main._is_compact_layout_for(860.0, 560.0)
+	return main._is_compact_layout_for(1360.0, 700.0)
 
 func _is_tight_battle_layout() -> bool:
-	return not _is_compact_layout() and main.get_viewport_rect().size.y <= 760.0
+	var viewport_size: Vector2 = main._layout_viewport_size()
+	return viewport_size.x <= 1024.0 or viewport_size.y <= 760.0
 
 func _battle_reward_choices() -> Array[String]:
 	return main._roll_card_reward_choices(3, battle_tier == "boss")
@@ -608,6 +609,7 @@ func _make_deck_preview_panel(compact: bool, min_height: int) -> Dictionary:
 
 	var deck_scroll := ScrollContainer.new()
 	deck_scroll.custom_minimum_size = Vector2(0, max(26 if tight else 38, min_height - (52 if tight else 64)))
+	deck_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	deck_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	deck_box.add_child(deck_scroll)
 
@@ -958,18 +960,11 @@ func _build_battle_ui() -> void:
 		board_box.add_child(board_goal_chip)
 	board_box.add_child(_make_board_lane_header("적 전장", "유닛 5칸", compact, true))
 
-	var opponent_field_scroll := ScrollContainer.new()
-	opponent_field_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	opponent_field_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	opponent_field_scroll.custom_minimum_size = Vector2(0, field_height)
-	opponent_field_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	opponent_field_scroll.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	board_box.add_child(opponent_field_scroll)
 	opponent_field_box = HBoxContainer.new()
 	opponent_field_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	opponent_field_box.custom_minimum_size = Vector2(0, field_height)
 	opponent_field_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	opponent_field_scroll.add_child(opponent_field_box)
+	board_box.add_child(opponent_field_box)
 
 	var divider := ColorRect.new()
 	divider.color = Color(0.28, 0.22, 0.12, 1.0)
@@ -977,18 +972,11 @@ func _build_battle_ui() -> void:
 	board_box.add_child(divider)
 	board_box.add_child(_make_board_lane_header("내 전장", "필드 장악과 영웅 압박", compact, false))
 
-	var player_field_scroll := ScrollContainer.new()
-	player_field_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	player_field_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	player_field_scroll.custom_minimum_size = Vector2(0, field_height)
-	player_field_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	player_field_scroll.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	board_box.add_child(player_field_scroll)
 	player_field_box = HBoxContainer.new()
 	player_field_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	player_field_box.custom_minimum_size = Vector2(0, field_height)
 	player_field_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	player_field_scroll.add_child(player_field_box)
+	board_box.add_child(player_field_box)
 
 	var player_strip: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	player_strip.add_theme_constant_override("separation", 6 if tight else 8)
@@ -1052,18 +1040,12 @@ func _build_battle_ui() -> void:
 		tight_hand_panel.add_child(tight_hand_box)
 		player_deck_status_label = deck_count_label
 		player_field_status_label = null
-		var tight_hand_scroll := ScrollContainer.new()
-		tight_hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		tight_hand_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		tight_hand_scroll.custom_minimum_size = Vector2(0, hand_height)
-		tight_hand_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tight_hand_box.add_child(tight_hand_scroll)
-		hand_box = HBoxContainer.new()
-		hand_box.alignment = BoxContainer.ALIGNMENT_CENTER
+		hand_box = HFlowContainer.new()
 		hand_box.custom_minimum_size = Vector2(0, hand_height)
 		hand_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hand_box.add_theme_constant_override("separation", 6)
-		tight_hand_scroll.add_child(hand_box)
+		hand_box.add_theme_constant_override("h_separation", 6)
+		hand_box.add_theme_constant_override("v_separation", 6)
+		tight_hand_box.add_child(hand_box)
 		_initialize_battle_runtime_ui()
 		return
 
@@ -1112,18 +1094,12 @@ func _build_battle_ui() -> void:
 	hand_header.add_child(hand_hint)
 	var hand_goal_chip_large: PanelContainer = main.ui.make_chip("핵심 카드부터 사용하고 공격 가능한 유닛으로 마무리하세요", Color(0.16, 0.16, 0.1, 1.0), Color(0.96, 0.94, 0.82, 1.0), 11 if compact else 12)
 	hand_box_wrap.add_child(hand_goal_chip_large)
-	var hand_scroll := ScrollContainer.new()
-	hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	hand_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	hand_scroll.custom_minimum_size = Vector2(0, hand_height)
-	hand_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hand_box_wrap.add_child(hand_scroll)
-	hand_box = HBoxContainer.new()
-	hand_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	hand_box = HFlowContainer.new()
 	hand_box.custom_minimum_size = Vector2(0, hand_height)
 	hand_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hand_box.add_theme_constant_override("separation", 8)
-	hand_scroll.add_child(hand_box)
+	hand_box.add_theme_constant_override("h_separation", 8)
+	hand_box.add_theme_constant_override("v_separation", 8)
+	hand_box_wrap.add_child(hand_box)
 
 	_initialize_battle_runtime_ui()
 
@@ -1191,7 +1167,7 @@ func _show_turn_banner(text: String, is_player: bool) -> void:
 	
 	main.add_child(banner)
 	
-	var viewport_size: Vector2 = main.get_viewport_rect().size
+	var viewport_size: Vector2 = main._layout_viewport_size()
 	banner.position = Vector2((viewport_size.x - 260.0) / 2.0, 126.0)
 	banner.pivot_offset = Vector2(130, 27)
 	banner.scale = Vector2(0.88, 0.88)

@@ -5,7 +5,9 @@ const TEST_SCRIPTS := [
 	preload("res://tests/godot/card_database_test.gd"),
 	preload("res://tests/godot/event_run_service_test.gd"),
 	preload("res://tests/godot/shop_run_service_test.gd"),
+	preload("res://tests/godot/profile_store_test.gd"),
 	preload("res://tests/godot/main_flow_smoke_test.gd"),
+	preload("res://tests/godot/responsive_layout_test.gd"),
 ]
 
 func _init() -> void:

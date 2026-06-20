@@ -13,6 +13,7 @@ const CAPTURE_NAMES := [
 	"08_run_result",
 ]
 const VIEWPORTS := [
+	{"name": "desktop_1920x1080", "size": Vector2i(1920, 1080)},
 	{"name": "landscape_1280x720", "size": Vector2i(1280, 720)},
 	{"name": "landscape_1024x768", "size": Vector2i(1024, 768)},
 	{"name": "portrait_800x1280", "size": Vector2i(800, 1280)},
@@ -34,11 +35,14 @@ func _capture_all() -> void:
 	quit(0)
 
 func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i) -> void:
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(viewport_size)
 	await process_frame
 	await process_frame
 
 	var main = MAIN_SCENE.instantiate()
+	main.set_meta("disable_window_mode_changes", true)
+	main.set_meta("layout_viewport_override", viewport_size)
 	root.add_child(main)
 	main.set_meta("disable_timed_battle_fx", true)
 	await process_frame

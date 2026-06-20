@@ -45,6 +45,8 @@ func make_default_profile(card_defs: Array) -> Dictionary:
 		"settings": {
 			"battle_cutscene": true,
 			"fast_ai": false,
+			"fullscreen": true,
+			"fullscreen_setting_initialized": true,
 		},
 	}
 
@@ -79,6 +81,9 @@ func normalize(profile: Dictionary, card_defs: Array) -> Dictionary:
 		profile["settings"]["battle_cutscene"] = true
 	if not profile["settings"].has("fast_ai"):
 		profile["settings"]["fast_ai"] = false
+	if not bool(profile["settings"].get("fullscreen_setting_initialized", false)):
+		profile["settings"]["fullscreen"] = true
+		profile["settings"]["fullscreen_setting_initialized"] = true
 
 	var index := 0
 	for card in card_defs:

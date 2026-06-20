@@ -7,11 +7,14 @@ func _init(_main: Node) -> void:
 	main = _main
 
 func _is_tight_shop_layout() -> bool:
-	return not main._is_compact_layout() and main.get_viewport_rect().size.y <= 760.0
+	return not _is_shop_compact_layout() and main._layout_viewport_size().y <= 760.0
+
+func _is_shop_compact_layout() -> bool:
+	return main._is_compact_layout_for(1360.0, 900.0)
 
 func build(body: VBoxContainer) -> void:
 	var shop_state: Dictionary = main.current_run.get("pending_shop", {})
-	var compact: bool = main._is_compact_layout()
+	var compact: bool = _is_shop_compact_layout()
 	body.add_child(main._make_run_summary_panel())
 	body.add_child(main.ui.make_guidance_banner("다음 행동", "골드로 카드를 강화하거나 덱을 정리하세요", Color(0.2, 0.18, 0.12, 1.0), compact))
 	body.add_child(_make_shop_status_strip(compact))

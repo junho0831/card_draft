@@ -7,7 +7,7 @@ func _init(_main: Node) -> void:
 	main = _main
 
 func build(body: VBoxContainer, is_win: bool) -> void:
-	var compact: bool = main._is_compact_layout()
+	var compact: bool = _is_run_result_compact_layout()
 	var scores: Dictionary = main._current_build_scores()
 	var primary_tag: String = main._primary_build_tag(scores)
 	var tag_meta: Dictionary = main._build_tag_meta().get(primary_tag, {})
@@ -100,6 +100,9 @@ func build(body: VBoxContainer, is_win: bool) -> void:
 	box.add_child(actions)
 	main._add_menu_button(actions, "메인 메뉴", "_return_to_main_after_run", Color(0.22, 0.24, 0.28, 1.0))
 	main._add_menu_button(actions, "새로운 런", "_start_new_run", Color(0.55, 0.36, 0.1, 1.0))
+
+func _is_run_result_compact_layout() -> bool:
+	return main._is_compact_layout_for(1180.0, 900.0)
 
 func _format_run_duration() -> String:
 	var started_at := int(main.current_run.get("started_at", 0))

@@ -110,15 +110,15 @@ func _init(_main: Node) -> void:
 	main = _main
 
 func build(body: VBoxContainer) -> void:
-	var compact: bool = main._is_compact_layout()
-	var panel: PanelContainer = main._make_screen_panel(Color(0.045, 0.05, 0.06, 0.985), 1880 if not compact else 460)
+	var compact := _is_guide_compact_layout()
+	var panel: PanelContainer = main._make_screen_panel(Color(0.045, 0.05, 0.06, 0.985), 1500 if not compact else 520)
 	body.add_child(panel)
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	panel.add_child(box)
 
-	var title_row := HBoxContainer.new()
+	var title_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", 10)
 	title_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(title_row)
@@ -143,10 +143,10 @@ func build(body: VBoxContainer) -> void:
 	box.add_child(divider)
 
 	var grid := GridContainer.new()
-	var viewport_width: float = main.get_viewport_rect().size.x
+	var viewport_width: float = main._layout_viewport_size().x
 	if compact:
 		grid.columns = 1
-	elif viewport_width >= 1200.0:
+	elif viewport_width >= 1440.0:
 		grid.columns = 4
 	elif viewport_width >= 980.0:
 		grid.columns = 3
@@ -171,7 +171,7 @@ func _make_guide_panel(panel_data: Dictionary, compact: bool) -> PanelContainer:
 	box.add_theme_constant_override("separation", 6)
 	panel.add_child(box)
 
-	var header := HBoxContainer.new()
+	var header: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	header.add_theme_constant_override("separation", 8)
 	box.add_child(header)
 	header.add_child(_make_tiny_chip(str(panel_data.get("number", 0)), Color(0.52, 0.26, 0.72, 1.0), Color(1.0, 0.95, 0.98, 1.0), 12 if compact else 13, 30))
@@ -224,7 +224,7 @@ func _make_preview(kind: String, compact: bool) -> Control:
 	return main.ui.make_surface_panel(Color(0.08, 0.09, 0.11, 1.0), Color(0.24, 0.2, 0.12, 1.0), 1, 8, 6)
 
 func _make_menu_preview(compact: bool) -> Control:
-	var row := HBoxContainer.new()
+	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 92 if compact else 84)
 	row.add_theme_constant_override("separation", 8)
 	row.add_child(_make_menu_button_stack(["계속하기", "새로운 런", "카드 컬렉션", "유물", "메타 진행"], compact))
@@ -233,7 +233,7 @@ func _make_menu_preview(compact: bool) -> Control:
 	return _wrap_preview(row)
 
 func _make_map_preview(compact: bool) -> Control:
-	var row := HBoxContainer.new()
+	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 92 if compact else 84)
 	row.add_theme_constant_override("separation", 8)
 	row.add_child(_make_summary_stack(["전투", "엘리트", "이벤트", "상점", "휴식", "보스"], compact))
@@ -242,11 +242,11 @@ func _make_map_preview(compact: bool) -> Control:
 	return _wrap_preview(row)
 
 func _make_reward_preview(compact: bool) -> Control:
-	var row := HBoxContainer.new()
+	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 92 if compact else 84)
 	row.add_theme_constant_override("separation", 8)
 	row.add_child(_make_summary_stack(["현재 빌드"], compact))
-	var cards := HBoxContainer.new()
+	var cards: Control = VBoxContainer.new() if compact else HBoxContainer.new()
 	cards.add_theme_constant_override("separation", 8)
 	cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(cards)
@@ -256,10 +256,10 @@ func _make_reward_preview(compact: bool) -> Control:
 	return _wrap_preview(row)
 
 func _make_shop_preview(compact: bool) -> Control:
-	var row := HBoxContainer.new()
+	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 92 if compact else 84)
 	row.add_theme_constant_override("separation", 8)
-	var products := HBoxContainer.new()
+	var products: Control = VBoxContainer.new() if compact else HBoxContainer.new()
 	products.add_theme_constant_override("separation", 8)
 	products.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(products)
@@ -273,7 +273,7 @@ func _make_battle_preview(compact: bool) -> Control:
 	box.custom_minimum_size = Vector2(0, 92 if compact else 84)
 	box.add_theme_constant_override("separation", 8)
 	box.add_child(_make_tiny_chip("현재 목표: 적 영웅 체력을 0으로 만드세요.", Color(0.12, 0.14, 0.18, 1.0), Color(0.94, 0.96, 0.9, 1.0), 10 if compact else 11, 20))
-	var row := HBoxContainer.new()
+	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	box.add_child(row)
 	row.add_child(_make_summary_stack(["적 영웅", "HP 20/24", "공격력 4"], compact))
@@ -284,7 +284,7 @@ func _make_battle_preview(compact: bool) -> Control:
 	field.add_child(_make_unit_row([2, 2, 2, 2, 2], true, compact))
 	field.add_child(_make_unit_row([8, 1, 8, 8, 8], false, compact))
 	row.add_child(_make_summary_stack(["전투 로그", "턴 종료"], compact))
-	var footer := HBoxContainer.new()
+	var footer: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
 	box.add_child(footer)
 	footer.add_child(_make_tiny_chip("플레이어 49/50", Color(0.22, 0.12, 0.14, 1.0), Color(1.0, 0.88, 0.88, 1.0), 9 if compact else 10, 20))
@@ -293,7 +293,7 @@ func _make_battle_preview(compact: bool) -> Control:
 	return _wrap_preview(box)
 
 func _make_event_preview(compact: bool) -> Control:
-	var row := HBoxContainer.new()
+	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 92 if compact else 84)
 	row.add_theme_constant_override("separation", 8)
 	var story := VBoxContainer.new()
@@ -312,7 +312,7 @@ func _make_rest_preview(compact: bool) -> Control:
 	box.add_theme_constant_override("separation", 8)
 	box.add_child(_make_tiny_chip("캠프에 도착했습니다. 어떤 행동을 하시겠습니까?", Color(0.12, 0.14, 0.18, 1.0), Color(0.94, 0.96, 0.9, 1.0), 9 if compact else 10, 20))
 	box.add_child(main._make_art_rect(11, Vector2(100 if compact else 112, 38 if compact else 44)))
-	var actions := HBoxContainer.new()
+	var actions: Control = VBoxContainer.new() if compact else HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 8)
 	box.add_child(actions)
 	actions.add_child(_make_action_card("휴식", "체력 20 회복", compact))
@@ -321,7 +321,7 @@ func _make_rest_preview(compact: bool) -> Control:
 	return _wrap_preview(box)
 
 func _make_result_preview(compact: bool) -> Control:
-	var row := HBoxContainer.new()
+	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 92 if compact else 84)
 	row.add_theme_constant_override("separation", 8)
 	row.add_child(_make_preview_art_panel(8, compact, "승리!"))
@@ -429,3 +429,6 @@ func _make_tiny_chip(text: String, bg_color: Color, text_color: Color, font_size
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	chip.add_child(label)
 	return chip
+
+func _is_guide_compact_layout() -> bool:
+	return main._is_compact_layout_for(1180.0, 980.0)

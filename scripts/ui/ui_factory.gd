@@ -61,7 +61,7 @@ func make_center_panel(color: Color, viewport_width: float, preferred_width: int
 func make_responsive_panel(color: Color, viewport_width: float, preferred_width: int, min_height: int = 0) -> PanelContainer:
 	var panel := make_panel_container(color)
 	panel.custom_minimum_size = Vector2(responsive_width(viewport_width, preferred_width), min_height)
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return panel
 
 func make_filter_bar(filters: Array, active_filter: String, target: Object, callback_method: String, compact: bool) -> Container:
@@ -172,7 +172,7 @@ func begin_screen(root: Node, title: String, summary: Control = null, spacing: i
 
 func make_screen_panel(color: Color, viewport_width: float, preferred_width: int, min_height: int = 0) -> PanelContainer:
 	var panel := make_responsive_panel(color, viewport_width, preferred_width, min_height)
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return panel
 
 func make_scroll_panel(color: Color, viewport_width: float, preferred_width: int, content_separation: int = 8, min_height: int = 0) -> Dictionary:

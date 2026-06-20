@@ -7,7 +7,7 @@ func _init(_main: Node) -> void:
 	main = _main
 
 func build(body: VBoxContainer) -> void:
-	var compact: bool = main._is_compact_layout()
+	var compact: bool = main._is_compact_layout_for(1180.0, 760.0)
 	body.add_child(main._make_run_summary_panel())
 	body.add_child(main.ui.make_guidance_banner("다음 행동", "회복하거나 카드를 강화해 다음 전투를 준비하세요", Color(0.18, 0.2, 0.12, 1.0), compact))
 

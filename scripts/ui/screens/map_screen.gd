@@ -15,7 +15,7 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	current_index = int(main.current_run.get("current_node_index", 0))
 
 	body.add_child(main._make_run_summary_panel())
-	var compact: bool = main._is_compact_layout()
+	var compact: bool = _is_map_compact_layout()
 	body.add_child(main.ui.make_guidance_banner("다음 행동", "빛나는 노드를 눌러 다음 장소로 진입", Color(0.2, 0.24, 0.18, 1.0), compact))
 	body.add_child(_make_map_status_strip(compact))
 
@@ -30,6 +30,9 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	hub.add_child(_make_objective_panel(compact, act_data))
 
 	body.add_child(_make_build_direction_panel(compact))
+
+func _is_map_compact_layout() -> bool:
+	return main._is_compact_layout_for(1360.0, 760.0)
 
 func _make_map_status_strip(compact: bool) -> PanelContainer:
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 0.98), Color(0.2, 0.18, 0.12, 1.0), 1, 12, 12)
@@ -70,7 +73,7 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	box.add_child(subtitle)
 
 	map_scroll = ScrollContainer.new()
-	map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	map_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	map_scroll.custom_minimum_size = Vector2(0, 206 if compact else 220)
 	map_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -78,8 +81,13 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	box.add_child(map_scroll)
 
 	map_canvas = Control.new()
-	var node_spacing := 116 if compact else 126
-	var canvas_width: int = max(660 if compact else 800, nodes_data.size() * node_spacing + 160)
+	var step_count: int = max(1, nodes_data.size() - 1)
+	var viewport_width: int = int(main._layout_viewport_size().x)
+	var visible_map_width: int = max(420 if compact else 520, viewport_width - (48 if compact else 420))
+	var min_spacing: int = 60 if compact else 66
+	var max_spacing: int = 116 if compact else 126
+	var node_spacing: int = clampi(int((visible_map_width - 184) / step_count), min_spacing, max_spacing)
+	var canvas_width: int = 184 + step_count * node_spacing
 	var canvas_height := 198 if compact else 212
 	map_canvas.custom_minimum_size = Vector2(canvas_width, canvas_height)
 	map_canvas.size = map_canvas.custom_minimum_size
