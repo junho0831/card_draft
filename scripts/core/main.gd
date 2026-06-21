@@ -1366,10 +1366,13 @@ func _layout_viewport_size() -> Vector2:
 			return Vector2(layout_override)
 		if layout_override is Vector2:
 			return layout_override
+	var viewport_size := get_viewport_rect().size
+	if viewport_size.x > 0.0 and viewport_size.y > 0.0:
+		return viewport_size
 	var window_size: Vector2i = DisplayServer.window_get_size()
 	if window_size.x > 0 and window_size.y > 0:
 		return Vector2(window_size.x, window_size.y)
-	return get_viewport_rect().size
+	return Vector2(1920, 1080)
 
 func _apply_window_mode() -> void:
 	if DisplayServer.get_name() == "headless" or bool(get_meta("disable_window_mode_changes", false)):
