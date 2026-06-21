@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="card_draft"
+config/tags=PackedStringArray("tcg")
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
@@ -22,6 +23,10 @@ window/size/viewport_height=1080
 window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[gui]
+
+theme/custom="res://assets/ui/main_theme.tres"
 
 [physics]
 

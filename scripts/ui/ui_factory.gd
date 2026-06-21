@@ -4,6 +4,8 @@ class_name UiFactory
 var card_art_sheet: Texture2D
 var card_art_cols := 4
 var card_art_rows := 3
+var btn_tex = preload("res://assets/ui/premium_button.jpg")
+var panel_tex = preload("res://assets/ui/fantasy_ui_panel.png")
 const COMPACT_BREAKPOINT := 860.0
 const SCREEN_MARGIN := 10.0
 const MIN_RESPONSIVE_WIDTH := 280.0
@@ -216,7 +218,14 @@ func add_menu_button(parent: Node, target: Object, text: String, callback_method
 
 func make_panel_container(color: Color) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", make_style_box(color, Color(0.34, 0.29, 0.17, 1.0), 1, 8))
+	var style := StyleBoxTexture.new()
+	style.texture = panel_tex
+	style.texture_margin_left = 16
+	style.texture_margin_top = 16
+	style.texture_margin_right = 16
+	style.texture_margin_bottom = 16
+	style.modulate_color = color
+	panel.add_theme_stylebox_override("panel", style)
 	return panel
 
 func make_premium_panel(min_height: int = 0, prominent: bool = false) -> PanelContainer:
@@ -259,10 +268,28 @@ func make_large_action_button(title: String, subtitle: String, icon_text: String
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.text = "%s  %s\n%s" % [icon_text, title, subtitle]
 	button.add_theme_font_size_override("font_size", 16 if compact else 18)
-	button.add_theme_stylebox_override("normal", make_style_box(base_color.darkened(0.1), Color(0.36, 0.31, 0.2, 1.0), 1, 10))
-	button.add_theme_stylebox_override("hover", make_style_box(base_color.lightened(0.12), THEME_GOLD_SOFT, 2, 10))
-	button.add_theme_stylebox_override("pressed", make_style_box(base_color.darkened(0.18), THEME_GOLD, 2, 10))
-	button.add_theme_stylebox_override("disabled", make_style_box(Color(0.08, 0.09, 0.1, 1.0), Color(0.18, 0.19, 0.21, 1.0), 1, 10))
+	
+	var style_normal = StyleBoxTexture.new()
+	style_normal.texture = btn_tex
+	style_normal.texture_margin_left = 12
+	style_normal.texture_margin_top = 12
+	style_normal.texture_margin_right = 12
+	style_normal.texture_margin_bottom = 12
+	style_normal.modulate_color = Color(1.0, 1.0, 1.0, 1.0)
+	
+	var style_hover = style_normal.duplicate()
+	style_hover.modulate_color = Color(1.2, 1.2, 1.2, 1.0)
+	
+	var style_pressed = style_normal.duplicate()
+	style_pressed.modulate_color = Color(0.8, 0.8, 0.8, 1.0)
+	
+	var style_disabled = style_normal.duplicate()
+	style_disabled.modulate_color = Color(0.4, 0.4, 0.4, 1.0)
+	
+	button.add_theme_stylebox_override("normal", style_normal)
+	button.add_theme_stylebox_override("hover", style_hover)
+	button.add_theme_stylebox_override("pressed", style_pressed)
+	button.add_theme_stylebox_override("disabled", style_disabled)
 	button.add_theme_color_override("font_color", THEME_TEXT)
 	button.add_theme_color_override("font_disabled_color", Color(0.5, 0.52, 0.56, 1.0))
 	button.add_theme_color_override("font_outline_color", Color(0.01, 0.012, 0.014, 1.0))
@@ -286,7 +313,13 @@ func make_objective_panel(title: String, objective: String, compact: bool = fals
 
 func make_surface_panel(bg_color: Color, border_color: Color = Color(0.32, 0.35, 0.4, 1.0), border_width: int = 1, radius: int = 10, margins: int = 12) -> PanelContainer:
 	var panel := PanelContainer.new()
-	var style := make_style_box(bg_color, border_color, border_width, radius)
+	var style := StyleBoxTexture.new()
+	style.texture = panel_tex
+	style.texture_margin_left = 16
+	style.texture_margin_top = 16
+	style.texture_margin_right = 16
+	style.texture_margin_bottom = 16
+	style.modulate_color = bg_color
 	style.content_margin_left = margins
 	style.content_margin_top = margins
 	style.content_margin_right = margins
@@ -347,10 +380,27 @@ func make_style_box(bg_color: Color, border_color: Color, border_width: int = 1,
 	return style
 
 func style_button(button: Button, base_color: Color) -> void:
-	button.add_theme_stylebox_override("normal", make_style_box(base_color.darkened(0.04), Color(0.42, 0.35, 0.22, 1.0), 1, 7))
-	button.add_theme_stylebox_override("hover", make_style_box(base_color.lightened(0.12), Color(1.0, 0.82, 0.38, 1.0), 2, 7))
-	button.add_theme_stylebox_override("pressed", make_style_box(base_color.darkened(0.16), Color(1.0, 0.9, 0.58, 1.0), 2, 7))
-	button.add_theme_stylebox_override("disabled", make_style_box(Color(0.11, 0.12, 0.14, 1.0), Color(0.22, 0.23, 0.26, 1.0), 1, 7))
+	var style_normal = StyleBoxTexture.new()
+	style_normal.texture = btn_tex
+	style_normal.texture_margin_left = 10
+	style_normal.texture_margin_top = 10
+	style_normal.texture_margin_right = 10
+	style_normal.texture_margin_bottom = 10
+	style_normal.modulate_color = Color(1.0, 1.0, 1.0, 1.0)
+	
+	var style_hover = style_normal.duplicate()
+	style_hover.modulate_color = Color(1.2, 1.2, 1.2, 1.0)
+	
+	var style_pressed = style_normal.duplicate()
+	style_pressed.modulate_color = Color(0.8, 0.8, 0.8, 1.0)
+	
+	var style_disabled = style_normal.duplicate()
+	style_disabled.modulate_color = Color(0.4, 0.4, 0.4, 1.0)
+	
+	button.add_theme_stylebox_override("normal", style_normal)
+	button.add_theme_stylebox_override("hover", style_hover)
+	button.add_theme_stylebox_override("pressed", style_pressed)
+	button.add_theme_stylebox_override("disabled", style_disabled)
 	button.add_theme_color_override("font_color", Color(0.98, 0.98, 0.96, 1.0))
 	button.add_theme_color_override("font_disabled_color", Color(0.55, 0.57, 0.62, 1.0))
 	button.add_theme_color_override("font_outline_color", Color(0.02, 0.025, 0.03, 1.0))
@@ -358,10 +408,27 @@ func style_button(button: Button, base_color: Color) -> void:
 	button.add_theme_font_size_override("font_size", 16)
 
 func style_primary_button(button: Button, base_color: Color = Color(0.55, 0.36, 0.1, 1.0)) -> void:
-	button.add_theme_stylebox_override("normal", make_style_box(base_color, Color(1.0, 0.8, 0.32, 1.0), 3, 7))
-	button.add_theme_stylebox_override("hover", make_style_box(base_color.lightened(0.16), Color(1.0, 0.95, 0.62, 1.0), 3, 7))
-	button.add_theme_stylebox_override("pressed", make_style_box(base_color.darkened(0.16), Color(1.0, 0.9, 0.58, 1.0), 3, 7))
-	button.add_theme_stylebox_override("disabled", make_style_box(Color(0.11, 0.12, 0.14, 1.0), Color(0.22, 0.23, 0.26, 1.0), 1, 7))
+	var style_normal = StyleBoxTexture.new()
+	style_normal.texture = btn_tex
+	style_normal.texture_margin_left = 10
+	style_normal.texture_margin_top = 10
+	style_normal.texture_margin_right = 10
+	style_normal.texture_margin_bottom = 10
+	style_normal.modulate_color = Color(1.0, 1.0, 1.0, 1.0)
+	
+	var style_hover = style_normal.duplicate()
+	style_hover.modulate_color = Color(1.2, 1.2, 1.2, 1.0)
+	
+	var style_pressed = style_normal.duplicate()
+	style_pressed.modulate_color = Color(0.8, 0.8, 0.8, 1.0)
+	
+	var style_disabled = style_normal.duplicate()
+	style_disabled.modulate_color = Color(0.4, 0.4, 0.4, 1.0)
+	
+	button.add_theme_stylebox_override("normal", style_normal)
+	button.add_theme_stylebox_override("hover", style_hover)
+	button.add_theme_stylebox_override("pressed", style_pressed)
+	button.add_theme_stylebox_override("disabled", style_disabled)
 	button.add_theme_color_override("font_color", Color(1.0, 0.98, 0.88, 1.0))
 	button.add_theme_color_override("font_disabled_color", Color(0.55, 0.57, 0.62, 1.0))
 	button.add_theme_color_override("font_outline_color", Color(0.02, 0.025, 0.03, 1.0))

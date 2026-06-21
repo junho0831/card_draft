@@ -95,8 +95,10 @@ func _ready() -> void:
 	_show_main_menu()
 
 func _build_base_ui() -> void:
-	var background := ColorRect.new()
-	background.color = Color(0.014, 0.018, 0.024, 1.0)
+	var background := TextureRect.new()
+	background.texture = preload("res://assets/backgrounds/game_board_bg.png")
+	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 
@@ -139,14 +141,25 @@ func _build_base_ui() -> void:
 
 func _build_backdrop_layer(parent: Control) -> void:
 	var viewport_size: Vector2 = _layout_viewport_size()
-	var hero_art := _make_art_rect(11, Vector2(520, 520))
-	hero_art.modulate = Color(0.42, 0.48, 0.56, 0.12)
+	
+	var hero_texture := preload("res://assets/card_art/novice_swordsman.png")
+	var hero_art := TextureRect.new()
+	hero_art.texture = hero_texture
+	hero_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	hero_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hero_art.custom_minimum_size = Vector2(520, 520)
+	hero_art.modulate = Color(1.0, 1.0, 1.0, 0.4) # Make it more visible
 	hero_art.position = Vector2(max(260.0, viewport_size.x * 0.52), max(70.0, viewport_size.y * 0.08))
 	hero_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(hero_art)
 
-	var player_art := _make_art_rect(8, Vector2(360, 360))
-	player_art.modulate = Color(0.38, 0.42, 0.48, 0.08)
+	var enemy_texture := preload("res://assets/portraits/skeleton_swarm.png")
+	var player_art := TextureRect.new()
+	player_art.texture = enemy_texture
+	player_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	player_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	player_art.custom_minimum_size = Vector2(360, 360)
+	player_art.modulate = Color(1.0, 1.0, 1.0, 0.3)
 	player_art.position = Vector2(max(24.0, viewport_size.x * 0.05), max(240.0, viewport_size.y * 0.42))
 	player_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(player_art)

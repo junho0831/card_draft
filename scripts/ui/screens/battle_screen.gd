@@ -679,7 +679,22 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	end_turn_button.add_theme_font_size_override("font_size", 12 if tight else 16)
 	end_turn_button.pressed.connect(Callable(self, "_on_end_turn_pressed"))
 	box.add_child(end_turn_button)
+
+	var surrender_button := Button.new()
+	surrender_button.text = "도망가기"
+	surrender_button.custom_minimum_size = Vector2(0, 42 if tight else (46 if compact else 50))
+	main.ui.style_button(surrender_button, Color(0.25, 0.25, 0.3, 1.0))
+	surrender_button.add_theme_font_size_override("font_size", 12 if tight else 14)
+	surrender_button.pressed.connect(Callable(self, "_on_surrender_pressed"))
+	box.add_child(surrender_button)
+
 	return panel
+
+func _on_surrender_pressed() -> void:
+	if _is_player_input_locked():
+		return
+	_add_log("전투에서 도망쳤습니다. (패배)")
+	_finish_player_defeat()
 
 func _initialize_battle_runtime_ui() -> void:
 	turn_overlay = Panel.new()
