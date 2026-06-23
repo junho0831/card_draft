@@ -69,7 +69,7 @@ godot4 --headless -s res://tests/godot/run_tests.gd
 
 ## 문서
 
-- MVP 개요: `res://docs/mvp.md`
+- 현재 코드 기준 게임 기획서: `res://docs/game-design.md`
 - 개발 메모: `res://docs/knowledge.md`
 - 카드 제작 가이드: `res://docs/card-authoring.md`
 - UI/반응형 가이드: `res://docs/ui-responsive.md`
