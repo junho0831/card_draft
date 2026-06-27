@@ -4,6 +4,7 @@ class_name UiFactory
 var card_art_sheet: Texture2D
 var card_art_cols := 4
 var card_art_rows := 3
+var card_art_cache := {}
 var btn_tex = preload("res://assets/ui/premium_button.jpg")
 var panel_tex = preload("res://assets/ui/fantasy_ui_panel.png")
 const COMPACT_BREAKPOINT := 860.0
@@ -441,6 +442,26 @@ func make_card_frame() -> PanelContainer:
 	return frame
 
 func make_art_rect(art_index: int, size: Vector2) -> TextureRect:
+	return _make_texture_rect(_make_sheet_art_texture(art_index), size)
+
+func make_card_art_rect(card: Dictionary, size: Vector2) -> TextureRect:
+	return _make_texture_rect(card_art_texture(card), size)
+
+func card_art_texture(card: Dictionary) -> Texture2D:
+	var art_id := String(card.get("art_id", ""))
+	if not art_id.is_empty():
+		var path := "res://assets/card_art/cards/%s.png" % art_id
+		if card_art_cache.has(path):
+			return card_art_cache[path]
+		if FileAccess.file_exists(path):
+			var image := Image.new()
+			if image.load(path) == OK:
+				var texture := ImageTexture.create_from_image(image)
+				card_art_cache[path] = texture
+				return texture
+	return _make_sheet_art_texture(int(card.get("art", 0)))
+
+func _make_sheet_art_texture(art_index: int) -> AtlasTexture:
 	var texture := AtlasTexture.new()
 	var cell_width := float(card_art_sheet.get_width()) / card_art_cols
 	var cell_height := float(card_art_sheet.get_height()) / card_art_rows
@@ -448,7 +469,9 @@ func make_art_rect(art_index: int, size: Vector2) -> TextureRect:
 	var row := floori(float(art_index) / card_art_cols)
 	texture.atlas = card_art_sheet
 	texture.region = Rect2(col * cell_width, row * cell_height, cell_width, cell_height)
+	return texture
 
+func _make_texture_rect(texture: Texture2D, size: Vector2) -> TextureRect:
 	var rect := TextureRect.new()
 	rect.texture = texture
 	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE

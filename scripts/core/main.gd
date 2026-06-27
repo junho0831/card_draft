@@ -1416,6 +1416,9 @@ func _make_card_frame() -> PanelContainer:
 func _make_art_rect(art_index: int, size: Vector2) -> TextureRect:
 	return ui.make_art_rect(art_index, size)
 
+func _make_card_art_rect(card: Dictionary, size: Vector2) -> TextureRect:
+	return ui.make_card_art_rect(card, size)
+
 func _make_label(text: String, font_size: int, color: Color) -> Label:
 	return ui.make_label(text, font_size, color)
 

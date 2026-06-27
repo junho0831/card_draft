@@ -13,6 +13,7 @@ func run() -> Dictionary:
 	_assert_true(card_db.load_cards(CARD_DATA_PATH), "card database loads sample cards")
 	if _failures.is_empty():
 		_test_build_tags_loaded(card_db)
+		_test_card_art_ids_have_files(card_db)
 		_test_build_upgraded_unit(card_db)
 		_test_build_upgraded_spells(card_db)
 		_test_get_card_restores_upgraded_card(card_db)
@@ -27,6 +28,15 @@ func run() -> Dictionary:
 func _test_build_tags_loaded(card_db) -> void:
 	var card: Dictionary = card_db.get_card("fireball")
 	_assert_true((card.get("build_tags", []) as Array).has("fire"), "fireball has fire build tag")
+
+func _test_card_art_ids_have_files(card_db) -> void:
+	for card in card_db.card_defs:
+		var art_id := String(Dictionary(card).get("art_id", ""))
+		_assert_true(not art_id.is_empty(), "%s has art_id" % String(Dictionary(card).get("id", "")))
+		var path := "res://assets/card_art/cards/%s.png" % art_id
+		_assert_true(FileAccess.file_exists(path), "%s art file exists" % art_id)
+		var image := Image.new()
+		_assert_eq(image.load(path), OK, "%s art image loads" % art_id)
 
 func _test_build_upgraded_unit(card_db) -> void:
 	var deck: Array = card_db.build_deck_from_ids(["militia_plus"])
@@ -50,7 +60,7 @@ func _test_build_upgraded_spells(card_db) -> void:
 	for card in deck:
 		by_id[String(card.get("id", ""))] = card
 	_assert_eq(String(Dictionary(by_id.get("captain_order_plus", {})).get("text", "")), "내 모든 유닛 공격력 +2", "captain_order_plus text is upgraded")
-	_assert_eq(int(Dictionary(by_id.get("elven_insight_plus", {})).get("cost", -1)), 2, "elven_insight_plus cost is reduced")
+	_assert_eq(int(Dictionary(by_id.get("elven_insight_plus", {})).get("cost", -1)), 1, "elven_insight_plus cost is reduced")
 	_assert_eq(String(Dictionary(by_id.get("dark_bargain_plus", {})).get("text", "")), "내 영웅 체력 1 잃음. 카드 2장 드로우", "dark_bargain_plus text is upgraded")
 
 func _test_get_card_restores_upgraded_card(card_db) -> void:

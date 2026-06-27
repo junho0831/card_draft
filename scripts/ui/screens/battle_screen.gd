@@ -1140,8 +1140,25 @@ func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
 		battle_state["cards_played_this_turn"] = 0
 		main.relic_service.on_turn_start(main.current_run, battle_state, player)
 		_apply_build_on_turn_start()
+	_apply_delayed_status(side)
+	_check_game_over()
+	if game_over:
+		return
 	_add_log("%s 턴 시작: 마나 %d/%d" % [side.name, side.mana, side.max_mana])
 	_store_battle_snapshot()
+
+
+func _apply_delayed_status(side: Dictionary) -> void:
+	var curses := int(side.get("curses", 0))
+	if curses > 0:
+		side["health"] = int(side.get("health", 0)) - curses
+		side["curses"] = 0
+		_add_log("%s 저주 발동: 영웅 피해 %d" % [String(side.get("name", "대상")), curses])
+	var ritual_stacks := int(side.get("ritual_stacks", 0))
+	if ritual_stacks > 0:
+		side["health"] = min(int(side.get("max_health", side.get("health", 0))), int(side.get("health", 0)) + ritual_stacks)
+		side["ritual_stacks"] = 0
+		_add_log("%s 의식 발동: 영웅 체력 %d 회복" % [String(side.get("name", "대상")), ritual_stacks])
 
 
 func _show_turn_banner(text: String, is_player: bool) -> void:
@@ -1621,7 +1638,7 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	name_label.clip_text = true
 	name_band.add_child(name_label)
-	slot.add_child(main._make_art_rect(int(unit.get("art", 0)), Vector2(52, 20) if tight else (Vector2(104, 42) if not compact else Vector2(82, 32))))
+	slot.add_child(main._make_card_art_rect(unit, Vector2(52, 20) if tight else (Vector2(104, 42) if not compact else Vector2(82, 32))))
 	var stat_row := HBoxContainer.new()
 	stat_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	stat_row.add_theme_constant_override("separation", 4)
@@ -1679,7 +1696,7 @@ func _render_hand() -> void:
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		name_band.add_child(name_label)
-		var art_rect: TextureRect = main._make_art_rect(int(card.get("art", 0)), Vector2(66, 26) if tight else (Vector2(134, 62) if not compact else Vector2(110, 46)))
+		var art_rect: TextureRect = main._make_card_art_rect(card, Vector2(66, 26) if tight else (Vector2(134, 62) if not compact else Vector2(110, 46)))
 		art_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_box.add_child(art_rect)
 		if not tight:

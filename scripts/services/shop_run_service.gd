@@ -1,9 +1,9 @@
 extends RefCounted
 class_name ShopRunService
 
-const SHOP_CARD_COST := 40
-const SHOP_RELIC_COST := 125
-const SHOP_HEAL_COST := 60
+const SHOP_CARD_COST := 35
+const SHOP_RELIC_COST := 110
+const SHOP_HEAL_COST := 45
 
 func generate_shop_state(context: Dictionary) -> Dictionary:
 	return {
@@ -15,7 +15,7 @@ func generate_shop_state(context: Dictionary) -> Dictionary:
 	}
 
 func remove_cost(shop_state: Dictionary) -> int:
-	return 50 + int(shop_state.get("remove_count", 0)) * 25
+	return 45 + int(shop_state.get("remove_count", 0)) * 20
 
 func buy_card(run_data: Dictionary, card_id: String) -> Dictionary:
 	var shop_state: Dictionary = run_data.get("pending_shop", {})

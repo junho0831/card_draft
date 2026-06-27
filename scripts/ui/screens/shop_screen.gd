@@ -173,7 +173,7 @@ func _make_shop_card_product(card: Dictionary, shop_state: Dictionary, compact: 
 	var type_label: Label = main._make_label("%s / %s" % [main.deck_service.type_name(String(card.get("type", ""))), String(card.get("attr", ""))], 11 if tight else 12, Color(1.0, 0.88, 0.55, 1.0))
 	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	inner.add_child(type_label)
-	inner.add_child(main._make_art_rect(int(card.get("art", 0)), Vector2(142, 82) if tight else (Vector2(132, 84) if compact else Vector2(154, 94))))
+	inner.add_child(main._make_card_art_rect(card, Vector2(142, 82) if tight else (Vector2(132, 84) if compact else Vector2(154, 94))))
 	var name_label: Label = main._make_label(String(card.get("name", "")), 13 if tight else (14 if compact else 15), Color(0.98, 0.98, 0.96, 1.0))
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	inner.add_child(name_label)

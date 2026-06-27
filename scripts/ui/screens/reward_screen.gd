@@ -151,7 +151,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	header.add_child(name_label)
-	box.add_child(main._make_art_rect(int(card.get("art", 0)), Vector2(166, 98) if tight else (Vector2(154, 98) if compact else Vector2(196, 124))))
+	box.add_child(main._make_card_art_rect(card, Vector2(166, 98) if tight else (Vector2(154, 98) if compact else Vector2(196, 124))))
 	var type_label: Label = main._make_label("%s / %s / %s" % [main.deck_service.type_name(String(card.get("type", ""))), String(card.get("race", "")), String(card.get("attr", ""))], 11 if tight else 12, Color(0.82, 0.88, 0.95, 1.0))
 	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(type_label)

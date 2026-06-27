@@ -128,6 +128,7 @@ func on_ally_unit_died(run_data: Dictionary, battle_state: Dictionary, dead_unit
 				"health": 1,
 				"max_health": 1,
 				"art": 2,
+				"art_id": "bone_soldier",
 				"can_attack": false,
 			})
 			battle_state["necromancer_ring_used"] = true

@@ -48,7 +48,7 @@
 		"id": "shield_bearer",
 		"name": "방패병",
 		"tier": "normal",
-		"base_hp": 28,
+		"base_hp": 26,
 		"deck_ids": ["shield_guard", "shield_guard", "training_sword", "first_aid", "militia", "captain_order"],
 		"ai_tags": ["defense"],
 		"act_pool": [1, 2]
@@ -57,7 +57,7 @@
 		"id": "blood_executor",
 		"name": "피의 집행자",
 		"tier": "elite",
-		"base_hp": 46,
+		"base_hp": 42,
 		"deck_ids": ["thief", "small_flame", "dark_bargain", "mercenary", "captain_order", "healing_potion"],
 		"ai_tags": ["elite", "punish_combo"],
 		"act_pool": [1, 2]
@@ -66,7 +66,7 @@
 		"id": "steel_golem",
 		"name": "강철 골렘",
 		"tier": "elite",
-		"base_hp": 54,
+		"base_hp": 48,
 		"deck_ids": ["shield_guard", "training_sword", "mercenary", "first_aid", "militia", "captain_order"],
 		"ai_tags": ["elite", "spell_resist"],
 		"act_pool": [1, 2]
@@ -75,7 +75,7 @@
 		"id": "border_guardian",
 		"name": "국경 수호자",
 		"tier": "boss",
-		"base_hp": 100,
+		"base_hp": 78,
 		"deck_ids": ["flame_swordsman", "shield_guard", "captain_order", "knight_spearman", "small_flame", "training_sword", "first_aid"],
 		"ai_tags": ["boss", "field_test"],
 		"act_pool": [1]
@@ -84,7 +84,7 @@
 		"id": "undead_king",
 		"name": "언데드 왕",
 		"tier": "boss",
-		"base_hp": 180,
+		"base_hp": 120,
 		"deck_ids": ["bone_soldier", "bone_soldier", "grave_knight", "call_of_dead", "corpse_explosion", "dark_bargain", "fireball"],
 		"ai_tags": ["boss", "death", "revive"],
 		"act_pool": [2]

@@ -121,8 +121,8 @@ func _make_style_box(bg_color: Color, border_color: Color, border_width: int, ra
 
 func play_unit_battle(attacker: Dictionary, defender: Dictionary, attack_damage: int, defense_damage: int) -> void:
 	title_label.text = "유닛 전투"
-	attacker_art.texture = _make_art_texture(int(attacker.art))
-	defender_art.texture = _make_art_texture(int(defender.art))
+	attacker_art.texture = _make_art_texture(attacker)
+	defender_art.texture = _make_art_texture(defender)
 	attacker_label.text = "%s\n공격 %d / 체력 %d" % [attacker.name, attacker.attack, attacker.health]
 	defender_label.text = "%s\n공격 %d / 체력 %d" % [defender.name, defender.attack, defender.health]
 	impact_label.text = "VS"
@@ -130,7 +130,7 @@ func play_unit_battle(attacker: Dictionary, defender: Dictionary, attack_damage:
 
 func play_hero_attack(attacker: Dictionary, defender_name: String, damage: int) -> void:
 	title_label.text = "영웅 공격"
-	attacker_art.texture = _make_art_texture(int(attacker.art))
+	attacker_art.texture = _make_art_texture(attacker)
 	defender_art.texture = null
 	attacker_label.text = "%s\n공격 %d" % [attacker.name, attacker.attack]
 	defender_label.text = "%s 영웅\n피해 %d" % [defender_name, damage]
@@ -258,7 +258,17 @@ func _play_slash_effect(target: Control) -> void:
 	tween.parallel().tween_property(slash, "modulate:a", 0.0, 0.2)
 	tween.tween_callback(slash.queue_free)
 
-func _make_art_texture(art_index: int) -> AtlasTexture:
+func _make_art_texture(card_or_unit: Dictionary) -> Texture2D:
+	var art_id := String(card_or_unit.get("art_id", ""))
+	if not art_id.is_empty():
+		var path := "res://assets/card_art/cards/%s.png" % art_id
+		if FileAccess.file_exists(path):
+			var image := Image.new()
+			if image.load(path) == OK:
+				return ImageTexture.create_from_image(image)
+	return _make_sheet_art_texture(int(card_or_unit.get("art", 0)))
+
+func _make_sheet_art_texture(art_index: int) -> AtlasTexture:
 	var texture := AtlasTexture.new()
 	var cell_width := float(CARD_ART_SHEET.get_width()) / CARD_ART_COLS
 	var cell_height := float(CARD_ART_SHEET.get_height()) / CARD_ART_ROWS

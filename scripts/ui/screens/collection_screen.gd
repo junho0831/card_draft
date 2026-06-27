@@ -57,7 +57,7 @@ func _make_collection_card(card: Dictionary, compact: bool) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
 	panel.add_child(box)
-	var art = main._make_art_rect(int(card.get("art", 0)), Vector2(132, 92) if compact else Vector2(150, 108))
+	var art = main._make_card_art_rect(card, Vector2(132, 92) if compact else Vector2(150, 108))
 	if owned <= 0:
 		art.modulate = Color(0.3, 0.3, 0.34, 1.0)
 	box.add_child(art)

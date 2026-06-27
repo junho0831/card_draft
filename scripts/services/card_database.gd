@@ -63,7 +63,7 @@ func _build_upgraded_card(id: String) -> Dictionary:
 	return card
 
 func _is_valid_card_def(card: Dictionary, index: int) -> bool:
-	var required_fields := ["id", "name", "type", "race", "attr", "cost", "art", "text"]
+	var required_fields := ["id", "name", "type", "race", "attr", "cost", "art", "art_id", "text"]
 	for field in required_fields:
 		if not card.has(field):
 			push_error("Card at index %d is missing required field: %s" % [index, field])

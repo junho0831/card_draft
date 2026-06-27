@@ -19,6 +19,7 @@ func play_card(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: 
 				"health": int(card.get("health", 0)),
 				"max_health": int(card.get("health", 0)),
 				"art": int(card.get("art", 0)),
+				"art_id": String(card.get("art_id", "")),
 				"can_attack": false,
 			}
 			var relic_service = context.get("relic_service")
@@ -110,13 +111,13 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 				draw_cards.call(owner, 1)
 		"funeral_fog":
 			if enemy.field.is_empty():
-				enemy.health -= 1
+				enemy.health -= 2
 				if log.is_valid():
-					log.call("장례 안개! %s 영웅에게 피해 1" % enemy.name)
+					log.call("장례 안개! %s 영웅에게 피해 2" % enemy.name)
 			else:
-				enemy.field[0].health -= 1
+				enemy.field[0].health -= 2
 				if log.is_valid():
-					log.call("장례 안개! %s에게 피해 1" % enemy.field[0].name)
+					log.call("장례 안개! %s에게 피해 2" % enemy.field[0].name)
 				if cleanup.is_valid():
 					cleanup.call(owner, enemy)
 			_add_curse(enemy, 1, log, "장례 안개")
@@ -127,7 +128,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 			if draw_cards.is_valid():
 				draw_cards.call(owner, 1)
 		"moonwell":
-			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 2)
+			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 4)
 			_add_ritual(owner, 1, log, "달샘")
 		"ancient_oath":
 			_add_ritual(owner, 2, log, "고대의 맹세")
@@ -147,8 +148,8 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 			if not owner.field.is_empty():
 				for unit in owner.field:
 					if String(unit.get("race", "")) == "인간":
-						owner.field[0].health += 1
-						owner.field[0].max_health += 1
+						unit.health += 1
+						unit.max_health += 1
 						break
 			if log.is_valid():
 				log.call("%s: 왕실 지원, 카드 1장 드로우" % owner.name)
@@ -188,6 +189,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 					"attack": 1,
 					"health": 1,
 					"art": 2,
+					"art_id": "bone_soldier",
 				}, context)
 		"corpse_explosion":
 			if not owner.field.is_empty():
@@ -201,8 +203,8 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 					unit.health -= 2
 				if log.is_valid():
 					log.call("%s: 시체 폭발, 모든 적 유닛 피해 2" % owner.name)
-				if cleanup.is_valid():
-					cleanup.call(owner, enemy)
+			if cleanup.is_valid():
+				cleanup.call(owner, enemy)
 		"small_flame", "fireball", "gale_shot":
 			var base_damage := 4
 			if card_id == "small_flame":
