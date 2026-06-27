@@ -48,6 +48,13 @@ func on_unit_died(dead_unit: Dictionary, owner: Dictionary, enemy: Dictionary, c
 		enemy.health -= 1
 		if log.is_valid():
 			log.call("해골 병사 사망 효과: %s 영웅에게 피해 1" % enemy.name)
+	if String(dead_unit.get("id", "")) == "berserker":
+		owner.health -= 2
+		var relic_service = context.get("relic_service")
+		if relic_service != null:
+			relic_service.on_hero_hp_lost(context.get("run_data", {}), context, owner, 2)
+		if log.is_valid():
+			log.call("광전사 사망 효과: %s 영웅에게 피해 2" % owner.name)
 	if int(owner.get("corpse_explosion_stacks", 0)) > 0:
 		var damage := 2 * int(owner.corpse_explosion_stacks)
 		var cleanup: Callable = context.get("cleanup_dead_units", Callable())
@@ -87,6 +94,10 @@ func _resolve_unit_play(owner: Dictionary, enemy: Dictionary, unit: Dictionary, 
 			_add_curse(enemy, 1, log, "뼈 점술사")
 		"ritual_sapling":
 			_add_ritual(owner, 1, log, "의식의 묘목")
+		"stone_golem":
+			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 2)
+			if log.is_valid():
+				log.call("돌 골렘 효과: %s 영웅 체력 2 회복" % owner.name)
 
 func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: Dictionary) -> void:
 	var draw_cards: Callable = context.get("draw_cards", Callable())
@@ -95,6 +106,30 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 	var calc_damage: Callable = context.get("calculate_damage", Callable())
 	var card_id := _base_card_id(String(card.get("id", "")))
 	match card_id:
+		"vampiric_strike":
+			var damage := 2
+			if calc_damage.is_valid():
+				damage = int(calc_damage.call(card, true, owner, damage))
+			if enemy.field.is_empty():
+				enemy.health -= damage
+				if log.is_valid():
+					log.call("%s: 흡혈의 일격! %s 영웅에게 피해 %d" % [owner.name, enemy.name, damage])
+			else:
+				enemy.field[0].health -= damage
+				if log.is_valid():
+					log.call("%s: 흡혈의 일격! %s에게 피해 %d" % [owner.name, enemy.field[0].name, damage])
+				if cleanup.is_valid():
+					cleanup.call(owner, enemy)
+			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 2)
+			if log.is_valid():
+				log.call("%s: 영웅 체력 2 회복" % owner.name)
+		"battlecry":
+			for unit in owner.field:
+				unit.attack += 1
+				unit.health += 1
+				unit.max_health += 1
+			if log.is_valid():
+				log.call("%s: 전장의 함성! 아군 전체 공격력 +1, 체력 +1" % owner.name)
 		"death_mark":
 			_add_curse(enemy, 1, log, "죽음의 낙인")
 		"plague_spread":

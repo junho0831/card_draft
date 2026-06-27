@@ -12,7 +12,9 @@
         "art_id": "militia",
         "text": "효과 없음",
         "starter": true,
-        "build_tags": ["summon"]
+        "build_tags": [
+            "summon"
+        ]
     },
     {
         "id": "trainee_swordsman",
@@ -27,7 +29,9 @@
         "art_id": "trainee_swordsman",
         "text": "효과 없음",
         "starter": true,
-        "build_tags": ["buff"]
+        "build_tags": [
+            "buff"
+        ]
     },
     {
         "id": "small_flame",
@@ -40,7 +44,9 @@
         "art_id": "small_flame",
         "text": "가장 앞의 적에게 피해 2",
         "starter": true,
-        "build_tags": ["fire"]
+        "build_tags": [
+            "fire"
+        ]
     },
     {
         "id": "first_aid",
@@ -53,7 +59,9 @@
         "art_id": "first_aid",
         "text": "내 영웅 체력 3 회복",
         "starter": true,
-        "build_tags": ["low_hp"]
+        "build_tags": [
+            "low_hp"
+        ]
     },
     {
         "id": "flame_swordsman",
@@ -67,7 +75,10 @@
         "art": 4,
         "art_id": "flame_swordsman",
         "text": "효과 없음",
-        "build_tags": ["fire", "buff"]
+        "build_tags": [
+            "fire",
+            "buff"
+        ]
     },
     {
         "id": "shield_guard",
@@ -81,7 +92,9 @@
         "art": 5,
         "art_id": "shield_guard",
         "text": "효과 없음",
-        "build_tags": ["buff"]
+        "build_tags": [
+            "buff"
+        ]
     },
     {
         "id": "captain_order",
@@ -93,7 +106,9 @@
         "art": 6,
         "art_id": "captain_order",
         "text": "내 모든 유닛 공격력 +1",
-        "build_tags": ["buff"]
+        "build_tags": [
+            "buff"
+        ]
     },
     {
         "id": "knight_spearman",
@@ -107,7 +122,10 @@
         "art": 7,
         "art_id": "knight_spearman",
         "text": "소환 시 가장 앞의 아군 유닛 공격력 +1",
-        "build_tags": ["buff", "summon"]
+        "build_tags": [
+            "buff",
+            "summon"
+        ]
     },
     {
         "id": "royal_support",
@@ -119,7 +137,10 @@
         "art": 8,
         "art_id": "royal_support",
         "text": "카드 1장 드로우. 내 필드에 인간 유닛이 있으면 가장 앞의 아군 체력 +1",
-        "build_tags": ["draw", "buff"]
+        "build_tags": [
+            "draw",
+            "buff"
+        ]
     },
     {
         "id": "elf_ranger",
@@ -133,7 +154,9 @@
         "art": 9,
         "art_id": "elf_ranger",
         "text": "효과 없음",
-        "build_tags": ["summon"]
+        "build_tags": [
+            "summon"
+        ]
     },
     {
         "id": "forest_archer",
@@ -147,7 +170,10 @@
         "art": 10,
         "art_id": "forest_archer",
         "text": "소환 시 카드 1장 드로우",
-        "build_tags": ["draw", "summon"]
+        "build_tags": [
+            "draw",
+            "summon"
+        ]
     },
     {
         "id": "elven_insight",
@@ -159,7 +185,9 @@
         "art": 11,
         "art_id": "elven_insight",
         "text": "카드 2장 드로우",
-        "build_tags": ["draw"]
+        "build_tags": [
+            "draw"
+        ]
     },
     {
         "id": "nature_blessing",
@@ -171,7 +199,9 @@
         "art": 0,
         "art_id": "nature_blessing",
         "text": "아군 유닛 하나 체력 +3",
-        "build_tags": ["buff"]
+        "build_tags": [
+            "buff"
+        ]
     },
     {
         "id": "gale_shot",
@@ -183,7 +213,9 @@
         "art": 1,
         "art_id": "gale_shot",
         "text": "가장 앞의 적에게 피해 1. 이번 턴에 카드를 3장 이상 사용했다면 피해 4",
-        "build_tags": ["draw"]
+        "build_tags": [
+            "draw"
+        ]
     },
     {
         "id": "bone_soldier",
@@ -197,7 +229,10 @@
         "art": 2,
         "art_id": "bone_soldier",
         "text": "사망 시 적 영웅에게 피해 1",
-        "build_tags": ["death", "summon"]
+        "build_tags": [
+            "death",
+            "summon"
+        ]
     },
     {
         "id": "grave_knight",
@@ -211,7 +246,10 @@
         "art": 3,
         "art_id": "grave_knight",
         "text": "사망 시 내 영웅 체력 2 회복",
-        "build_tags": ["death", "low_hp"]
+        "build_tags": [
+            "death",
+            "low_hp"
+        ]
     },
     {
         "id": "dark_bargain",
@@ -223,7 +261,11 @@
         "art": 4,
         "art_id": "dark_bargain",
         "text": "내 영웅 체력 2 잃음. 카드 2장 드로우",
-        "build_tags": ["death", "draw", "low_hp"]
+        "build_tags": [
+            "death",
+            "draw",
+            "low_hp"
+        ]
     },
     {
         "id": "call_of_dead",
@@ -235,7 +277,10 @@
         "art": 5,
         "art_id": "call_of_dead",
         "text": "해골 병사 2장을 소환",
-        "build_tags": ["death", "summon"]
+        "build_tags": [
+            "death",
+            "summon"
+        ]
     },
     {
         "id": "corpse_explosion",
@@ -247,7 +292,10 @@
         "art": 6,
         "art_id": "corpse_explosion",
         "text": "아군 유닛 하나를 처치하고 모든 적에게 피해 2",
-        "build_tags": ["fire", "death"]
+        "build_tags": [
+            "fire",
+            "death"
+        ]
     },
     {
         "id": "fireball",
@@ -259,7 +307,9 @@
         "art": 7,
         "art_id": "fireball",
         "text": "가장 앞의 적 또는 적 영웅에게 피해 4",
-        "build_tags": ["fire"]
+        "build_tags": [
+            "fire"
+        ]
     },
     {
         "id": "healing_potion",
@@ -271,7 +321,9 @@
         "art": 8,
         "art_id": "healing_potion",
         "text": "내 영웅 체력 5 회복",
-        "build_tags": ["low_hp"]
+        "build_tags": [
+            "low_hp"
+        ]
     },
     {
         "id": "training_sword",
@@ -283,7 +335,9 @@
         "art": 9,
         "art_id": "training_sword",
         "text": "가장 앞의 아군 유닛 공격력 +2",
-        "build_tags": ["buff"]
+        "build_tags": [
+            "buff"
+        ]
     },
     {
         "id": "mercenary",
@@ -297,7 +351,9 @@
         "art": 10,
         "art_id": "mercenary",
         "text": "효과 없음",
-        "build_tags": ["summon"]
+        "build_tags": [
+            "summon"
+        ]
     },
     {
         "id": "thief",
@@ -311,7 +367,10 @@
         "art": 11,
         "art_id": "thief",
         "text": "소환 시 내 영웅 체력 1 잃음",
-        "build_tags": ["low_hp", "summon"]
+        "build_tags": [
+            "low_hp",
+            "summon"
+        ]
     },
     {
         "id": "death_mark",
@@ -323,7 +382,9 @@
         "art": 3,
         "art_id": "death_mark",
         "text": "적 영웅에게 저주 1스택을 부여",
-        "build_tags": ["death"]
+        "build_tags": [
+            "death"
+        ]
     },
     {
         "id": "plague_spread",
@@ -335,7 +396,9 @@
         "art": 5,
         "art_id": "plague_spread",
         "text": "모든 적 유닛에게 피해 1. 적 영웅에게 저주 2스택을 부여",
-        "build_tags": ["death"]
+        "build_tags": [
+            "death"
+        ]
     },
     {
         "id": "world_tree_ritual",
@@ -347,7 +410,9 @@
         "art": 9,
         "art_id": "world_tree_ritual",
         "text": "나의 의식 스택을 1만큼 증가시킴",
-        "build_tags": ["draw"]
+        "build_tags": [
+            "draw"
+        ]
     },
     {
         "id": "nature_communion",
@@ -359,7 +424,9 @@
         "art": 11,
         "art_id": "nature_communion",
         "text": "의식 스택을 1만큼 증가시킴. 카드 1장 드로우",
-        "build_tags": ["draw"]
+        "build_tags": [
+            "draw"
+        ]
     },
     {
         "id": "bone_oracle",
@@ -373,7 +440,10 @@
         "art": 4,
         "art_id": "bone_oracle",
         "text": "소환 시 적 영웅에게 저주 1스택을 부여",
-        "build_tags": ["death", "summon"]
+        "build_tags": [
+            "death",
+            "summon"
+        ]
     },
     {
         "id": "soul_shackle",
@@ -385,7 +455,10 @@
         "art": 6,
         "art_id": "soul_shackle",
         "text": "적 영웅에게 저주 2스택을 부여. 카드 1장 드로우",
-        "build_tags": ["death", "draw"]
+        "build_tags": [
+            "death",
+            "draw"
+        ]
     },
     {
         "id": "funeral_fog",
@@ -397,7 +470,9 @@
         "art": 8,
         "art_id": "funeral_fog",
         "text": "가장 앞의 적 또는 적 영웅에게 피해 2. 적 영웅에게 저주 1스택을 부여",
-        "build_tags": ["death"]
+        "build_tags": [
+            "death"
+        ]
     },
     {
         "id": "ritual_sapling",
@@ -411,7 +486,10 @@
         "art": 9,
         "art_id": "ritual_sapling",
         "text": "소환 시 의식 스택을 1만큼 증가시킴",
-        "build_tags": ["draw", "summon"]
+        "build_tags": [
+            "draw",
+            "summon"
+        ]
     },
     {
         "id": "moonwell",
@@ -423,7 +501,10 @@
         "art": 10,
         "art_id": "moonwell",
         "text": "내 영웅 체력 4 회복. 의식 스택을 1만큼 증가시킴",
-        "build_tags": ["draw", "low_hp"]
+        "build_tags": [
+            "draw",
+            "low_hp"
+        ]
     },
     {
         "id": "ancient_oath",
@@ -435,6 +516,56 @@
         "art": 0,
         "art_id": "ancient_oath",
         "text": "의식 스택을 2만큼 증가시킴. 카드 1장 드로우",
-        "build_tags": ["draw"]
+        "build_tags": [
+            "draw"
+        ]
+    },
+    {
+        "id": "vampiric_strike",
+        "name": "흡혈의 일격",
+        "type": "spell",
+        "cost": 2,
+        "text": "적의 맨 앞 유닛(없으면 영웅)에게 피해를 2 주고, 내 영웅의 체력을 2 회복합니다.",
+        "race": "중립",
+        "attr": "암흑",
+        "art": 0,
+        "art_id": "vampiric_strike"
+    },
+    {
+        "id": "battlecry",
+        "name": "전장의 함성",
+        "type": "spell",
+        "cost": 1,
+        "text": "현재 필드에 있는 모든 아군 유닛의 공격력을 +1, 체력을 +1 합니다.",
+        "race": "중립",
+        "attr": "물리",
+        "art": 0,
+        "art_id": "battlecry"
+    },
+    {
+        "id": "berserker",
+        "name": "광전사",
+        "type": "unit",
+        "cost": 2,
+        "attack": 4,
+        "health": 1,
+        "text": "사망 시: 내 영웅이 2의 피해를 입습니다.",
+        "race": "인간",
+        "attr": "대지",
+        "art": 0,
+        "art_id": "berserker"
+    },
+    {
+        "id": "stone_golem",
+        "name": "돌 골렘",
+        "type": "unit",
+        "cost": 3,
+        "attack": 0,
+        "health": 6,
+        "text": "소환 시: 내 영웅 체력을 2 회복합니다.",
+        "race": "정령",
+        "attr": "대지",
+        "art": 0,
+        "art_id": "stone_golem"
     }
 ]
