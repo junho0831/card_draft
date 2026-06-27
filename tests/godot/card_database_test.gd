@@ -1,6 +1,6 @@
 extends RefCounted
 
-const CardDatabaseScript := preload("res://scripts/services/card_database.gd")
+const CardDatabaseScript := preload("res://src/services/card_database.gd")
 const CARD_DATA_PATH := "res://data/cards.json"
 
 var _failures: Array[String] = []

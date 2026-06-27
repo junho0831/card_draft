@@ -1,6 +1,6 @@
 extends RefCounted
 
-const ShopRunServiceScript := preload("res://scripts/services/shop_run_service.gd")
+const ShopRunServiceScript := preload("res://src/services/shop_run_service.gd")
 
 var _failures: Array[String] = []
 var _count := 0

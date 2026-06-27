@@ -1,6 +1,6 @@
 extends RefCounted
 
-const EventRunServiceScript := preload("res://scripts/services/event_run_service.gd")
+const EventRunServiceScript := preload("res://src/services/event_run_service.gd")
 
 var _failures: Array[String] = []
 var _count := 0

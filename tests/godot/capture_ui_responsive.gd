@@ -1,6 +1,6 @@
 extends SceneTree
 
-const MAIN_SCENE := preload("res://scenes/Main.tscn")
+const MAIN_SCENE := preload("res://src/core/Main.tscn")
 const CAPTURE_NAMES := [
 	"01_main_menu",
 	"01b_ui_guide",

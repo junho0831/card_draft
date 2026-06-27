@@ -12,7 +12,7 @@ config_version=5
 
 config/name="card_draft"
 config/tags=PackedStringArray("tcg")
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://src/core/Main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
 
@@ -26,7 +26,6 @@ window/stretch/aspect="expand"
 
 [gui]
 
-theme/custom="res://assets/ui/main_theme.tres"
 
 [physics]
 

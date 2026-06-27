@@ -1,6 +1,6 @@
 extends SceneTree
 
-const MAIN_SCENE := preload("res://scenes/Main.tscn")
+const MAIN_SCENE := preload("res://src/core/Main.tscn")
 
 var output_dir := "user://ui_captures"
 

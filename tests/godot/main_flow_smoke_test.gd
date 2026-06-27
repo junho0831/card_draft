@@ -1,7 +1,7 @@
 extends RefCounted
 
-const MAIN_SCENE := preload("res://scenes/Main.tscn")
-const RewardScreenScript := preload("res://scripts/ui/screens/reward_screen.gd")
+const MAIN_SCENE := preload("res://src/core/Main.tscn")
+const RewardScreenScript := preload("res://src/ui/screens/reward_screen.gd")
 
 var _failures: Array[String] = []
 var _count := 0

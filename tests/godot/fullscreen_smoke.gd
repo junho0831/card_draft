@@ -1,6 +1,6 @@
 extends SceneTree
 
-const MAIN_SCENE := preload("res://scenes/Main.tscn")
+const MAIN_SCENE := preload("res://src/core/Main.tscn")
 
 func _init() -> void:
 	call_deferred("_run")

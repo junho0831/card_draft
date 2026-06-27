@@ -1,6 +1,6 @@
 extends RefCounted
 
-const ProfileStoreScript := preload("res://scripts/core/profile_store.gd")
+const ProfileStoreScript := preload("res://src/core/profile_store.gd")
 
 var _failures: Array[String] = []
 var _count := 0
