@@ -35,8 +35,8 @@ func _test_card_art_ids_have_files(card_db) -> void:
 		_assert_true(not art_id.is_empty(), "%s has art_id" % String(Dictionary(card).get("id", "")))
 		var path := "res://assets/card_art/cards/%s.png" % art_id
 		_assert_true(FileAccess.file_exists(path), "%s art file exists" % art_id)
-		var image := Image.new()
-		_assert_eq(image.load(path), OK, "%s art image loads" % art_id)
+		var texture := ResourceLoader.load(path) as Texture2D
+		_assert_true(texture != null, "%s art texture loads" % art_id)
 
 func _test_build_upgraded_unit(card_db) -> void:
 	var deck: Array = card_db.build_deck_from_ids(["militia_plus"])

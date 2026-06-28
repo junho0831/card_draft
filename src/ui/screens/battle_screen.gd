@@ -261,6 +261,10 @@ func _is_tight_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
 	return viewport_size.x <= 1024.0 or viewport_size.y <= 760.0
 
+func _is_wide_tight_battle_layout() -> bool:
+	var viewport_size: Vector2 = main._layout_viewport_size()
+	return viewport_size.x >= 1100.0 and viewport_size.y <= 760.0
+
 func _battle_reward_choices() -> Array[String]:
 	return main._roll_card_reward_choices(3, battle_tier == "boss")
 
@@ -649,6 +653,7 @@ func _make_battle_log_panel(compact: bool, min_height: int) -> Dictionary:
 
 func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	var tight := _is_tight_battle_layout()
+	var vertical_stack := compact and not _is_wide_tight_battle_layout()
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.055, 0.06, 0.075, 0.98), Color(0.22, 0.18, 0.12, 1.0), 1, 10, 10)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box := VBoxContainer.new()
@@ -666,7 +671,9 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 
 	hero_attack_button = Button.new()
 	hero_attack_button.text = "영웅 공격"
-	hero_attack_button.custom_minimum_size = Vector2(0, 46 if tight else (48 if compact else 56))
+	hero_attack_button.custom_minimum_size = Vector2(320 if vertical_stack else 0, 46 if tight else (48 if compact else 56))
+	if vertical_stack:
+		hero_attack_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	main.ui.style_button(hero_attack_button, Color(0.5, 0.13, 0.13, 1.0))
 	hero_attack_button.add_theme_font_size_override("font_size", 12 if tight else 16)
 	hero_attack_button.pressed.connect(Callable(self, "_attack_opponent_hero"))
@@ -674,7 +681,9 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 
 	end_turn_button = Button.new()
 	end_turn_button.text = "턴 종료"
-	end_turn_button.custom_minimum_size = Vector2(0, 48 if tight else (50 if compact else 58))
+	end_turn_button.custom_minimum_size = Vector2(320 if vertical_stack else 0, 48 if tight else (50 if compact else 58))
+	if vertical_stack:
+		end_turn_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	main.ui.style_primary_button(end_turn_button, Color(0.2, 0.4, 0.62, 1.0))
 	end_turn_button.add_theme_font_size_override("font_size", 12 if tight else 16)
 	end_turn_button.pressed.connect(Callable(self, "_on_end_turn_pressed"))
@@ -682,7 +691,9 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 
 	var surrender_button := Button.new()
 	surrender_button.text = "도망가기"
-	surrender_button.custom_minimum_size = Vector2(0, 42 if tight else (46 if compact else 50))
+	surrender_button.custom_minimum_size = Vector2(320 if vertical_stack else 0, 42 if tight else (46 if compact else 50))
+	if vertical_stack:
+		surrender_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	main.ui.style_button(surrender_button, Color(0.25, 0.25, 0.3, 1.0))
 	surrender_button.add_theme_font_size_override("font_size", 12 if tight else 14)
 	surrender_button.pressed.connect(Callable(self, "_on_surrender_pressed"))
@@ -883,6 +894,9 @@ func _player_has_available_action() -> bool:
 func _build_battle_ui() -> void:
 	var compact := _is_compact_layout()
 	var tight := _is_tight_battle_layout()
+	var wide_tight := _is_wide_tight_battle_layout()
+	var vertical_stack := compact and not wide_tight
+	var horizontal_battle := not vertical_stack
 	root_box.add_theme_constant_override("separation", 6 if tight else 10)
 	player_info = null
 	player_gauge_info = null
@@ -898,45 +912,52 @@ func _build_battle_ui() -> void:
 	mana_status_label = null
 	player_deck_status_label = null
 	player_field_status_label = null
-	var field_height := 64 if tight else (122 if not compact else 96)
+	var field_height := 58 if wide_tight else (64 if tight else (122 if not compact else 96))
 	var board_width := 760 if not compact else 0
-	var sidebar_width := 170 if tight else (178 if not compact else 0)
-	var hand_height := 94 if tight else (170 if not compact else 142)
-	var deck_height := 58 if tight else (108 if not compact else 78)
-	var log_height := 122 if tight else (220 if not compact else 140)
+	var sidebar_width := 136 if wide_tight else (170 if tight else (178 if not compact else 0))
+	var hand_height := 88 if wide_tight else (94 if tight else (170 if not compact else 142))
+	var deck_height := 44 if wide_tight else (58 if tight else (108 if not compact else 78))
+	var log_height := 72 if wide_tight else (122 if tight else (220 if not compact else 140))
 
 	root_box.add_child(_make_top_status_bar(compact))
 	root_box.add_child(_make_battle_guidance_panel(compact))
 
-	var main_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+	var main_row: BoxContainer = VBoxContainer.new() if vertical_stack else HBoxContainer.new()
 	main_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	main_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	main_row.add_theme_constant_override("separation", 14 if compact else (10 if tight else 12))
+	main_row.add_theme_constant_override("separation", 8 if vertical_stack else (8 if tight else 12))
 	root_box.add_child(main_row)
 
 	var left_column := VBoxContainer.new()
 	left_column.custom_minimum_size = Vector2(sidebar_width, 0)
-	left_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	left_column.add_theme_constant_override("separation", 6 if tight else 8)
-	main_row.add_child(left_column)
+	left_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL if vertical_stack else Control.SIZE_SHRINK_BEGIN
+	left_column.size_flags_vertical = Control.SIZE_SHRINK_BEGIN if tight else Control.SIZE_EXPAND_FILL
+	left_column.add_theme_constant_override("separation", 4 if tight else 8)
+	if horizontal_battle:
+		main_row.add_child(left_column)
 
 	left_column.add_child(_make_side_info_card("적 영웅", opponent, ENEMY_HERO_ART, compact, true))
 
-	var enemy_meta: Dictionary = _make_section_panel("적 효과", compact, 92 if tight else (118 if not compact else 96))
+	var enemy_meta: Dictionary = _make_section_panel("적 효과", compact, 54 if wide_tight else (72 if tight else (118 if not compact else 96)))
 	left_column.add_child(enemy_meta["panel"])
 	var enemy_meta_box: VBoxContainer = enemy_meta["content"]
-	var enemy_state: Label = main._make_label("현재 전투: %s" % main._node_type_name(battle_tier), 12 if tight else (14 if compact else 15), Color(0.84, 0.88, 0.94, 1.0))
-	enemy_state.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	enemy_meta_box.add_child(enemy_state)
-	var enemy_stat_row := HBoxContainer.new()
-	enemy_stat_row.add_theme_constant_override("separation", 6)
-	enemy_meta_box.add_child(enemy_stat_row)
-	enemy_stat_row.add_child(main.ui.make_stat_tile("손패", str((opponent.get("hand", []) as Array).size()), Color(0.22, 0.18, 0.42, 1.0), compact))
-	enemy_stat_row.add_child(main.ui.make_stat_tile("덱", str((opponent.get("deck", []) as Array).size()), Color(0.16, 0.18, 0.24, 1.0), compact))
-	enemy_meta_box.add_child(main.ui.make_objective_panel("위협 요약", "손패와 덱 수를 보고 다음 턴 압박을 예측하세요.", tight or compact))
-	if tight:
-		var enemy_hint_chip: PanelContainer = main.ui.make_chip("상대 영웅 HP를 우선 확인하세요", Color(0.16, 0.16, 0.11, 1.0), Color(0.96, 0.92, 0.78, 1.0), 10)
-		enemy_meta_box.add_child(enemy_hint_chip)
+	if wide_tight:
+		enemy_hand_count_label = main._make_label("손패 %d | 덱 %d" % [(opponent.get("hand", []) as Array).size(), (opponent.get("deck", []) as Array).size()], 10, Color(0.84, 0.88, 0.94, 1.0))
+		enemy_hand_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		enemy_meta_box.add_child(enemy_hand_count_label)
+	else:
+		var enemy_state: Label = main._make_label("현재 전투: %s" % main._node_type_name(battle_tier), 12 if tight else (14 if compact else 15), Color(0.84, 0.88, 0.94, 1.0))
+		enemy_state.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		enemy_meta_box.add_child(enemy_state)
+		var enemy_stat_row := HBoxContainer.new()
+		enemy_stat_row.add_theme_constant_override("separation", 6)
+		enemy_meta_box.add_child(enemy_stat_row)
+		enemy_stat_row.add_child(main.ui.make_stat_tile("손패", str((opponent.get("hand", []) as Array).size()), Color(0.22, 0.18, 0.42, 1.0), compact))
+		enemy_stat_row.add_child(main.ui.make_stat_tile("덱", str((opponent.get("deck", []) as Array).size()), Color(0.16, 0.18, 0.24, 1.0), compact))
+		enemy_meta_box.add_child(main.ui.make_objective_panel("위협 요약", "손패와 덱 수를 보고 다음 턴 압박을 예측하세요.", tight or compact))
+		if tight:
+			var enemy_hint_chip: PanelContainer = main.ui.make_chip("상대 영웅 HP를 우선 확인하세요", Color(0.16, 0.16, 0.11, 1.0), Color(0.96, 0.92, 0.78, 1.0), 10)
+			enemy_meta_box.add_child(enemy_hint_chip)
 	if not tight:
 		enemy_hand_count_label = main._make_label("손패 %d" % (opponent.get("hand", []) as Array).size(), 14 if compact else 15, Color(0.84, 0.88, 0.94, 1.0))
 		enemy_hand_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -954,6 +975,8 @@ func _build_battle_ui() -> void:
 	center_column.add_theme_constant_override("separation", 6 if tight else 8)
 	if not compact:
 		center_column.custom_minimum_size = Vector2(board_width, 0)
+	elif wide_tight:
+		center_column.custom_minimum_size = Vector2(0, 0)
 	main_row.add_child(center_column)
 
 	var board_panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.24, 0.2, 0.12, 1.0), 1, 12, 6 if tight else 10)
@@ -993,8 +1016,8 @@ func _build_battle_ui() -> void:
 	player_field_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	board_box.add_child(player_field_box)
 
-	var player_strip: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	player_strip.add_theme_constant_override("separation", 6 if tight else 8)
+	var player_strip: BoxContainer = HBoxContainer.new() if wide_tight else (VBoxContainer.new() if compact else HBoxContainer.new())
+	player_strip.add_theme_constant_override("separation", 4 if tight else 8)
 	board_box.add_child(player_strip)
 
 	if tight:
@@ -1010,7 +1033,7 @@ func _build_battle_ui() -> void:
 			player_status_panel.custom_minimum_size.x = 176 if tight else 216
 		player_strip.add_child(player_status_panel)
 
-	var chips_wrap: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+	var chips_wrap: BoxContainer = HBoxContainer.new() if wide_tight else (VBoxContainer.new() if compact else HBoxContainer.new())
 	chips_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	chips_wrap.add_theme_constant_override("separation", 4 if tight else 8)
 	player_strip.add_child(chips_wrap)
@@ -1022,7 +1045,7 @@ func _build_battle_ui() -> void:
 		player_gauge_info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		player_strip.add_child(player_gauge_info)
 
-	var turn_actions: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+	var turn_actions: BoxContainer = HBoxContainer.new() if wide_tight else (VBoxContainer.new() if compact else HBoxContainer.new())
 	turn_actions.add_theme_constant_override("separation", 4 if tight else 8)
 	player_strip.add_child(turn_actions)
 
@@ -1034,18 +1057,24 @@ func _build_battle_ui() -> void:
 
 	var right_column := VBoxContainer.new()
 	right_column.custom_minimum_size = Vector2(sidebar_width, 0)
-	right_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	right_column.add_theme_constant_override("separation", 6 if tight else 8)
-	main_row.add_child(right_column)
+	right_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL if vertical_stack else Control.SIZE_SHRINK_BEGIN
+	right_column.size_flags_vertical = Control.SIZE_SHRINK_BEGIN if tight else Control.SIZE_EXPAND_FILL
+	right_column.add_theme_constant_override("separation", 4 if tight else 8)
+	if horizontal_battle:
+		main_row.add_child(right_column)
 
 	var deck_panel: Dictionary = _make_deck_preview_panel(compact, deck_height)
 	right_column.add_child(deck_panel["panel"])
 
 	var log_panel: Dictionary = _make_battle_log_panel(compact, log_height)
 	right_column.add_child(log_panel["panel"])
-	right_column.add_child(_make_battle_action_panel(compact))
+	if not (tight and vertical_stack):
+		right_column.add_child(_make_battle_action_panel(compact))
 
 	if tight:
+		var tight_actions_panel := _make_battle_action_panel(compact)
+		if vertical_stack:
+			center_column.add_child(tight_actions_panel)
 		var tight_hand_panel: PanelContainer = main.ui.make_surface_panel(Color(0.06, 0.07, 0.09, 1.0), Color(0.22, 0.18, 0.1, 1.0), 1, 12, 8)
 		tight_hand_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tight_hand_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -1061,6 +1090,9 @@ func _build_battle_ui() -> void:
 		hand_box.add_theme_constant_override("h_separation", 6)
 		hand_box.add_theme_constant_override("v_separation", 6)
 		tight_hand_box.add_child(hand_box)
+		if vertical_stack:
+			main_row.add_child(left_column)
+			main_row.add_child(right_column)
 		_initialize_battle_runtime_ui()
 		return
 

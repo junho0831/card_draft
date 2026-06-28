@@ -454,9 +454,8 @@ func card_art_texture(card: Dictionary) -> Texture2D:
 		if card_art_cache.has(path):
 			return card_art_cache[path]
 		if FileAccess.file_exists(path):
-			var image := Image.new()
-			if image.load(path) == OK:
-				var texture := ImageTexture.create_from_image(image)
+			var texture := ResourceLoader.load(path) as Texture2D
+			if texture != null:
 				card_art_cache[path] = texture
 				return texture
 	return _make_sheet_art_texture(int(card.get("art", 0)))
