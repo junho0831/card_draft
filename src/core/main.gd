@@ -1056,6 +1056,20 @@ func _make_run_summary_panel() -> Control:
 	var build_label: Label = _make_label("%s  |  %s" % [build_line, active_line], 12 if compact else 13, Color(0.86, 0.9, 0.96, 1.0))
 	build_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	wrapper.add_child(build_label)
+	var relics: Array = current_run.get("relic_ids", [])
+	if not relics.is_empty():
+		var relic_row = HBoxContainer.new()
+		relic_row.add_theme_constant_override("separation", 6)
+		var relic_title = _make_label("보유 유물:", 12 if compact else 13, Color(0.8, 0.8, 0.8, 1.0))
+		relic_row.add_child(relic_title)
+		for relic_id in relics:
+			var relic_def = relic_service.get_relic(String(relic_id))
+			var r_name = String(relic_def.get("name", "Unknown"))
+			var r_text = String(relic_def.get("text", ""))
+			var chip = ui.make_chip(r_name, Color(0.2, 0.15, 0.3, 1.0), Color(0.9, 0.8, 1.0, 1.0), 12 if compact else 13)
+			chip.tooltip_text = r_text
+			relic_row.add_child(chip)
+		wrapper.add_child(relic_row)
 	return panel
 
 func _profile_upgrades() -> Dictionary:

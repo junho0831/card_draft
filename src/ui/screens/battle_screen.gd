@@ -1263,8 +1263,11 @@ func _on_hand_card_pressed(index: int) -> void:
 		player.discard_pile.append(card)
 	main.relic_service.consume_card_discount(battle_state)
 	battle_state["cards_played_this_turn"] = int(battle_state.get("cards_played_this_turn", 0)) + 1
+	var old_p_hp = int(player.health)
+	var old_o_hp = int(opponent.health)
 	main.battle_effects.play_card(player, opponent, card, _battle_effect_context())
 	main.relic_service.on_card_played(main.current_run, battle_state, player)
+	_apply_damage_juice(old_p_hp, old_o_hp)
 	_check_game_over()
 	_refresh_ui()
 	_store_battle_snapshot()
@@ -1858,3 +1861,23 @@ func _shake_screen(intensity: float, duration: float) -> void:
 		tween.parallel().tween_property(main.modal_layer, "position", Vector2(randf_range(-intensity, intensity), randf_range(-intensity, intensity)), 0.05)
 	tween.tween_property(main.root_scroll, "position", original_pos, 0.05)
 	tween.parallel().tween_property(main.modal_layer, "position", Vector2.ZERO, 0.05)
+
+
+func _apply_damage_juice(old_p_hp: int, old_o_hp: int) -> void:
+	if int(player.health) < old_p_hp:
+		_flash_and_shake(player_info, Color(1.0, 0.2, 0.2, 1.0))
+		_flash_and_shake(player_hero_hp_label, Color(1.0, 0.2, 0.2, 1.0))
+	if int(opponent.health) < old_o_hp:
+		_flash_and_shake(opponent_info, Color(1.0, 0.2, 0.2, 1.0))
+		_flash_and_shake(enemy_hero_hp_label, Color(1.0, 0.2, 0.2, 1.0))
+
+func _flash_and_shake(node: Control, color: Color) -> void:
+	if not is_instance_valid(node): return
+	var tween := node.create_tween()
+	var orig_pos := node.position
+	var orig_modulate := node.modulate
+	node.modulate = color
+	tween.tween_property(node, "modulate", orig_modulate, 0.3)
+	for i in range(4):
+		tween.parallel().tween_property(node, "position", orig_pos + Vector2(randf_range(-8, 8), randf_range(-8, 8)), 0.05)
+	tween.tween_property(node, "position", orig_pos, 0.05)
