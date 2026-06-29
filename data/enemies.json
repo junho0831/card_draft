@@ -3,7 +3,7 @@
         "id": "goblin_raider",
         "name": "고블린 약탈자",
         "tier": "normal",
-        "base_hp": 18,
+        "base_hp": 12,
         "deck_ids": [
             "militia",
             "thief",
@@ -23,7 +23,7 @@
         "id": "wolf_pack",
         "name": "늑대 무리",
         "tier": "normal",
-        "base_hp": 20,
+        "base_hp": 12,
         "deck_ids": [
             "militia",
             "militia",
@@ -43,7 +43,7 @@
         "id": "bandit_archer",
         "name": "산적 궁수",
         "tier": "normal",
-        "base_hp": 22,
+        "base_hp": 13,
         "deck_ids": [
             "small_flame",
             "gale_shot",
@@ -64,7 +64,7 @@
         "id": "skeleton_horde",
         "name": "해골 무리",
         "tier": "normal",
-        "base_hp": 24,
+        "base_hp": 14,
         "deck_ids": [
             "bone_soldier",
             "bone_soldier",
@@ -84,7 +84,7 @@
         "id": "fanatic",
         "name": "광신도",
         "tier": "normal",
-        "base_hp": 24,
+        "base_hp": 14,
         "deck_ids": [
             "dark_bargain",
             "thief",
@@ -104,7 +104,7 @@
         "id": "shield_bearer",
         "name": "방패병",
         "tier": "normal",
-        "base_hp": 26,
+        "base_hp": 15,
         "deck_ids": [
             "shield_guard",
             "shield_guard",
@@ -125,7 +125,7 @@
         "id": "blood_executor",
         "name": "피의 집행자",
         "tier": "elite",
-        "base_hp": 42,
+        "base_hp": 20,
         "deck_ids": [
             "thief",
             "small_flame",
@@ -147,7 +147,7 @@
         "id": "steel_golem",
         "name": "강철 골렘",
         "tier": "elite",
-        "base_hp": 48,
+        "base_hp": 22,
         "deck_ids": [
             "shield_guard",
             "training_sword",
@@ -169,7 +169,7 @@
         "id": "border_guardian",
         "name": "국경 수호자",
         "tier": "boss",
-        "base_hp": 78,
+        "base_hp": 32,
         "deck_ids": [
             "flame_swordsman",
             "shield_guard",
@@ -191,7 +191,7 @@
         "id": "undead_king",
         "name": "언데드 왕",
         "tier": "boss",
-        "base_hp": 120,
+        "base_hp": 36,
         "deck_ids": [
             "bone_soldier",
             "bone_soldier",
@@ -214,7 +214,7 @@
         "id": "fallen_paladin",
         "name": "타락한 성기사",
         "tier": "elite",
-        "base_hp": 30,
+        "base_hp": 18,
         "deck_ids": [
             "shield_guard",
             "first_aid",
@@ -235,7 +235,7 @@
         "id": "mad_mage",
         "name": "광기의 마법사",
         "tier": "normal",
-        "base_hp": 20,
+        "base_hp": 12,
         "deck_ids": [
             "fireball",
             "gale_shot",
@@ -257,7 +257,7 @@
         "id": "necro_lord",
         "name": "강령술사 군주",
         "tier": "boss",
-        "base_hp": 50,
+        "base_hp": 30,
         "deck_ids": [
             "bone_soldier",
             "bone_oracle",

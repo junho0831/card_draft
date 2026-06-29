@@ -19,6 +19,7 @@ func run() -> Dictionary:
 	_test_secondary_screens(main)
 	_test_continue_run_routes(main)
 	_test_reward_claim_advances_node(main)
+	_test_boss_victory_finishes_run_without_reward_stop(main)
 	_test_shop_leave_advances_node(main)
 	_test_rest_complete_advances_node(main)
 	_test_event_complete_advances_node(main)
@@ -185,8 +186,27 @@ func _test_reward_claim_advances_node(main: Node) -> void:
 	_assert_eq((main.current_run.get("deck_ids", []) as Array).size(), deck_before + 1, "claiming reward adds card to deck")
 	_assert_true(Dictionary(main.current_run.get("pending_card_reward", {})).is_empty(), "claiming reward clears pending reward")
 
+func _test_boss_victory_finishes_run_without_reward_stop(main: Node) -> void:
+	var acts: Array[Dictionary] = [{
+		"id": 1,
+		"name": "보스 테스트",
+		"nodes": [["boss"]],
+	}]
+	var run_data: Dictionary = main.run_store.create_new_run(acts, main.run_generator.starter_deck(), 50, 100)
+	var enemy: Dictionary = main.enemy_service.pick_enemy(1, "boss")
+	run_data["active_enemy"] = enemy
+	main.current_run = run_data
+	var battle_screen_script = load("res://src/ui/screens/battle_screen.gd")
+	main.battle_screen = battle_screen_script.new(main)
+	main.battle_screen.battle_tier = "boss"
+	main.battle_screen.player = {"health": 42}
+	main.battle_screen._finish_battle_victory()
+	_assert_eq(String(main.active_screen), "run_result", "boss victory goes directly to run result")
+	_assert_eq(String(main.current_run.get("result", "")), "win", "boss victory marks run as won")
+	_assert_true(Dictionary(main.current_run.get("pending_card_reward", {})).is_empty(), "boss victory skips pending card reward stop")
+
 func _test_shop_leave_advances_node(main: Node) -> void:
-	var acts: Array[Dictionary] = main.run_generator.load_acts()
+	var acts: Array[Dictionary] = _flow_test_acts()
 	var run_data: Dictionary = main.run_store.create_new_run(acts, main.run_generator.starter_deck(), 50, 100)
 	run_data["current_node_index"] = 4
 	run_data["pending_shop"] = main.shop_run_service.generate_shop_state({
@@ -201,7 +221,7 @@ func _test_shop_leave_advances_node(main: Node) -> void:
 	_assert_true(Dictionary(main.current_run.get("pending_shop", {})).is_empty(), "leaving shop clears pending shop")
 
 func _test_rest_complete_advances_node(main: Node) -> void:
-	var acts: Array[Dictionary] = main.run_generator.load_acts()
+	var acts: Array[Dictionary] = _flow_test_acts()
 	var run_data: Dictionary = main.run_store.create_new_run(acts, main.run_generator.starter_deck(), 50, 100)
 	run_data["current_node_index"] = 6
 	main.current_run = run_data
@@ -210,7 +230,7 @@ func _test_rest_complete_advances_node(main: Node) -> void:
 	_assert_eq(int(main.current_run.get("current_node_index", -1)), 7, "completing rest advances node")
 
 func _test_event_complete_advances_node(main: Node) -> void:
-	var acts: Array[Dictionary] = main.run_generator.load_acts()
+	var acts: Array[Dictionary] = _flow_test_acts()
 	var run_data: Dictionary = main.run_store.create_new_run(acts, main.run_generator.starter_deck(), 50, 100)
 	run_data["current_node_index"] = 2
 	run_data["pending_event"] = main.event_service.roll_event()
@@ -224,6 +244,22 @@ func _test_event_complete_advances_node(main: Node) -> void:
 	_assert_eq(int(main.current_run.get("current_node_index", -1)), 3, "completing event advances node")
 	_assert_true(Dictionary(main.current_run.get("pending_event", {})).is_empty(), "completing event clears pending event")
 	_assert_true(Dictionary(main.current_run.get("pending_message", {})).is_empty(), "completing event clears pending message")
+
+func _flow_test_acts() -> Array[Dictionary]:
+	return [{
+		"id": 99,
+		"name": "플로우 테스트",
+		"nodes": [
+			["battle"],
+			["battle"],
+			["event"],
+			["battle"],
+			["shop"],
+			["elite"],
+			["rest"],
+			["boss"],
+		],
+	}]
 
 func _assert_true(value: bool, message: String) -> void:
 	_count += 1

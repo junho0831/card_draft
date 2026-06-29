@@ -94,7 +94,8 @@ func _make_reward_side_panel(reward: Dictionary, compact: bool) -> PanelContaine
 	var gold: Label = main._make_label("골드 +%d" % int(reward.get("gold_reward", 0)), 15 if compact else 16, Color(1.0, 0.88, 0.55, 1.0))
 	gold.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(gold)
-	var reward_chip: PanelContainer = main.ui.make_chip("카드 3장 중 1장", Color(0.16, 0.18, 0.24, 1.0), Color(0.98, 0.98, 0.94, 1.0), 13 if compact else 14)
+	var choice_count := (reward.get("choices", []) as Array).size()
+	var reward_chip: PanelContainer = main.ui.make_chip("카드 %d장 중 1장" % choice_count, Color(0.16, 0.18, 0.24, 1.0), Color(0.98, 0.98, 0.94, 1.0), 13 if compact else 14)
 	box.add_child(reward_chip)
 	if typeof(reward.get("bonus_relic", {})) == TYPE_DICTIONARY and not Dictionary(reward.get("bonus_relic", {})).is_empty():
 		var relic: Dictionary = reward["bonus_relic"]

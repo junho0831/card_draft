@@ -494,9 +494,9 @@ func _make_main_menu_node_summary(compact: bool) -> Control:
 	var objective_value := "첫 런 시작"
 	var reward_value := "카드 보상"
 	if not current_run.is_empty():
-		node_value = "%d / 8" % (int(current_run.get("current_node_index", 0)) + 1)
 		var act_data: Dictionary = _current_act()
 		var nodes: Array = act_data.get("nodes", [])
+		node_value = "%d / %d" % [int(current_run.get("current_node_index", 0)) + 1, max(1, nodes.size())]
 		var node_index := int(current_run.get("current_node_index", 0))
 		if node_index >= 0 and node_index < nodes.size():
 			var node_data_variant: Variant = nodes[node_index]
@@ -515,7 +515,7 @@ func _make_main_menu_node_summary(compact: bool) -> Control:
 					"rest":
 						reward_value = "회복 / 강화"
 					"boss":
-						reward_value = "보스 보상"
+						reward_value = "최종 결과"
 	status_row.add_child(ui.make_stat_tile("현재 노드", node_value, Color(0.14, 0.18, 0.24, 1.0), compact))
 	status_row.add_child(ui.make_stat_tile("다음 목표", objective_value, Color(0.18, 0.17, 0.09, 1.0), compact))
 	status_row.add_child(ui.make_stat_tile("예상 보상", reward_value, Color(0.12, 0.18, 0.14, 1.0), compact))

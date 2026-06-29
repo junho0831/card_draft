@@ -90,17 +90,23 @@ func _capture_all() -> void:
 	quit(0)
 
 func _capture(file_name: String) -> void:
-	await _wait_for_capture_frame()
-	var texture := root.get_viewport().get_texture()
-	if texture == null:
-		printerr("Viewport texture is unavailable. Run this capture script without --headless.")
-		quit(1)
-		return
-	var image := texture.get_image()
+	var image: Image = null
+	for i in range(12):
+		await _wait_for_capture_frame()
+		var texture := root.get_viewport().get_texture()
+		if texture == null:
+			printerr("Viewport texture is unavailable. Run this capture script without --headless.")
+			quit(1)
+			return
+		image = texture.get_image()
+		if image != null and _image_has_content(image):
+			break
 	if image == null:
 		printerr("Viewport image is unavailable. Run this capture script without --headless.")
 		quit(1)
 		return
+	if not _image_has_content(image):
+		push_warning("Viewport image may not contain rendered UI content for %s." % file_name)
 	var path := "%s/%s.png" % [output_dir, file_name]
 	var err := image.save_png(path)
 	if err != OK:
@@ -118,6 +124,23 @@ func _wait_for_capture_frame() -> void:
 			break
 	if RenderingServer.frame_post_draw.is_connected(mark_draw):
 		RenderingServer.frame_post_draw.disconnect(mark_draw)
+
+func _image_has_content(image: Image) -> bool:
+	var width := image.get_width()
+	var height := image.get_height()
+	if width <= 0 or height <= 0:
+		return false
+	var min_luma := 1.0
+	var max_luma := 0.0
+	for x_index in range(12):
+		for y_index in range(8):
+			var x := int(float(width - 1) * (float(x_index) + 0.5) / 12.0)
+			var y := int(float(height - 1) * (float(y_index) + 0.5) / 8.0)
+			var color := image.get_pixel(x, y)
+			var luma := color.r * 0.299 + color.g * 0.587 + color.b * 0.114
+			min_luma = minf(min_luma, luma)
+			max_luma = maxf(max_luma, luma)
+	return max_luma - min_luma > 0.08
 
 func _seed_battle_preview_units(main: Node) -> void:
 	if main.battle_screen == null:

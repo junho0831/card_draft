@@ -40,9 +40,10 @@ func starter_deck(race_id: String = "") -> Array[String]:
 	# Default (Human or empty)
 	return [
 		"militia", "militia", "militia",
-		"trainee_swordsman", "trainee_swordsman", "trainee_swordsman",
-		"small_flame", "small_flame",
-		"first_aid", "first_aid",
+		"trainee_swordsman", "trainee_swordsman",
+		"small_flame", "small_flame", "small_flame",
+		"fireball",
+		"first_aid",
 	]
 
 func get_starting_relic(race_id: String) -> String:

@@ -2,8 +2,9 @@ extends RefCounted
 
 const MAX_MANA := 10
 const MAX_FIELD := 5
-const START_HAND := 4
-const TURN_TIME_SECONDS := 60.0
+const START_HAND := 5
+const STARTING_MAX_MANA := 1
+const TURN_TIME_SECONDS := 35.0
 
 var main
 var root_box: VBoxContainer
@@ -276,7 +277,7 @@ func _is_wide_tight_battle_layout() -> bool:
 	return viewport_size.x >= 1100.0 and viewport_size.y <= 760.0
 
 func _battle_reward_choices() -> Array[String]:
-	return main._roll_card_reward_choices(3, battle_tier == "boss")
+	return main._roll_card_reward_choices(2, false)
 
 func _apply_battle_victory_rewards() -> Dictionary:
 	var bonus_relic := {}
@@ -354,8 +355,8 @@ func _new_side(display_name: String, deck: Array, hp: int, max_hp: int) -> Dicti
 		"name": display_name,
 		"health": hp,
 		"max_health": max_hp,
-		"mana": 0,
-		"max_mana": 0,
+		"mana": STARTING_MAX_MANA,
+		"max_mana": STARTING_MAX_MANA,
 		"deck": deck,
 		"discard_pile": [],
 		"hand": [],
@@ -1230,6 +1231,8 @@ func _build_battle_ui() -> void:
 		hand_box.add_theme_constant_override("v_separation", 6)
 		tight_hand_box.add_child(hand_box)
 		if vertical_stack:
+			left_column.visible = false
+			right_column.visible = false
 			main_row.add_child(left_column)
 			main_row.add_child(right_column)
 		_initialize_battle_runtime_ui()
@@ -1778,7 +1781,12 @@ func _check_game_over() -> void:
 func _finish_battle_victory() -> void:
 	main.current_run["active_enemy"] = {}
 	main.current_run["battle_snapshot"] = {}
-	main.current_run["pending_card_reward"] = _apply_battle_victory_rewards()
+	var reward: Dictionary = _apply_battle_victory_rewards()
+	if battle_tier == "boss":
+		main.current_run["pending_card_reward"] = {}
+		main.run_flow.advance_from_current_node()
+		return
+	main.current_run["pending_card_reward"] = reward
 	_save_run()
 	_show_card_reward()
 
