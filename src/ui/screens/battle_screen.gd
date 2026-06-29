@@ -5,6 +5,7 @@ const MAX_FIELD := 5
 const START_HAND := 5
 const STARTING_MAX_MANA := 1
 const TURN_TIME_SECONDS := 35.0
+const BATTLE_MAX_CONTENT_WIDTH := 1240.0
 
 var main
 var root_box: VBoxContainer
@@ -275,6 +276,17 @@ func _is_portrait_battle_layout() -> bool:
 func _is_wide_tight_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
 	return viewport_size.x >= 1100.0 and viewport_size.y <= 760.0
+
+func _make_battle_content_root(tight: bool) -> VBoxContainer:
+	var viewport_size: Vector2 = main._layout_viewport_size()
+	var content_width: float = min(BATTLE_MAX_CONTENT_WIDTH, max(320.0, viewport_size.x - 20.0))
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(content_width, 0)
+	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	box.add_theme_constant_override("separation", 6 if tight else 10)
+	root_box.add_child(box)
+	return box
 
 func _battle_reward_choices() -> Array[String]:
 	return main._roll_card_reward_choices(2, false)
@@ -838,21 +850,7 @@ func _build_stat_chip_tags() -> Array[Dictionary]:
 	]
 
 func _card_accent_color(card: Dictionary) -> Color:
-	match String(card.get("attr", "")):
-		"화염":
-			return Color(0.78, 0.28, 0.12, 1.0)
-		"물":
-			return Color(0.16, 0.36, 0.7, 1.0)
-		"바람":
-			return Color(0.22, 0.5, 0.34, 1.0)
-		"대지":
-			return Color(0.46, 0.34, 0.14, 1.0)
-		"암흑":
-			return Color(0.34, 0.18, 0.48, 1.0)
-		"빛":
-			return Color(0.72, 0.58, 0.22, 1.0)
-		_:
-			return Color(0.42, 0.38, 0.3, 1.0)
+	return main.ui.card_race_color(card)
 
 func _make_hand_card_style(bg_color: Color, border_color: Color, border_width: int = 2) -> StyleBoxFlat:
 	var style: StyleBoxFlat = main.ui.make_style_box(bg_color, border_color, border_width, 8)
@@ -1045,21 +1043,22 @@ func _build_battle_ui() -> void:
 	mana_status_label = null
 	player_deck_status_label = null
 	player_field_status_label = null
-	var field_height := 58 if wide_tight else (64 if tight else (78 if not compact else 82))
+	var field_height := 118 if wide_tight else (96 if tight and portrait else (106 if tight else (132 if not compact else 120)))
 	var board_width := 760 if not compact else 0
 	var sidebar_width := 136 if wide_tight else (170 if tight else (178 if not compact else 0))
 	var hand_height := 178 if wide_tight else (208 if tight and portrait else (190 if tight else (236 if not compact else 214)))
 	var deck_height := 44 if wide_tight else (58 if tight else (108 if not compact else 78))
 	var log_height := 72 if wide_tight else (112 if tight else (162 if not compact else 126))
+	var battle_root := _make_battle_content_root(tight)
 
-	root_box.add_child(_make_top_status_bar(compact))
-	root_box.add_child(_make_battle_guidance_panel(compact))
+	battle_root.add_child(_make_top_status_bar(compact))
+	battle_root.add_child(_make_battle_guidance_panel(compact))
 
 	var main_row: BoxContainer = VBoxContainer.new() if vertical_stack else HBoxContainer.new()
 	main_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	main_row.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	main_row.add_theme_constant_override("separation", 8 if vertical_stack else (8 if tight else 12))
-	root_box.add_child(main_row)
+	battle_root.add_child(main_row)
 
 	var left_column := VBoxContainer.new()
 	left_column.custom_minimum_size = Vector2(sidebar_width, 0)
@@ -1241,7 +1240,7 @@ func _build_battle_ui() -> void:
 	var bottom_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	bottom_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom_row.add_theme_constant_override("separation", 10 if tight else 12)
-	root_box.add_child(bottom_row)
+	battle_root.add_child(bottom_row)
 
 	var left_actions_panel: PanelContainer = main.ui.make_surface_panel(Color(0.055, 0.06, 0.075, 0.98), Color(0.2, 0.16, 0.3, 1.0), 1, 10, 10)
 	left_actions_panel.custom_minimum_size = Vector2(sidebar_width, 0)
@@ -1847,17 +1846,18 @@ func _configure_field_button(button: Button, unit: Dictionary, index: int, is_pl
 
 func _make_empty_field_slot(compact: bool) -> PanelContainer:
 	var tight := _is_tight_battle_layout()
+	var portrait := _is_portrait_battle_layout()
 	var placeholder := PanelContainer.new()
 	placeholder.add_theme_stylebox_override("panel", _make_field_slot_style(Color(0.025, 0.034, 0.045, 0.74), Color(0.18, 0.28, 0.38, 0.72), 1))
-	placeholder.custom_minimum_size = Vector2(62, 62) if tight else (Vector2(96, 78) if not compact else Vector2(88, 82))
+	placeholder.custom_minimum_size = Vector2(78, 92) if tight and portrait else (Vector2(104, 112) if tight else (Vector2(124, 132) if not compact else Vector2(104, 116)))
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 3)
 	placeholder.add_child(box)
-	var emblem: Label = main._make_label("✦", 14 if tight else (24 if compact else 22), Color(0.62, 0.52, 0.28, 0.46))
+	var emblem: Label = main._make_label("✦", 18 if tight else (24 if compact else 26), Color(0.62, 0.52, 0.28, 0.46))
 	emblem.autowrap_mode = TextServer.AUTOWRAP_OFF
 	box.add_child(emblem)
-	var text: Label = main._make_label("빈 슬롯", 7 if tight else (9 if compact else 10), Color(0.56, 0.53, 0.42, 0.8))
+	var text: Label = main._make_label("빈 슬롯", 8 if tight else (9 if compact else 10), Color(0.56, 0.53, 0.42, 0.8))
 	text.autowrap_mode = TextServer.AUTOWRAP_OFF
 	box.add_child(text)
 	return placeholder
@@ -1865,16 +1865,21 @@ func _make_empty_field_slot(compact: bool) -> PanelContainer:
 func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> Control:
 	var compact := _is_compact_layout()
 	var tight := _is_tight_battle_layout()
+	var portrait := _is_portrait_battle_layout()
 	if index >= side.field.size():
 		return _make_empty_field_slot(compact)
+	var frame_size := Vector2(78, 96) if tight and portrait else (Vector2(108, 118) if tight else (Vector2(124, 132) if not compact else Vector2(108, 116)))
+	var content_size := Vector2(frame_size.x - 12.0, frame_size.y - 10.0)
+	var art_size := Vector2(60, 30) if tight and portrait else (Vector2(88, 42) if tight else (Vector2(106, 52) if not compact else Vector2(92, 42)))
 	var frame := PanelContainer.new()
-	frame.custom_minimum_size = Vector2(64, 70) if tight else Vector2(98 if not compact else 92, 84 if not compact else 88)
+	frame.custom_minimum_size = frame_size
 	var slot := VBoxContainer.new()
-	slot.custom_minimum_size = Vector2(56, 62) if tight else Vector2(88 if not compact else 82, 76 if not compact else 78)
-	slot.add_theme_constant_override("separation", 1 if tight else 2)
+	slot.custom_minimum_size = content_size
+	slot.add_theme_constant_override("separation", 2)
 	frame.add_child(slot)
 	var unit: Dictionary = side.field[index]
-	var slot_border := Color(0.22, 0.36, 0.5, 0.78)
+	var race_border := _card_accent_color(unit)
+	var slot_border := race_border
 	var slot_bg := Color(0.035, 0.045, 0.058, 0.88)
 	if is_player_field and index == selected_attacker:
 		slot_border = Color(0.34, 0.72, 1.0, 1.0)
@@ -1886,29 +1891,27 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 		slot_border = Color(1.0, 0.32, 0.26, 1.0)
 		slot_bg = Color(0.09, 0.035, 0.04, 0.95)
 	frame.add_theme_stylebox_override("panel", _make_field_slot_style(slot_bg, slot_border, 2))
-	if not tight and compact:
-		var role_chip: PanelContainer = _make_battle_surface(Color(0.05, 0.06, 0.072, 0.92), slot_border, 1, 6, 2)
-		slot.add_child(role_chip)
-		var role_label: Label = main._make_label("전장", 8, Color(0.96, 0.9, 0.74, 1.0))
-		role_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-		role_chip.add_child(role_label)
-	var button := Button.new()
-	button.custom_minimum_size = Vector2(52, 18) if tight else Vector2(78 if not compact else 78, 18 if not compact else 20)
-	_style_battle_button(button, Color(0.06, 0.07, 0.085, 0.92), Color(0.26, 0.34, 0.44, 0.9))
-	button.add_theme_font_size_override("font_size", 10 if tight else 11)
-	var name_band: PanelContainer = _make_battle_surface(Color(0.04, 0.052, 0.068, 0.94), slot_border, 1, 5, 3)
+	var name_band: PanelContainer = _make_battle_surface(race_border.darkened(0.42), race_border.lightened(0.08), 1, 5, 3)
 	slot.add_child(name_band)
-	var name_label: Label = main._make_label(String(unit.get("name", "")), 7 if tight else (10 if compact else 9), Color(1.0, 0.94, 0.72, 1.0))
+	var name_label: Label = main._make_label(String(unit.get("name", "")), 8 if tight and portrait else (10 if tight else (11 if compact else 12)), Color(1.0, 0.96, 0.82, 1.0))
 	name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	name_label.clip_text = true
 	name_band.add_child(name_label)
-	slot.add_child(main._make_card_art_rect(unit, Vector2(52, 20) if tight else (Vector2(84, 28) if not compact else Vector2(82, 32))))
+	slot.add_child(main._make_card_art_rect(unit, art_size))
+	var type_label: Label = main._make_label("%s / %s" % [String(unit.get("race", "")), String(unit.get("attr", ""))], 7 if tight and portrait else (8 if tight else 9), Color(0.88, 0.9, 0.76, 1.0))
+	type_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	type_label.clip_text = true
+	slot.add_child(type_label)
 	var stat_row := HBoxContainer.new()
 	stat_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	stat_row.add_theme_constant_override("separation", 4)
 	slot.add_child(stat_row)
 	stat_row.add_child(main.ui.make_stat_badge("%d" % int(unit.get("attack", 0)), Color(0.46, 0.16, 0.12, 1.0), true))
 	stat_row.add_child(main.ui.make_stat_badge("%d" % int(unit.get("health", 0)), Color(0.1, 0.24, 0.46, 1.0), true))
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(58, 19) if tight and portrait else (Vector2(78, 22) if tight else Vector2(86 if not compact else 80, 24))
+	_style_battle_button(button, Color(0.06, 0.07, 0.085, 0.92), Color(0.26, 0.34, 0.44, 0.9))
+	button.add_theme_font_size_override("font_size", 9 if tight and portrait else (10 if tight else 11))
 	_configure_field_button(button, unit, index, is_player_field)
 	slot.add_child(button)
 	return frame
@@ -1944,9 +1947,10 @@ func _render_hand() -> void:
 		var frame_size := Vector2(140, 176) if tight and portrait else (Vector2(132, 166) if tight else (Vector2(190, 226) if not compact else Vector2(154, 188)))
 		var content_size := Vector2(frame_size.x - 12.0, frame_size.y - 12.0)
 		frame.custom_minimum_size = frame_size
-		frame.add_theme_stylebox_override("normal", _make_hand_card_style(Color(0.075, 0.068, 0.052, 1.0), Color(1.0, 0.8, 0.28, 1.0) if playable else accent.darkened(0.12), 3 if playable else 2))
-		frame.add_theme_stylebox_override("hover", _make_hand_card_style(Color(0.095, 0.082, 0.055, 1.0), Color(1.0, 0.92, 0.46, 1.0), 3))
-		frame.add_theme_stylebox_override("pressed", _make_hand_card_style(Color(0.05, 0.045, 0.038, 1.0), Color(1.0, 0.7, 0.22, 1.0), 3))
+		var hand_border := accent.lightened(0.12) if playable else accent.darkened(0.08)
+		frame.add_theme_stylebox_override("normal", _make_hand_card_style(Color(0.075, 0.068, 0.052, 1.0), hand_border, 3 if playable else 2))
+		frame.add_theme_stylebox_override("hover", _make_hand_card_style(Color(0.095, 0.082, 0.055, 1.0), accent.lightened(0.22), 3))
+		frame.add_theme_stylebox_override("pressed", _make_hand_card_style(Color(0.05, 0.045, 0.038, 1.0), accent, 3))
 		frame.add_theme_color_override("font_color", Color(1, 1, 1, 0))
 		frame.pressed.connect(Callable(self, "_on_hand_card_pressed").bind(i))
 		if not playable:

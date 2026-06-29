@@ -99,9 +99,10 @@ func _make_reward_side_panel(reward: Dictionary, compact: bool) -> PanelContaine
 	box.add_child(reward_chip)
 	if typeof(reward.get("bonus_relic", {})) == TYPE_DICTIONARY and not Dictionary(reward.get("bonus_relic", {})).is_empty():
 		var relic: Dictionary = reward["bonus_relic"]
-		var relic_label: Label = main._make_label("유물: %s\n%s" % [String(relic.get("name", "")), String(relic.get("text", ""))], 14 if compact else 15, Color(0.9, 0.86, 0.66, 1.0))
-		relic_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		box.add_child(relic_label)
+		box.add_child(main.ui.make_relic_badge(relic, compact))
+		var relic_text: Label = main._make_label(String(relic.get("text", "")), 12 if compact else 13, Color(0.9, 0.86, 0.98, 1.0))
+		relic_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		box.add_child(relic_text)
 	box.add_child(HSeparator.new())
 	var scores: Dictionary = main._current_build_scores()
 	var primary_tag: String = main._primary_build_tag(scores)

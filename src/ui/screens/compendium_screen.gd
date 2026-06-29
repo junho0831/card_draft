@@ -17,5 +17,12 @@ func build(body: VBoxContainer) -> void:
 		box.add_child(main._make_label("%s [%s/%s] 비용 %d" % [String(card.get("name", "")), String(card.get("race", "")), String(card.get("attr", "")), int(card.get("cost", 0))], 14, Color(0.84, 0.88, 0.95, 1.0)))
 	box.add_child(HSeparator.new())
 	for relic in main.relic_service.relics:
-		box.add_child(main._make_label("%s - %s" % [String(relic.get("name", "")), String(relic.get("text", ""))], 14, Color(1.0, 0.88, 0.55, 1.0)))
+		var relic_row := HBoxContainer.new()
+		relic_row.add_theme_constant_override("separation", 8)
+		box.add_child(relic_row)
+		relic_row.add_child(main.ui.make_relic_badge(relic, false))
+		var relic_text: Label = main._make_label(String(relic.get("text", "")), 13, Color(0.86, 0.88, 0.94, 1.0))
+		relic_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		relic_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		relic_row.add_child(relic_text)
 	main._add_menu_button(box, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))

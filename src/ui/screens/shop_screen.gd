@@ -208,18 +208,15 @@ func _shop_guidance_text() -> String:
 
 func _make_shop_relic_product(relic: Dictionary, shop_state: Dictionary, compact: bool) -> Control:
 	var tight: bool = _is_tight_shop_layout()
-	var frame: PanelContainer = main.ui.make_surface_panel(Color(0.12, 0.1, 0.14, 1.0), Color(0.64, 0.48, 0.94, 1.0), 2, 8, 10)
+	var relic_meta: Dictionary = main.ui.relic_visual_meta(relic)
+	var accent: Color = relic_meta["accent"]
+	var frame: PanelContainer = main.ui.make_surface_panel(Color(0.12, 0.1, 0.14, 1.0), accent, 2, 8, 10)
 	frame.custom_minimum_size = Vector2(160 if tight else (154 if compact else 182), 0)
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 5)
 	frame.add_child(box)
-	var type_label: Label = main._make_label("유물", 12, Color(0.9, 0.78, 1.0, 1.0))
-	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(type_label)
-	var relic_name: Label = main._make_label(String(relic.get("name", "")), 14 if tight else (15 if compact else 17), Color(1.0, 0.88, 0.55, 1.0))
-	relic_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(relic_name)
+	box.add_child(main.ui.make_relic_badge(relic, compact))
 	box.add_child(main.ui.make_chip("골드 %d" % main.shop_run_service.SHOP_RELIC_COST, Color(0.34, 0.23, 0.08, 1.0), Color(1.0, 0.86, 0.46, 1.0), 12))
 	var relic_text: Label = main._make_label(String(relic.get("text", "")), 11 if tight else (12 if compact else 13), Color(0.9, 0.86, 0.98, 1.0))
 	relic_text.custom_minimum_size = Vector2(0, 58 if tight else 64)

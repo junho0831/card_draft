@@ -336,6 +336,77 @@ func make_chip(text: String, bg_color: Color, text_color: Color = Color(0.96, 0.
 	panel.add_child(label)
 	return panel
 
+func race_color(race: String) -> Color:
+	match race:
+		"인간":
+			return Color(0.92, 0.68, 0.24, 1.0)
+		"엘프":
+			return Color(0.28, 0.74, 0.38, 1.0)
+		"언데드":
+			return Color(0.58, 0.34, 0.92, 1.0)
+		"정령":
+			return Color(0.18, 0.74, 0.78, 1.0)
+		"중립":
+			return Color(0.62, 0.66, 0.7, 1.0)
+		_:
+			return Color(0.62, 0.66, 0.7, 1.0)
+
+func card_race_color(card: Dictionary) -> Color:
+	return race_color(String(card.get("race", "")))
+
+func relic_visual_meta(relic: Dictionary) -> Dictionary:
+	var tags: Array = relic.get("build_tags", [])
+	var tag := ""
+	if tags.has("fire"):
+		tag = "fire"
+	elif tags.has("draw"):
+		tag = "draw"
+	elif tags.has("buff"):
+		tag = "buff"
+	elif tags.has("summon"):
+		tag = "summon"
+	elif tags.has("death"):
+		tag = "death"
+	elif tags.has("low_hp"):
+		tag = "low_hp"
+	match tag:
+		"fire":
+			return {"icon": "◆", "bg": Color(0.36, 0.12, 0.06, 1.0), "accent": Color(1.0, 0.36, 0.14, 1.0)}
+		"draw":
+			return {"icon": "▣", "bg": Color(0.08, 0.18, 0.34, 1.0), "accent": Color(0.38, 0.68, 1.0, 1.0)}
+		"buff":
+			return {"icon": "⚑", "bg": Color(0.28, 0.2, 0.06, 1.0), "accent": Color(1.0, 0.78, 0.24, 1.0)}
+		"summon":
+			return {"icon": "✦", "bg": Color(0.08, 0.24, 0.16, 1.0), "accent": Color(0.38, 0.86, 0.56, 1.0)}
+		"death":
+			return {"icon": "☠", "bg": Color(0.18, 0.1, 0.28, 1.0), "accent": Color(0.72, 0.42, 1.0, 1.0)}
+		"low_hp":
+			return {"icon": "♥", "bg": Color(0.3, 0.08, 0.1, 1.0), "accent": Color(1.0, 0.36, 0.42, 1.0)}
+		_:
+			return {"icon": "◆", "bg": Color(0.14, 0.14, 0.18, 1.0), "accent": Color(0.7, 0.66, 0.9, 1.0)}
+
+func make_relic_badge(relic: Dictionary, compact: bool = false, show_text: bool = true) -> PanelContainer:
+	var meta := relic_visual_meta(relic)
+	var bg: Color = meta["bg"]
+	var accent: Color = meta["accent"]
+	var panel := make_surface_panel(bg, accent, 1, 8, 8 if compact else 10)
+	panel.custom_minimum_size = Vector2(0, 38 if compact else 44)
+	panel.tooltip_text = String(relic.get("text", ""))
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 6 if compact else 8)
+	panel.add_child(row)
+	var icon := make_label(String(meta.get("icon", "◆")), 14 if compact else 16, accent.lightened(0.2))
+	icon.autowrap_mode = TextServer.AUTOWRAP_OFF
+	row.add_child(icon)
+	if show_text:
+		var label := make_label(String(relic.get("name", "유물")), 12 if compact else 13, Color(0.96, 0.94, 1.0, 1.0))
+		label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		label.clip_text = true
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+	return panel
+
 func make_cost_badge(value: String, compact: bool = false) -> PanelContainer:
 	var size := 32 if compact else 38
 	var panel := make_surface_panel(Color(0.08, 0.24, 0.48, 1.0), Color(0.9, 0.72, 0.32, 1.0), 2, size / 2, 4)

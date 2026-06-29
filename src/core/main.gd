@@ -1064,11 +1064,7 @@ func _make_run_summary_panel() -> Control:
 		relic_row.add_child(relic_title)
 		for relic_id in relics:
 			var relic_def = relic_service.get_relic(String(relic_id))
-			var r_name = String(relic_def.get("name", "Unknown"))
-			var r_text = String(relic_def.get("text", ""))
-			var chip = ui.make_chip(r_name, Color(0.2, 0.15, 0.3, 1.0), Color(0.9, 0.8, 1.0, 1.0), 12 if compact else 13)
-			chip.tooltip_text = r_text
-			relic_row.add_child(chip)
+			relic_row.add_child(ui.make_relic_badge(relic_def, compact))
 		wrapper.add_child(relic_row)
 	return panel
 
