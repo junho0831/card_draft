@@ -90,7 +90,7 @@ func _capture_all() -> void:
 	quit(0)
 
 func _capture(file_name: String) -> void:
-	await RenderingServer.frame_post_draw
+	await _wait_for_capture_frame()
 	var texture := root.get_viewport().get_texture()
 	if texture == null:
 		printerr("Viewport texture is unavailable. Run this capture script without --headless.")
@@ -106,6 +106,18 @@ func _capture(file_name: String) -> void:
 	if err != OK:
 		printerr("Failed to save %s: %s" % [path, error_string(err)])
 		quit(1)
+
+func _wait_for_capture_frame() -> void:
+	var draw_state := {"ready": false}
+	var mark_draw := func() -> void:
+		draw_state["ready"] = true
+	RenderingServer.frame_post_draw.connect(mark_draw, CONNECT_ONE_SHOT)
+	for i in range(8):
+		await process_frame
+		if bool(draw_state.get("ready", false)):
+			break
+	if RenderingServer.frame_post_draw.is_connected(mark_draw):
+		RenderingServer.frame_post_draw.disconnect(mark_draw)
 
 func _seed_battle_preview_units(main: Node) -> void:
 	if main.battle_screen == null:
