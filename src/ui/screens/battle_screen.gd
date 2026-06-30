@@ -17,6 +17,8 @@ var opponent_field_box: HBoxContainer
 var hero_attack_button: Button
 var opponent_hero_target: Control
 var player_hero_target: Control
+var opponent_hero_target_badge: PanelContainer
+var opponent_hero_target_badge_label: Label
 var opponent_hero_target_hp_label: Label
 var player_hero_target_hp_label: Label
 var player_field_box: HBoxContainer
@@ -589,9 +591,18 @@ func _make_hero_target(side: Dictionary, hero_art: int, enemy_target: bool, comp
 		player_hero_target_hp_label = hp
 
 	var badge_text := "공격 가능" if enemy_target and selected_attacker != -1 else ("영웅 공격 대상" if enemy_target else "방어할 영웅")
-	var badge := _make_battle_badge(badge_text, Color(0.08, 0.1, 0.13, 0.92), accent, 10 if tight else 10)
+	var badge_accent := accent
+	if enemy_target and selected_attacker != -1 and not _is_player_input_locked():
+		var attacker := _selected_player_attacker()
+		var damage := _predict_hero_attack_damage(attacker, player, false)
+		badge_text = "영웅 피해 %d" % damage
+		badge_accent = Color(1.0, 0.32, 0.26, 1.0)
+	var badge := _make_battle_badge(badge_text, Color(0.08, 0.1, 0.13, 0.92), badge_accent, 10 if tight else 10)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(badge)
+	if enemy_target:
+		opponent_hero_target_badge = badge
+		opponent_hero_target_badge_label = badge.get_meta("text_label") as Label
 	return node
 
 func _make_board_lane_header(title_text: String, subtitle_text: String, compact: bool, enemy_lane: bool) -> PanelContainer:
@@ -912,6 +923,7 @@ func _make_battle_badge(text: String, bg_color: Color, accent_color: Color, font
 	var label: Label = main._make_label(text, font_size, Color(0.9, 0.94, 1.0, 1.0))
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	panel.add_child(label)
+	panel.set_meta("text_label", label)
 	return panel
 
 func _make_field_slot_style(bg_color: Color, border_color: Color, border_width: int = 2) -> StyleBoxFlat:
@@ -1029,6 +1041,8 @@ func _build_battle_ui() -> void:
 	hero_attack_button = null
 	opponent_hero_target = null
 	player_hero_target = null
+	opponent_hero_target_badge = null
+	opponent_hero_target_badge_label = null
 	opponent_hero_target_hp_label = null
 	player_hero_target_hp_label = null
 	enemy_hero_name_label = null
@@ -1465,6 +1479,128 @@ func _battle_effect_context() -> Dictionary:
 func _calculate_damage(card_or_unit: Dictionary, is_spell: bool, owner_state: Dictionary, base_damage: int) -> int:
 	return base_damage + main.relic_service.damage_bonus(main.current_run, card_or_unit, is_spell, owner_state) + _build_damage_bonus(card_or_unit, is_spell, owner_state)
 
+func _base_card_id(card_id: String) -> String:
+	return card_id.trim_suffix("_plus") if card_id.ends_with("_plus") else card_id
+
+func _selected_player_attacker() -> Dictionary:
+	if selected_attacker < 0 or selected_attacker >= player.field.size():
+		return {}
+	return player.field[selected_attacker]
+
+func _predict_unit_attack(attacker: Dictionary, defender: Dictionary, attacker_side: Dictionary, defender_side: Dictionary) -> Dictionary:
+	if attacker.is_empty() or defender.is_empty():
+		return {}
+	var attack_damage := _calculate_damage(attacker, false, attacker_side, int(attacker.get("attack", 0)))
+	var counter_damage := _calculate_damage(defender, false, defender_side, int(defender.get("attack", 0)))
+	var lethal := int(defender.get("health", 0)) - attack_damage <= 0
+	if lethal:
+		counter_damage = 0
+	return {
+		"damage": attack_damage,
+		"counter": counter_damage,
+		"lethal": lethal,
+	}
+
+func _predict_hero_attack_damage(attacker: Dictionary, attacker_side: Dictionary, target_is_player: bool) -> int:
+	if attacker.is_empty():
+		return 0
+	var damage := _calculate_damage(attacker, false, attacker_side, int(attacker.get("attack", 0)))
+	if not target_is_player:
+		damage = main.relic_service.mitigate_hero_damage(main.current_run, battle_state, damage, false)
+	return damage
+
+func _attack_prediction_text(prediction: Dictionary) -> String:
+	if prediction.is_empty():
+		return ""
+	var parts: Array[String] = ["피해 %d" % int(prediction.get("damage", 0))]
+	if int(prediction.get("counter", 0)) > 0:
+		parts.append("반격 %d" % int(prediction.get("counter", 0)))
+	if bool(prediction.get("lethal", false)):
+		parts.append("처치")
+	return " · ".join(parts)
+
+func _direct_damage_preview(card: Dictionary) -> int:
+	var card_id := _base_card_id(String(card.get("id", "")))
+	var base_damage := 0
+	match card_id:
+		"small_flame", "funeral_fog", "vampiric_strike":
+			base_damage = 2
+		"fireball":
+			base_damage = 4
+		"gale_shot":
+			base_damage = 4 if int(battle_state.get("cards_played_this_turn", 0)) >= 3 else 1
+		"corpse_explosion":
+			base_damage = 2
+		"plague_spread":
+			base_damage = 1
+	if base_damage <= 0:
+		return 0
+	return _calculate_damage(card, true, player, base_damage)
+
+func _card_result_preview(card: Dictionary) -> String:
+	var card_type := String(card.get("type", ""))
+	var card_id := _base_card_id(String(card.get("id", "")))
+	var parts: Array[String] = []
+	if card_type == "unit":
+		parts.append("소환 %d/%d" % [int(card.get("attack", 0)), int(card.get("health", 0))])
+		match card_id:
+			"forest_archer":
+				parts.append("드로우 +1")
+			"knight_spearman":
+				parts.append("선봉 공격 +1")
+			"thief":
+				parts.append("내 HP -1")
+			"bone_oracle":
+				parts.append("저주 +1")
+			"ritual_sapling":
+				parts.append("의식 +1")
+			"stone_golem":
+				parts.append("회복 +2")
+		return " · ".join(parts.slice(0, 2))
+	if card_type == "equipment":
+		return "선봉 공격 +2"
+	var damage := _direct_damage_preview(card)
+	if damage > 0:
+		if card_id == "corpse_explosion":
+			parts.append("광역 피해 %d" % damage)
+		elif card_id == "plague_spread":
+			parts.append("전체 피해 %d" % damage)
+		else:
+			parts.append("피해 %d" % damage)
+	if card_id in ["first_aid"]:
+		parts.append("회복 +3")
+	if card_id in ["healing_potion"]:
+		parts.append("회복 +5")
+	if card_id in ["vampiric_strike"]:
+		parts.append("회복 +2")
+	if card_id in ["moonwell"]:
+		parts.append("회복 +4")
+	if card_id in ["elven_insight", "dark_bargain"]:
+		parts.append("드로우 +2")
+	if card_id in ["royal_support", "soul_shackle", "nature_communion", "ancient_oath"]:
+		parts.append("드로우 +1")
+	if card_id == "battlecry":
+		parts.append("전체 +1/+1")
+	if card_id == "captain_order":
+		parts.append("전체 공격 +%d" % (2 if String(card.get("id", "")).ends_with("_plus") else 1))
+	if card_id == "nature_blessing":
+		parts.append("선봉 체력 +3")
+	if card_id == "call_of_dead":
+		parts.append("소환 1/1 x2")
+	if card_id in ["death_mark", "bone_oracle", "funeral_fog"]:
+		parts.append("저주 +1")
+	if card_id in ["soul_shackle", "plague_spread"]:
+		parts.append("저주 +2")
+	if card_id in ["world_tree_ritual", "nature_communion"]:
+		parts.append("의식 +1")
+	if card_id == "ancient_oath":
+		parts.append("의식 +2")
+	if card_id == "corpse_explosion":
+		parts.append("아군 희생")
+	if parts.is_empty():
+		parts.append("즉시 효과")
+	return " · ".join(parts.slice(0, 2))
+
 
 func _on_player_unit_pressed(index: int) -> void:
 	if input_locked or game_over or current_player != "player":
@@ -1498,15 +1634,17 @@ func _attack_opponent_hero() -> void:
 		return
 	var attacker: Dictionary = player.field[selected_attacker]
 	var damage := _calculate_damage(attacker, false, player, int(attacker.attack))
+	damage = main.relic_service.mitigate_hero_damage(main.current_run, battle_state, damage, false)
 	input_locked = true
 	_refresh_ui()
 	await _play_hero_cutscene(attacker, opponent.name, damage, player, selected_attacker, false)
-	damage = main.relic_service.mitigate_hero_damage(main.current_run, battle_state, damage, false)
 	opponent.health -= damage
 	attacker.can_attack = false
 	if damage >= 3:
 		_shake_screen(15.0, 0.3)
-	_add_log("%s가 상대 영웅에게 피해 %d" % [attacker.name, damage])
+	if int(opponent.health) <= 0:
+		_show_outcome_text(_hero_target_for_player(false), "승리", Color(1.0, 0.82, 0.24, 1.0))
+	_add_log("%s -> 적 영웅: %d 피해" % [attacker.name, damage])
 	selected_attacker = -1
 	input_locked = false
 	_check_game_over()
@@ -1520,9 +1658,11 @@ func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_inde
 	var defender: Dictionary = defender_side.field[defender_index]
 	var attack_damage := _calculate_damage(attacker, false, attacker_side, int(attacker.attack))
 	var defense_damage := _calculate_damage(defender, false, defender_side, int(defender.attack))
+	var defender_lethal := int(defender.health) - attack_damage <= 0
 	
-	if int(defender.health) - attack_damage <= 0:
+	if defender_lethal:
 		defense_damage = 0
+	var attacker_lethal := defense_damage > 0 and int(attacker.health) - defense_damage <= 0
 		
 	input_locked = true
 	_refresh_ui()
@@ -1534,14 +1674,17 @@ func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_inde
 	if attack_damage >= 3 or defense_damage >= 3:
 		_shake_screen(10.0, 0.2)
 	attacker.can_attack = false
-	
-	_add_log("%s 공격! %s에게 %d 피해" % [attacker.name, defender.name, attack_damage])
-	if defense_damage > 0:
-		_add_log("%s 반격! %s에게 %d 피해" % [defender.name, attacker.name, defense_damage])
-	elif int(defender.health) <= 0:
-		_add_log("%s가 처치되었습니다." % defender.name)
-		
+	if defender_lethal:
+		_show_outcome_text(_field_slot_for(defender_side, defender_index), "처치", Color(1.0, 0.82, 0.24, 1.0))
+	if attacker_lethal:
+		_show_outcome_text(_field_slot_for(attacker_side, attacker_index), "처치", Color(1.0, 0.42, 0.34, 1.0))
 	_cleanup_dead_units(attacker_side, defender_side)
+	if defense_damage > 0:
+		_add_log("%s 반격: %d 피해" % [defender.name, defense_damage])
+	var summary := "%s -> %s: %d 피해" % [attacker.name, defender.name, attack_damage]
+	if defender_lethal:
+		summary += " / 처치"
+	_add_log(summary)
 	input_locked = false
 	_store_battle_snapshot()
 
@@ -1589,7 +1732,7 @@ func _play_unit_battle_feedback(attacker_side: Dictionary, defender_side: Dictio
 	var defender_node := _field_slot_for(defender_side, defender_index)
 	if not _is_battle_cutscene_enabled():
 		_show_damage_number(defender_node, attack_damage)
-		_show_damage_number(attacker_node, defense_damage)
+		_show_damage_number(attacker_node, defense_damage, true)
 		return
 	await _play_inline_attack_feedback(attacker_node, defender_node, attack_damage, attacker_side == player)
 	if defense_damage > 0:
@@ -1605,7 +1748,7 @@ func _play_hero_attack_feedback(attacker_side: Dictionary, attacker_index: int, 
 
 func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control, damage: int, attacker_is_player: bool, counter: bool = false) -> void:
 	if attacker_node == null or defender_node == null:
-		_show_damage_number(defender_node, damage)
+		_show_damage_number(defender_node, damage, counter)
 		return
 	var start_pos := attacker_node.position
 	var lunge_offset := Vector2(0, -22 if attacker_is_player else 22)
@@ -1615,14 +1758,20 @@ func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control
 	lunge.tween_property(attacker_node, "position", start_pos + lunge_offset, 0.10).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	lunge.tween_property(attacker_node, "position", start_pos, 0.14).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	await lunge.finished
-	_show_damage_number(defender_node, damage)
+	_show_damage_number(defender_node, damage, counter)
 	_spawn_impact_slash(defender_node)
 	await _shake_target(defender_node, 8.0 if damage < 3 else 12.0)
 
-func _show_damage_number(target: Control, damage: int) -> void:
+func _show_damage_number(target: Control, damage: int, counter: bool = false) -> void:
 	if damage <= 0 or target == null or not is_instance_valid(target):
 		return
-	_spawn_floating_text(target, -damage)
+	var color := Color(1.0, 0.72, 0.24, 1.0) if counter else Color(1.0, 0.26, 0.24, 1.0)
+	_spawn_floating_text(target, "-%d" % damage, color, 44, 0.9, Vector2(-28, -24) if counter else Vector2(-22, -24))
+
+func _show_outcome_text(target: Control, text: String, color: Color) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	_spawn_floating_text(target, text, color, 36, 0.95, Vector2(-34, -58))
 
 func _shake_target(target: Control, intensity: float) -> void:
 	if target == null or not is_instance_valid(target):
@@ -1747,15 +1896,17 @@ func _run_ai_hero_attack(index: int) -> void:
 		return
 	var unit: Dictionary = opponent.field[index]
 	var damage := _calculate_damage(unit, false, opponent, int(unit.attack))
+	damage = main.relic_service.mitigate_hero_damage(main.current_run, battle_state, damage, true)
 	input_locked = true
 	_refresh_ui()
 	await _play_hero_cutscene(unit, player.name, damage, opponent, index, true)
-	damage = main.relic_service.mitigate_hero_damage(main.current_run, battle_state, damage, true)
 	player.health -= damage
 	if damage > 0:
 		main.relic_service.on_hero_hp_lost(main.current_run, battle_state, player, damage)
 	unit.can_attack = false
-	_add_log("%s가 내 영웅에게 피해 %d" % [unit.name, damage])
+	if int(player.health) <= 0:
+		_show_outcome_text(_hero_target_for_player(true), "패배", Color(1.0, 0.34, 0.28, 1.0))
+	_add_log("플레이어 영웅 %d 피해" % damage)
 	input_locked = false
 	_store_battle_snapshot()
 
@@ -1789,25 +1940,25 @@ func _finish_battle_victory() -> void:
 	_save_run()
 	_show_card_reward()
 
-func _spawn_floating_text(target: Control, delta: int) -> void:
-	if delta == 0 or target == null or not is_instance_valid(target):
+func _spawn_floating_text(target: Control, text: String, color: Color, font_size: int = 42, duration: float = 0.85, center_offset: Vector2 = Vector2(-24, -24)) -> void:
+	if text.is_empty() or target == null or not is_instance_valid(target):
 		return
-	var color := Color(1, 0.2, 0.2) if delta < 0 else Color(0.2, 1, 0.2)
 	var lbl := Label.new()
-	lbl.text = ("%+d" % delta) if delta > 0 else ("%d" % delta)
-	lbl.add_theme_font_size_override("font_size", 36)
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", font_size)
 	lbl.add_theme_color_override("font_color", color)
 	lbl.add_theme_color_override("font_outline_color", Color.BLACK)
-	lbl.add_theme_constant_override("outline_size", 6)
+	lbl.add_theme_constant_override("outline_size", 7)
 	lbl.z_index = 100
 	lbl.rotation_degrees = randf_range(-15, 15)
 	
 	main.modal_layer.add_child(lbl)
-	lbl.global_position = target.global_position + target.size / 2 - Vector2(20, 20)
+	lbl.global_position = target.global_position + target.size / 2 + center_offset
 	
 	var tween = main.create_tween()
-	tween.tween_property(lbl, "position:y", lbl.position.y - 60, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(lbl, "modulate:a", 0.0, 0.6).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+	tween.tween_property(lbl, "scale", Vector2(1.16, 1.16), 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(lbl, "position:y", lbl.position.y - 76, duration).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(lbl, "modulate:a", 0.0, duration).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
 	tween.tween_callback(lbl.queue_free)
 
 
@@ -1880,17 +2031,21 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	var unit: Dictionary = side.field[index]
 	var race_border := _card_accent_color(unit)
 	var slot_border := race_border
+	var slot_border_width := 2
 	var slot_bg := Color(0.035, 0.045, 0.058, 0.88)
 	if is_player_field and index == selected_attacker:
 		slot_border = Color(0.34, 0.72, 1.0, 1.0)
+		slot_border_width = 3
 		slot_bg = Color(0.05, 0.1, 0.15, 0.96)
 	elif is_player_field and bool(unit.get("can_attack", false)) and not _is_player_input_locked():
 		slot_border = Color(0.2, 0.82, 0.56, 1.0)
+		slot_border_width = 3
 		slot_bg = Color(0.035, 0.08, 0.065, 0.94)
 	elif not is_player_field and selected_attacker != -1 and not _is_player_input_locked():
 		slot_border = Color(1.0, 0.32, 0.26, 1.0)
+		slot_border_width = 3
 		slot_bg = Color(0.09, 0.035, 0.04, 0.95)
-	frame.add_theme_stylebox_override("panel", _make_field_slot_style(slot_bg, slot_border, 2))
+	frame.add_theme_stylebox_override("panel", _make_field_slot_style(slot_bg, slot_border, slot_border_width))
 	var name_band: PanelContainer = _make_battle_surface(race_border.darkened(0.42), race_border.lightened(0.08), 1, 5, 3)
 	slot.add_child(name_band)
 	var name_label: Label = main._make_label(String(unit.get("name", "")), 8 if tight and portrait else (10 if tight else (11 if compact else 12)), Color(1.0, 0.96, 0.82, 1.0))
@@ -1908,6 +2063,14 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	slot.add_child(stat_row)
 	stat_row.add_child(main.ui.make_stat_badge("%d" % int(unit.get("attack", 0)), Color(0.46, 0.16, 0.12, 1.0), true))
 	stat_row.add_child(main.ui.make_stat_badge("%d" % int(unit.get("health", 0)), Color(0.1, 0.24, 0.46, 1.0), true))
+	if not is_player_field and selected_attacker != -1 and not _is_player_input_locked():
+		var attacker := _selected_player_attacker()
+		var prediction := _predict_unit_attack(attacker, unit, player, opponent)
+		var prediction_text := _attack_prediction_text(prediction)
+		if not prediction_text.is_empty():
+			var prediction_badge := _make_battle_badge(prediction_text, Color(0.16, 0.05, 0.055, 0.96), Color(1.0, 0.34, 0.24, 1.0), 7 if tight and portrait else (8 if tight else 9))
+			prediction_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			slot.add_child(prediction_badge)
 	var button := Button.new()
 	button.custom_minimum_size = Vector2(58, 19) if tight and portrait else (Vector2(78, 22) if tight else Vector2(86 if not compact else 80, 24))
 	_style_battle_button(button, Color(0.06, 0.07, 0.085, 0.92), Color(0.26, 0.34, 0.44, 0.9))
@@ -1980,6 +2143,15 @@ func _render_hand() -> void:
 		var art_rect: TextureRect = main._make_card_art_rect(card, art_size)
 		art_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_box.add_child(art_rect)
+		var preview_text := _card_result_preview(card)
+		var preview_chip: PanelContainer = main.ui.make_surface_panel(accent.darkened(0.38), accent.lightened(0.16), 1, 5, 3 if tight else 4)
+		preview_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_box.add_child(preview_chip)
+		var preview_label: Label = main._make_label(preview_text, 9 if tight else (11 if not compact else 9), Color(0.92, 0.97, 1.0, 1.0) if playable else Color(0.72, 0.76, 0.82, 1.0))
+		preview_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		preview_label.clip_text = true
+		preview_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		preview_chip.add_child(preview_label)
 		if not tight:
 			var status_chip: PanelContainer = main.ui.make_surface_panel(accent.darkened(0.36), accent.lightened(0.06), 1, 5, 2)
 			status_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2013,7 +2185,8 @@ func _render_hand() -> void:
 		effect_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if not tight:
 			card_box.add_child(effect_label)
-		var action_label: Label = main._make_label("즉시 사용" if playable else _unplayable_card_hint(card, cost), 10 if tight else (11 if not compact else 9), Color(0.55, 0.82, 1.0, 1.0) if playable else Color(0.58, 0.62, 0.68, 1.0))
+		var action_text := preview_text if tight and playable else ("즉시 사용" if playable else _unplayable_card_hint(card, cost))
+		var action_label: Label = main._make_label(action_text, 10 if tight else (11 if not compact else 9), Color(0.55, 0.82, 1.0, 1.0) if playable else Color(0.58, 0.62, 0.68, 1.0))
 		action_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		action_label.clip_text = true
 		action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2068,6 +2241,13 @@ func _refresh_action_buttons() -> void:
 			_style_battle_button(hero_attack_button, Color(0.13, 0.04, 0.045, 0.96), Color(1.0, 0.32, 0.26, 1.0), true)
 		else:
 			_style_battle_button(hero_attack_button, Color(0.045, 0.06, 0.078, 0.92), Color(0.72, 0.18, 0.16, 1.0), false)
+		if opponent_hero_target_badge_label != null and is_instance_valid(opponent_hero_target_badge_label):
+			opponent_hero_target_badge_label.text = "영웅 공격 대상"
+			if can_attack_hero:
+				opponent_hero_target_badge_label.text = "영웅 피해 %d" % _predict_hero_attack_damage(_selected_player_attacker(), player, false)
+		if opponent_hero_target_badge != null and is_instance_valid(opponent_hero_target_badge):
+			var badge_accent := Color(1.0, 0.32, 0.26, 1.0) if can_attack_hero else Color(0.72, 0.18, 0.16, 1.0)
+			opponent_hero_target_badge.add_theme_stylebox_override("panel", _make_modern_style(Color(0.08, 0.1, 0.13, 0.92), badge_accent, 1, 6, 5))
 	if end_turn_button != null:
 		end_turn_button.disabled = _is_player_input_locked()
 		if _player_has_available_action():

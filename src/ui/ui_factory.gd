@@ -357,18 +357,11 @@ func card_race_color(card: Dictionary) -> Color:
 func relic_visual_meta(relic: Dictionary) -> Dictionary:
 	var tags: Array = relic.get("build_tags", [])
 	var tag := ""
-	if tags.has("fire"):
-		tag = "fire"
-	elif tags.has("draw"):
-		tag = "draw"
-	elif tags.has("buff"):
-		tag = "buff"
-	elif tags.has("summon"):
-		tag = "summon"
-	elif tags.has("death"):
-		tag = "death"
-	elif tags.has("low_hp"):
-		tag = "low_hp"
+	for tag_value in tags:
+		var candidate := String(tag_value)
+		if candidate in ["fire", "draw", "buff", "summon", "death", "low_hp"]:
+			tag = candidate
+			break
 	match tag:
 		"fire":
 			return {"icon": "◆", "bg": Color(0.36, 0.12, 0.06, 1.0), "accent": Color(1.0, 0.36, 0.14, 1.0)}
