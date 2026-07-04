@@ -247,7 +247,7 @@ func _node_description(node_type: String) -> String:
 func _node_reward_text(node_type: String) -> String:
 	match node_type:
 		"battle":
-			return "골드 15-25\n카드 2장 중 1장"
+			return "골드 15-25\n카드 3장 중 1장"
 		"elite":
 			return "골드 30-50\n유물 1개\n카드 보상"
 		"event":

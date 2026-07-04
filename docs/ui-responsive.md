@@ -4,22 +4,22 @@
 
 이 문서는 Godot UI가 데스크톱, 웹, 모바일 크기에서 잘리지 않게 만들기 위한 기준이다.
 
-현재 프로젝트는 PC 실행뿐 아니라 웹 빌드나 모바일 비율에서도 화면이 깨지지 않는 것을 목표로 한다. 작은 화면에서는 모든 정보를 한 화면에 억지로 넣지 않고, 스크롤로 접근 가능하게 만든다.
+현재 프로젝트는 우선 PC와 태블릿 비율에서 화면이 깨지지 않는 것을 목표로 한다. 작은 화면에서는 모든 정보를 한 화면에 억지로 넣지 않고, 스크롤로 접근 가능하게 만든다. 390px급 모바일 세로 전용 UI는 후속 범위로 둔다.
 
 ## 기준 해상도
 
 기본 디자인 기준:
 
 ```text
-1280 x 720
+1920 x 1080
 ```
 
 검증에 사용할 대표 크기:
 
 ```text
-390 x 844   모바일 세로
-780 x 1280  태블릿/모바일 큰 화면
-1280 x 720  데스크톱 기본
+1920 x 1080  데스크톱 기본
+1280 x 720   작은 데스크톱/웹 창
+800 x 1280   태블릿 세로
 ```
 
 ## Godot stretch 설정
@@ -27,15 +27,15 @@
 현재 `project.godot` 설정:
 
 ```text
-window/size/viewport_width=1280
-window/size/viewport_height=720
+window/size/viewport_width=1920
+window/size/viewport_height=1080
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 ```
 
 의도:
 
-- 기준 해상도는 1280x720으로 둔다.
+- 기준 해상도는 1920x1080으로 둔다.
 - 화면이 커지면 UI가 확장된다.
 - 화면 비율이 달라도 캔버스가 잘리지 않게 한다.
 
@@ -52,9 +52,9 @@ window/stretch/aspect="expand"
 구현 위치:
 
 ```text
-scripts/core/main.gd
-scripts/ui/ui_factory.gd
-scripts/ui/screens/*.gd
+src/core/main.gd
+src/ui/ui_factory.gd
+src/ui/screens/*.gd
 ```
 
 관련 함수:
@@ -302,22 +302,30 @@ label.autowrap_mode = TextServer.AUTOWRAP_OFF
 /opt/homebrew/bin/godot --headless --path /Users/parkjunho/card-draft --quit-after 2
 ```
 
-모바일 세로:
+태블릿 세로:
 
 ```bash
-/opt/homebrew/bin/godot --headless --path /Users/parkjunho/card-draft --resolution 390x844 --quit-after 2
+/opt/homebrew/bin/godot --headless --path /Users/parkjunho/card-draft --resolution 800x1280 --quit-after 2
 ```
 
-태블릿/큰 모바일:
+작은 데스크톱:
 
 ```bash
-/opt/homebrew/bin/godot --headless --path /Users/parkjunho/card-draft --resolution 780x1280 --quit-after 2
+/opt/homebrew/bin/godot --headless --path /Users/parkjunho/card-draft --resolution 1280x720 --quit-after 2
 ```
 
 데스크톱:
 
 ```bash
-/opt/homebrew/bin/godot --headless --path /Users/parkjunho/card-draft --resolution 1280x720 --quit-after 2
+/opt/homebrew/bin/godot --headless --path /Users/parkjunho/card-draft --resolution 1920x1080 --quit-after 2
+```
+
+렌더링 캡처:
+
+```bash
+godot --path /Users/parkjunho/card-draft -s res://tests/godot/capture_ui_screens.gd
+godot --path /Users/parkjunho/card-draft -s res://tests/godot/capture_ui_responsive.gd
+godot --path /Users/parkjunho/card-draft -s res://tests/godot/validate_ui_captures.gd
 ```
 
 수동 확인:

@@ -4,16 +4,18 @@
 
 ## 현재 빌드
 
-- 메인 흐름: `새 런 시작 -> 맵 -> 전투 -> 카드 보상 -> 이벤트/상점/휴식 -> 보스 -> 다음 Act`
+- 메인 흐름: `새 런 시작 -> 맵 -> 전투 -> 카드 보상 -> 이벤트/상점/휴식 -> 보스 -> 결과`
 - Act 1개: 국경지대
-- 기본 런 길이: 8개 노드
-  - `battle -> event/shop -> battle -> battle/shop -> shop -> elite/event -> rest -> boss`
-- 스타터 4종 + 런 카드 풀 30장
+- 기본 런 길이: 5개 노드
+  - `battle -> event/shop -> battle -> rest/shop -> boss`
+- 스타터 4종 + 런 카드 풀 34장
 - 유물 15개, 이벤트 5개
 - 전투 규칙: 영웅 체력 0 승패, 마나 1부터 시작, 턴마다 +1, 필드 5칸
 - 빌드 태그: 화염, 드로우, 사망, 버프, 저체력, 소환
 - 초보자 유도 UI
   - 화면 상단의 `다음 행동` 배너로 지금 해야 할 일을 표시
+  - 플레이어 턴에는 추천 카드/추천 공격을 짧은 문장으로 표시
+  - 적 턴에는 다음 적 행동을 `유닛 공격`, `영웅 공격 위험`, `소환 준비`처럼 표시
   - 주요 버튼은 `▶`와 강조 테두리로 우선순위 표시
   - 전투 중 사용 가능한 카드/공격 가능한 유닛/공격 대상만 밝게 표시
 - 런 저장: `user://run_state.json`
@@ -45,10 +47,10 @@ res://src/core/Main.tscn
 
 ## 주요 파일
 
-- 메인 허브: `res://scripts/core/main.gd`
-- 런 흐름 코디네이터: `res://scripts/core/run_flow_coordinator.gd`
-- 전투 화면: `res://scripts/ui/screens/battle_screen.gd`
-- 런 저장/진행 상태: `res://scripts/services/run_state.gd`
+- 메인 허브: `res://src/core/main.gd`
+- 런 흐름 코디네이터: `res://src/core/run_flow_coordinator.gd`
+- 전투 화면: `res://src/ui/screens/battle_screen.gd`
+- 런 저장/진행 상태: `res://src/services/run_state.gd`
 - 카드 데이터: `res://data/cards.json`
 - 유물 데이터: `res://data/relics.json`
 - 이벤트 데이터: `res://data/events.json`

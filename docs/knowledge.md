@@ -7,34 +7,34 @@
 현재 메인 흐름은 다음과 같다.
 
 1. 런 시작
-2. 8노드 Act 맵 진행
+2. 5노드 Act 맵 진행
 3. 전투
 4. 카드 보상
 5. 이벤트 / 상점 / 휴식
-6. 엘리트 / 보스
+6. 보스
 7. 런 종료
 
 ## 핵심 파일
 
-- `res://scripts/core/main.gd`
+- `res://src/core/main.gd`
   - 앱 허브, 서비스 조립, 공용 UI 진입점
-- `res://scripts/core/run_flow_coordinator.gd`
+- `res://src/core/run_flow_coordinator.gd`
   - 런 흐름, 화면 전환, 이어하기 라우팅
-- `res://scripts/services/run_state.gd`
+- `res://src/services/run_state.gd`
   - 로컬 런 저장/로드, 노드 진행 상태
-- `res://scripts/services/run_generator.gd`
+- `res://src/services/run_generator.gd`
   - Act 로드와 시작 덱 생성
-- `res://scripts/battle/battle_card_effects.gd`
+- `res://src/battle/battle_card_effects.gd`
   - 카드별 전투 효과 처리
-- `res://scripts/services/relic_service.gd`
+- `res://src/services/relic_service.gd`
   - 유물 로드와 전투 훅 처리
-- `res://scripts/services/event_service.gd`
+- `res://src/services/event_service.gd`
   - 이벤트 로드와 랜덤 선택
-- `res://scripts/services/enemy_service.gd`
+- `res://src/services/enemy_service.gd`
   - 일반 적/엘리트/보스 데이터 로드
-- `res://scripts/ui/screens/battle_screen.gd`
+- `res://src/ui/screens/battle_screen.gd`
   - 전투 UI, 전투 상태, 전투 스냅샷 복원
-- `res://scripts/ui/ui_factory.gd`
+- `res://src/ui/ui_factory.gd`
   - 공통 화면 패널, 버튼 스타일, 안내 배너
 - `res://docs/ui-card-draft-guide.md`
   - 8개 핵심 화면의 역할, 정보 우선순위, 플레이어 유도 기준
@@ -79,7 +79,9 @@
 - 상점은 런 내 카드/유물/제거/회복 전용이다.
 - 메타 진행은 현재 `영혼석`, `시작 체력`, `시작 골드`, `두 번째 기회`까지만 로컬로 반영한다.
 - 서버/API/랭크/카드팩 구매 흐름은 제거했고, 런 코어는 로컬 Godot 기준으로 동작한다.
-- 현재 기본 Act는 `battle -> event/shop -> battle -> battle/shop -> shop -> elite/event -> rest -> boss` 8노드 구조다.
+- 현재 기본 Act는 `battle -> event/shop -> battle -> rest/shop -> boss` 5노드 구조다.
+- 엘리트는 기본 런에서 제외하고, 후속 도전 모드 후보로 둔다.
+- 전투 안내는 플레이어 추천 행동과 다음 적 행동을 짧은 문장으로 보여준다.
 
 ## 2026-06-10 작업 기록
 
@@ -109,8 +111,8 @@
   - `tests/godot/event_run_service_test.gd` 추가
   - `tests/godot/shop_run_service_test.gd` 추가
 - 서비스 분리
-  - `scripts/services/event_run_service.gd` 추가
-  - `scripts/services/shop_run_service.gd` 추가
+  - `src/services/event_run_service.gd` 추가
+  - `src/services/shop_run_service.gd` 추가
   - `event_screen.gd`, `shop_screen.gd`는 UI + 결과 라우팅 중심으로 단순화
 
 ## 2026-06-12 작업 기록

@@ -24,7 +24,7 @@ const GUIDE_PANELS := [
 		"preview": "map",
 		"bullets": [
 			"맵 범례: 각 노드 종류와 의미",
-			"맵 노드: 이동 가능한 경로와 이벤트 지점",
+			"맵 노드: 5노드 짧은 런 경로",
 			"현재 목표: 이번 Act 목표와 다음 노드 정보",
 			"현재 빌드: 런의 성장 방향 요약",
 			"상태 바: 체력, 골드, 자원 확인",
@@ -38,7 +38,7 @@ const GUIDE_PANELS := [
 		"bullets": [
 			"현재 빌드 요약: 어떤 방향인지 먼저 보여줌",
 			"카드 선택: 보상 후보 중 1장을 선택해 덱에 추가",
-			"추천 이유: 빌드 시너지 설명",
+			"추천 이유: 현재 빌드, 즉시 도움, 덱 압축 기준",
 			"건너뛰기: 선택하지 않고 다음으로 진행",
 		],
 	},
@@ -62,7 +62,8 @@ const GUIDE_PANELS := [
 		"bullets": [
 			"적 정보: 적 영웅 체력과 공격력",
 			"전장: 적/아군 유닛 배치 공간",
-			"전투 로그: 전투 중 발생 이벤트 기록",
+			"추천 행동: 이번 턴 먼저 할 행동 표시",
+			"다음 적 행동: 적 턴 위험을 미리 표시",
 			"플레이어 정보: 체력, 빌드, 마나",
 			"손패: 현재 사용할 카드",
 			"턴 종료: 적 턴으로 진행",
@@ -236,7 +237,7 @@ func _make_map_preview(compact: bool) -> Control:
 	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 92 if compact else 84)
 	row.add_theme_constant_override("separation", 8)
-	row.add_child(_make_summary_stack(["전투", "엘리트", "이벤트", "상점", "휴식", "보스"], compact))
+	row.add_child(_make_summary_stack(["전투", "이벤트", "상점", "휴식", "보스"], compact))
 	row.add_child(_make_map_canvas_mock(compact))
 	row.add_child(_make_summary_stack(["현재 목표", "다음 보상", "현재 빌드"], compact))
 	return _wrap_preview(row)
@@ -251,8 +252,8 @@ func _make_reward_preview(compact: bool) -> Control:
 	cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(cards)
 	for art_index in [1, 4, 5]:
-		cards.add_child(_make_card_preview_mock(art_index, "추천 카드" if art_index == 1 else "", compact))
-	row.add_child(_make_summary_stack(["추천 이유", "건너뛰기"], compact))
+		cards.add_child(_make_card_preview_mock(art_index, "추천" if art_index == 1 else "", compact))
+	row.add_child(_make_summary_stack(["현재 빌드", "즉시 도움", "덱 압축"], compact))
 	return _wrap_preview(row)
 
 func _make_shop_preview(compact: bool) -> Control:
@@ -273,6 +274,7 @@ func _make_battle_preview(compact: bool) -> Control:
 	box.custom_minimum_size = Vector2(0, 92 if compact else 84)
 	box.add_theme_constant_override("separation", 8)
 	box.add_child(_make_tiny_chip("현재 목표: 적 영웅 체력을 0으로 만드세요.", Color(0.12, 0.14, 0.18, 1.0), Color(0.94, 0.96, 0.9, 1.0), 10 if compact else 11, 20))
+	box.add_child(_make_tiny_chip("추천 행동: 선택한 유닛으로 적 유닛을 처치하세요", Color(0.08, 0.13, 0.2, 1.0), Color(0.82, 0.92, 1.0, 1.0), 9 if compact else 10, 20))
 	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	box.add_child(row)
@@ -283,7 +285,7 @@ func _make_battle_preview(compact: bool) -> Control:
 	row.add_child(field)
 	field.add_child(_make_unit_row([2, 2, 2, 2, 2], true, compact))
 	field.add_child(_make_unit_row([8, 1, 8, 8, 8], false, compact))
-	row.add_child(_make_summary_stack(["전투 로그", "턴 종료"], compact))
+	row.add_child(_make_summary_stack(["다음 적 행동", "턴 종료"], compact))
 	var footer: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
 	box.add_child(footer)
@@ -371,12 +373,12 @@ func _make_map_canvas_mock(compact: bool) -> Control:
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 6)
 	content.add_child(top)
-	for text_value in ["전투", "?", "상점"]:
+	for text_value in ["전투", "?", "전투"]:
 		top.add_child(_make_tiny_chip(String(text_value), Color(0.16, 0.16, 0.1, 1.0), Color(1.0, 0.92, 0.72, 1.0), 8 if compact else 9, 16))
 	var bottom := HBoxContainer.new()
 	bottom.add_theme_constant_override("separation", 6)
 	content.add_child(bottom)
-	for text_value in ["엘리트", "휴식", "보스"]:
+	for text_value in ["휴식", "상점", "보스"]:
 		bottom.add_child(_make_tiny_chip(String(text_value), Color(0.12, 0.16, 0.24, 1.0), Color(0.88, 0.94, 1.0, 1.0), 8 if compact else 9, 16))
 	return panel
 

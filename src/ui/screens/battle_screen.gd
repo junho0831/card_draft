@@ -212,21 +212,49 @@ func _format_opponent_victory_gauge() -> String:
 func _format_player_victory_gauge() -> String:
 	return "%s | %s" % [main._battle_build_hint_text(), _format_side_resources(player)]
 
+func _next_enemy_action_text() -> String:
+	var ready_attack := 0
+	for unit in opponent.field:
+		if bool(Dictionary(unit).get("can_attack", false)):
+			ready_attack += int(Dictionary(unit).get("attack", 0))
+	if ready_attack >= int(player.get("health", 0)):
+		return "다음 적 행동: 영웅 공격 위험"
+	if ready_attack > 0:
+		return "다음 적 행동: 유닛 공격"
+	for card in opponent.hand:
+		var enemy_card: Dictionary = card
+		if String(enemy_card.get("type", "")) == "unit" and _can_play_card(opponent, enemy_card, "opponent"):
+			return "다음 적 행동: 소환 준비"
+	return "다음 적 행동: 카드 사용 준비"
+
 func _current_battle_guidance_text() -> String:
 	if game_over:
 		return "전투가 끝났습니다."
 	if input_locked or current_player != "player":
-		return "적 행동을 확인하세요."
+		return _next_enemy_action_text()
 	if selected_attacker != -1:
-		if opponent.field.is_empty():
-			return "상대 영웅 공격 버튼을 누르세요."
-		return "공격할 적 유닛을 고르거나 상대 영웅을 공격하세요."
-	for card in player.hand:
-		if _can_play_card(player, card, "player"):
-			return "밝게 표시된 카드를 내거나 공격 가능한 유닛을 선택하세요."
+		var attacker := _selected_player_attacker()
+		if not attacker.is_empty() and int(opponent.get("health", 0)) <= _predict_hero_attack_damage(attacker, player, false):
+			return "영웅 공격으로 마무리 가능"
+		for enemy_unit in opponent.field:
+			var prediction := _predict_unit_attack(attacker, enemy_unit, player, opponent)
+			if bool(prediction.get("lethal", false)):
+				return "선택한 유닛으로 적 유닛을 처치하세요"
+		return "공격 가능한 적 또는 적 영웅을 선택하세요"
+	var recommended_card := _recommended_hand_card()
+	if not recommended_card.is_empty():
+		var card_type := String(recommended_card.get("type", ""))
+		var card_id := _base_card_id(String(recommended_card.get("id", "")))
+		if card_type == "unit":
+			return "먼저 추천 유닛을 소환하세요"
+		if _direct_damage_preview(recommended_card) > 0 and not opponent.field.is_empty():
+			return "추천 피해 카드로 앞 적을 정리하세요"
+		if card_id in ["first_aid", "healing_potion", "moonwell", "vampiric_strike"]:
+			return "체력이 낮습니다. 회복 카드를 쓰세요"
+		return "추천 카드를 사용해 이번 턴을 시작하세요"
 	for unit in player.field:
 		if bool(unit.get("can_attack", false)):
-			return "밝게 표시된 유닛을 선택해 공격하세요."
+			return "공격 가능한 유닛을 선택하세요"
 	return "할 행동이 없으면 턴 종료를 누르세요."
 
 func _current_battle_focus_text() -> String:
@@ -305,7 +333,7 @@ func _make_battle_content_root(tight: bool) -> VBoxContainer:
 	return box
 
 func _battle_reward_choices() -> Array[String]:
-	return main._roll_card_reward_choices(2, false)
+	return main._roll_card_reward_choices(3, false)
 
 func _apply_battle_victory_rewards() -> Dictionary:
 	var bonus_relic := {}
@@ -639,6 +667,30 @@ func _make_board_lane_header(title_text: String, subtitle_text: String, compact:
 	subtitle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_OFF
 	row.add_child(subtitle)
+	return panel
+
+func _make_collision_line(compact: bool) -> PanelContainer:
+	var tight := _is_tight_battle_layout()
+	var panel := _make_battle_surface(Color(0.08, 0.045, 0.035, 0.9), Color(0.92, 0.36, 0.2, 0.95), 1, 8, 4 if tight else 5)
+	panel.custom_minimum_size = Vector2(0, 22 if tight else (26 if compact else 28))
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	panel.add_child(row)
+	var left_line := ColorRect.new()
+	left_line.color = Color(1.0, 0.46, 0.18, 0.72)
+	left_line.custom_minimum_size = Vector2(0, 2)
+	left_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(left_line)
+	var label: Label = main._make_label("충돌 지점", 10 if tight else 11, Color(1.0, 0.86, 0.62, 1.0))
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	row.add_child(label)
+	var right_line := ColorRect.new()
+	right_line.color = Color(0.34, 0.72, 1.0, 0.62)
+	right_line.custom_minimum_size = Vector2(0, 2)
+	right_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(right_line)
 	return panel
 
 func _make_meta_box(title_text: String, compact: bool) -> VBoxContainer:
@@ -1179,10 +1231,7 @@ func _build_battle_ui() -> void:
 	opponent_field_box.add_theme_constant_override("separation", 6 if tight else 8)
 	board_box.add_child(opponent_field_box)
 
-	var divider := ColorRect.new()
-	divider.color = Color(0.28, 0.22, 0.12, 1.0)
-	divider.custom_minimum_size = Vector2(0, 1 if tight else 2)
-	board_box.add_child(divider)
+	board_box.add_child(_make_collision_line(compact))
 	board_box.add_child(_make_board_lane_header("내 전장", "필드 장악과 영웅 압박", compact, false))
 
 	player_field_box = HBoxContainer.new()
@@ -1604,12 +1653,27 @@ func _predict_hero_attack_damage(attacker: Dictionary, attacker_side: Dictionary
 func _attack_prediction_text(prediction: Dictionary) -> String:
 	if prediction.is_empty():
 		return ""
-	var parts: Array[String] = ["피해 %d" % int(prediction.get("damage", 0))]
+	var parts: Array[String] = []
+	if bool(prediction.get("lethal", false)):
+		parts.append("처치 가능")
+	else:
+		parts.append("피해 %d" % int(prediction.get("damage", 0)))
 	if int(prediction.get("counter", 0)) > 0:
 		parts.append("반격 %d" % int(prediction.get("counter", 0)))
-	if bool(prediction.get("lethal", false)):
-		parts.append("처치")
 	return " · ".join(parts)
+
+func _card_heal_preview(card: Dictionary) -> int:
+	var card_id := _base_card_id(String(card.get("id", "")))
+	match card_id:
+		"first_aid":
+			return 3
+		"healing_potion":
+			return 5
+		"vampiric_strike":
+			return 2
+		"moonwell":
+			return 4
+	return 0
 
 func _direct_damage_preview(card: Dictionary) -> int:
 	var card_id := _base_card_id(String(card.get("id", "")))
@@ -1650,7 +1714,7 @@ func _card_result_preview(card: Dictionary) -> String:
 				parts.append("회복 +2")
 		return " · ".join(parts.slice(0, 2))
 	if card_type == "equipment":
-		return "선봉 공격 +2"
+		return "아군 강화"
 	var damage := _direct_damage_preview(card)
 	if damage > 0:
 		if card_id == "corpse_explosion":
@@ -1658,25 +1722,20 @@ func _card_result_preview(card: Dictionary) -> String:
 		elif card_id == "plague_spread":
 			parts.append("전체 피해 %d" % damage)
 		else:
-			parts.append("피해 %d" % damage)
-	if card_id in ["first_aid"]:
-		parts.append("회복 +3")
-	if card_id in ["healing_potion"]:
-		parts.append("회복 +5")
-	if card_id in ["vampiric_strike"]:
-		parts.append("회복 +2")
-	if card_id in ["moonwell"]:
-		parts.append("회복 +4")
+			parts.append("앞 적 피해 %d" % damage)
+	var heal := _card_heal_preview(card)
+	if heal > 0:
+		parts.append("영웅 회복 %d" % heal)
 	if card_id in ["elven_insight", "dark_bargain"]:
 		parts.append("드로우 +2")
 	if card_id in ["royal_support", "soul_shackle", "nature_communion", "ancient_oath"]:
 		parts.append("드로우 +1")
 	if card_id == "battlecry":
-		parts.append("전체 +1/+1")
+		parts.append("아군 강화")
 	if card_id == "captain_order":
-		parts.append("전체 공격 +%d" % (2 if String(card.get("id", "")).ends_with("_plus") else 1))
+		parts.append("아군 강화")
 	if card_id == "nature_blessing":
-		parts.append("선봉 체력 +3")
+		parts.append("아군 강화")
 	if card_id == "call_of_dead":
 		parts.append("소환 1/1 x2")
 	if card_id in ["death_mark", "bone_oracle", "funeral_fog"]:
@@ -1692,6 +1751,46 @@ func _card_result_preview(card: Dictionary) -> String:
 	if parts.is_empty():
 		parts.append("즉시 효과")
 	return " · ".join(parts.slice(0, 2))
+
+func _recommended_hand_index() -> int:
+	if _is_player_input_locked():
+		return -1
+	var best_index := -1
+	var best_score := -1
+	var needs_heal := int(player.get("health", 0)) <= int(ceil(float(player.get("max_health", 1)) * 0.45))
+	var front_enemy_health := 0
+	if not opponent.field.is_empty():
+		front_enemy_health = int(Dictionary(opponent.field[0]).get("health", 0))
+	for i in range(player.hand.size()):
+		var card: Dictionary = player.hand[i]
+		if not _can_play_card(player, card, "player"):
+			continue
+		var score := 10
+		var card_type := String(card.get("type", ""))
+		var heal := _card_heal_preview(card)
+		var damage := _direct_damage_preview(card)
+		if needs_heal and heal > 0:
+			score = 130
+		elif front_enemy_health > 0 and damage >= front_enemy_health:
+			score = 120
+		elif card_type == "unit":
+			score = 100
+		elif damage > 0:
+			score = 80
+		elif heal > 0:
+			score = 60
+		elif card_type == "equipment":
+			score = 55
+		if score > best_score:
+			best_score = score
+			best_index = i
+	return best_index
+
+func _recommended_hand_card() -> Dictionary:
+	var index := _recommended_hand_index()
+	if index < 0 or index >= player.hand.size():
+		return {}
+	return player.hand[index]
 
 
 func _on_player_unit_pressed(index: int) -> void:
@@ -2147,16 +2246,16 @@ func _make_empty_field_slot(compact: bool) -> PanelContainer:
 	var tight := _is_tight_battle_layout()
 	var portrait := _is_portrait_battle_layout()
 	var placeholder := PanelContainer.new()
-	placeholder.add_theme_stylebox_override("panel", _make_field_slot_style(Color(0.015, 0.02, 0.028, 0.42), Color(0.12, 0.22, 0.32, 0.42), 1))
+	placeholder.add_theme_stylebox_override("panel", _make_field_slot_style(Color(0.018, 0.025, 0.035, 0.52), Color(0.18, 0.3, 0.42, 0.54), 1))
 	placeholder.custom_minimum_size = Vector2(108, 132) if tight and portrait else (Vector2(128, 150) if tight else (Vector2(150, 176) if not compact else Vector2(128, 150)))
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 3)
 	placeholder.add_child(box)
-	var emblem: Label = main._make_label("✦", 22 if tight and portrait else (24 if tight else (26 if compact else 30)), Color(0.62, 0.52, 0.28, 0.28))
+	var emblem: Label = main._make_label("✦", 22 if tight and portrait else (24 if tight else (26 if compact else 30)), Color(0.72, 0.58, 0.28, 0.34))
 	emblem.autowrap_mode = TextServer.AUTOWRAP_OFF
 	box.add_child(emblem)
-	var text: Label = main._make_label("빈 슬롯", 9 if tight and portrait else (10 if tight else (10 if compact else 11)), Color(0.48, 0.5, 0.54, 0.46))
+	var text: Label = main._make_label("대기 지점", 9 if tight and portrait else (10 if tight else (10 if compact else 11)), Color(0.58, 0.64, 0.7, 0.58))
 	text.autowrap_mode = TextServer.AUTOWRAP_OFF
 	box.add_child(text)
 	return placeholder
@@ -2246,20 +2345,22 @@ func _render_hand() -> void:
 	var compact := _is_compact_layout()
 	var tight := _is_tight_battle_layout()
 	var portrait := _is_portrait_battle_layout()
+	var recommended_index := _recommended_hand_index()
 	_clear_container(hand_box)
 	for i in range(player.hand.size()):
 		var card: Dictionary = player.hand[i]
 		var accent := _card_accent_color(card)
 		var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "player")
 		var playable: bool = not _is_player_input_locked() and _can_play_card(player, card, "player")
+		var is_recommended := i == recommended_index
 		var frame := Button.new()
 		frame.text = ""
 		frame.focus_mode = Control.FOCUS_NONE
 		var frame_size := Vector2(112, 142) if tight and portrait else (Vector2(118, 148) if tight else (Vector2(190, 226) if not compact else Vector2(154, 188)))
 		var content_size := Vector2(frame_size.x - 12.0, frame_size.y - 12.0)
 		frame.custom_minimum_size = frame_size
-		var hand_border := accent.lightened(0.12) if playable else accent.darkened(0.08)
-		frame.add_theme_stylebox_override("normal", _make_hand_card_style(Color(0.075, 0.068, 0.052, 1.0), hand_border, 3 if playable else 2))
+		var hand_border := Color(1.0, 0.88, 0.38, 1.0) if is_recommended else (accent.lightened(0.12) if playable else accent.darkened(0.08))
+		frame.add_theme_stylebox_override("normal", _make_hand_card_style(Color(0.105, 0.085, 0.045, 1.0) if is_recommended else Color(0.075, 0.068, 0.052, 1.0), hand_border, 4 if is_recommended else (3 if playable else 2)))
 		frame.add_theme_stylebox_override("hover", _make_hand_card_style(Color(0.095, 0.082, 0.055, 1.0), accent.lightened(0.22), 3))
 		frame.add_theme_stylebox_override("pressed", _make_hand_card_style(Color(0.05, 0.045, 0.038, 1.0), accent, 3))
 		frame.add_theme_color_override("font_color", Color(1, 1, 1, 0))
@@ -2278,6 +2379,10 @@ func _render_hand() -> void:
 		var cost_badge: PanelContainer = main.ui.make_cost_badge("%d" % cost, true)
 		cost_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		header_row.add_child(cost_badge)
+		if is_recommended:
+			var recommend_badge: PanelContainer = main.ui.make_chip("추천", Color(0.42, 0.28, 0.06, 1.0), Color(1.0, 0.94, 0.62, 1.0), 8 if tight else 10)
+			recommend_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			header_row.add_child(recommend_badge)
 		var name_band: PanelContainer = main.ui.make_surface_panel(accent.darkened(0.28), accent.lightened(0.12), 1, 5, 3)
 		name_band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		name_band.mouse_filter = Control.MOUSE_FILTER_IGNORE

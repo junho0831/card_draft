@@ -166,9 +166,9 @@ assets/card_art/season1_sample_sheet.png
 
 효과 처리 위치:
 
-- 카드 사용 효과: `scripts/battle/battle_card_effects.gd`
-- 전투 흐름과 피해 계산: `scripts/ui/screens/battle_screen.gd`
-- 유물/빌드 활성 효과: `scripts/services/relic_service.gd`, `scripts/ui/screens/battle_screen.gd`
+- 카드 사용 효과: `src/battle/battle_card_effects.gd`
+- 전투 흐름과 피해 계산: `src/ui/screens/battle_screen.gd`
+- 유물/빌드 활성 효과: `src/services/relic_service.gd`, `src/ui/screens/battle_screen.gd`
 
 현재 하드코딩된 효과 예:
 
@@ -223,6 +223,6 @@ Godot 카드 로드 확인:
 - `build_tags`가 현재 빌드 축과 맞는다.
 - `art_id`가 있고 `assets/card_art/cards/{art_id}.png` 파일이 있다.
 - fallback용 `art` 인덱스가 현재 아트 시트 범위 안에 있다.
-- 새 효과라면 `scripts/battle/battle_card_effects.gd`에 효과 로직을 추가했다.
+- 새 효과라면 `src/battle/battle_card_effects.gd`에 효과 로직을 추가했다.
 - `text`가 실제 효과와 일치한다.
 - JSON 유효성 검사를 통과했다.

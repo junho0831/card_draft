@@ -16,16 +16,11 @@ func _capture_all() -> void:
 	main.set_meta("disable_timed_battle_fx", true)
 	await process_frame
 	await process_frame
-	await _capture("01_main_menu")
-
-	main._show_ui_guide()
-	await process_frame
-	await process_frame
-	await _capture("01b_ui_guide")
-
+	main._clear_run()
 	main._show_main_menu()
 	await process_frame
 	await process_frame
+	await _capture("01_main_menu")
 
 	main._start_new_run()
 	await process_frame
@@ -84,6 +79,11 @@ func _capture_all() -> void:
 	await process_frame
 	await _capture("08_run_result")
 
+	main._show_ui_guide()
+	await process_frame
+	await process_frame
+	await _capture("01b_ui_guide")
+
 	root.remove_child(main)
 	main.free()
 	print("UI captures saved to %s" % global_dir)
@@ -106,7 +106,9 @@ func _capture(file_name: String) -> void:
 		quit(1)
 		return
 	if not _image_has_content(image):
-		push_warning("Viewport image may not contain rendered UI content for %s." % file_name)
+		printerr("Viewport image has no rendered UI content for %s." % file_name)
+		quit(1)
+		return
 	var path := "%s/%s.png" % [output_dir, file_name]
 	var err := image.save_png(path)
 	if err != OK:
@@ -140,7 +142,7 @@ func _image_has_content(image: Image) -> bool:
 			var luma := color.r * 0.299 + color.g * 0.587 + color.b * 0.114
 			min_luma = minf(min_luma, luma)
 			max_luma = maxf(max_luma, luma)
-	return max_luma - min_luma > 0.08
+	return max_luma - min_luma > 0.02
 
 func _seed_battle_preview_units(main: Node) -> void:
 	if main.battle_screen == null:

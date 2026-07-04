@@ -10,7 +10,7 @@ func _is_tight_reward_layout() -> bool:
 	return not _is_reward_compact_layout() and main._layout_viewport_size().y <= 760.0
 
 func _is_reward_compact_layout() -> bool:
-	return main._is_compact_layout_for(1360.0, 900.0)
+	return main._layout_viewport_size().x < 1100.0
 
 func build(body: VBoxContainer) -> void:
 	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
@@ -110,11 +110,13 @@ func _make_reward_side_panel(reward: Dictionary, compact: bool) -> PanelContaine
 	var reason_title: Label = main._make_label("추천 기준", 14 if compact else 15, Color(1.0, 0.88, 0.55, 1.0))
 	reason_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(reason_title)
-	var reason_chip: PanelContainer = main.ui.make_chip("%s %s 시너지 우선" % [String(meta.get("icon", "")), String(meta.get("name", "현재"))], Color(0.24, 0.18, 0.08, 1.0), Color(1.0, 0.9, 0.58, 1.0), 13 if compact else 14)
+	var reason_chip: PanelContainer = main.ui.make_chip("현재 빌드에 맞음", Color(0.24, 0.18, 0.08, 1.0), Color(1.0, 0.9, 0.58, 1.0), 13 if compact else 14)
 	box.add_child(reason_chip)
-	var reason: Label = main._make_label("%s %s 빌드 점수가 가장 높습니다.\n같은 태그 카드를 고르면 빌드가 더 빨리 활성화됩니다." % [String(meta.get("icon", "")), String(meta.get("name", "현재"))], 12 if compact else 13, Color(0.82, 0.86, 0.92, 1.0))
+	var reason: Label = main._make_label("%s %s 태그는 현재 덱과 가장 가깝습니다.\n전투 도움이 애매하면 건너뛰기로 덱을 얇게 유지하세요." % [String(meta.get("icon", "")), String(meta.get("name", "현재"))], 12 if compact else 13, Color(0.82, 0.86, 0.92, 1.0))
 	reason.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(reason)
+	var skip_chip: PanelContainer = main.ui.make_chip("덱 압축 후보", Color(0.12, 0.14, 0.18, 1.0), Color(0.9, 0.94, 1.0, 1.0), 12 if compact else 13)
+	box.add_child(skip_chip)
 	var skip_button := Button.new()
 	skip_button.text = "건너뛰기"
 	skip_button.custom_minimum_size = Vector2(160, 44)
@@ -123,11 +125,27 @@ func _make_reward_side_panel(reward: Dictionary, compact: bool) -> PanelContaine
 	box.add_child(skip_button)
 	return panel
 
+func _reward_choice_reason(card: Dictionary, matches_primary: bool) -> String:
+	if matches_primary:
+		return "현재 빌드에 맞음"
+	var card_type := String(card.get("type", ""))
+	var card_id := String(card.get("id", "")).trim_suffix("_plus")
+	if card_type == "unit":
+		return "즉시 전투 도움"
+	if card_type == "equipment":
+		return "아군 강화"
+	if card_id in ["small_flame", "fireball", "gale_shot", "corpse_explosion", "plague_spread", "vampiric_strike"]:
+		return "즉시 전투 도움"
+	if card_id in ["first_aid", "healing_potion", "moonwell", "nature_blessing", "battlecry", "captain_order"]:
+		return "아군 강화"
+	return "덱 압축 후보"
+
 func _make_reward_choice(card: Dictionary) -> Control:
 	var compact: bool = _is_reward_compact_layout()
 	var tight: bool = _is_tight_reward_layout()
 	var primary_tag: String = main._primary_build_tag(main._current_build_scores())
 	var matches_primary: bool = main._card_matches_build_tag(card, primary_tag)
+	var reason_text := _reward_choice_reason(card, matches_primary)
 	var frame: PanelContainer = main.ui.make_surface_panel(
 		Color(0.24, 0.2, 0.12, 1.0) if matches_primary else Color(0.065, 0.07, 0.08, 1.0),
 		Color(1.0, 0.78, 0.28, 1.0) if matches_primary else Color(0.38, 0.3, 0.18, 1.0),
@@ -142,8 +160,10 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	frame.add_child(box)
 
 	if matches_primary:
-		var recommend: PanelContainer = main.ui.make_chip("추천 카드", Color(0.58, 0.36, 0.08, 1.0), Color(1.0, 0.94, 0.62, 1.0), 13)
+		var recommend: PanelContainer = main.ui.make_chip("추천", Color(0.58, 0.36, 0.08, 1.0), Color(1.0, 0.94, 0.62, 1.0), 13)
 		box.add_child(recommend)
+	var reason_badge: PanelContainer = main.ui.make_chip(reason_text, Color(0.12, 0.18, 0.24, 1.0) if not matches_primary else Color(0.28, 0.2, 0.08, 1.0), Color(0.9, 0.96, 1.0, 1.0) if not matches_primary else Color(1.0, 0.92, 0.6, 1.0), 11 if tight else 12)
+	box.add_child(reason_badge)
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 8)
 	box.add_child(header)
@@ -163,10 +183,6 @@ func _make_reward_choice(card: Dictionary) -> Control:
 		tag_label.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.02, 1.0))
 		tag_label.add_theme_constant_override("outline_size", 2)
 		box.add_child(tag_label)
-	if matches_primary:
-		var synergy_note: Label = main._make_label("현재 빌드와 가장 잘 맞는 선택입니다.", 11 if tight else 12, Color(1.0, 0.9, 0.62, 1.0))
-		synergy_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		box.add_child(synergy_note)
 	var text_label: Label = main._make_label(String(card.get("text", "")), 11 if tight else 12, Color(0.82, 0.88, 0.95, 1.0))
 	text_label.custom_minimum_size = Vector2(0, 28 if tight else 34)
 	text_label.clip_text = true

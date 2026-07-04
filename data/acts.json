@@ -6,10 +6,7 @@
 			["battle"],
 			["event", "shop"],
 			["battle"],
-			["battle", "shop"],
-			["shop"],
-			["elite", "event"],
-			["rest"],
+			["rest", "shop"],
 			["boss"]
 		]
 	}
