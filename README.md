@@ -5,7 +5,9 @@
 ## 현재 빌드
 
 - 메인 흐름: `새 런 시작 -> 맵 -> 전투 -> 카드 보상 -> 이벤트/상점/휴식 -> 보스 -> 다음 Act`
-- Act 2개: 국경지대, 죽음의 성
+- Act 1개: 국경지대
+- 기본 런 길이: 8개 노드
+  - `battle -> event/shop -> battle -> battle/shop -> shop -> elite/event -> rest -> boss`
 - 스타터 4종 + 런 카드 풀 30장
 - 유물 15개, 이벤트 5개
 - 전투 규칙: 영웅 체력 0 승패, 마나 1부터 시작, 턴마다 +1, 필드 5칸
@@ -27,7 +29,7 @@ Godot 4.6 이상에서 이 폴더를 열고 실행한다.
 시작 씬:
 
 ```text
-res://scenes/Main.tscn
+res://src/core/Main.tscn
 ```
 
 ## 조작

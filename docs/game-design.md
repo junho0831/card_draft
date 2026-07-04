@@ -14,7 +14,7 @@
 
 ## 현재 콘텐츠 범위
 
-- Act 2개: `국경지대`, `죽음의 성`
+- Act 1개: `국경지대`
 - 카드 34종
   - 스타터 카드 4종
   - 런 카드 풀 30종
@@ -40,12 +40,25 @@
 -> 다음 Act 또는 런 결과
 ```
 
-Act 데이터는 `data/acts.json`에 있으며, 각 Act는 8개 레이어로 구성된다.
+Act 데이터는 `data/acts.json`에 있으며, 현재 기본 Act는 8개 레이어로 구성된다.
 
 ```text
 1. battle
-2. battle 또는 event
+2. event 또는 shop
 3. event
+4. battle 또는 shop
+5. shop
+6. elite 또는 event
+7. rest
+8. boss
+```
+
+실제 현재 기본 Act 데이터는 다음 흐름이다.
+
+```text
+1. battle
+2. event 또는 shop
+3. battle
 4. battle 또는 shop
 5. shop
 6. elite 또는 event
