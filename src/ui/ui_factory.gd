@@ -162,8 +162,11 @@ func add_title(parent: Node, text: String) -> void:
 	title.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.018, 1.0))
 	parent.add_child(title)
 
-func begin_screen(root: Node, title: String, summary: Control = null, spacing: int = 12) -> VBoxContainer:
-	root.add_child(make_screen_header(title, "지금 무엇을 해야 하는지와 이번 런의 빌드를 확인하세요."))
+func begin_screen(root: Node, title: String, summary: Control = null, spacing: int = 12, subtitle: String = "") -> VBoxContainer:
+	var sub := subtitle
+	if sub.is_empty():
+		sub = "지금 무엇을 해야 하는지와 이번 런의 빌드를 확인하세요."
+	root.add_child(make_screen_header(title, sub))
 	if summary != null:
 		root.add_child(summary)
 	var body := VBoxContainer.new()

@@ -5,7 +5,7 @@ const MAX_FIELD := 5
 const START_HAND := 5
 const STARTING_MAX_MANA := 1
 const TURN_TIME_SECONDS := 35.0
-const BATTLE_MAX_CONTENT_WIDTH := 1240.0
+const BATTLE_MAX_CONTENT_WIDTH := 1560.0
 
 var main
 var root_box: VBoxContainer
@@ -1105,7 +1105,7 @@ func _build_battle_ui() -> void:
 	var wide_tight := _is_wide_tight_battle_layout()
 	var portrait := _is_portrait_battle_layout()
 	var vertical_stack := compact and not wide_tight
-	var horizontal_battle := false
+	var horizontal_battle := not compact
 	root_box.add_theme_constant_override("separation", 5 if tight else 8)
 	player_info = null
 	player_gauge_info = null
@@ -1130,8 +1130,8 @@ func _build_battle_ui() -> void:
 	player_deck_status_label = null
 	player_field_status_label = null
 	var field_height := 148 if wide_tight else (128 if tight and portrait else (146 if tight else (168 if not compact else 148)))
-	var board_width := 1040 if not compact else 0
-	var sidebar_width := 132 if not compact else 0
+	var board_width := 1260 if not compact else 0
+	var sidebar_width := 160 if not compact else 0
 	var hand_height := 132 if wide_tight else (176 if tight and portrait else (154 if tight else (236 if not compact else 214)))
 	var deck_height := 44 if tight else (92 if not compact else 70)
 	var log_height := 68 if tight else (132 if not compact else 112)
@@ -2271,64 +2271,99 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	var portrait := _is_portrait_battle_layout()
 	if index >= side.field.size():
 		return _make_empty_field_slot(compact)
+	
 	var frame_size := Vector2(108, 132) if tight and portrait else (Vector2(128, 150) if tight else (Vector2(150, 176) if not compact else Vector2(128, 150)))
 	var content_size := Vector2(frame_size.x - 12.0, frame_size.y - 10.0)
-	var art_size := Vector2(88, 46) if tight and portrait else (Vector2(108, 52) if tight else (Vector2(132, 68) if not compact else Vector2(108, 52)))
-	var frame := PanelContainer.new()
+	var art_size := Vector2(content_size.x, content_size.y - (24 if tight else 30))
+	
+	# The slot container is now a Button, making the entire card clickable!
+	var frame := Button.new()
 	frame.custom_minimum_size = frame_size
+	
+	# Determine interaction states
+	var is_disabled := false
+	var unit: Dictionary = side.field[index]
+	if is_player_field:
+		is_disabled = _is_player_input_locked() or not bool(unit.get("can_attack", false))
+		if not is_disabled:
+			frame.pressed.connect(func(): _on_player_unit_pressed(index))
+	else:
+		is_disabled = _is_player_input_locked() or selected_attacker == -1
+		if not is_disabled:
+			frame.pressed.connect(func(): _on_opponent_unit_pressed(index))
+	frame.disabled = is_disabled
+	
+	# Card border highlights exactly matching the glowing states in screenshots
+	var race_border := _card_accent_color(unit)
+	var slot_border := race_border
+	var slot_border_width := 2
+	var slot_bg := Color(0.025, 0.03, 0.04, 0.94)
+	
+	if is_player_field and index == selected_attacker:
+		slot_border = Color(0.34, 0.72, 1.0, 1.0) # Bright Blue selected glow
+		slot_border_width = 3
+		slot_bg = Color(0.04, 0.08, 0.14, 0.98)
+	elif is_player_field and bool(unit.get("can_attack", false)) and not _is_player_input_locked():
+		slot_border = Color(0.2, 0.82, 0.56, 1.0) # Bright Green playable glow
+		slot_border_width = 3
+		slot_bg = Color(0.02, 0.07, 0.05, 0.96)
+	elif not is_player_field and selected_attacker != -1 and not _is_player_input_locked():
+		slot_border = Color(1.0, 0.32, 0.26, 1.0) # Bright Red target glow
+		slot_border_width = 3
+		slot_bg = Color(0.08, 0.03, 0.03, 0.96)
+
+	var normal_style := _make_field_slot_style(slot_bg, slot_border, slot_border_width)
+	var hover_style := _make_field_slot_style(slot_bg.lightened(0.08) if not is_disabled else slot_bg, slot_border, slot_border_width + 1)
+	var pressed_style := _make_field_slot_style(slot_bg.darkened(0.12), slot_border, slot_border_width)
+	var disabled_style := _make_field_slot_style(slot_bg, slot_border.darkened(0.3) if is_disabled and is_player_field else slot_border, slot_border_width)
+	
+	frame.add_theme_stylebox_override("normal", normal_style)
+	frame.add_theme_stylebox_override("hover", hover_style)
+	frame.add_theme_stylebox_override("pressed", pressed_style)
+	frame.add_theme_stylebox_override("disabled", disabled_style)
+	
 	var slot := VBoxContainer.new()
 	slot.custom_minimum_size = content_size
 	slot.add_theme_constant_override("separation", 2)
 	frame.add_child(slot)
-	var unit: Dictionary = side.field[index]
-	var race_border := _card_accent_color(unit)
-	var slot_border := race_border
-	var slot_border_width := 2
-	var slot_bg := Color(0.035, 0.045, 0.058, 0.88)
-	if is_player_field and index == selected_attacker:
-		slot_border = Color(0.34, 0.72, 1.0, 1.0)
-		slot_border_width = 3
-		slot_bg = Color(0.05, 0.1, 0.15, 0.96)
-	elif is_player_field and bool(unit.get("can_attack", false)) and not _is_player_input_locked():
-		slot_border = Color(0.2, 0.82, 0.56, 1.0)
-		slot_border_width = 3
-		slot_bg = Color(0.035, 0.08, 0.065, 0.94)
-	elif not is_player_field and selected_attacker != -1 and not _is_player_input_locked():
-		slot_border = Color(1.0, 0.32, 0.26, 1.0)
-		slot_border_width = 3
-		slot_bg = Color(0.09, 0.035, 0.04, 0.95)
-	frame.add_theme_stylebox_override("panel", _make_field_slot_style(slot_bg, slot_border, slot_border_width))
+	
+	# 1. Name band at the top of the card
 	var name_band: PanelContainer = _make_battle_surface(race_border.darkened(0.42), race_border.lightened(0.08), 1, 5, 3)
 	slot.add_child(name_band)
 	var name_label: Label = main._make_label(String(unit.get("name", "")), 10 if tight and portrait else (11 if tight else (12 if compact else 13)), Color(1.0, 0.96, 0.82, 1.0))
 	name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	name_label.clip_text = true
 	name_band.add_child(name_label)
-	slot.add_child(main._make_card_art_rect(unit, art_size))
-	var type_label: Label = main._make_label("%s / %s" % [String(unit.get("race", "")), String(unit.get("attr", ""))], 8 if tight and portrait else (9 if tight else 10), Color(0.88, 0.9, 0.76, 1.0))
-	type_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	type_label.clip_text = true
-	slot.add_child(type_label)
-	var stat_row := HBoxContainer.new()
-	stat_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	stat_row.add_theme_constant_override("separation", 4)
-	slot.add_child(stat_row)
-	stat_row.add_child(main.ui.make_stat_badge("%d" % int(unit.get("attack", 0)), Color(0.46, 0.16, 0.12, 1.0), true))
-	stat_row.add_child(main.ui.make_stat_badge("%d" % int(unit.get("health", 0)), Color(0.1, 0.24, 0.46, 1.0), true))
+	
+	# 2. Art container that holds the card illustration, overlaying stat badges at bottom corners
+	var art_container := Control.new()
+	art_container.custom_minimum_size = art_size
+	art_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	slot.add_child(art_container)
+	
+	var art: TextureRect = main._make_card_art_rect(unit, art_size)
+	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	art_container.add_child(art)
+	
+	# Overlay Attack badge (bottom-left) and Health badge (bottom-right)
+	var attack_badge: PanelContainer = main.ui.make_stat_badge("%d" % int(unit.get("attack", 0)), Color(0.46, 0.16, 0.12, 1.0), true)
+	attack_badge.position = Vector2(4, art_size.y - attack_badge.custom_minimum_size.y - 4)
+	art_container.add_child(attack_badge)
+	
+	var health_badge: PanelContainer = main.ui.make_stat_badge("%d" % int(unit.get("health", 0)), Color(0.1, 0.24, 0.46, 1.0), true)
+	health_badge.position = Vector2(art_size.x - health_badge.custom_minimum_size.x - 4, art_size.y - health_badge.custom_minimum_size.y - 4)
+	art_container.add_child(health_badge)
+	
+	# Overlay prediction badge (top-center) if aiming at this unit
 	if not is_player_field and selected_attacker != -1 and not _is_player_input_locked():
 		var attacker := _selected_player_attacker()
 		var prediction := _predict_unit_attack(attacker, unit, player, opponent)
 		var prediction_text := _attack_prediction_text(prediction)
 		if not prediction_text.is_empty():
-			var prediction_badge := _make_battle_badge(prediction_text, Color(0.16, 0.05, 0.055, 0.96), Color(1.0, 0.34, 0.24, 1.0), 8 if tight and portrait else (9 if tight else 10))
-			prediction_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			slot.add_child(prediction_badge)
-	var button := Button.new()
-	button.custom_minimum_size = Vector2(84, 22) if tight and portrait else (Vector2(100, 24) if tight else Vector2(112 if not compact else 100, 26))
-	_style_battle_button(button, Color(0.06, 0.07, 0.085, 0.92), Color(0.26, 0.34, 0.44, 0.9))
-	button.add_theme_font_size_override("font_size", 10 if tight and portrait else (11 if tight else 12))
-	_configure_field_button(button, unit, index, is_player_field)
-	slot.add_child(button)
+			var prediction_badge: PanelContainer = _make_battle_badge(prediction_text, Color(0.16, 0.05, 0.055, 0.96), Color(1.0, 0.34, 0.24, 1.0), 9)
+			prediction_badge.position = Vector2((art_size.x - prediction_badge.custom_minimum_size.x) / 2.0, 4)
+			art_container.add_child(prediction_badge)
+			
 	return frame
 
 func _render_field(container: HBoxContainer, side: Dictionary, is_player_field: bool) -> void:
@@ -2456,7 +2491,20 @@ func _render_hand() -> void:
 			card.erase("_is_new")
 			frame.scale = Vector2(0.2, 0.2)
 			frame.modulate.a = 0.0
-			frame.pivot_offset = frame_size / 2.0
+			frame.pivot_offset = Vector2(frame_size.x / 2.0, frame_size.y) # Set bottom-center as pivot
+			# Hover zoom & slide effect
+			frame.mouse_entered.connect(func():
+				if playable:
+					var h_tween := frame.create_tween()
+					h_tween.tween_property(frame, "scale", Vector2(1.15, 1.15), 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+					frame.z_index = 10
+			)
+			frame.mouse_exited.connect(func():
+				if playable:
+					var h_tween := frame.create_tween()
+					h_tween.tween_property(frame, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+					frame.z_index = 0
+			)
 			var draw_tween := frame.create_tween()
 			draw_tween.tween_interval(i * 0.08)
 			draw_tween.tween_callback(Callable(self, "_play_sfx").bind("draw"))

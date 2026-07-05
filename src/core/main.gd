@@ -98,9 +98,26 @@ func _ready() -> void:
 	current_run = run_store.load_or_empty(RUN_PATH)
 	_show_main_menu()
 
+func _create_premium_background() -> Texture2D:
+	var gradient := Gradient.new()
+	gradient.offsets = [0.0, 0.6, 1.0]
+	gradient.colors = [
+		Color(0.06, 0.09, 0.15, 1.0),
+		Color(0.02, 0.03, 0.05, 1.0),
+		Color(0.008, 0.01, 0.015, 1.0)
+	]
+	var tex := GradientTexture2D.new()
+	tex.gradient = gradient
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.85, 0.85)
+	tex.width = 512
+	tex.height = 512
+	return tex
+
 func _build_base_ui() -> void:
 	var background := TextureRect.new()
-	background.texture = preload("res://assets/backgrounds/game_board_bg.png")
+	background.texture = _create_premium_background()
 	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -786,13 +803,13 @@ func _make_main_menu_footer(compact: bool) -> Control:
 func _show_meta_upgrade() -> void:
 	active_screen = "meta_upgrade"
 	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("메타 강화")
+	var body: VBoxContainer = _begin_menu_screen("메타 강화", false, "영혼석을 소모하여 영웅의 기초 능력치를 영구히 강화하세요.")
 	MetaUpgradeScreenScript.new(self).build(body)
 
 func _show_compendium() -> void:
 	active_screen = "compendium"
 	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("카드 도감")
+	var body: VBoxContainer = _begin_menu_screen("카드 도감", false, "게임에 존재하는 모든 영웅 카드와 유물들을 한눈에 살펴보세요.")
 	CompendiumScreenScript.new(self).build(body)
 
 func _upgrade_start_hp() -> void:
@@ -838,7 +855,8 @@ func _show_map() -> void:
 	run_flow.show_map()
 
 func _enter_current_node(path_index: int = 0) -> void:
-	audio_manager.play_sound("click")
+	if audio_manager != null:
+		audio_manager.play_sound("click")
 	current_run["current_path_index"] = path_index
 	run_flow.enter_current_node()
 
@@ -849,7 +867,8 @@ func _show_event() -> void:
 	run_flow.show_event()
 
 func _complete_event_and_return() -> void:
-	audio_manager.play_sound("click")
+	if audio_manager != null:
+		audio_manager.play_sound("click")
 	run_flow.complete_event_and_return()
 
 func _show_shop() -> void:
@@ -859,15 +878,18 @@ func _show_rest() -> void:
 	run_flow.show_rest()
 
 func _rest_heal() -> void:
-	audio_manager.play_sound("click")
+	if audio_manager != null:
+		audio_manager.play_sound("click")
 	run_flow.rest_heal()
 
 func _rest_upgrade_card() -> void:
-	audio_manager.play_sound("click")
+	if audio_manager != null:
+		audio_manager.play_sound("click")
 	run_flow.rest_upgrade_card()
 
 func _complete_rest() -> void:
-	audio_manager.play_sound("click")
+	if audio_manager != null:
+		audio_manager.play_sound("click")
 	run_flow.complete_rest()
 
 func _show_remove_card_screen(reason: String, source: String = "") -> void:
@@ -880,7 +902,7 @@ func _show_remove_card_screen(reason: String, source: String = "") -> void:
 		_save_run()
 	active_screen = "remove_card"
 	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("%s - 카드 제거" % reason)
+	var body: VBoxContainer = _begin_menu_screen("%s - 카드 제거" % reason, false, "덱을 압축하여 원하는 핵심 카드를 더 자주 드로우할 수 있게 만듭니다.")
 	DeckEditScreenScript.new(self).build_remove(body, reason)
 
 func _show_upgrade_card_screen(source: String = "") -> void:
@@ -892,7 +914,7 @@ func _show_upgrade_card_screen(source: String = "") -> void:
 		_save_run()
 	active_screen = "upgrade_card"
 	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("휴식 - 카드 강화")
+	var body: VBoxContainer = _begin_menu_screen("휴식 - 카드 강화", false, "소장 중인 카드를 명상으로 연마하여 상위 능력으로 각성시킵니다.")
 	DeckEditScreenScript.new(self).build_upgrade(body)
 
 func _remove_card_from_run(card_id: String) -> void:
@@ -961,7 +983,7 @@ func _cancel_pending_subscreen() -> void:
 func _show_run_result(is_win: bool) -> void:
 	active_screen = "run_result"
 	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("런 결과")
+	var body: VBoxContainer = _begin_menu_screen("런 결과", false, "이번 모험이 종료되었습니다. 최종 달성 기록과 통계를 확인하세요.")
 	RunResultScreenScript.new(self).build(body, is_win)
 
 func _finish_run(is_win: bool) -> void:
@@ -993,7 +1015,7 @@ func _abandon_run() -> void:
 func _show_collection() -> void:
 	active_screen = "collection"
 	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("카드 보관함")
+	var body: VBoxContainer = _begin_menu_screen("카드 보관함", false, "현재 덱을 구성하고 있는 소장 카드들의 목록입니다.")
 	var screen = CollectionScreenScript.new(self)
 	screen.build(body)
 
@@ -1011,7 +1033,7 @@ func _show_ui_guide() -> void:
 func _show_settings() -> void:
 	active_screen = "settings"
 	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("설정")
+	var body: VBoxContainer = _begin_menu_screen("설정", false, "게임 해상도 및 속도 등 편의 기능을 변경하고 튜닝할 수 있습니다.")
 	SettingsScreenScript.new(self).build(body)
 
 func _on_cutscene_toggled(enabled: bool) -> void:
@@ -1037,7 +1059,7 @@ func _reset_profile() -> void:
 
 func _show_message(message: String, callback_method: String, target: Object = null) -> void:
 	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("알림", false)
+	var body: VBoxContainer = _begin_menu_screen("알림", false, "게임 진행에 필요한 안내 메시지입니다.")
 	MessageScreenScript.new(self).build(body, message, callback_method, target)
 
 func _make_run_summary_panel() -> Control:
@@ -1414,11 +1436,11 @@ func _apply_window_mode() -> void:
 		DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen_enabled else DisplayServer.WINDOW_MODE_WINDOWED
 	)
 
-func _begin_menu_screen(title: String, with_profile: bool = false) -> VBoxContainer:
+func _begin_menu_screen(title: String, with_profile: bool = false, subtitle: String = "") -> VBoxContainer:
 	var summary: Control = null
 	if with_profile and not current_run.is_empty():
 		summary = _make_run_summary_panel()
-	return ui.begin_screen(root_box, title, summary)
+	return ui.begin_screen(root_box, title, summary, 12, subtitle)
 
 func _make_screen_panel(color: Color, preferred_width: int, min_height: int = 0) -> PanelContainer:
 	return ui.make_screen_panel(color, _layout_viewport_size().x, preferred_width, min_height)
