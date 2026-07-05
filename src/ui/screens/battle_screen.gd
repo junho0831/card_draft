@@ -1515,7 +1515,10 @@ func _draw_cards(side: Dictionary, count: int) -> void:
 				continue
 		
 		if side.hand.size() < 10:
-			side.hand.append(side.deck.pop_back())
+			var drawn = side.deck.pop_back()
+			if side == player:
+				drawn["_is_new"] = true
+			side.hand.append(drawn)
 		else:
 			var burned_card = side.deck.pop_back()
 			side.discard_pile.append(burned_card)
@@ -1541,6 +1544,7 @@ func _on_hand_card_pressed(index: int) -> void:
 	var old_field_size: int = player.field.size()
 	player.mana -= cost
 	player.hand.remove_at(index)
+	_play_sfx("play")
 	if card_type != "unit":
 		player.discard_pile.append(card)
 	main.relic_service.consume_card_discount(battle_state)
@@ -2073,6 +2077,7 @@ func _cleanup_side_dead(owner: Dictionary, enemy: Dictionary) -> void:
 func _on_end_turn_pressed() -> void:
 	if input_locked or game_over or current_player != "player":
 		return
+	_play_sfx("click")
 	input_locked = true
 	_discard_hand(player)
 	current_player = "opponent"
@@ -2445,6 +2450,18 @@ func _render_hand() -> void:
 		action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_box.add_child(action_label)
 		hand_box.add_child(frame)
+		
+		var is_new := bool(card.get("_is_new", false))
+		if is_new:
+			card.erase("_is_new")
+			frame.scale = Vector2(0.2, 0.2)
+			frame.modulate.a = 0.0
+			frame.pivot_offset = frame_size / 2.0
+			var draw_tween := frame.create_tween()
+			draw_tween.tween_interval(i * 0.08)
+			draw_tween.tween_callback(Callable(self, "_play_sfx").bind("draw"))
+			draw_tween.tween_property(frame, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			draw_tween.parallel().tween_property(frame, "modulate:a", 1.0, 0.2)
 
 
 func _render_battle_deck() -> void:
@@ -2576,13 +2593,29 @@ func _shake_screen(intensity: float, duration: float) -> void:
 	tween.parallel().tween_property(main.modal_layer, "position", Vector2.ZERO, 0.05)
 
 
+func _play_sfx(sfx_name: String) -> void:
+	var root = Engine.get_main_loop().current_scene
+	if root and root.get("audio_manager") != null:
+		root.audio_manager.play_sound(sfx_name)
+
 func _apply_damage_juice(old_p_hp: int, old_o_hp: int) -> void:
 	if int(player.health) < old_p_hp:
 		_flash_and_shake(player_info, Color(1.0, 0.2, 0.2, 1.0))
 		_flash_and_shake(player_hero_hp_label, Color(1.0, 0.2, 0.2, 1.0))
+		_play_sfx("hit")
+	elif int(player.health) > old_p_hp:
+		_flash_and_shake(player_info, Color(0.2, 1.0, 0.2, 1.0))
+		_flash_and_shake(player_hero_hp_label, Color(0.2, 1.0, 0.2, 1.0))
+		_play_sfx("heal")
+		
 	if int(opponent.health) < old_o_hp:
 		_flash_and_shake(opponent_info, Color(1.0, 0.2, 0.2, 1.0))
 		_flash_and_shake(enemy_hero_hp_label, Color(1.0, 0.2, 0.2, 1.0))
+		_play_sfx("hit")
+	elif int(opponent.health) > old_o_hp:
+		_flash_and_shake(opponent_info, Color(0.2, 1.0, 0.2, 1.0))
+		_flash_and_shake(enemy_hero_hp_label, Color(0.2, 1.0, 0.2, 1.0))
+		_play_sfx("heal")
 
 func _flash_and_shake(node: Control, color: Color) -> void:
 	if not is_instance_valid(node): return

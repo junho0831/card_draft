@@ -246,6 +246,7 @@ func _shop_remove_cost() -> int:
 	return main.shop_run_service.remove_cost(main.current_run.get("pending_shop", {}))
 
 func _buy_shop_card(card_id: String) -> void:
+	main.audio_manager.play_sound("click")
 	var result: Dictionary = main.shop_run_service.buy_card(main.current_run, card_id)
 	if not bool(result.get("ok", false)):
 		return
@@ -253,6 +254,7 @@ func _buy_shop_card(card_id: String) -> void:
 	main._show_shop()
 
 func _buy_shop_relic() -> void:
+	main.audio_manager.play_sound("click")
 	var result: Dictionary = main.shop_run_service.buy_relic(main.current_run, Callable(main.relic_service, "apply_on_acquire"))
 	if not bool(result.get("ok", false)):
 		return
@@ -260,6 +262,7 @@ func _buy_shop_relic() -> void:
 	main._show_shop()
 
 func _begin_shop_remove() -> void:
+	main.audio_manager.play_sound("click")
 	var result: Dictionary = main.shop_run_service.begin_remove(main.current_run)
 	if not bool(result.get("ok", false)):
 		return
@@ -267,6 +270,7 @@ func _begin_shop_remove() -> void:
 	main._show_remove_card_screen(String(result.get("reason", "상점")), String(result.get("source", "shop")))
 
 func _buy_shop_heal() -> void:
+	main.audio_manager.play_sound("click")
 	var result: Dictionary = main.shop_run_service.buy_heal(main.current_run)
 	if not bool(result.get("ok", false)):
 		return
@@ -274,4 +278,5 @@ func _buy_shop_heal() -> void:
 	main._show_shop()
 
 func _leave_shop() -> void:
+	main.audio_manager.play_sound("click")
 	main.run_flow.leave_shop()

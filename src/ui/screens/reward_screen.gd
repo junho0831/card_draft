@@ -199,10 +199,12 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	return frame
 
 func _claim_card_reward(card_id: String) -> void:
+	main.audio_manager.play_sound("click")
 	(main.current_run.get("deck_ids", []) as Array).append(card_id)
 	_finalize_reward()
 
 func _skip_card_reward() -> void:
+	main.audio_manager.play_sound("click")
 	_finalize_reward()
 
 func _finalize_reward() -> void:

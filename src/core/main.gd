@@ -29,6 +29,7 @@ const RunResultScreenScript := preload("res://src/ui/screens/run_result_screen.g
 const SettingsScreenScript := preload("res://src/ui/screens/settings_screen.gd")
 const UiGuideScreenScript := preload("res://src/ui/screens/ui_guide_screen.gd")
 const UiFactoryScript := preload("res://src/ui/ui_factory.gd")
+const AudioManagerScript := preload("res://src/services/audio_manager.gd")
 const CARD_ART_COLS := 4
 const CARD_ART_ROWS := 3
 
@@ -43,6 +44,7 @@ var shop_run_service
 var run_generator
 var run_store
 var ui
+var audio_manager
 var battle_effects
 var run_flow
 var battle_screen
@@ -73,6 +75,8 @@ func _ready() -> void:
 	run_store = RunStateScript.new()
 	ui = UiFactoryScript.new()
 	ui.setup(CARD_ART_SHEET, CARD_ART_COLS, CARD_ART_ROWS)
+	audio_manager = AudioManagerScript.new()
+	add_child(audio_manager)
 	battle_effects = BattleCardEffectsScript.new()
 	run_flow = RunFlowCoordinatorScript.new(self)
 	battle_screen = null
@@ -834,6 +838,7 @@ func _show_map() -> void:
 	run_flow.show_map()
 
 func _enter_current_node(path_index: int = 0) -> void:
+	audio_manager.play_sound("click")
 	current_run["current_path_index"] = path_index
 	run_flow.enter_current_node()
 
@@ -844,6 +849,7 @@ func _show_event() -> void:
 	run_flow.show_event()
 
 func _complete_event_and_return() -> void:
+	audio_manager.play_sound("click")
 	run_flow.complete_event_and_return()
 
 func _show_shop() -> void:
@@ -853,12 +859,15 @@ func _show_rest() -> void:
 	run_flow.show_rest()
 
 func _rest_heal() -> void:
+	audio_manager.play_sound("click")
 	run_flow.rest_heal()
 
 func _rest_upgrade_card() -> void:
+	audio_manager.play_sound("click")
 	run_flow.rest_upgrade_card()
 
 func _complete_rest() -> void:
+	audio_manager.play_sound("click")
 	run_flow.complete_rest()
 
 func _show_remove_card_screen(reason: String, source: String = "") -> void:
