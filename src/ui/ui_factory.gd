@@ -298,6 +298,7 @@ func make_large_action_button(title: String, subtitle: String, icon_text: String
 	button.add_theme_color_override("font_disabled_color", Color(0.5, 0.52, 0.56, 1.0))
 	button.add_theme_color_override("font_outline_color", Color(0.01, 0.012, 0.014, 1.0))
 	button.add_theme_constant_override("outline_size", 4)
+	_apply_hover_feedback(button)
 	return button
 
 func make_objective_panel(title: String, objective: String, compact: bool = false) -> PanelContainer:
@@ -474,6 +475,7 @@ func style_button(button: Button, base_color: Color) -> void:
 	button.add_theme_color_override("font_outline_color", Color(0.02, 0.025, 0.03, 1.0))
 	button.add_theme_constant_override("outline_size", 3)
 	button.add_theme_font_size_override("font_size", 16)
+	_apply_hover_feedback(button)
 
 func style_primary_button(button: Button, base_color: Color = Color(0.55, 0.36, 0.1, 1.0)) -> void:
 	var style_normal = StyleBoxTexture.new()
@@ -502,6 +504,7 @@ func style_primary_button(button: Button, base_color: Color = Color(0.55, 0.36, 
 	button.add_theme_color_override("font_outline_color", Color(0.02, 0.025, 0.03, 1.0))
 	button.add_theme_constant_override("outline_size", 4)
 	button.add_theme_font_size_override("font_size", 17)
+	_apply_hover_feedback(button)
 
 func make_card_frame() -> PanelContainer:
 	var frame := PanelContainer.new()
@@ -544,3 +547,22 @@ func _make_texture_rect(texture: Texture2D, size: Vector2) -> TextureRect:
 	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	rect.custom_minimum_size = size
 	return rect
+
+func _apply_hover_feedback(button: Button) -> void:
+	button.pivot_offset = button.size / 2.0
+	button.mouse_entered.connect(func():
+		if button == null or not is_instance_valid(button):
+			return
+		var root = Engine.get_main_loop().current_scene
+		if root != null and root.get("audio_manager") != null:
+			root.audio_manager.play_sound("hover")
+		button.pivot_offset = button.size / 2.0
+		var tween := button.create_tween()
+		tween.tween_property(button, "scale", Vector2(1.05, 1.05), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	)
+	button.mouse_exited.connect(func():
+		if button == null or not is_instance_valid(button):
+			return
+		var tween := button.create_tween()
+		tween.tween_property(button, "scale", Vector2.ONE, 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	)

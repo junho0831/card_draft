@@ -3,7 +3,7 @@
         "id": "goblin_raider",
         "name": "고블린 약탈자",
         "tier": "normal",
-        "base_hp": 12,
+        "base_hp": 10,
         "deck_ids": [
             "militia",
             "thief",
@@ -23,7 +23,7 @@
         "id": "wolf_pack",
         "name": "늑대 무리",
         "tier": "normal",
-        "base_hp": 12,
+        "base_hp": 11,
         "deck_ids": [
             "militia",
             "militia",
@@ -43,7 +43,7 @@
         "id": "bandit_archer",
         "name": "산적 궁수",
         "tier": "normal",
-        "base_hp": 13,
+        "base_hp": 12,
         "deck_ids": [
             "small_flame",
             "gale_shot",
@@ -104,7 +104,7 @@
         "id": "shield_bearer",
         "name": "방패병",
         "tier": "normal",
-        "base_hp": 15,
+        "base_hp": 13,
         "deck_ids": [
             "shield_guard",
             "shield_guard",
@@ -169,7 +169,7 @@
         "id": "border_guardian",
         "name": "국경 수호자",
         "tier": "boss",
-        "base_hp": 32,
+        "base_hp": 28,
         "deck_ids": [
             "flame_swordsman",
             "shield_guard",
@@ -191,7 +191,7 @@
         "id": "undead_king",
         "name": "언데드 왕",
         "tier": "boss",
-        "base_hp": 36,
+        "base_hp": 30,
         "deck_ids": [
             "bone_soldier",
             "bone_soldier",

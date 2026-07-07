@@ -73,6 +73,13 @@ func _resolve_unit_play(owner: Dictionary, enemy: Dictionary, unit: Dictionary, 
 	var draw_cards: Callable = context.get("draw_cards", Callable())
 	var log: Callable = context.get("log", Callable())
 	match _base_card_id(String(unit.get("id", ""))):
+		"militia":
+			_deal_frontline_damage(owner, enemy, unit, 1, context, "민병대 진입")
+		"trainee_swordsman":
+			unit["health"] = int(unit.get("health", 0)) + 1
+			unit["max_health"] = int(unit.get("max_health", 0)) + 1
+			if log.is_valid():
+				log.call("초보 검병 효과: 방어 태세로 체력 +1")
 		"forest_archer":
 			if draw_cards.is_valid():
 				draw_cards.call(owner, 1)
@@ -255,15 +262,23 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 				if log.is_valid():
 					log.call("%s: %s로 %s 영웅에게 피해 %d" % [owner.name, card.name, enemy.name, damage])
 			else:
+				var target_was_killed := int(enemy.field[0].get("health", 0)) - damage <= 0
 				enemy.field[0].health -= damage
 				if log.is_valid():
 					log.call("%s: %s로 %s에게 피해 %d" % [owner.name, card.name, enemy.field[0].name, damage])
+				if card_id == "small_flame" and target_was_killed and draw_cards.is_valid():
+					draw_cards.call(owner, 1)
+					if log.is_valid():
+						log.call("작은 불꽃 처치 보너스: 카드 1장 드로우")
 				if cleanup.is_valid():
 					cleanup.call(owner, enemy)
 		"first_aid":
 			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 3)
+			if not owner.field.is_empty():
+				owner.field[0]["health"] = int(owner.field[0].get("health", 0)) + 1
+				owner.field[0]["max_health"] = int(owner.field[0].get("max_health", 0)) + 1
 			if log.is_valid():
-				log.call("%s: 응급 치료, 영웅 체력 3 회복" % owner.name)
+				log.call("%s: 응급 치료, 영웅 체력 3 회복 / 앞 아군 체력 +1" % owner.name)
 		"healing_potion":
 			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 5)
 			if log.is_valid():
@@ -276,6 +291,24 @@ func _resolve_equipment(owner: Dictionary, card: Dictionary, context: Dictionary
 	owner.field[0].attack += 2
 	if log.is_valid():
 		log.call("%s: %s 장착, %s 공격력 +2" % [owner.name, card.name, owner.field[0].name])
+
+func _deal_frontline_damage(owner: Dictionary, enemy: Dictionary, source: Dictionary, base_damage: int, context: Dictionary, source_name: String) -> void:
+	var log: Callable = context.get("log", Callable())
+	var cleanup: Callable = context.get("cleanup_dead_units", Callable())
+	var calc_damage: Callable = context.get("calculate_damage", Callable())
+	var damage := base_damage
+	if calc_damage.is_valid():
+		damage = int(calc_damage.call(source, false, owner, base_damage))
+	if enemy.field.is_empty():
+		enemy.health -= damage
+		if log.is_valid():
+			log.call("%s: %s 영웅에게 피해 %d" % [source_name, enemy.name, damage])
+		return
+	enemy.field[0].health -= damage
+	if log.is_valid():
+		log.call("%s: %s에게 피해 %d" % [source_name, enemy.field[0].name, damage])
+	if cleanup.is_valid():
+		cleanup.call(owner, enemy)
 
 func _add_curse(enemy: Dictionary, amount: int, log: Callable, source: String) -> void:
 	enemy["curses"] = int(enemy.get("curses", 0)) + amount

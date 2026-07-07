@@ -49,6 +49,91 @@ var opponent_field_slots: Array[Control] = []
 var player_field_slots: Array[Control] = []
 var player := {}
 var opponent := {}
+var hover_popup: PanelContainer = null
+var last_player_mana: int = 0
+var last_player_deck_count: int = 0
+var last_player_discard_count: int = 0
+
+func _show_hover_popup(node: Control, title_text: String, description_text: String, accent_color: Color) -> void:
+	if _should_skip_timed_battle_fx():
+		return
+	_hide_hover_popup()
+	
+	hover_popup = PanelContainer.new()
+	var popup_width: float = 240.0
+	hover_popup.custom_minimum_size = Vector2(popup_width, 0)
+	hover_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	var style: StyleBoxTexture = StyleBoxTexture.new()
+	style.texture = load("res://assets/ui/fantasy_ui_panel.png")
+	style.texture_margin_left = 16
+	style.texture_margin_top = 16
+	style.texture_margin_right = 16
+	style.texture_margin_bottom = 16
+	style.modulate_color = Color(0.12, 0.1, 0.08, 0.98).lerp(accent_color, 0.08)
+	style.content_margin_left = 14
+	style.content_margin_top = 12
+	style.content_margin_right = 14
+	style.content_margin_bottom = 12
+	hover_popup.add_theme_stylebox_override("panel", style)
+	
+	var box: VBoxContainer = VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hover_popup.add_child(box)
+	
+	# Stylish runic brackets for fantasy titles
+	var stylized_title := "❖  %s  ❖" % title_text
+	var title_label: Label = main._make_label(stylized_title, 16, accent_color.lightened(0.24))
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_label.add_theme_constant_override("outline_size", 5)
+	title_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	box.add_child(title_label)
+	
+	var sep: HSeparator = HSeparator.new()
+	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(sep)
+	
+	var desc_label := RichTextLabel.new()
+	desc_label.bbcode_enabled = true
+	desc_label.text = description_text
+	desc_label.add_theme_font_size_override("normal_font_size", 13)
+	desc_label.add_theme_color_override("default_color", Color(0.92, 0.94, 0.98, 1.0))
+	desc_label.add_theme_constant_override("outline_size", 3)
+	desc_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	desc_label.fit_content = true
+	desc_label.scroll_active = false
+	desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(desc_label)
+	
+	main.modal_layer.add_child(hover_popup)
+	
+	var global_pos: Vector2 = node.global_position
+	var size_y: float = hover_popup.size.y if hover_popup.size.y > 0 else 82.0
+	var viewport_size: Vector2 = main.get_viewport_rect().size
+	
+	var target_pos := Vector2(
+		clamp(global_pos.x + (node.size.x - popup_width) / 2.0, 10.0, viewport_size.x - popup_width - 10.0),
+		clamp(global_pos.y - size_y - 12.0, 10.0, viewport_size.y - size_y - 10.0)
+	)
+	
+	hover_popup.position = target_pos + Vector2(0, 10.0)
+	hover_popup.scale = Vector2(0.82, 0.82)
+	hover_popup.pivot_offset = Vector2(popup_width / 2.0, size_y)
+	hover_popup.modulate.a = 0.0
+	
+	var tween: Tween = main.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(hover_popup, "modulate:a", 1.0, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(hover_popup, "position", target_pos, 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(hover_popup, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _hide_hover_popup() -> void:
+	if hover_popup != null and is_instance_valid(hover_popup):
+		hover_popup.queue_free()
+	hover_popup = null
+
 var current_player := "player"
 var selected_attacker := -1
 var game_over := false
@@ -150,6 +235,7 @@ func _restore_battle_snapshot(snapshot: Dictionary) -> void:
 		turn_timer.start(restored_time_left)
 	elif turn_timer != null:
 		turn_timer.stop()
+	_init_status_trackers()
 	_refresh_ui()
 	if current_player == "opponent" and not game_over:
 		call_deferred("_resume_opponent_turn_from_snapshot")
@@ -193,7 +279,7 @@ func _can_play_card(side: Dictionary, card: Dictionary, owner_key: String) -> bo
 	return true
 
 func _is_battle_cutscene_enabled() -> bool:
-	return bool(main.player_profile.get("settings", {}).get("battle_cutscene", false))
+	return bool(main.player_profile.get("settings", {}).get("battle_cutscene", true))
 
 func _is_player_input_locked() -> bool:
 	return input_locked or game_over or current_player != "player"
@@ -212,6 +298,21 @@ func _format_opponent_victory_gauge() -> String:
 func _format_player_victory_gauge() -> String:
 	return "%s | %s" % [main._battle_build_hint_text(), _format_side_resources(player)]
 
+func _enemy_strategy_text() -> String:
+	var enemy_data: Dictionary = main.current_run.get("active_enemy", {})
+	var tags: Array = enemy_data.get("ai_tags", [])
+	if tags.has("swarm"):
+		return "유닛을 많이 깔아 전장을 압박"
+	if tags.has("direct_damage") or tags.has("aggressive"):
+		return "영웅 체력을 직접 노림"
+	if tags.has("defense") or tags.has("field_test"):
+		return "큰 유닛으로 전장을 버팀"
+	if tags.has("death") or tags.has("revive"):
+		return "사망 효과로 추가 피해를 노림"
+	if tags.has("self_harm") or tags.has("low_hp"):
+		return "체력을 깎고 강한 효과를 사용"
+	return "카드 사용과 공격을 준비"
+
 func _next_enemy_action_text() -> String:
 	var ready_attack := 0
 	for unit in opponent.field:
@@ -220,12 +321,12 @@ func _next_enemy_action_text() -> String:
 	if ready_attack >= int(player.get("health", 0)):
 		return "다음 적 행동: 영웅 공격 위험"
 	if ready_attack > 0:
-		return "다음 적 행동: 유닛 공격"
+		return "다음 적 행동: 유닛 공격 · %s" % _enemy_strategy_text()
 	for card in opponent.hand:
 		var enemy_card: Dictionary = card
 		if String(enemy_card.get("type", "")) == "unit" and _can_play_card(opponent, enemy_card, "opponent"):
-			return "다음 적 행동: 소환 준비"
-	return "다음 적 행동: 카드 사용 준비"
+			return "다음 적 행동: 소환 준비 · %s" % _enemy_strategy_text()
+	return "다음 적 행동: %s" % _enemy_strategy_text()
 
 func _current_battle_guidance_text() -> String:
 	if game_over:
@@ -282,7 +383,7 @@ func _unplayable_card_hint(card: Dictionary, cost: int) -> String:
 	return "사용 불가"
 
 func _make_battle_guidance_panel(compact: bool) -> PanelContainer:
-	var panel := _make_battle_surface(Color(0.04, 0.052, 0.068, 0.9), Color(0.18, 0.42, 0.7, 0.85), 1, 10, 14)
+	var panel := _make_battle_surface(Color(0.16, 0.12, 0.08, 0.98), Color(0.85, 0.65, 0.25, 0.95), 1, 10, 14)
 	var tight := _is_tight_battle_layout()
 	panel.custom_minimum_size = Vector2(0, 36 if tight else (52 if compact else 58))
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -290,13 +391,17 @@ func _make_battle_guidance_panel(compact: bool) -> PanelContainer:
 	row.alignment = BoxContainer.ALIGNMENT_BEGIN
 	row.add_theme_constant_override("separation", 10)
 	panel.add_child(row)
-	var title: Label = main._make_label("NEXT", 11 if tight else (12 if compact else 13), Color(0.45, 0.7, 1.0, 1.0))
+	var title: Label = main._make_label("📜 작전 지시", 13 if tight else (15 if compact else 17), Color(1.0, 0.88, 0.55, 1.0))
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
-	title.custom_minimum_size = Vector2(72 if tight else (82 if compact else 110), 0)
+	title.custom_minimum_size = Vector2(80 if tight else (96 if compact else 125), 0)
+	title.add_theme_constant_override("outline_size", 3)
+	title.add_theme_color_override("font_outline_color", Color(0.15, 0.1, 0.05, 0.85))
 	row.add_child(title)
-	battle_guidance_label = main._make_label("", 12 if tight else (15 if compact else 17), Color(0.93, 0.97, 1.0, 1.0))
+	battle_guidance_label = main._make_label("", 14 if tight else (18 if compact else 21), Color(1.0, 0.98, 0.94, 1.0))
 	battle_guidance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	battle_guidance_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	battle_guidance_label.add_theme_constant_override("outline_size", 5)
+	battle_guidance_label.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.02, 0.95))
 	row.add_child(battle_guidance_label)
 	return panel
 
@@ -934,12 +1039,19 @@ func _build_stat_chip_tags() -> Array[Dictionary]:
 func _card_accent_color(card: Dictionary) -> Color:
 	return main.ui.card_race_color(card)
 
-func _make_hand_card_style(bg_color: Color, border_color: Color, border_width: int = 2) -> StyleBoxFlat:
-	var style: StyleBoxFlat = main.ui.make_style_box(bg_color, border_color, border_width, 8)
-	style.content_margin_left = 5
-	style.content_margin_top = 5
-	style.content_margin_right = 5
-	style.content_margin_bottom = 5
+func _make_hand_card_style(bg_color: Color, border_color: Color, border_width: int = 2) -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = load("res://assets/ui/fantasy_card_frame.png")
+	style.texture_margin_left = 14
+	style.texture_margin_top = 14
+	style.texture_margin_right = 14
+	style.texture_margin_bottom = 14
+	# Modulate with border_color to tint the border glow (green, gold, standard)
+	style.modulate_color = border_color
+	style.content_margin_left = 8
+	style.content_margin_top = 8
+	style.content_margin_right = 8
+	style.content_margin_bottom = 8
 	return style
 
 func _make_modern_style(bg_color: Color, border_color: Color, border_width: int = 1, radius: int = 8, margin: int = 10) -> StyleBoxFlat:
@@ -965,7 +1077,19 @@ func _make_modern_style(bg_color: Color, border_color: Color, border_width: int 
 
 func _make_battle_surface(bg_color: Color, accent_color: Color, border_width: int = 1, radius: int = 8, margin: int = 10) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _make_modern_style(bg_color, accent_color, border_width, radius, margin))
+	var style := StyleBoxTexture.new()
+	style.texture = load("res://assets/ui/fantasy_ui_panel.png")
+	style.texture_margin_left = 16
+	style.texture_margin_top = 16
+	style.texture_margin_right = 16
+	style.texture_margin_bottom = 16
+	# Modulate the panel with bg_color to preserve dark themes
+	style.modulate_color = bg_color.lightened(0.06)
+	style.content_margin_left = margin
+	style.content_margin_top = margin
+	style.content_margin_right = margin
+	style.content_margin_bottom = margin
+	panel.add_theme_stylebox_override("panel", style)
 	return panel
 
 func _style_battle_button(button: Button, bg_color: Color, accent_color: Color, active: bool = false) -> void:
@@ -1041,14 +1165,35 @@ func _render_build_chips() -> void:
 	var chip_data: Array[Dictionary] = _build_stat_chip_tags()
 	for i in range(chip_data.size()):
 		var item: Dictionary = chip_data[i]
-		var active: bool = active_tags.has(String(item.get("tag", "")))
+		var tag := String(item.get("tag", ""))
+		var val := int(item.get("value", 0))
+		var active: bool = active_tags.has(tag)
 		var base_color: Color = _build_stat_chip_color(i)
 		var panel: PanelContainer = main.ui.make_surface_panel(base_color.lightened(0.14) if active else base_color, Color(1.0, 0.78, 0.34, 1.0) if active else base_color.lightened(0.16), 2 if active else 1, 8, 6)
 		panel.custom_minimum_size = Vector2(48 if tight else (54 if compact else 62), 38 if tight else (44 if compact else 48))
-		var label: Label = main._make_label("%s\n%d" % [String(item.get("label", "")), int(item.get("value", 0))], 9 if tight else (10 if compact else 11), Color(1.0, 0.96, 0.82, 1.0) if active else Color(0.92, 0.94, 0.92, 1.0))
+		var label: Label = main._make_label("%s\n%d" % [String(item.get("label", "")), val], 9 if tight else (10 if compact else 11), Color(1.0, 0.96, 0.82, 1.0) if active else Color(0.92, 0.94, 0.92, 1.0))
 		label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		panel.add_child(label)
 		build_chip_box.add_child(panel)
+		
+		# Synergy tag tooltip hover integration
+		var meta: Dictionary = main._build_tag_meta().get(tag, {})
+		panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		panel.mouse_entered.connect(func():
+			if panel == null or not is_instance_valid(panel):
+				return
+			var title_text := "%s %s 시너지 (%d/%d)" % [meta.get("icon", ""), meta.get("name", ""), val, main._build_threshold()]
+			var status_str := ""
+			if active:
+				status_str = "[color=#5CD65C][b]● 활성화됨[/b][/color] (효과 적용 중)"
+			else:
+				status_str = "[color=#A0A5B0]○ 비활성화됨[/color] (활성화까지 %d장 부족)" % (main._build_threshold() - val)
+			var desc_text := "%s\n\n[color=#F2C96B][b]효과:[/b][/color] %s" % [status_str, meta.get("bonus", "")]
+			_show_hover_popup(panel, title_text, desc_text, base_color)
+		)
+		panel.mouse_exited.connect(func():
+			_hide_hover_popup()
+		)
 
 func _refresh_side_info_cards() -> void:
 	if enemy_hero_name_label != null and is_instance_valid(enemy_hero_name_label):
@@ -1077,11 +1222,31 @@ func _refresh_side_info_cards() -> void:
 
 func _refresh_status_chips() -> void:
 	if mana_status_label != null and is_instance_valid(mana_status_label):
-		mana_status_label.text = "마나 %d / %d" % [int(player.get("mana", 0)), int(player.get("max_mana", 0))]
+		var current_mana := int(player.get("mana", 0))
+		var max_mana := int(player.get("max_mana", 0))
+		mana_status_label.text = "마나 %d / %d" % [current_mana, max_mana]
+		if current_mana != last_player_mana:
+			var delta := current_mana - last_player_mana
+			_flash_label(mana_status_label, delta, Color(1.0, 0.98, 0.86, 1.0))
+			last_player_mana = current_mana
+			
 	if player_deck_status_label != null and is_instance_valid(player_deck_status_label):
-		player_deck_status_label.text = "덱 %d | 버림 %d" % [(player.get("deck", []) as Array).size(), (player.get("discard_pile", []) as Array).size()]
+		var deck_size := (player.get("deck", []) as Array).size()
+		var discard_size := (player.get("discard_pile", []) as Array).size()
+		player_deck_status_label.text = "덱 %d | 버림 %d" % [deck_size, discard_size]
+		if deck_size != last_player_deck_count or discard_size != last_player_discard_count:
+			var delta := (deck_size + discard_size) - (last_player_deck_count + last_player_discard_count)
+			_flash_label(player_deck_status_label, delta, Color(0.9, 0.92, 0.94, 1.0))
+			last_player_deck_count = deck_size
+			last_player_discard_count = discard_size
+			
 	if player_field_status_label != null and is_instance_valid(player_field_status_label):
 		player_field_status_label.text = "필드 %d / %d" % [player.field.size(), MAX_FIELD]
+
+func _init_status_trackers() -> void:
+	last_player_mana = int(player.get("mana", 0))
+	last_player_deck_count = (player.get("deck", []) as Array).size()
+	last_player_discard_count = (player.get("discard_pile", []) as Array).size()
 
 func _refresh_battle_dashboard() -> void:
 	_refresh_side_info_cards()
@@ -1488,9 +1653,9 @@ func _show_turn_banner(text: String, is_player: bool) -> void:
 	var tween = main.create_tween()
 	tween.tween_property(banner, "scale", Vector2(1.0, 1.0), 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_property(banner, "modulate:a", 1.0, 0.12)
-	tween.tween_interval(0.28)
+	tween.tween_interval(1.15)
 	tween.tween_property(banner, "modulate:a", 0.0, 0.16)
-	tween.tween_callback(banner.queue_free)
+	tween.tween_callback(Callable(self, "_queue_free_if_valid").bind(banner))
 	await tween.finished
 
 
@@ -1704,6 +1869,10 @@ func _card_result_preview(card: Dictionary) -> String:
 	if card_type == "unit":
 		parts.append("소환 %d/%d" % [int(card.get("attack", 0)), int(card.get("health", 0))])
 		match card_id:
+			"militia":
+				parts.append("앞 적 피해 1")
+			"trainee_swordsman":
+				parts.append("체력 +1")
 			"forest_archer":
 				parts.append("드로우 +1")
 			"knight_spearman":
@@ -1730,6 +1899,8 @@ func _card_result_preview(card: Dictionary) -> String:
 	var heal := _card_heal_preview(card)
 	if heal > 0:
 		parts.append("영웅 회복 %d" % heal)
+		if card_id == "first_aid":
+			parts.append("앞 아군 체력 +1")
 	if card_id in ["elven_insight", "dark_bargain"]:
 		parts.append("드로우 +2")
 	if card_id in ["royal_support", "soul_shackle", "nature_communion", "ancient_oath"]:
@@ -1974,12 +2145,12 @@ func _show_damage_number(target: Control, damage: int, counter: bool = false) ->
 	if damage <= 0 or target == null or not is_instance_valid(target):
 		return
 	var color := Color(1.0, 0.72, 0.24, 1.0) if counter else Color(1.0, 0.26, 0.24, 1.0)
-	_spawn_floating_text(target, "-%d" % damage, color, 44, 0.9, Vector2(-28, -24) if counter else Vector2(-22, -24))
+	_spawn_floating_text(target, "-%d" % damage, color, 46, 0.9, Vector2.ZERO)
 
 func _show_outcome_text(target: Control, text: String, color: Color) -> void:
 	if target == null or not is_instance_valid(target):
 		return
-	_spawn_floating_text(target, text, color, 36, 0.95, Vector2(-34, -58))
+	_spawn_floating_text(target, text, color, 38, 0.95, Vector2(0, -32))
 
 func _play_defeat_feedback(target: Control, color: Color) -> void:
 	if target == null or not is_instance_valid(target):
@@ -2010,7 +2181,7 @@ func _spawn_target_glow(target: Control, color: Color, duration: float = 0.28) -
 	target.add_child(glow)
 	var tween := glow.create_tween()
 	tween.tween_property(glow, "color:a", 0.0, duration).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	tween.tween_callback(glow.queue_free)
+	tween.tween_callback(Callable(self, "_queue_free_if_valid").bind(glow))
 
 func _shake_target(target: Control, intensity: float) -> void:
 	if target == null or not is_instance_valid(target):
@@ -2046,11 +2217,11 @@ func _spawn_impact_slash(target: Control, counter: bool = false) -> void:
 	var tween := slash.create_tween()
 	tween.tween_property(slash, "width", 0.0, 0.24).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_property(slash, "modulate:a", 0.0, 0.24)
-	tween.tween_callback(slash.queue_free)
+	tween.tween_callback(Callable(self, "_queue_free_if_valid").bind(slash))
 	var tween_two := slash_two.create_tween()
 	tween_two.tween_property(slash_two, "width", 0.0, 0.18).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	tween_two.parallel().tween_property(slash_two, "modulate:a", 0.0, 0.18)
-	tween_two.tween_callback(slash_two.queue_free)
+	tween_two.tween_callback(Callable(self, "_queue_free_if_valid").bind(slash_two))
 
 
 func _cleanup_dead_units(side_a: Dictionary, side_b: Dictionary) -> void:
@@ -2105,6 +2276,94 @@ func _run_ai_turn() -> void:
 	_refresh_ui()
 	_store_battle_snapshot()
 
+func _show_opponent_played_card_fx(card: Dictionary) -> void:
+	if _should_skip_timed_battle_fx():
+		return
+	
+	if main.audio_manager != null:
+		main.audio_manager.play_sound("play")
+		
+	var popup := PanelContainer.new()
+	var frame_size := Vector2(200, 260)
+	popup.custom_minimum_size = frame_size
+	popup.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	popup.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	
+	var viewport_size: Vector2 = main.get_viewport_rect().size
+	popup.position = (viewport_size - frame_size) / 2.0
+	popup.modulate.a = 0.0
+	popup.scale = Vector2(0.6, 0.6)
+	popup.pivot_offset = frame_size / 2.0
+	
+	var style := StyleBoxTexture.new()
+	style.texture = load("res://assets/ui/fantasy_card_frame.png")
+	style.texture_margin_left = 14
+	style.texture_margin_top = 14
+	style.texture_margin_right = 14
+	style.texture_margin_bottom = 14
+	style.modulate_color = _card_accent_color(card)
+	style.content_margin_left = 12
+	style.content_margin_top = 12
+	style.content_margin_right = 12
+	style.content_margin_bottom = 12
+	popup.add_theme_stylebox_override("panel", style)
+	
+	main.add_child(popup)
+	
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	popup.add_child(box)
+	
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 6)
+	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(header)
+	
+	var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "opponent")
+	var cost_badge: PanelContainer = main.ui.make_cost_badge("%d" % cost, true)
+	cost_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(cost_badge)
+	
+	var name_band: PanelContainer = main.ui.make_surface_panel(_card_accent_color(card).darkened(0.28), _card_accent_color(card).lightened(0.12), 1, 5, 3)
+	name_band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(name_band)
+	
+	var name_label: Label = main._make_label(String(card.get("name", "")), 13, Color(1.0, 0.96, 0.82, 1.0))
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_band.add_child(name_label)
+	
+	var art_size := Vector2(176, 110)
+	var art_rect: TextureRect = main._make_card_art_rect(card, art_size)
+	art_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(art_rect)
+	
+	var effect_label: Label = main._make_label(String(card.get("text", "")), 11, Color(0.85, 0.9, 0.96, 1.0))
+	effect_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	effect_label.custom_minimum_size = Vector2(0, 48)
+	effect_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(effect_label)
+	
+	var banner: PanelContainer = main.ui.make_chip("적 카드 사용!", Color(0.42, 0.12, 0.12, 1.0), Color(1.0, 0.82, 0.82, 1.0), 10)
+	banner.position = Vector2((frame_size.x - banner.custom_minimum_size.x) / 2.0, -18)
+	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	popup.add_child(banner)
+	
+	var tween: Tween = main.create_tween()
+	tween.tween_property(popup, "modulate:a", 1.0, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(popup, "scale", Vector2(1.0, 1.0), 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	
+	await main.get_tree().create_timer(0.85).timeout
+	
+	var fade_tween: Tween = main.create_tween()
+	fade_tween.tween_property(popup, "modulate:a", 0.0, 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	fade_tween.parallel().tween_property(popup, "scale", Vector2(0.8, 0.8), 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	fade_tween.tween_callback(Callable(self, "_queue_free_if_valid").bind(popup))
+	
+	await fade_tween.finished
+
 func _run_ai_play_cards() -> void:
 	var played := true
 	while played:
@@ -2117,13 +2376,19 @@ func _run_ai_play_cards() -> void:
 				opponent.hand.remove_at(i)
 				if String(card.get("type", "")) != "unit":
 					opponent.discard_pile.append(card)
+				
+				# Show card play presentation for AI
+				_refresh_ui()
+				await _show_opponent_played_card_fx(card)
+				
 				main.battle_effects.play_card(opponent, player, card, _battle_effect_context())
+				_refresh_ui()
 				_check_game_over()
 				played = true
 				if game_over:
 					return
-				if not _is_fast_ai_enabled():
-					await main.get_tree().create_timer(0.2).timeout
+				if not _is_fast_ai_enabled() and not _should_skip_timed_battle_fx():
+					await main.get_tree().create_timer(0.25).timeout
 				_store_battle_snapshot()
 				break
 
@@ -2192,39 +2457,54 @@ func _finish_battle_victory() -> void:
 	_save_run()
 	_show_card_reward()
 
-func _spawn_floating_text(target: Control, text: String, color: Color, font_size: int = 42, duration: float = 0.85, center_offset: Vector2 = Vector2(-24, -24)) -> void:
+func _spawn_floating_text(target: Control, text: String, color: Color, font_size: int = 42, duration: float = 0.85, center_offset: Vector2 = Vector2.ZERO) -> void:
 	if text.is_empty() or target == null or not is_instance_valid(target):
 		return
 	var lbl := Label.new()
 	lbl.text = text
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.custom_minimum_size = Vector2(160, 48)
+	lbl.pivot_offset = Vector2(80, 24)
 	lbl.add_theme_font_size_override("font_size", font_size)
 	lbl.add_theme_color_override("font_color", color)
 	lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	lbl.add_theme_constant_override("outline_size", 7)
 	lbl.z_index = 100
-	lbl.rotation_degrees = randf_range(-15, 15)
+	lbl.rotation_degrees = randf_range(-12, 12)
 	
 	main.modal_layer.add_child(lbl)
-	lbl.global_position = target.global_position + target.size / 2 + center_offset
+	lbl.global_position = target.global_position + target.size / 2.0 - Vector2(80, 24) + center_offset
 	
-	var tween = main.create_tween()
-	tween.tween_property(lbl, "scale", Vector2(1.16, 1.16), 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var tween: Tween = main.create_tween()
+	tween.tween_property(lbl, "scale", Vector2(1.22, 1.22), 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(lbl, "position:y", lbl.position.y - 76, duration).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_property(lbl, "modulate:a", 0.0, duration).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
-	tween.tween_callback(lbl.queue_free)
+	tween.tween_callback(Callable(self, "_queue_free_if_valid").bind(lbl))
 
 
 func _flash_label(label: Label, delta: int, original_color: Color) -> void:
-	var color := Color(1, 0.2, 0.2) if delta < 0 else Color(0.2, 1, 0.2)
+	if label == null or not is_instance_valid(label):
+		return
+	var color := Color(1.0, 0.25, 0.25) if delta < 0 else Color(0.25, 1.0, 0.25)
 	label.add_theme_color_override("font_color", color)
-	var tween = main.create_tween()
-	tween.tween_property(label, "scale", Vector2(1.1, 1.1), 0.1)
-	tween.tween_property(label, "scale", Vector2(1.0, 1.0), 0.3)
-	tween.tween_callback(func(): label.add_theme_color_override("font_color", original_color))
+	label.pivot_offset = label.size / 2.0
+	var tween: Tween = main.create_tween()
+	tween.tween_property(label, "scale", Vector2(1.18, 1.18), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_callback(Callable(self, "_restore_label_color_if_valid").bind(label, original_color))
 
 func _clear_container(container: Control) -> void:
 	for child in container.get_children():
 		child.queue_free()
+
+func _queue_free_if_valid(node) -> void:
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+
+func _restore_label_color_if_valid(label, original_color: Color) -> void:
+	if label != null and is_instance_valid(label) and label is Label:
+		(label as Label).add_theme_color_override("font_color", original_color)
 
 func _configure_field_button(button: Button, unit: Dictionary, index: int, is_player_field: bool) -> void:
 	if is_player_field:
@@ -2295,6 +2575,29 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	
 	# Card border highlights exactly matching the glowing states in screenshots
 	var race_border := _card_accent_color(unit)
+	frame.mouse_entered.connect(func():
+		if frame == null or not is_instance_valid(frame):
+			return
+		var card_def: Dictionary = main.card_db.get_card(String(unit.get("id", "")))
+		var status_text := ""
+		if is_player_field:
+			status_text = "아군 유닛" + (" (공격 가능)" if bool(unit.get("can_attack", false)) else " (행동 완료)")
+		else:
+			status_text = "적군 유닛"
+		var description := "⚔ 공격력 %d  |  ❤ 체력 %d/%d\n%s\n%s" % [
+			int(unit.get("attack", 0)),
+			int(unit.get("health", 0)),
+			int(unit.get("max_health", unit.get("health", 0))),
+			String(card_def.get("text", "특수 능력 없음")),
+			status_text
+		]
+		_show_hover_popup(frame, String(unit.get("name", "유닛")), description, race_border)
+	)
+	frame.mouse_exited.connect(func():
+		if frame == null or not is_instance_valid(frame):
+			return
+		_hide_hover_popup()
+	)
 	var slot_border := race_border
 	var slot_border_width := 2
 	var slot_bg := Color(0.025, 0.03, 0.04, 0.94)
@@ -2486,26 +2789,38 @@ func _render_hand() -> void:
 		card_box.add_child(action_label)
 		hand_box.add_child(frame)
 		
+		frame.pivot_offset = Vector2(frame_size.x / 2.0, frame_size.y) # Set bottom-center as pivot
+		frame.mouse_entered.connect(func():
+			if frame == null or not is_instance_valid(frame):
+				return
+			if playable:
+				var h_tween: Tween = frame.create_tween()
+				h_tween.tween_property(frame, "scale", Vector2(1.15, 1.15), 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+				frame.z_index = 10
+			var current_cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "player")
+			var description := "%s\n비용: %d 마나\n%s" % [
+				String(card.get("text", "효과 없음")),
+				current_cost,
+				"사용 가능" if playable else _unplayable_card_hint(card, current_cost)
+			]
+			_show_hover_popup(frame, String(card.get("name", "카드")), description, accent)
+		)
+		frame.mouse_exited.connect(func():
+			if frame == null or not is_instance_valid(frame):
+				return
+			if playable:
+				var h_tween: Tween = frame.create_tween()
+				h_tween.tween_property(frame, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+				frame.z_index = 0
+			_hide_hover_popup()
+		)
+		
 		var is_new := bool(card.get("_is_new", false))
 		if is_new:
 			card.erase("_is_new")
 			frame.scale = Vector2(0.2, 0.2)
 			frame.modulate.a = 0.0
-			frame.pivot_offset = Vector2(frame_size.x / 2.0, frame_size.y) # Set bottom-center as pivot
-			# Hover zoom & slide effect
-			frame.mouse_entered.connect(func():
-				if playable:
-					var h_tween := frame.create_tween()
-					h_tween.tween_property(frame, "scale", Vector2(1.15, 1.15), 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-					frame.z_index = 10
-			)
-			frame.mouse_exited.connect(func():
-				if playable:
-					var h_tween := frame.create_tween()
-					h_tween.tween_property(frame, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-					frame.z_index = 0
-			)
-			var draw_tween := frame.create_tween()
+			var draw_tween: Tween = frame.create_tween()
 			draw_tween.tween_interval(i * 0.08)
 			draw_tween.tween_callback(Callable(self, "_play_sfx").bind("draw"))
 			draw_tween.tween_property(frame, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -2548,7 +2863,14 @@ func _refresh_status_labels() -> void:
 	if player_gauge_info != null and is_instance_valid(player_gauge_info):
 		player_gauge_info.text = main._battle_build_hint_text()
 	if battle_guidance_label != null and is_instance_valid(battle_guidance_label):
-		battle_guidance_label.text = _current_battle_guidance_text()
+		var new_guidance := _current_battle_guidance_text()
+		if battle_guidance_label.text != new_guidance:
+			battle_guidance_label.text = new_guidance
+			var parent_panel = battle_guidance_label.get_parent().get_parent() as PanelContainer
+			if parent_panel != null:
+				var flash_tween: Tween = main.create_tween()
+				flash_tween.tween_property(parent_panel, "modulate", Color(2.0, 2.0, 2.0, 1.0), 0.12)
+				flash_tween.tween_property(parent_panel, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.22)
 	if battle_focus_label != null and is_instance_valid(battle_focus_label):
 		battle_focus_label.text = _current_battle_focus_text()
 
@@ -2578,6 +2900,7 @@ func _refresh_action_buttons() -> void:
 			_style_battle_button(end_turn_button, Color(0.08, 0.16, 0.24, 0.96), Color(0.22, 0.62, 0.95, 1.0), true)
 
 func _refresh_ui() -> void:
+	_hide_hover_popup()
 	_refresh_timer_label()
 	_refresh_status_labels()
 	_refresh_battle_dashboard()
@@ -2612,6 +2935,7 @@ func start_battle() -> void:
 	_spawn_build_token()
 	player.health = int(main.current_run.get("hp", player.health))
 	_add_log("%s 전투 시작. 적 영웅 체력을 0으로 만드세요." % _node_type_name(String(main.run_store.current_node(main.current_run).get("type", "battle"))))
+	_init_status_trackers()
 	_refresh_ui()
 	_store_battle_snapshot()
 	await _show_turn_banner("전투 시작!", true)

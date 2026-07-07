@@ -117,7 +117,11 @@ func _create_premium_background() -> Texture2D:
 
 func _build_base_ui() -> void:
 	var background := TextureRect.new()
-	background.texture = _create_premium_background()
+	var bg_tex := load("res://assets/backgrounds/game_board_bg.png") as Texture2D
+	if bg_tex != null:
+		background.texture = bg_tex
+	else:
+		background.texture = _create_premium_background()
 	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

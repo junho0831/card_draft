@@ -6,6 +6,7 @@ var map_scroll: ScrollContainer
 var map_canvas: Control
 var nodes_data: Array
 var current_index: int
+var hover_popup: PanelContainer = null
 
 func _init(_main: Node) -> void:
 	main = _main
@@ -199,9 +200,30 @@ func _make_build_direction_panel(compact: bool) -> PanelContainer:
 	var scores: Dictionary = main._current_build_scores()
 	for tag in ["fire", "draw", "death", "buff", "low_hp", "summon"]:
 		var meta: Dictionary = main._build_tag_meta().get(tag, {})
-		var chip: PanelContainer = main.ui.make_chip("%s %d" % [String(meta.get("name", "")), int(scores.get(tag, 0))], Color(meta.get("color", Color(0.2, 0.2, 0.2, 1.0))).darkened(0.45), Color(0.98, 0.98, 0.94, 1.0), 13 if compact else 14)
+		var val: int = int(scores.get(tag, 0))
+		var active: bool = val >= main._build_threshold()
+		var base_color: Color = Color(meta.get("color", Color(0.2, 0.2, 0.2, 1.0)))
+		var chip: PanelContainer = main.ui.make_chip("%s %d" % [String(meta.get("name", "")), val], base_color.darkened(0.45), Color(0.98, 0.98, 0.94, 1.0), 13 if compact else 14)
 		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		chip_row.add_child(chip)
+		
+		# Hover integration
+		chip.mouse_filter = Control.MOUSE_FILTER_STOP
+		chip.mouse_entered.connect(func():
+			if chip == null or not is_instance_valid(chip):
+				return
+			var title_text := "%s %s 시너지 (%d/%d)" % [meta.get("icon", ""), meta.get("name", ""), val, main._build_threshold()]
+			var status_str := ""
+			if active:
+				status_str = "[color=#5CD65C][b]● 활성화됨[/b][/color] (효과 적용 중)"
+			else:
+				status_str = "[color=#A0A5B0]○ 비활성화됨[/color] (활성화까지 %d장 부족)" % (main._build_threshold() - val)
+			var desc_text := "%s\n\n[color=#F2C96B][b]효과:[/b][/color] %s" % [status_str, meta.get("bonus", "")]
+			_show_hover_popup(chip, title_text, desc_text, base_color)
+		)
+		chip.mouse_exited.connect(func():
+			_hide_hover_popup()
+		)
 	var active: Label = main._make_label(main._active_build_text(scores), 14 if compact else 15, Color(1.0, 0.86, 0.52, 1.0))
 	active.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(active)
@@ -517,6 +539,24 @@ func _make_node_button(index: int, type: String, pos: Vector2) -> Control:
 	btn.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 1.0))
 	btn.add_theme_constant_override("outline_size", 4)
 	
+	if index == current_index:
+		btn.pivot_offset = btn.custom_minimum_size / 2.0
+		btn.mouse_entered.connect(func():
+			if btn == null or not is_instance_valid(btn):
+				return
+			if main.audio_manager != null:
+				main.audio_manager.play_sound("hover")
+			btn.pivot_offset = btn.size / 2.0
+			var tween := btn.create_tween()
+			tween.tween_property(btn, "scale", Vector2(1.12, 1.12), 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		)
+		btn.mouse_exited.connect(func():
+			if btn == null or not is_instance_valid(btn):
+				return
+			var tween := btn.create_tween()
+			tween.tween_property(btn, "scale", Vector2.ONE, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		)
+	
 	return btn
 
 func _node_icon(node_type: String) -> String:
@@ -535,3 +575,80 @@ func _node_icon(node_type: String) -> String:
 			return "♨"
 		_:
 			return "•"
+
+func _show_hover_popup(node: Control, title_text: String, description_text: String, accent_color: Color) -> void:
+	_hide_hover_popup()
+	
+	hover_popup = PanelContainer.new()
+	var popup_width: float = 240.0
+	hover_popup.custom_minimum_size = Vector2(popup_width, 0)
+	hover_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	var style: StyleBoxTexture = StyleBoxTexture.new()
+	style.texture = load("res://assets/ui/fantasy_ui_panel.png")
+	style.texture_margin_left = 16
+	style.texture_margin_top = 16
+	style.texture_margin_right = 16
+	style.texture_margin_bottom = 16
+	style.modulate_color = Color(0.12, 0.1, 0.08, 0.98).lerp(accent_color, 0.08)
+	style.content_margin_left = 14
+	style.content_margin_top = 12
+	style.content_margin_right = 14
+	style.content_margin_bottom = 12
+	hover_popup.add_theme_stylebox_override("panel", style)
+	
+	var box: VBoxContainer = VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hover_popup.add_child(box)
+	
+	var stylized_title := "❖  %s  ❖" % title_text
+	var title_label: Label = main._make_label(stylized_title, 16, accent_color.lightened(0.24))
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_label.add_theme_constant_override("outline_size", 5)
+	title_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	box.add_child(title_label)
+	
+	var sep: HSeparator = HSeparator.new()
+	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(sep)
+	
+	var desc_label := RichTextLabel.new()
+	desc_label.bbcode_enabled = true
+	desc_label.text = description_text
+	desc_label.add_theme_font_size_override("normal_font_size", 13)
+	desc_label.add_theme_color_override("default_color", Color(0.92, 0.94, 0.98, 1.0))
+	desc_label.add_theme_constant_override("outline_size", 3)
+	desc_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	desc_label.fit_content = true
+	desc_label.scroll_active = false
+	desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(desc_label)
+	
+	main.modal_layer.add_child(hover_popup)
+	
+	var global_pos: Vector2 = node.global_position
+	var size_y: float = hover_popup.size.y if hover_popup.size.y > 0 else 82.0
+	var viewport_size: Vector2 = main.get_viewport_rect().size
+	
+	var target_pos := Vector2(
+		clamp(global_pos.x + (node.size.x - popup_width) / 2.0, 10.0, viewport_size.x - popup_width - 10.0),
+		clamp(global_pos.y - size_y - 12.0, 10.0, viewport_size.y - size_y - 10.0)
+	)
+	
+	hover_popup.position = target_pos + Vector2(0, 10.0)
+	hover_popup.scale = Vector2(0.82, 0.82)
+	hover_popup.pivot_offset = Vector2(popup_width / 2.0, size_y)
+	hover_popup.modulate.a = 0.0
+	
+	var tween: Tween = main.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(hover_popup, "modulate:a", 1.0, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(hover_popup, "position", target_pos, 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(hover_popup, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _hide_hover_popup() -> void:
+	if hover_popup != null and is_instance_valid(hover_popup):
+		hover_popup.queue_free()
+	hover_popup = null

@@ -10,7 +10,7 @@
         "health": 1,
         "art": 0,
         "art_id": "militia",
-        "text": "효과 없음",
+        "text": "소환 시 가장 앞의 적에게 피해 1",
         "starter": true,
         "build_tags": [
             "summon"
@@ -27,7 +27,7 @@
         "health": 2,
         "art": 1,
         "art_id": "trainee_swordsman",
-        "text": "효과 없음",
+        "text": "소환 시 자신 체력 +1",
         "starter": true,
         "build_tags": [
             "buff"
@@ -42,7 +42,7 @@
         "cost": 1,
         "art": 2,
         "art_id": "small_flame",
-        "text": "가장 앞의 적에게 피해 2",
+        "text": "가장 앞의 적에게 피해 2. 처치하면 카드 1장 드로우",
         "starter": true,
         "build_tags": [
             "fire"
@@ -57,7 +57,7 @@
         "cost": 1,
         "art": 3,
         "art_id": "first_aid",
-        "text": "내 영웅 체력 3 회복",
+        "text": "내 영웅 체력 3 회복. 가장 앞의 아군 체력 +1",
         "starter": true,
         "build_tags": [
             "low_hp"

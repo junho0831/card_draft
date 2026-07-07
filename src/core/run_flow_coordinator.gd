@@ -31,8 +31,8 @@ func init_run(race_id: String) -> void:
 		main._show_message("Act 데이터를 불러오지 못했습니다.", "_show_main_menu")
 		return
 	var upgrades: Dictionary = main._profile_upgrades()
-	var start_hp := 65 + int(upgrades.get("start_hp", 0)) * 5
-	var start_gold := 150 + int(upgrades.get("start_gold", 0)) * 25
+	var start_hp := 26 + int(upgrades.get("start_hp", 0)) * 4
+	var start_gold := 85 + int(upgrades.get("start_gold", 0)) * 15
 	var deck_ids: Array[String] = main.run_generator.starter_deck(race_id)
 	main.current_run = main.run_store.create_new_run(acts, deck_ids, start_hp, start_gold)
 	var relic_id: String = main.run_generator.get_starting_relic(race_id)
