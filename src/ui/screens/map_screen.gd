@@ -17,7 +17,7 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 
 	body.add_child(main._make_run_summary_panel())
 	var compact: bool = _is_map_compact_layout()
-	body.add_child(main.ui.make_guidance_banner("다음 행동", "빛나는 노드를 눌러 다음 장소로 진입", Color(0.2, 0.24, 0.18, 1.0), compact))
+	body.add_child(main.ui.make_guidance_banner("다음 행동", _map_primary_guidance_text(), Color(0.2, 0.24, 0.18, 1.0), compact))
 	body.add_child(_make_map_status_strip(compact))
 
 	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
@@ -160,20 +160,35 @@ func _make_objective_panel(compact: bool, act_data: Dictionary) -> PanelContaine
 	var current_layer: Variant = nodes_data[current_index]
 	if typeof(current_layer) == TYPE_ARRAY and (current_layer as Array).size() > 1:
 		box.add_child(_make_panel_title("경로 선택", compact))
+		var recommended_path_index := _recommended_path_index(current_layer as Array)
+		var route_tip: Label = main._make_label("처음이라면 추천 진행부터 누르세요. 이후 다른 경로와 비교해도 됩니다.", 13 if compact else 14, Color(0.82, 0.88, 0.96, 1.0))
+		route_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		box.add_child(route_tip)
+		var recommended_type := String((current_layer as Array)[recommended_path_index])
+		var recommended_button: Button = main._add_menu_button(box, "추천 진행 ▶ %s" % main._node_type_name(recommended_type), "", Color(0.62, 0.4, 0.1, 1.0))
+		recommended_button.pressed.connect(func():
+			main._enter_current_node(recommended_path_index)
+		)
+		main.ui.style_primary_button(recommended_button)
 		for path_idx in range((current_layer as Array).size()):
 			var ptype := String((current_layer as Array)[path_idx])
-			var btn: Button = main._add_menu_button(box, "%s 진입 ▶" % main._node_type_name(ptype), "", Color(0.55, 0.36, 0.1, 1.0))
+			var button_text := "%s 진입 ▶" % main._node_type_name(ptype)
+			if path_idx == recommended_path_index:
+				button_text = "%s  추천" % button_text
+			var btn: Button = main._add_menu_button(box, button_text, "", Color(0.55, 0.36, 0.1, 1.0))
 			btn.pressed.connect(func():
 				main._enter_current_node(path_idx)
 			)
-			if path_idx == 0:
-				main.ui.style_primary_button(btn)
 	else:
-		var enter_button: Button = main._add_menu_button(box, "현재 노드 진입 ▶", "", Color(0.55, 0.36, 0.1, 1.0))
+		var single_button_label := "바로 진행 ▶ %s" % main._node_type_name(current_type)
+		var enter_button: Button = main._add_menu_button(box, single_button_label, "", Color(0.55, 0.36, 0.1, 1.0))
 		enter_button.pressed.connect(func():
 			main._enter_current_node(0)
 		)
 		main.ui.style_primary_button(enter_button)
+		var quick_tip: Label = main._make_label("이 버튼만 누르면 바로 다음 장면으로 넘어갑니다.", 13 if compact else 14, Color(0.82, 0.88, 0.96, 1.0))
+		quick_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		box.add_child(quick_tip)
 
 	box.add_child(HSeparator.new())
 	box.add_child(_make_panel_title("예상 보상", compact))
@@ -331,6 +346,48 @@ func _primary_build_guidance(scores: Dictionary) -> String:
 		return "아직 빌드가 고정되지 않았습니다. 현재 노드 보상으로 방향을 잡으세요."
 	var meta: Dictionary = main._build_tag_meta().get(primary, {})
 	return "현재는 %s %s 축이 가장 강합니다. 이 노드의 보상이 시너지를 이어주는지 확인하세요." % [String(meta.get("icon", "")), String(meta.get("name", ""))]
+
+func _map_primary_guidance_text() -> String:
+	var current_layer: Variant = nodes_data[current_index]
+	if typeof(current_layer) == TYPE_ARRAY and (current_layer as Array).size() > 1:
+		var path_options := current_layer as Array
+		var recommended_path_index := _recommended_path_index(path_options)
+		return "추천 진행부터 눌러 빠르게 이어가거나, 경로 선택에서 비교 후 진입하세요."
+	return "오른쪽의 바로 진행 버튼을 누르면 즉시 다음 장소로 넘어갑니다."
+
+func _recommended_path_index(path_options: Array) -> int:
+	if path_options.is_empty():
+		return 0
+	var best_index := 0
+	var best_score := -999999
+	for path_idx in range(path_options.size()):
+		var node_type := String(path_options[path_idx])
+		var score := _node_priority_score(node_type)
+		if score > best_score:
+			best_score = score
+			best_index = path_idx
+	return best_index
+
+func _node_priority_score(node_type: String) -> int:
+	var scores: Dictionary = main._current_build_scores()
+	var hp: int = int(main.current_run.get("hp", 0))
+	var max_hp: int = max(1, int(main.current_run.get("max_hp", 1)))
+	var health_ratio: float = float(hp) / float(max_hp)
+	match node_type:
+		"rest":
+			return 120 if health_ratio <= 0.45 else 52
+		"shop":
+			return 104 if int(main.current_run.get("gold", 0)) >= 90 else 58
+		"elite":
+			return 48 if health_ratio <= 0.55 else 92
+		"event":
+			return 74
+		"battle":
+			return 84 if main._primary_build_tag(scores).is_empty() else 88
+		"boss":
+			return 999
+		_:
+			return 50
 
 func _node_color(node_type: String) -> Color:
 	match node_type:

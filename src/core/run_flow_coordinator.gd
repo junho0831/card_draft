@@ -93,7 +93,7 @@ func show_map() -> void:
 	main.active_screen = "map"
 	main._clear_screen()
 	var body: VBoxContainer = main._begin_menu_screen("Act %d 지도" % int(main.current_run.get("act", 1)))
-	var screen = MapScreenScript.new(main)
+	var screen = main._retain_screen_controller(MapScreenScript.new(main))
 	screen.build(body, act_data)
 
 func enter_current_node() -> void:
@@ -121,14 +121,14 @@ func show_card_reward() -> void:
 	main.active_screen = "reward"
 	main._clear_screen()
 	var body: VBoxContainer = main._begin_menu_screen("보상 선택")
-	var screen = RewardScreenScript.new(main)
+	var screen = main._retain_screen_controller(RewardScreenScript.new(main))
 	screen.build(body)
 
 func show_event() -> void:
 	main.active_screen = "event"
 	main._clear_screen()
 	var body: VBoxContainer = main._begin_menu_screen("이벤트")
-	var screen = EventScreenScript.new(main)
+	var screen = main._retain_screen_controller(EventScreenScript.new(main))
 	screen.build(body)
 
 func advance_from_current_node(pending_keys: Array[String] = []) -> void:
@@ -157,14 +157,14 @@ func show_shop() -> void:
 	main.active_screen = "shop"
 	main._clear_screen()
 	var body: VBoxContainer = main._begin_menu_screen("상점")
-	var screen = ShopScreenScript.new(main)
+	var screen = main._retain_screen_controller(ShopScreenScript.new(main))
 	screen.build(body)
 
 func show_rest() -> void:
 	main.active_screen = "rest"
 	main._clear_screen()
 	var body: VBoxContainer = main._begin_menu_screen("휴식")
-	var screen = RestScreenScript.new(main)
+	var screen = main._retain_screen_controller(RestScreenScript.new(main))
 	screen.build(body)
 
 func leave_shop() -> void:

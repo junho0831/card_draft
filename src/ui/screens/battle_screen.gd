@@ -16,6 +16,10 @@ var opponent_info: Label
 var opponent_gauge_info: Label
 var opponent_field_box: HBoxContainer
 var hero_attack_button: Button
+var recommended_action_button: Button
+var detail_toggle_button: Button
+var detail_panel: PanelContainer
+var tutorial_panel: PanelContainer
 var opponent_hero_target: Control
 var player_hero_target: Control
 var opponent_hero_target_badge: PanelContainer
@@ -53,6 +57,7 @@ var hover_popup: PanelContainer = null
 var last_player_mana: int = 0
 var last_player_deck_count: int = 0
 var last_player_discard_count: int = 0
+var battle_detail_visible := false
 
 func _show_hover_popup(node: Control, title_text: String, description_text: String, accent_color: Color) -> void:
 	if _should_skip_timed_battle_fx():
@@ -203,6 +208,8 @@ func _store_battle_snapshot() -> void:
 		"turn_timer_left": 0.0 if turn_timer == null or turn_timer.is_stopped() else turn_timer.time_left,
 		"battle_state_flags": {
 			"cards_played_this_turn": int(battle_state.get("cards_played_this_turn", 0)),
+			"combo_tag": String(battle_state.get("combo_tag", "")),
+			"combo_streak": int(battle_state.get("combo_streak", 0)),
 			"mana_crystal_bonus": bool(battle_state.get("mana_crystal_bonus", false)),
 			"first_card_discount_available": bool(battle_state.get("first_card_discount_available", false)),
 			"necromancer_ring_used": bool(battle_state.get("necromancer_ring_used", false)),
@@ -222,6 +229,8 @@ func _restore_battle_snapshot(snapshot: Dictionary) -> void:
 	input_locked = bool(snapshot.get("input_locked", false))
 	var flags: Dictionary = snapshot.get("battle_state_flags", {})
 	battle_state["cards_played_this_turn"] = int(flags.get("cards_played_this_turn", 0))
+	battle_state["combo_tag"] = String(flags.get("combo_tag", ""))
+	battle_state["combo_streak"] = int(flags.get("combo_streak", 0))
 	battle_state["mana_crystal_bonus"] = bool(flags.get("mana_crystal_bonus", false))
 	battle_state["first_card_discount_available"] = bool(flags.get("first_card_discount_available", false))
 	battle_state["necromancer_ring_used"] = bool(flags.get("necromancer_ring_used", false))
@@ -298,6 +307,92 @@ func _format_opponent_victory_gauge() -> String:
 func _format_player_victory_gauge() -> String:
 	return "%s | %s" % [main._battle_build_hint_text(), _format_side_resources(player)]
 
+func _recommended_action_state() -> Dictionary:
+	if _is_player_input_locked():
+		return {
+			"kind": "wait",
+			"text": "상대 턴 진행 중",
+			"guidance": "상대 턴 | %s" % _next_enemy_action_text(),
+		}
+	if selected_attacker != -1:
+		var selected := _selected_player_attacker()
+		if selected.is_empty():
+			return {
+				"kind": "end_turn",
+				"text": "추천 진행 ▶ 턴 종료",
+				"guidance": "추천 진행 또는 턴 종료 ▶ 를 누르세요.",
+			}
+		var selected_target := _recommended_attack_target_index(selected)
+		if int(opponent.get("health", 0)) <= _predict_hero_attack_damage(selected, player, false):
+			return {
+				"kind": "hero_attack_selected",
+				"text": "추천 진행 ▶ %s로 영웅 공격" % String(selected.get("name", "유닛")),
+				"guidance": "1. 적 영웅 선택  2. 바로 마무리",
+			}
+		if selected_target != -1:
+			return {
+				"kind": "unit_attack_selected",
+				"text": "추천 진행 ▶ %s로 유닛 공격" % String(selected.get("name", "유닛")),
+				"guidance": "1. 공격 대상 선택  2. 적 유닛 정리 또는 영웅 압박",
+				"target_index": selected_target,
+			}
+		return {
+			"kind": "hero_attack_selected",
+			"text": "추천 진행 ▶ %s로 영웅 공격" % String(selected.get("name", "유닛")),
+			"guidance": "1. 공격 대상 선택  2. 적 영웅 압박",
+		}
+
+	var ready_attacker_index := _recommended_ready_attacker_index()
+	if ready_attacker_index != -1 and ready_attacker_index < player.field.size():
+		var ready_attacker: Dictionary = player.field[ready_attacker_index]
+		var ready_target := _recommended_attack_target_index(ready_attacker)
+		if int(opponent.get("health", 0)) <= _predict_hero_attack_damage(ready_attacker, player, false):
+			return {
+				"kind": "hero_attack_direct",
+				"text": "추천 진행 ▶ %s 공격" % String(ready_attacker.get("name", "유닛")),
+				"guidance": "1. 공격 가능한 내 유닛으로 적 영웅 압박  2. 바로 마무리",
+				"attacker_index": ready_attacker_index,
+			}
+		if ready_target != -1:
+			return {
+				"kind": "unit_attack_direct",
+				"text": "추천 진행 ▶ %s 공격" % String(ready_attacker.get("name", "유닛")),
+				"guidance": "1. 공격 가능한 내 유닛으로 전장 정리  2. 유리한 교환부터 진행",
+				"attacker_index": ready_attacker_index,
+				"target_index": ready_target,
+			}
+		return {
+			"kind": "hero_attack_direct",
+			"text": "추천 진행 ▶ %s 공격" % String(ready_attacker.get("name", "유닛")),
+			"guidance": "1. 공격 가능한 내 유닛으로 적 영웅 압박  2. 전투를 빠르게 끝내세요",
+			"attacker_index": ready_attacker_index,
+		}
+
+	var recommended_index := _recommended_hand_index()
+	if recommended_index != -1 and recommended_index < player.hand.size():
+		var recommended_card: Dictionary = player.hand[recommended_index]
+		var card_type := String(recommended_card.get("type", ""))
+		var card_id := _base_card_id(String(recommended_card.get("id", "")))
+		var guidance := "1. 추천 카드 사용  2. 남은 마나로 추가 전개"
+		if card_type == "unit":
+			guidance = "1. 추천 유닛 소환  2. 다음 공격 준비"
+		elif _direct_damage_preview(recommended_card) > 0 and not opponent.field.is_empty():
+			guidance = "1. 추천 피해 카드 사용  2. 앞줄 정리 후 공격"
+		elif card_id in ["first_aid", "healing_potion", "moonwell", "vampiric_strike"]:
+			guidance = "1. 회복 카드 사용  2. 안전해지면 공격"
+		return {
+			"kind": "play_card",
+			"text": "추천 진행 ▶ %s 사용" % String(recommended_card.get("name", "카드")),
+			"guidance": guidance,
+			"card_index": recommended_index,
+		}
+
+	return {
+		"kind": "end_turn",
+		"text": "추천 진행 ▶ 턴 종료",
+		"guidance": "할 수 있는 행동이 없으면 턴 종료 ▶ 를 누르세요.",
+	}
+
 func _enemy_strategy_text() -> String:
 	var enemy_data: Dictionary = main.current_run.get("active_enemy", {})
 	var tags: Array = enemy_data.get("ai_tags", [])
@@ -330,46 +425,24 @@ func _next_enemy_action_text() -> String:
 
 func _current_battle_guidance_text() -> String:
 	if game_over:
-		return "전투가 끝났습니다."
-	if input_locked or current_player != "player":
-		return _next_enemy_action_text()
-	if selected_attacker != -1:
-		var attacker := _selected_player_attacker()
-		if not attacker.is_empty() and int(opponent.get("health", 0)) <= _predict_hero_attack_damage(attacker, player, false):
-			return "영웅 공격으로 마무리 가능"
-		for enemy_unit in opponent.field:
-			var prediction := _predict_unit_attack(attacker, enemy_unit, player, opponent)
-			if bool(prediction.get("lethal", false)):
-				return "선택한 유닛으로 적 유닛을 처치하세요"
-		return "공격 가능한 적 또는 적 영웅을 선택하세요"
-	var recommended_card := _recommended_hand_card()
-	if not recommended_card.is_empty():
-		var card_type := String(recommended_card.get("type", ""))
-		var card_id := _base_card_id(String(recommended_card.get("id", "")))
-		if card_type == "unit":
-			return "먼저 추천 유닛을 소환하세요"
-		if _direct_damage_preview(recommended_card) > 0 and not opponent.field.is_empty():
-			return "추천 피해 카드로 앞 적을 정리하세요"
-		if card_id in ["first_aid", "healing_potion", "moonwell", "vampiric_strike"]:
-			return "체력이 낮습니다. 회복 카드를 쓰세요"
-		return "추천 카드를 사용해 이번 턴을 시작하세요"
-	for unit in player.field:
-		if bool(unit.get("can_attack", false)):
-			return "공격 가능한 유닛을 선택하세요"
-	return "할 행동이 없으면 턴 종료를 누르세요."
+		return "전투 종료"
+	return String(_recommended_action_state().get("guidance", "추천 진행 또는 턴 종료 ▶ 를 누르세요."))
 
 func _current_battle_focus_text() -> String:
 	if selected_attacker != -1 and selected_attacker < player.field.size():
 		var attacker: Dictionary = player.field[selected_attacker]
 		if opponent.field.is_empty():
-			return "%s -> 적 영웅  |  영웅 피해 %d" % [String(attacker.get("name", "유닛")), _predict_hero_attack_damage(attacker, player, false)]
-		return "%s -> 적 유닛 또는 적 영웅 선택" % String(attacker.get("name", "유닛"))
+			return "이번 턴 플랜: %s로 영웅 마무리 -> 턴 종료" % String(attacker.get("name", "유닛"))
+		return "이번 턴 플랜: %s로 교환 -> 남은 공격 확인 -> 턴 종료" % String(attacker.get("name", "유닛"))
 	if _is_player_input_locked():
-		return "적 행동 확인 중"
+		return "이번 턴 플랜: 상대 행동 확인 중"
 	for unit in player.field:
 		if bool(Dictionary(unit).get("can_attack", false)):
-			return "공격 가능한 내 유닛을 선택하세요."
-	return "카드를 내서 내 전장을 키우세요."
+			return "이번 턴 플랜: 공격 가능한 유닛부터 처리 -> 필요시 카드 사용 -> 턴 종료"
+	var recommended_card := _recommended_hand_card()
+	if not recommended_card.is_empty():
+		return "이번 턴 플랜: %s 사용 -> 새 공격 가능 여부 확인 -> 턴 종료" % String(recommended_card.get("name", "추천 카드"))
+	return "이번 턴 플랜: 손패 전개 -> 공격 준비 -> 턴 종료"
 
 func _unplayable_card_hint(card: Dictionary, cost: int) -> String:
 	if _is_player_input_locked():
@@ -391,7 +464,7 @@ func _make_battle_guidance_panel(compact: bool) -> PanelContainer:
 	row.alignment = BoxContainer.ALIGNMENT_BEGIN
 	row.add_theme_constant_override("separation", 10)
 	panel.add_child(row)
-	var title: Label = main._make_label("📜 작전 지시", 13 if tight else (15 if compact else 17), Color(1.0, 0.88, 0.55, 1.0))
+	var title: Label = main._make_label("지금 할 일", 13 if tight else (15 if compact else 17), Color(1.0, 0.88, 0.55, 1.0))
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title.custom_minimum_size = Vector2(80 if tight else (96 if compact else 125), 0)
 	title.add_theme_constant_override("outline_size", 3)
@@ -403,6 +476,42 @@ func _make_battle_guidance_panel(compact: bool) -> PanelContainer:
 	battle_guidance_label.add_theme_constant_override("outline_size", 5)
 	battle_guidance_label.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.02, 0.95))
 	row.add_child(battle_guidance_label)
+	return panel
+
+func _should_show_battle_tutorial() -> bool:
+	return not bool(main.player_profile.get("battle_tutorial_seen", false))
+
+func _dismiss_battle_tutorial() -> void:
+	main.player_profile["battle_tutorial_seen"] = true
+	main._save_profile()
+	if tutorial_panel != null and is_instance_valid(tutorial_panel):
+		tutorial_panel.visible = false
+
+func _make_battle_tutorial_panel(compact: bool) -> PanelContainer:
+	var tight := _is_tight_battle_layout()
+	var panel := _make_battle_surface(Color(0.06, 0.075, 0.1, 0.98), Color(0.42, 0.62, 0.88, 0.82), 1, 10, 12)
+	panel.visible = _should_show_battle_tutorial()
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	panel.add_child(box)
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", 8)
+	box.add_child(title_row)
+	var title := main._make_label("첫 전투 가이드", 12 if tight else (14 if compact else 15), Color(0.92, 0.98, 1.0, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_row.add_child(title)
+	var dismiss := Button.new()
+	dismiss.text = "알겠어"
+	dismiss.focus_mode = Control.FOCUS_NONE
+	dismiss.custom_minimum_size = Vector2(74 if tight else 88, 28 if tight else 30)
+	_style_battle_button(dismiss, Color(0.08, 0.12, 0.18, 0.96), Color(0.34, 0.52, 0.76, 1.0), false)
+	dismiss.add_theme_font_size_override("font_size", 10 if tight else 11)
+	dismiss.pressed.connect(Callable(self, "_dismiss_battle_tutorial"))
+	title_row.add_child(dismiss)
+	box.add_child(main._make_label("1. 추천 진행부터 누르기  2. 밝은 카드/공격 가능한 유닛 사용  3. 더 없으면 턴 종료", 10 if tight else 12, Color(0.84, 0.9, 0.98, 1.0)))
+	box.add_child(main._make_label("같은 빌드 태그 카드를 연속으로 내면 연계가 발동합니다. 예: 화염 -> 화염, 드로우 -> 드로우", 10 if tight else 12, Color(1.0, 0.88, 0.6, 1.0)))
+	box.add_child(main._make_label("보상 화면에서는 '빌드 상승' 줄만 보고 고르면 초반 이해가 가장 쉽습니다.", 10 if tight else 12, Color(0.82, 0.92, 0.84, 1.0)))
 	return panel
 
 func _is_fast_ai_enabled() -> bool:
@@ -493,6 +602,8 @@ func _reset_battle_state() -> void:
 		"first_card_discount_available": false,
 		"mana_crystal_bonus": false,
 		"cards_played_this_turn": 0,
+		"combo_tag": "",
+		"combo_streak": 0,
 		"necromancer_ring_used": false,
 		"second_chance_used": false,
 		"active_build_tags": main._active_build_tags(main._current_build_scores()),
@@ -570,6 +681,68 @@ func _apply_build_on_ally_died(enemy_state: Dictionary) -> void:
 		enemy_state["health"] = int(enemy_state.get("health", 0)) - 1
 		_add_build_log("사망 빌드 활성, 적 영웅 피해 1")
 
+func _combo_candidate_tags(card: Dictionary) -> Array[String]:
+	var active_tags: Array[String] = []
+	for tag in main._card_build_tags(card):
+		if _is_build_active(tag):
+			active_tags.append(String(tag))
+	return active_tags
+
+func _resolve_card_combo(card: Dictionary) -> void:
+	var combo_tags: Array[String] = _combo_candidate_tags(card)
+	if combo_tags.is_empty():
+		battle_state["combo_tag"] = ""
+		battle_state["combo_streak"] = 0
+		return
+	var current_tag := String(battle_state.get("combo_tag", ""))
+	var next_tag := String(combo_tags[0])
+	var next_streak := 1
+	if not current_tag.is_empty() and combo_tags.has(current_tag):
+		next_tag = current_tag
+		next_streak = int(battle_state.get("combo_streak", 0)) + 1
+	battle_state["combo_tag"] = next_tag
+	battle_state["combo_streak"] = next_streak
+	if next_streak < 2:
+		return
+	_trigger_combo_bonus(next_tag, next_streak)
+
+func _trigger_combo_bonus(tag: String, streak: int) -> void:
+	var meta: Dictionary = main._build_tag_meta().get(tag, {})
+	var combo_name := "%s %s 연계 %d" % [String(meta.get("icon", "")), String(meta.get("name", "")), streak]
+	match tag:
+		"fire":
+			if opponent.field.is_empty():
+				opponent["health"] = int(opponent.get("health", 0)) - 2
+				_play_effect_hit_feedback(_hero_target_for_player(false), combo_name, Color(1.0, 0.46, 0.24, 1.0))
+			else:
+				opponent.field[0]["health"] = int(opponent.field[0].get("health", 0)) - 2
+				_play_effect_hit_feedback(_field_slot_for(opponent, 0), combo_name, Color(1.0, 0.46, 0.24, 1.0))
+				_cleanup_dead_units(player, opponent)
+			_add_log("연계 발동: 화염 카드 연속 사용으로 추가 피해 2")
+		"draw":
+			_draw_cards(player, 1)
+			_add_log("연계 발동: 드로우 카드 연속 사용으로 카드 1장 추가")
+			_play_effect_hit_feedback(_hero_target_for_player(true), combo_name, Color(0.42, 0.76, 1.0, 1.0))
+		"buff":
+			if not player.field.is_empty():
+				player.field[0]["attack"] = int(player.field[0].get("attack", 0)) + 1
+				_add_log("연계 발동: 버프 카드 연속 사용으로 선봉 공격력 +1")
+				_play_effect_hit_feedback(_field_slot_for(player, 0), combo_name, Color(1.0, 0.82, 0.34, 1.0))
+		"death":
+			opponent["health"] = int(opponent.get("health", 0)) - 1
+			_add_log("연계 발동: 사망 카드 연속 사용으로 적 영웅 피해 1")
+			_play_effect_hit_feedback(_hero_target_for_player(false), combo_name, Color(0.76, 0.5, 1.0, 1.0))
+		"summon":
+			if not player.field.is_empty():
+				var last_index := player.field.size() - 1
+				player.field[last_index]["can_attack"] = true
+				_add_log("연계 발동: 소환 카드 연속 사용으로 마지막 소환 유닛 즉시 공격")
+				_play_effect_hit_feedback(_field_slot_for(player, last_index), combo_name, Color(0.4, 1.0, 0.62, 1.0))
+		"low_hp":
+			player["health"] = min(int(player.get("max_health", 0)), int(player.get("health", 0)) + 1)
+			_add_log("연계 발동: 저체력 카드 연속 사용으로 영웅 체력 1 회복")
+			_play_effect_hit_feedback(_hero_target_for_player(true), combo_name, Color(0.42, 1.0, 0.62, 1.0))
+
 func _build_damage_bonus(source: Dictionary, is_spell: bool, owner_state: Dictionary) -> int:
 	var bonus := 0
 	if _is_build_active("fire") and String(source.get("attr", "")) == "화염":
@@ -579,22 +752,20 @@ func _build_damage_bonus(source: Dictionary, is_spell: bool, owner_state: Dictio
 	return bonus
 
 func _top_resource_text() -> String:
-	return "💧 %d/%d   📘 %d   🪙 %s%s" % [
+	return "💧 %d/%d%s" % [
 		int(player.get("mana", 0)),
 		int(player.get("max_mana", 0)),
-		(player.get("deck", []) as Array).size(),
-		main._format_large_number(int(main.current_run.get("gold", 0))),
 		("   ⏱ %d" % int(ceili(turn_timer.time_left))) if current_player == "player" and turn_timer != null and not turn_timer.is_stopped() else "",
 	]
 
 func _make_top_status_bar(compact: bool) -> PanelContainer:
 	var panel := _make_battle_surface(Color(0.018, 0.026, 0.036, 0.92), Color(0.12, 0.22, 0.34, 0.8), 1, 10, 9)
 	var tight := _is_tight_battle_layout()
-	panel.custom_minimum_size = Vector2(0, 28 if tight else (42 if compact else 46))
+	panel.custom_minimum_size = Vector2(0, 34 if tight else (50 if compact else 54))
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", 8 if tight else 12)
 	panel.add_child(row)
 
 	status_label = main._make_label("", 12 if tight else (14 if compact else 16), Color(1.0, 0.9, 0.62, 1.0))
@@ -604,9 +775,27 @@ func _make_top_status_bar(compact: bool) -> PanelContainer:
 
 	turn_timer_label = main._make_label("", 11 if tight else (12 if compact else 13), Color(0.86, 0.92, 0.98, 1.0))
 	turn_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	turn_timer_label.custom_minimum_size = Vector2(148 if tight else (160 if compact else 260), 0)
+	turn_timer_label.custom_minimum_size = Vector2(118 if tight else (132 if compact else 170), 0)
 	row.add_child(turn_timer_label)
+
+	var actions := HBoxContainer.new()
+	actions.alignment = BoxContainer.ALIGNMENT_END
+	actions.add_theme_constant_override("separation", 6 if tight else 8)
+	row.add_child(actions)
+	actions.add_child(_make_exit_button("메뉴", "_show_main_menu", Color(0.08, 0.12, 0.18, 0.96), tight, compact))
+	actions.add_child(_make_exit_button("포기", "_abandon_run", Color(0.28, 0.1, 0.1, 0.96), tight, compact))
+	actions.add_child(_make_exit_button("종료", "_quit_game", Color(0.14, 0.14, 0.14, 0.96), tight, compact))
 	return panel
+
+func _make_exit_button(text: String, callback_method: String, color: Color, tight: bool, compact: bool) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(44 if tight else (54 if compact else 62), 24 if tight else 28)
+	_style_battle_button(button, color, Color(0.34, 0.42, 0.52, 0.9), false)
+	button.add_theme_font_size_override("font_size", 10 if tight else 11)
+	button.pressed.connect(Callable(main, callback_method))
+	return button
 
 func _make_side_info_card(title_text: String, side: Dictionary, hero_art: int, compact: bool, enemy_side: bool) -> PanelContainer:
 	var tight := _is_tight_battle_layout()
@@ -931,46 +1120,200 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	box.add_theme_constant_override("separation", 6 if tight else 8)
 	panel.add_child(box)
 	if not wide_tight:
-		var title: Label = main._make_label("턴 조작", 12 if tight else (14 if compact else 15), Color(0.82, 0.9, 1.0, 1.0))
+		var title: Label = main._make_label("추천 진행", 12 if tight else (14 if compact else 15), Color(0.82, 0.9, 1.0, 1.0))
 		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		box.add_child(title)
 	if tight and not wide_tight:
-		var sub: Label = main._make_label("공격은 전장 타겟에서 선택", 10, Color(0.66, 0.72, 0.8, 1.0))
+		var sub: Label = main._make_label("이 버튼부터 누르고, 필요하면 카드/유닛을 직접 고르세요.", 10, Color(0.66, 0.72, 0.8, 1.0))
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		box.add_child(sub)
 	if not wide_tight:
-		var action_hint_chip: PanelContainer = _make_battle_badge("카드 사용 -> 전장 공격 -> 턴 종료", Color(0.08, 0.1, 0.13, 0.92), Color(0.25, 0.48, 0.72, 1.0), 10 if tight else 11)
+		var action_hint_chip: PanelContainer = _make_battle_badge("추천 진행 -> 필요시 직접 선택 -> 턴 종료", Color(0.08, 0.1, 0.13, 0.92), Color(0.25, 0.48, 0.72, 1.0), 10 if tight else 11)
 		box.add_child(action_hint_chip)
+
+	recommended_action_button = Button.new()
+	recommended_action_button.text = "추천 진행 ▶"
+	recommended_action_button.custom_minimum_size = Vector2(320 if vertical_stack else 0, 46 if wide_tight else (52 if tight else (56 if compact else 64)))
+	recommended_action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if vertical_stack:
+		recommended_action_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_style_battle_button(recommended_action_button, Color(0.16, 0.1, 0.04, 0.98), Color(1.0, 0.8, 0.28, 1.0), true)
+	recommended_action_button.add_theme_font_size_override("font_size", 13 if tight else 18)
+	recommended_action_button.pressed.connect(Callable(self, "_on_recommended_action_pressed"))
+	box.add_child(recommended_action_button)
 
 	end_turn_button = Button.new()
 	end_turn_button.text = "턴 종료"
-	end_turn_button.custom_minimum_size = Vector2(320 if vertical_stack else 0, 42 if wide_tight else (48 if tight else (50 if compact else 58)))
+	end_turn_button.custom_minimum_size = Vector2(320 if vertical_stack else 0, 38 if wide_tight else (42 if tight else (44 if compact else 48)))
 	end_turn_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if vertical_stack:
 		end_turn_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_style_battle_button(end_turn_button, Color(0.08, 0.16, 0.24, 0.96), Color(0.22, 0.62, 0.95, 1.0), true)
-	end_turn_button.add_theme_font_size_override("font_size", 12 if tight else 16)
+	_style_battle_button(end_turn_button, Color(0.08, 0.1, 0.13, 0.92), Color(0.24, 0.34, 0.44, 0.9), false)
+	end_turn_button.add_theme_font_size_override("font_size", 11 if tight else 14)
 	end_turn_button.pressed.connect(Callable(self, "_on_end_turn_pressed"))
 	box.add_child(end_turn_button)
 
-	var surrender_button := Button.new()
-	surrender_button.text = "도망가기"
-	surrender_button.custom_minimum_size = Vector2(320 if vertical_stack else 0, 40 if wide_tight else (42 if tight else (46 if compact else 50)))
-	surrender_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if vertical_stack:
-		surrender_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_style_battle_button(surrender_button, Color(0.12, 0.13, 0.16, 0.92), Color(0.34, 0.38, 0.46, 0.9), false)
-	surrender_button.add_theme_font_size_override("font_size", 12 if tight else 14)
-	surrender_button.pressed.connect(Callable(self, "_on_surrender_pressed"))
-	box.add_child(surrender_button)
-
 	return panel
+
+func _make_detail_toggle_row(compact: bool) -> HBoxContainer:
+	var tight := _is_tight_battle_layout()
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var title: Label = main._make_label("상세 보기", 11 if tight else (12 if compact else 13), Color(0.76, 0.82, 0.9, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(title)
+	detail_toggle_button = Button.new()
+	detail_toggle_button.text = "열기 ▶"
+	detail_toggle_button.custom_minimum_size = Vector2(124 if tight else 144, 30 if tight else 34)
+	_style_battle_button(detail_toggle_button, Color(0.07, 0.09, 0.12, 0.92), Color(0.24, 0.34, 0.44, 0.9), false)
+	detail_toggle_button.add_theme_font_size_override("font_size", 10 if tight else 12)
+	detail_toggle_button.pressed.connect(Callable(self, "_toggle_battle_details"))
+	row.add_child(detail_toggle_button)
+	return row
+
+func _make_battle_detail_panel(compact: bool) -> PanelContainer:
+	var tight := _is_tight_battle_layout()
+	var panel := _make_battle_surface(Color(0.028, 0.038, 0.05, 0.96), Color(0.18, 0.32, 0.46, 0.7), 1, 10, 10)
+	panel.visible = battle_detail_visible
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 8 if tight else 10)
+	panel.add_child(outer)
+
+	var top_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", 8)
+	outer.add_child(top_row)
+
+	var meta_panel := _make_battle_surface(Color(0.045, 0.055, 0.07, 0.94), Color(0.22, 0.3, 0.4, 0.7), 1, 8, 8)
+	meta_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_row.add_child(meta_panel)
+	var meta_box := VBoxContainer.new()
+	meta_box.add_theme_constant_override("separation", 6)
+	meta_panel.add_child(meta_box)
+	var meta_title: Label = main._make_label("전투 메모", 11 if tight else (12 if compact else 13), Color(1.0, 0.88, 0.55, 1.0))
+	meta_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	meta_box.add_child(meta_title)
+	enemy_hand_count_label = main._make_label("", 10 if tight else 12, Color(0.84, 0.88, 0.94, 1.0))
+	enemy_hand_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	meta_box.add_child(enemy_hand_count_label)
+	enemy_deck_count_label = main._make_label("", 10 if tight else 12, Color(0.84, 0.88, 0.94, 1.0))
+	enemy_deck_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	meta_box.add_child(enemy_deck_count_label)
+	var deck_chip_data: Dictionary = _make_tight_info_chip("덱 0 | 버림 0", Color(0.1, 0.12, 0.2, 1.0), 124) if tight else _make_status_chip("덱 0 | 버림 0", Color(0.1, 0.12, 0.2, 1.0), 12 if compact else 13)
+	player_deck_status_label = deck_chip_data["label"]
+	meta_box.add_child(deck_chip_data["panel"])
+
+	var build_panel := _make_battle_surface(Color(0.045, 0.055, 0.07, 0.94), Color(0.22, 0.3, 0.4, 0.7), 1, 8, 8)
+	build_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_row.add_child(build_panel)
+	var build_box := VBoxContainer.new()
+	build_box.add_theme_constant_override("separation", 6)
+	build_panel.add_child(build_box)
+	var build_title: Label = main._make_label("빌드 시너지", 11 if tight else (12 if compact else 13), Color(1.0, 0.88, 0.55, 1.0))
+	build_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	build_box.add_child(build_title)
+	var chips_wrap: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+	chips_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	chips_wrap.add_theme_constant_override("separation", 4 if tight else 8)
+	build_box.add_child(chips_wrap)
+	build_chip_box = chips_wrap
+
+	var bottom_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+	bottom_row.add_theme_constant_override("separation", 8 if tight else 10)
+	outer.add_child(bottom_row)
+	var deck_panel: Dictionary = _make_deck_preview_panel(compact, 110 if tight else 132)
+	deck_panel["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom_row.add_child(deck_panel["panel"])
+	var log_panel: Dictionary = _make_battle_log_panel(compact, 110 if tight else 132)
+	log_panel["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom_row.add_child(log_panel["panel"])
+	return panel
+
+func _toggle_battle_details() -> void:
+	battle_detail_visible = not battle_detail_visible
+	if detail_panel != null and is_instance_valid(detail_panel):
+		detail_panel.visible = battle_detail_visible
+	if detail_toggle_button != null and is_instance_valid(detail_toggle_button):
+		detail_toggle_button.text = "닫기 ▼" if battle_detail_visible else "열기 ▶"
 
 func _on_surrender_pressed() -> void:
 	if _is_player_input_locked():
 		return
 	_add_log("전투에서 도망쳤습니다. (패배)")
 	_finish_player_defeat()
+
+func _recommended_ready_attacker_index() -> int:
+	var best_index := -1
+	var best_attack := -1
+	for i in range(player.field.size()):
+		var unit: Dictionary = player.field[i]
+		if not bool(unit.get("can_attack", false)):
+			continue
+		var attack := int(unit.get("attack", 0))
+		if attack > best_attack:
+			best_attack = attack
+			best_index = i
+	return best_index
+
+func _recommended_attack_target_index(attacker: Dictionary) -> int:
+	var best_lethal_index := -1
+	var best_lethal_attack := -1
+	var best_fallback_index := -1
+	var best_fallback_health := 999999
+	for i in range(opponent.field.size()):
+		var enemy_unit: Dictionary = opponent.field[i]
+		var prediction := _predict_unit_attack(attacker, enemy_unit, player, opponent)
+		if bool(prediction.get("lethal", false)):
+			var threat := int(enemy_unit.get("attack", 0))
+			if threat > best_lethal_attack:
+				best_lethal_attack = threat
+				best_lethal_index = i
+		var hp := int(enemy_unit.get("health", 0))
+		if hp < best_fallback_health:
+			best_fallback_health = hp
+			best_fallback_index = i
+	if best_lethal_index != -1:
+		return best_lethal_index
+	return best_fallback_index
+
+func _recommended_action_text() -> String:
+	return String(_recommended_action_state().get("text", "추천 진행 ▶ 턴 종료"))
+
+func _on_recommended_action_pressed() -> void:
+	if _is_player_input_locked():
+		return
+	var state := _recommended_action_state()
+	match String(state.get("kind", "")):
+		"hero_attack_selected":
+			await _execute_player_hero_attack(selected_attacker)
+			selected_attacker = -1
+			_check_game_over()
+			_refresh_ui()
+			_store_battle_snapshot()
+			_check_no_actions_loss()
+		"unit_attack_selected":
+			await _execute_player_unit_attack(selected_attacker, int(state.get("target_index", -1)))
+			selected_attacker = -1
+			_check_game_over()
+			_refresh_ui()
+			_store_battle_snapshot()
+			_check_no_actions_loss()
+		"hero_attack_direct":
+			await _execute_player_hero_attack(int(state.get("attacker_index", -1)))
+			_check_game_over()
+			_refresh_ui()
+			_store_battle_snapshot()
+			_check_no_actions_loss()
+		"unit_attack_direct":
+			await _execute_player_unit_attack(int(state.get("attacker_index", -1)), int(state.get("target_index", -1)))
+			_check_game_over()
+			_refresh_ui()
+			_store_battle_snapshot()
+			_check_no_actions_loss()
+		"play_card":
+			_on_hand_card_pressed(int(state.get("card_index", -1)))
+		_:
+			_on_end_turn_pressed()
 
 func _initialize_battle_runtime_ui() -> void:
 	turn_overlay = Panel.new()
@@ -1269,13 +1612,15 @@ func _build_battle_ui() -> void:
 	var tight := _is_tight_battle_layout()
 	var wide_tight := _is_wide_tight_battle_layout()
 	var portrait := _is_portrait_battle_layout()
-	var vertical_stack := compact and not wide_tight
-	var horizontal_battle := not compact
 	root_box.add_theme_constant_override("separation", 5 if tight else 8)
+	battle_detail_visible = false
 	player_info = null
 	player_gauge_info = null
 	battle_focus_label = null
 	hero_attack_button = null
+	recommended_action_button = null
+	detail_toggle_button = null
+	detail_panel = null
 	opponent_hero_target = null
 	player_hero_target = null
 	opponent_hero_target_badge = null
@@ -1294,73 +1639,23 @@ func _build_battle_ui() -> void:
 	mana_status_label = null
 	player_deck_status_label = null
 	player_field_status_label = null
+	deck_count_label = null
+	deck_list_label = null
+	log_label = null
 	var field_height := 148 if wide_tight else (128 if tight and portrait else (146 if tight else (168 if not compact else 148)))
-	var board_width := 1260 if not compact else 0
-	var sidebar_width := 160 if not compact else 0
 	var hand_height := 132 if wide_tight else (176 if tight and portrait else (154 if tight else (236 if not compact else 214)))
-	var deck_height := 44 if tight else (92 if not compact else 70)
-	var log_height := 68 if tight else (132 if not compact else 112)
 	var battle_root := _make_battle_content_root(tight)
 
 	battle_root.add_child(_make_top_status_bar(compact))
 	battle_root.add_child(_make_battle_guidance_panel(compact))
-
-	var main_row: BoxContainer = VBoxContainer.new() if vertical_stack else HBoxContainer.new()
-	main_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	main_row.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	main_row.add_theme_constant_override("separation", 6 if vertical_stack else 0)
-	battle_root.add_child(main_row)
-
-	var left_column := VBoxContainer.new()
-	left_column.custom_minimum_size = Vector2(sidebar_width, 0)
-	left_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL if vertical_stack else Control.SIZE_SHRINK_BEGIN
-	left_column.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	left_column.add_theme_constant_override("separation", 4 if tight else 8)
-	if horizontal_battle:
-		main_row.add_child(left_column)
-
-	left_column.add_child(_make_side_info_card("적 영웅", opponent, ENEMY_HERO_ART, compact, true))
-
-	var enemy_meta: Dictionary = _make_section_panel("적 효과", compact, 54 if wide_tight else (72 if tight else (88 if not compact else 86)))
-	left_column.add_child(enemy_meta["panel"])
-	var enemy_meta_box: VBoxContainer = enemy_meta["content"]
-	if wide_tight:
-		enemy_hand_count_label = main._make_label("손패 %d | 덱 %d" % [(opponent.get("hand", []) as Array).size(), (opponent.get("deck", []) as Array).size()], 10, Color(0.84, 0.88, 0.94, 1.0))
-		enemy_hand_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		enemy_meta_box.add_child(enemy_hand_count_label)
-	else:
-		var enemy_state: Label = main._make_label("현재 전투: %s" % main._node_type_name(battle_tier), 12 if tight else (14 if compact else 15), Color(0.84, 0.88, 0.94, 1.0))
-		enemy_state.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		enemy_meta_box.add_child(enemy_state)
-		var enemy_stat_row := HBoxContainer.new()
-		enemy_stat_row.add_theme_constant_override("separation", 6)
-		enemy_meta_box.add_child(enemy_stat_row)
-		enemy_stat_row.add_child(main.ui.make_stat_tile("손패", str((opponent.get("hand", []) as Array).size()), Color(0.22, 0.18, 0.42, 1.0), compact))
-		enemy_stat_row.add_child(main.ui.make_stat_tile("덱", str((opponent.get("deck", []) as Array).size()), Color(0.16, 0.18, 0.24, 1.0), compact))
-		enemy_meta_box.add_child(main.ui.make_objective_panel("위협 요약", "손패와 덱 수를 보고 다음 턴 압박을 예측하세요.", tight or compact))
-		if tight:
-			var enemy_hint_chip: PanelContainer = main.ui.make_chip("상대 영웅 HP를 우선 확인하세요", Color(0.16, 0.16, 0.11, 1.0), Color(0.96, 0.92, 0.78, 1.0), 10)
-			enemy_meta_box.add_child(enemy_hint_chip)
-	if not tight:
-		enemy_hand_count_label = main._make_label("손패 %d" % (opponent.get("hand", []) as Array).size(), 14 if compact else 15, Color(0.84, 0.88, 0.94, 1.0))
-		enemy_hand_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		enemy_meta_box.add_child(enemy_hand_count_label)
-		enemy_deck_count_label = main._make_label("덱 %d" % (opponent.get("deck", []) as Array).size(), 14 if compact else 15, Color(0.84, 0.88, 0.94, 1.0))
-		enemy_deck_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		enemy_meta_box.add_child(enemy_deck_count_label)
-		var enemy_hint: Label = main._make_label("사망 효과와 직접 피해 로그를 확인하세요.", 11 if compact else 12, Color(0.7, 0.76, 0.84, 1.0))
-		enemy_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		enemy_meta_box.add_child(enemy_hint)
+	tutorial_panel = _make_battle_tutorial_panel(compact)
+	battle_root.add_child(tutorial_panel)
 
 	var center_column := VBoxContainer.new()
 	center_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	center_column.add_theme_constant_override("separation", 5 if tight else 6)
-	if not compact:
-		center_column.custom_minimum_size = Vector2(board_width, 0)
-	elif wide_tight:
-		center_column.custom_minimum_size = Vector2(0, 0)
-	main_row.add_child(center_column)
+	battle_root.add_child(center_column)
 
 	var board_panel := _make_battle_surface(Color(0.025, 0.034, 0.045, 0.9), Color(0.16, 0.28, 0.38, 0.78), 1, 12, 6 if tight else 8)
 	board_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1375,6 +1670,7 @@ func _build_battle_ui() -> void:
 	board_box.add_child(opponent_info)
 	opponent_gauge_info = main._make_label("", 12 if tight else (12 if not compact else 12), Color(0.78, 0.82, 0.9, 1.0))
 	opponent_gauge_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	opponent_gauge_info.visible = false
 	board_box.add_child(opponent_gauge_info)
 	var focus_panel := _make_battle_surface(Color(0.035, 0.05, 0.07, 0.9), Color(0.28, 0.48, 0.7, 0.86), 1, 8, 4 if tight else 6)
 	focus_panel.custom_minimum_size = Vector2(0, 24 if tight else 30)
@@ -1407,7 +1703,7 @@ func _build_battle_ui() -> void:
 	board_box.add_child(player_field_box)
 	board_box.add_child(_make_hero_target(player, PLAYER_HERO_ART, false, compact))
 
-	var player_strip: BoxContainer = HBoxContainer.new() if wide_tight else (VBoxContainer.new() if compact else HBoxContainer.new())
+	var player_strip: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	player_strip.add_theme_constant_override("separation", 4 if tight else 8)
 	board_box.add_child(player_strip)
 
@@ -1429,18 +1725,6 @@ func _build_battle_ui() -> void:
 		player_status_panel.custom_minimum_size = Vector2(0, 92)
 		player_strip.add_child(player_status_panel)
 
-	var chips_wrap: BoxContainer = HBoxContainer.new() if wide_tight else (VBoxContainer.new() if compact else HBoxContainer.new())
-	chips_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	chips_wrap.add_theme_constant_override("separation", 4 if tight else 8)
-	player_strip.add_child(chips_wrap)
-	build_chip_box = chips_wrap
-	_render_build_chips()
-	if tight:
-		player_gauge_info = main._make_label("", 10, Color(0.76, 0.82, 0.9, 1.0))
-		player_gauge_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		player_gauge_info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		player_strip.add_child(player_gauge_info)
-
 	var turn_actions: BoxContainer = HBoxContainer.new() if wide_tight else (VBoxContainer.new() if compact else HBoxContainer.new())
 	turn_actions.add_theme_constant_override("separation", 4 if tight else 8)
 	player_strip.add_child(turn_actions)
@@ -1451,78 +1735,10 @@ func _build_battle_ui() -> void:
 	mana_panel.custom_minimum_size = Vector2(82 if tight else (94 if compact else 108), 30 if tight else (48 if compact else 56))
 	turn_actions.add_child(mana_chip_data["panel"])
 
-	var right_column := VBoxContainer.new()
-	right_column.custom_minimum_size = Vector2(sidebar_width, 0)
-	right_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL if vertical_stack else Control.SIZE_SHRINK_BEGIN
-	right_column.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	right_column.add_theme_constant_override("separation", 4 if tight else 8)
-	if horizontal_battle:
-		main_row.add_child(right_column)
-
-	var deck_panel: Dictionary = _make_deck_preview_panel(compact, deck_height)
-	right_column.add_child(deck_panel["panel"])
-
-	var log_panel: Dictionary = _make_battle_log_panel(compact, log_height)
-	right_column.add_child(log_panel["panel"])
-	if horizontal_battle and not (tight and vertical_stack):
-		right_column.add_child(_make_battle_action_panel(compact))
-
-	if tight:
-		var tight_actions_panel := _make_battle_action_panel(compact)
-		center_column.add_child(tight_actions_panel)
-		if not horizontal_battle:
-			right_column.remove_child(log_panel["panel"])
-		var tight_hand_panel: PanelContainer = main.ui.make_surface_panel(Color(0.06, 0.07, 0.09, 1.0), Color(0.22, 0.18, 0.1, 1.0), 1, 12, 8)
-		tight_hand_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tight_hand_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		center_column.add_child(tight_hand_panel)
-		var tight_hand_box := VBoxContainer.new()
-		tight_hand_box.add_theme_constant_override("separation", 4)
-		tight_hand_panel.add_child(tight_hand_box)
-		player_deck_status_label = deck_count_label
-		player_field_status_label = null
-		hand_box = HFlowContainer.new()
-		hand_box.custom_minimum_size = Vector2(0, hand_height)
-		hand_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hand_box.add_theme_constant_override("h_separation", 6)
-		hand_box.add_theme_constant_override("v_separation", 6)
-		tight_hand_box.add_child(hand_box)
-		if not horizontal_battle:
-			center_column.add_child(log_panel["panel"])
-		if vertical_stack:
-			left_column.visible = false
-			right_column.visible = false
-			main_row.add_child(left_column)
-			main_row.add_child(right_column)
-		_initialize_battle_runtime_ui()
-		return
-
 	var bottom_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	bottom_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom_row.add_theme_constant_override("separation", 8 if tight else 10)
-	battle_root.add_child(bottom_row)
-
-	var left_actions_panel: PanelContainer = main.ui.make_surface_panel(Color(0.055, 0.06, 0.075, 0.98), Color(0.2, 0.16, 0.3, 1.0), 1, 10, 10)
-	left_actions_panel.custom_minimum_size = Vector2(sidebar_width, 0)
-	bottom_row.add_child(left_actions_panel)
-	var left_actions := VBoxContainer.new()
-	left_actions.custom_minimum_size = Vector2(sidebar_width, 0)
-	left_actions.add_theme_constant_override("separation", 6 if tight else 8)
-	left_actions_panel.add_child(left_actions)
-	if not tight:
-		var left_actions_title: Label = main._make_label("전투 자원", 14 if compact else 15, Color(1.0, 0.88, 0.56, 1.0))
-		left_actions_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		left_actions.add_child(left_actions_title)
-	var deck_chip_data: Dictionary = _make_status_chip("덱 %d" % (player.get("deck", []) as Array).size(), Color(0.16, 0.12, 0.28, 1.0), 16 if compact else 18)
-	player_deck_status_label = deck_chip_data["label"]
-	left_actions.add_child(deck_chip_data["panel"])
-	var field_chip_data: Dictionary = _make_status_chip("필드 %d / %d" % [player.field.size(), MAX_FIELD], Color(0.12, 0.14, 0.18, 1.0), 15 if compact else 16)
-	player_field_status_label = field_chip_data["label"]
-	left_actions.add_child(field_chip_data["panel"])
-	if not tight:
-		var utility_hint: Label = main._make_label("밝은 카드는 사용 가능, 선택된 유닛은 공격 가능 상태입니다.", 11 if compact else 12, Color(0.74, 0.8, 0.88, 1.0))
-		utility_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		left_actions.add_child(utility_hint)
+	center_column.add_child(bottom_row)
 
 	var hand_panel: PanelContainer = main.ui.make_surface_panel(Color(0.06, 0.07, 0.09, 1.0), Color(0.22, 0.18, 0.1, 1.0), 1, 12, 10)
 	hand_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1540,9 +1756,6 @@ func _build_battle_ui() -> void:
 	hand_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hand_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hand_header.add_child(hand_hint)
-	if compact:
-		var hand_goal_chip_large: PanelContainer = main.ui.make_chip("핵심 카드부터 사용하고 공격 가능한 유닛으로 마무리하세요", Color(0.16, 0.16, 0.1, 1.0), Color(0.96, 0.94, 0.82, 1.0), 11)
-		hand_box_wrap.add_child(hand_goal_chip_large)
 	hand_box = HFlowContainer.new()
 	hand_box.custom_minimum_size = Vector2(0, hand_height)
 	hand_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1550,16 +1763,14 @@ func _build_battle_ui() -> void:
 	hand_box.add_theme_constant_override("v_separation", 8)
 	hand_box_wrap.add_child(hand_box)
 
-	if not horizontal_battle:
-		var bottom_action_panel := _make_battle_action_panel(compact)
-		bottom_action_panel.custom_minimum_size = Vector2(220 if not compact else 0, 0)
-		bottom_action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_END
-		bottom_row.add_child(bottom_action_panel)
-		var footer_log_panel: PanelContainer = log_panel["panel"]
-		if footer_log_panel.get_parent() != null:
-			footer_log_panel.get_parent().remove_child(footer_log_panel)
-		footer_log_panel.custom_minimum_size = Vector2(0, 86 if compact else 92)
-		battle_root.add_child(footer_log_panel)
+	var bottom_action_panel := _make_battle_action_panel(compact)
+	bottom_action_panel.custom_minimum_size = Vector2(220 if not compact else 0, 0)
+	bottom_action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_END
+	bottom_row.add_child(bottom_action_panel)
+
+	battle_root.add_child(_make_detail_toggle_row(compact))
+	detail_panel = _make_battle_detail_panel(compact)
+	battle_root.add_child(detail_panel)
 
 	_initialize_battle_runtime_ui()
 
@@ -1583,6 +1794,8 @@ func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
 	_draw_cards(side, 5)
 	if is_player_turn:
 		battle_state["cards_played_this_turn"] = 0
+		battle_state["combo_tag"] = ""
+		battle_state["combo_streak"] = 0
 		main.relic_service.on_turn_start(main.current_run, battle_state, player)
 		_apply_build_on_turn_start()
 	_apply_delayed_status(side)
@@ -1710,6 +1923,7 @@ func _on_hand_card_pressed(index: int) -> void:
 	player.mana -= cost
 	player.hand.remove_at(index)
 	_play_sfx("play")
+	_add_log("%s 사용" % String(card.get("name", "카드")))
 	if card_type != "unit":
 		player.discard_pile.append(card)
 	main.relic_service.consume_card_discount(battle_state)
@@ -1718,9 +1932,13 @@ func _on_hand_card_pressed(index: int) -> void:
 	var old_o_hp = int(opponent.health)
 	main.battle_effects.play_card(player, opponent, card, _battle_effect_context())
 	main.relic_service.on_card_played(main.current_run, battle_state, player)
+	_resolve_card_combo(card)
 	var summoned_index := -1
 	if card_type == "unit" and player.field.size() > old_field_size:
 		summoned_index = player.field.size() - 1
+	var growth: Dictionary = main._build_delta_summary(card)
+	if bool(growth.get("will_activate", false)):
+		_add_log("핵심 시너지 점화: %s" % String(growth.get("headline", "")))
 	_apply_damage_juice(old_p_hp, old_o_hp)
 	_check_game_over()
 	_refresh_ui()
@@ -1749,16 +1967,24 @@ func _calculate_damage(card_or_unit: Dictionary, is_spell: bool, owner_state: Di
 func _play_card_resolution_feedback(card: Dictionary, card_type: String, summoned_index: int, old_player_hp: int, old_opponent_hp: int) -> void:
 	if _should_skip_timed_battle_fx():
 		return
+	var growth: Dictionary = main._build_delta_summary(card)
 	if card_type == "unit" and summoned_index >= 0:
 		_play_slot_pop_feedback(_field_slot_for(player, summoned_index), "소환", Color(0.34, 0.82, 1.0, 1.0))
+		if bool(growth.get("will_activate", false)):
+			_play_effect_hit_feedback(_field_slot_for(player, summoned_index), "빌드 활성", Color(0.42, 1.0, 0.62, 1.0))
 		return
 	if card_type == "equipment":
 		_play_slot_pop_feedback(_field_slot_for(player, 0), "강화", Color(1.0, 0.78, 0.24, 1.0))
+		if bool(growth.get("will_activate", false)):
+			_play_effect_hit_feedback(_field_slot_for(player, 0), "시너지 점화", Color(0.42, 1.0, 0.62, 1.0))
 		return
 	var opponent_hp_loss := old_opponent_hp - int(opponent.get("health", old_opponent_hp))
 	var player_hp_gain := int(player.get("health", old_player_hp)) - old_player_hp
 	if opponent_hp_loss > 0:
-		_play_effect_hit_feedback(_hero_target_for_player(false), "피해 %d" % opponent_hp_loss, Color(1.0, 0.32, 0.24, 1.0))
+		var hit_text := "강타 %d" % opponent_hp_loss if opponent_hp_loss >= 4 else "피해 %d" % opponent_hp_loss
+		_play_effect_hit_feedback(_hero_target_for_player(false), hit_text, Color(1.0, 0.32, 0.24, 1.0))
+		if bool(growth.get("will_activate", false)):
+			_play_effect_hit_feedback(_hero_target_for_player(false), "빌드 활성", Color(0.42, 1.0, 0.62, 1.0))
 	elif player_hp_gain > 0:
 		_play_effect_hit_feedback(_hero_target_for_player(true), "회복 %d" % player_hp_gain, Color(0.34, 1.0, 0.62, 1.0))
 	elif not opponent.field.is_empty():
@@ -1987,7 +2213,7 @@ func _on_opponent_unit_pressed(index: int) -> void:
 		return
 	if index < 0 or index >= opponent.field.size():
 		return
-	await _combat(player, opponent, selected_attacker, index)
+	await _execute_player_unit_attack(selected_attacker, index)
 	selected_attacker = -1
 	_check_game_over()
 	_refresh_ui()
@@ -1998,25 +2224,39 @@ func _on_opponent_unit_pressed(index: int) -> void:
 func _attack_opponent_hero() -> void:
 	if input_locked or game_over or current_player != "player" or selected_attacker == -1:
 		return
-	var attacker: Dictionary = player.field[selected_attacker]
+	await _execute_player_hero_attack(selected_attacker)
+	selected_attacker = -1
+	_check_game_over()
+	_refresh_ui()
+	_store_battle_snapshot()
+	_check_no_actions_loss()
+
+func _execute_player_hero_attack(attacker_index: int) -> void:
+	if attacker_index < 0 or attacker_index >= player.field.size():
+		return
+	var attacker: Dictionary = player.field[attacker_index]
 	var damage := _calculate_damage(attacker, false, player, int(attacker.attack))
 	damage = main.relic_service.mitigate_hero_damage(main.current_run, battle_state, damage, false)
 	input_locked = true
 	_refresh_ui()
-	await _play_hero_cutscene(attacker, opponent.name, damage, player, selected_attacker, false)
+	await _play_hero_cutscene(attacker, opponent.name, damage, player, attacker_index, false)
 	opponent.health -= damage
 	attacker.can_attack = false
 	if damage >= 3:
 		_shake_screen(15.0, 0.3)
 	if int(opponent.health) <= 0:
 		_show_outcome_text(_hero_target_for_player(false), "승리", Color(1.0, 0.82, 0.24, 1.0))
+	if damage >= 5:
+		_play_effect_hit_feedback(_hero_target_for_player(false), "결정타", Color(1.0, 0.86, 0.34, 1.0))
 	_add_log("%s -> 적 영웅: %d 피해" % [attacker.name, damage])
-	selected_attacker = -1
 	input_locked = false
-	_check_game_over()
-	_refresh_ui()
-	_store_battle_snapshot()
-	_check_no_actions_loss()
+
+func _execute_player_unit_attack(attacker_index: int, defender_index: int) -> void:
+	if attacker_index < 0 or attacker_index >= player.field.size():
+		return
+	if defender_index < 0 or defender_index >= opponent.field.size():
+		return
+	await _combat(player, opponent, attacker_index, defender_index)
 
 
 func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_index: int, defender_index: int) -> void:
@@ -2050,6 +2290,9 @@ func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_inde
 	var summary := "%s -> %s: %d 피해" % [attacker.name, defender.name, attack_damage]
 	if defender_lethal:
 		summary += " / 처치"
+		_play_effect_hit_feedback(_field_slot_for(defender_side, defender_index), "유리한 교환", Color(1.0, 0.86, 0.34, 1.0))
+	elif attack_damage >= 4:
+		_play_effect_hit_feedback(_field_slot_for(defender_side, defender_index), "강한 압박", Color(1.0, 0.58, 0.24, 1.0))
 	_add_log(summary)
 	input_locked = false
 	_store_battle_snapshot()
@@ -2699,7 +2942,7 @@ func _render_hand() -> void:
 		var frame := Button.new()
 		frame.text = ""
 		frame.focus_mode = Control.FOCUS_NONE
-		var frame_size := Vector2(112, 142) if tight and portrait else (Vector2(118, 148) if tight else (Vector2(190, 226) if not compact else Vector2(154, 188)))
+		var frame_size := Vector2(112, 142) if tight and portrait else (Vector2(118, 148) if tight else (Vector2(176, 188) if not compact else Vector2(148, 170)))
 		var content_size := Vector2(frame_size.x - 12.0, frame_size.y - 12.0)
 		frame.custom_minimum_size = frame_size
 		var hand_border := Color(1.0, 0.88, 0.38, 1.0) if is_recommended else (accent.lightened(0.12) if playable else accent.darkened(0.08))
@@ -2709,7 +2952,9 @@ func _render_hand() -> void:
 		frame.add_theme_color_override("font_color", Color(1, 1, 1, 0))
 		frame.pressed.connect(Callable(self, "_on_hand_card_pressed").bind(i))
 		if not playable:
-			frame.modulate = Color(0.66, 0.68, 0.72, 0.86)
+			frame.modulate = Color(0.46, 0.48, 0.54, 0.82)
+		elif recommended_index != -1 and not is_recommended:
+			frame.modulate = Color(0.72, 0.74, 0.78, 0.88)
 		var card_box := VBoxContainer.new()
 		card_box.custom_minimum_size = content_size
 		card_box.add_theme_constant_override("separation", 3 if tight else 5)
@@ -2735,7 +2980,7 @@ func _render_hand() -> void:
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		name_band.add_child(name_label)
-		var art_size := Vector2(content_size.x - 4.0, 44 if tight and portrait else 48) if tight else (Vector2(176, 92) if not compact else Vector2(140, 64))
+		var art_size := Vector2(content_size.x - 4.0, 44 if tight and portrait else 48) if tight else (Vector2(160, 78) if not compact else Vector2(134, 58))
 		var art_rect: TextureRect = main._make_card_art_rect(card, art_size)
 		art_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_box.add_child(art_rect)
@@ -2748,20 +2993,6 @@ func _render_hand() -> void:
 		preview_label.clip_text = true
 		preview_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		preview_chip.add_child(preview_label)
-		if not tight:
-			var status_chip: PanelContainer = main.ui.make_surface_panel(accent.darkened(0.36), accent.lightened(0.06), 1, 5, 2)
-			status_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			card_box.add_child(status_chip)
-			var status_label: Label = main._make_label("사용 가능" if playable else _unplayable_card_hint(card, cost), 8, Color(1.0, 0.92, 0.76, 1.0) if playable else Color(0.74, 0.78, 0.84, 1.0))
-			status_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-			status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			status_chip.add_child(status_label)
-		var type_line := "%s / %s" % [main.deck_service.type_name(String(card.get("type", ""))), String(card.get("attr", ""))]
-		var type_label: Label = main._make_label(type_line, 9 if tight else 10, Color(0.9, 0.86, 0.66, 1.0))
-		type_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-		type_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if not tight:
-			card_box.add_child(type_label)
 		if String(card.get("type", "")) == "unit":
 			var card_stat_row := HBoxContainer.new()
 			card_stat_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -2774,14 +3005,7 @@ func _render_hand() -> void:
 			var health_badge: PanelContainer = main.ui.make_stat_badge("%d" % int(card.get("health", 0)), Color(0.1, 0.24, 0.46, 1.0), true)
 			health_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			card_stat_row.add_child(health_badge)
-		var effect_label: Label = main._make_label(String(card.get("text", "")), 10 if tight else (12 if not compact else 10), Color(0.82, 0.88, 0.95, 1.0))
-		effect_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		effect_label.custom_minimum_size = Vector2(0, 30 if tight else (46 if not compact else 32))
-		effect_label.clip_text = true
-		effect_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if not tight:
-			card_box.add_child(effect_label)
-		var action_text := preview_text if tight and playable else ("즉시 사용" if playable else _unplayable_card_hint(card, cost))
+		var action_text := "즉시 사용" if playable else _unplayable_card_hint(card, cost)
 		var action_label: Label = main._make_label(action_text, 10 if tight else (11 if not compact else 9), Color(0.55, 0.82, 1.0, 1.0) if playable else Color(0.58, 0.62, 0.68, 1.0))
 		action_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		action_label.clip_text = true
@@ -2853,7 +3077,7 @@ func _refresh_timer_label() -> void:
 
 func _refresh_status_labels() -> void:
 	if status_label != null and is_instance_valid(status_label):
-		status_label.text = "현재 목표: 적 영웅 체력을 0으로 만드세요."
+		status_label.text = "현재 목표: 추천 순서대로 전개하고 적 영웅 체력을 0으로 만드세요."
 	if opponent_info != null and is_instance_valid(opponent_info):
 		opponent_info.text = "적 영웅 HP %d/%d" % [int(opponent.get("health", 0)), int(opponent.get("max_health", 0))]
 	if opponent_gauge_info != null and is_instance_valid(opponent_gauge_info):
@@ -2875,12 +3099,19 @@ func _refresh_status_labels() -> void:
 		battle_focus_label.text = _current_battle_focus_text()
 
 func _refresh_action_buttons() -> void:
+	if detail_toggle_button != null and is_instance_valid(detail_toggle_button):
+		detail_toggle_button.text = "닫기 ▼" if battle_detail_visible else "열기 ▶"
+	if recommended_action_button != null:
+		recommended_action_button.disabled = _is_player_input_locked()
+		recommended_action_button.text = _recommended_action_text()
+		var highlighted := not _is_player_input_locked()
+		_style_battle_button(recommended_action_button, Color(0.16, 0.1, 0.04, 0.98), Color(1.0, 0.8, 0.28, 1.0), highlighted)
 	if hero_attack_button != null:
 		var can_attack_hero: bool = not _is_player_input_locked() and selected_attacker != -1
 		hero_attack_button.disabled = not can_attack_hero
-		hero_attack_button.text = "영웅 공격 ▶" if can_attack_hero else "영웅 공격"
+		hero_attack_button.text = "직접 영웅 공격" if can_attack_hero else "영웅 공격"
 		if can_attack_hero:
-			_style_battle_button(hero_attack_button, Color(0.13, 0.04, 0.045, 0.96), Color(1.0, 0.32, 0.26, 1.0), true)
+			_style_battle_button(hero_attack_button, Color(0.09, 0.06, 0.08, 0.96), Color(0.72, 0.22, 0.18, 1.0), false)
 		else:
 			_style_battle_button(hero_attack_button, Color(0.045, 0.06, 0.078, 0.92), Color(0.72, 0.18, 0.16, 1.0), false)
 		if opponent_hero_target_badge_label != null and is_instance_valid(opponent_hero_target_badge_label):

@@ -48,6 +48,7 @@ var audio_manager
 var battle_effects
 var run_flow
 var battle_screen
+var active_screen_controller: RefCounted
 
 var card_defs: Array[Dictionary] = []
 var cards_by_id := {}
@@ -80,6 +81,7 @@ func _ready() -> void:
 	battle_effects = BattleCardEffectsScript.new()
 	run_flow = RunFlowCoordinatorScript.new(self)
 	battle_screen = null
+	active_screen_controller = null
 
 	_build_base_ui()
 	if not card_db.load_cards(CARD_DATA_PATH):
@@ -223,6 +225,7 @@ func _apply_root_layout() -> void:
 
 
 func _clear_screen() -> void:
+	active_screen_controller = null
 	if root_scroll != null:
 		root_scroll.scroll_horizontal = 0
 		root_scroll.scroll_vertical = 0
@@ -252,6 +255,10 @@ func _show_error_screen(message: String) -> void:
 	_clear_screen()
 	var body: VBoxContainer = ui.begin_screen(root_box, "CARD DRAFT")
 	body.add_child(_make_label(message, 20, Color(1.0, 0.65, 0.65, 1.0)))
+
+func _retain_screen_controller(controller: RefCounted) -> RefCounted:
+	active_screen_controller = controller
+	return controller
 
 func _show_main_menu() -> void:
 	active_screen = "main_menu"
@@ -808,13 +815,13 @@ func _show_meta_upgrade() -> void:
 	active_screen = "meta_upgrade"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("메타 강화", false, "영혼석을 소모하여 영웅의 기초 능력치를 영구히 강화하세요.")
-	MetaUpgradeScreenScript.new(self).build(body)
+	_retain_screen_controller(MetaUpgradeScreenScript.new(self)).build(body)
 
 func _show_compendium() -> void:
 	active_screen = "compendium"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("카드 도감", false, "게임에 존재하는 모든 영웅 카드와 유물들을 한눈에 살펴보세요.")
-	CompendiumScreenScript.new(self).build(body)
+	_retain_screen_controller(CompendiumScreenScript.new(self)).build(body)
 
 func _upgrade_start_hp() -> void:
 	var upgrades: Dictionary = player_profile.get("upgrades", {})
@@ -907,7 +914,7 @@ func _show_remove_card_screen(reason: String, source: String = "") -> void:
 	active_screen = "remove_card"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("%s - 카드 제거" % reason, false, "덱을 압축하여 원하는 핵심 카드를 더 자주 드로우할 수 있게 만듭니다.")
-	DeckEditScreenScript.new(self).build_remove(body, reason)
+	_retain_screen_controller(DeckEditScreenScript.new(self)).build_remove(body, reason)
 
 func _show_upgrade_card_screen(source: String = "") -> void:
 	if not source.is_empty():
@@ -919,7 +926,7 @@ func _show_upgrade_card_screen(source: String = "") -> void:
 	active_screen = "upgrade_card"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("휴식 - 카드 강화", false, "소장 중인 카드를 명상으로 연마하여 상위 능력으로 각성시킵니다.")
-	DeckEditScreenScript.new(self).build_upgrade(body)
+	_retain_screen_controller(DeckEditScreenScript.new(self)).build_upgrade(body)
 
 func _remove_card_from_run(card_id: String) -> void:
 	var pending_subscreen: Dictionary = current_run.get("pending_subscreen", {})
@@ -988,7 +995,7 @@ func _show_run_result(is_win: bool) -> void:
 	active_screen = "run_result"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("런 결과", false, "이번 모험이 종료되었습니다. 최종 달성 기록과 통계를 확인하세요.")
-	RunResultScreenScript.new(self).build(body, is_win)
+	_retain_screen_controller(RunResultScreenScript.new(self)).build(body, is_win)
 
 func _finish_run(is_win: bool) -> void:
 	current_run["result"] = "win" if is_win else "loss"
@@ -1020,7 +1027,7 @@ func _show_collection() -> void:
 	active_screen = "collection"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("카드 보관함", false, "현재 덱을 구성하고 있는 소장 카드들의 목록입니다.")
-	var screen = CollectionScreenScript.new(self)
+	var screen = _retain_screen_controller(CollectionScreenScript.new(self))
 	screen.build(body)
 
 func _show_ui_guide() -> void:
@@ -1031,14 +1038,14 @@ func _show_ui_guide() -> void:
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root_box.add_child(body)
-	var screen = UiGuideScreenScript.new(self)
+	var screen = _retain_screen_controller(UiGuideScreenScript.new(self))
 	screen.build(body)
 
 func _show_settings() -> void:
 	active_screen = "settings"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("설정", false, "게임 해상도 및 속도 등 편의 기능을 변경하고 튜닝할 수 있습니다.")
-	SettingsScreenScript.new(self).build(body)
+	_retain_screen_controller(SettingsScreenScript.new(self)).build(body)
 
 func _on_cutscene_toggled(enabled: bool) -> void:
 	player_profile["settings"]["battle_cutscene"] = enabled
@@ -1064,7 +1071,7 @@ func _reset_profile() -> void:
 func _show_message(message: String, callback_method: String, target: Object = null) -> void:
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("알림", false, "게임 진행에 필요한 안내 메시지입니다.")
-	MessageScreenScript.new(self).build(body, message, callback_method, target)
+	_retain_screen_controller(MessageScreenScript.new(self)).build(body, message, callback_method, target)
 
 func _make_run_summary_panel() -> Control:
 	var compact := _is_compact_layout()
@@ -1290,6 +1297,46 @@ func _build_active_in_current_run(tag: String) -> bool:
 func _card_matches_build_tag(card: Dictionary, tag: String) -> bool:
 	return not tag.is_empty() and _card_build_tags(card).has(tag)
 
+func _build_score_delta_for_card(card: Dictionary) -> Dictionary:
+	var delta := {}
+	for tag in _card_build_tags(card):
+		delta[tag] = int(delta.get(tag, 0)) + 1
+	return delta
+
+func _build_delta_summary(card: Dictionary) -> Dictionary:
+	var before_scores: Dictionary = _current_build_scores()
+	var delta: Dictionary = _build_score_delta_for_card(card)
+	if delta.is_empty():
+		return {
+			"headline": "시너지 변화 없음",
+			"detail": "",
+			"primary_tag": "",
+			"will_activate": false,
+		}
+	var best_tag := ""
+	var best_after := -1
+	for tag in delta.keys():
+		var after_score := int(before_scores.get(tag, 0)) + int(delta.get(tag, 0))
+		if after_score > best_after:
+			best_after = after_score
+			best_tag = String(tag)
+	var tag_meta: Dictionary = _build_tag_meta().get(best_tag, {})
+	var before_score := int(before_scores.get(best_tag, 0))
+	var after_score := before_score + int(delta.get(best_tag, 0))
+	var will_activate := before_score < _build_threshold() and after_score >= _build_threshold()
+	var headline := "%s %s %+d" % [String(tag_meta.get("icon", "")), String(tag_meta.get("name", "")), int(delta.get(best_tag, 0))]
+	var detail := "%d -> %d" % [before_score, after_score]
+	if will_activate:
+		detail += "  |  활성화"
+	elif after_score >= _build_threshold() - 1:
+		detail += "  |  핵심 직전"
+	return {
+		"headline": headline,
+		"detail": detail,
+		"primary_tag": best_tag,
+		"will_activate": will_activate,
+	}
+
 func _run_soul_stones(is_win: bool) -> int:
 	var stones := 0
 	var visited: Array = current_run.get("visited_nodes", [])
@@ -1444,7 +1491,50 @@ func _begin_menu_screen(title: String, with_profile: bool = false, subtitle: Str
 	var summary: Control = null
 	if with_profile and not current_run.is_empty():
 		summary = _make_run_summary_panel()
-	return ui.begin_screen(root_box, title, summary, 12, subtitle)
+	var body: VBoxContainer = ui.begin_screen(root_box, title, summary, 12, subtitle)
+	if _should_show_run_escape_actions():
+		body.add_child(_make_run_escape_bar())
+	return body
+
+func _should_show_run_escape_actions() -> bool:
+	if current_run.is_empty():
+		return false
+	return active_screen not in ["main_menu", "run_result", "battle"]
+
+func _make_run_escape_bar() -> PanelContainer:
+	var compact := _is_compact_layout_for(1180.0, 760.0)
+	var panel: PanelContainer = ui.make_surface_panel(Color(0.055, 0.065, 0.08, 0.98), Color(0.24, 0.2, 0.12, 1.0), 1, 10, 10)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	panel.add_child(row)
+
+	var hint: Label = _make_label("중간 종료", 12 if compact else 13, Color(1.0, 0.88, 0.55, 1.0))
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(hint)
+
+	var actions: BoxContainer = HBoxContainer.new()
+	actions.alignment = BoxContainer.ALIGNMENT_END
+	actions.add_theme_constant_override("separation", 8)
+	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(actions)
+
+	_add_escape_action_button(actions, "메인 메뉴", "_show_main_menu", Color(0.16, 0.2, 0.26, 1.0), compact)
+	_add_escape_action_button(actions, "런 포기", "_abandon_run", Color(0.34, 0.14, 0.14, 1.0), compact)
+	_add_escape_action_button(actions, "게임 종료", "_quit_game", Color(0.18, 0.18, 0.18, 1.0), compact)
+	return panel
+
+func _add_escape_action_button(parent: Node, text: String, callback_method: String, color: Color, compact: bool) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(96 if compact else 108, 34 if compact else 36)
+	ui.style_button(button, color)
+	button.add_theme_font_size_override("font_size", 12 if compact else 13)
+	button.pressed.connect(Callable(self, callback_method))
+	parent.add_child(button)
+	return button
 
 func _make_screen_panel(color: Color, preferred_width: int, min_height: int = 0) -> PanelContainer:
 	return ui.make_screen_panel(color, _layout_viewport_size().x, preferred_width, min_height)

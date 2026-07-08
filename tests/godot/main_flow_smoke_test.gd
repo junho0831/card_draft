@@ -16,8 +16,10 @@ func run() -> Dictionary:
 
 	_test_boots_to_main_menu(main)
 	_test_run_start_and_battle_entry(main)
+	_test_battle_ui_defaults(main)
 	_test_secondary_screens(main)
 	_test_continue_run_routes(main)
+	_test_build_delta_summary(main)
 	_test_reward_claim_advances_node(main)
 	_test_boss_victory_finishes_run_without_reward_stop(main)
 	_test_shop_leave_advances_node(main)
@@ -38,6 +40,7 @@ func _test_boots_to_main_menu(main: Node) -> void:
 	_assert_eq(String(main.active_screen), "main_menu", "main scene boots to main menu")
 	_assert_true(main.root_box != null, "main scene builds root ui")
 	_assert_true(main.card_defs.size() > 0, "main scene loads card data")
+	_assert_true(not bool(main.player_profile.get("battle_tutorial_seen", true)), "battle tutorial starts enabled for new profile")
 
 func _test_run_start_and_battle_entry(main: Node) -> void:
 	main._start_new_run()
@@ -50,10 +53,67 @@ func _test_run_start_and_battle_entry(main: Node) -> void:
 	_assert_true(not Dictionary(main.current_run.get("active_enemy", {})).is_empty(), "battle entry selects enemy")
 	_assert_true(main.battle_screen != null, "battle screen is instantiated")
 
+func _test_battle_ui_defaults(main: Node) -> void:
+	var battle = main.battle_screen
+	_assert_true(battle.detail_panel != null, "battle detail panel exists")
+	_assert_true(not bool(battle.detail_panel.visible), "battle detail panel starts collapsed")
+	_assert_true(battle.tutorial_panel != null, "battle tutorial panel exists")
+	_assert_true(battle.recommended_action_button != null, "battle recommends a primary action button")
+	_assert_true(battle.end_turn_button != null, "battle keeps end turn button visible")
+
+	battle.player = {
+		"name": "플레이어",
+		"health": 26,
+		"max_health": 26,
+		"mana": 3,
+		"max_mana": 3,
+		"hand": [main.card_db.get_card("militia")],
+		"deck": [],
+		"discard_pile": [],
+		"field": [{
+			"id": "militia",
+			"name": "민병대",
+			"attack": 1,
+			"health": 1,
+			"max_health": 1,
+			"can_attack": true,
+			"race": "중립",
+			"attr": "화염",
+		}],
+	}
+	battle.opponent = {
+		"name": "적",
+		"health": 10,
+		"max_health": 10,
+		"mana": 0,
+		"max_mana": 0,
+		"hand": [],
+		"deck": [],
+		"discard_pile": [],
+		"field": [{
+			"id": "enemy_token",
+			"name": "표적",
+			"attack": 1,
+			"health": 1,
+			"max_health": 1,
+			"can_attack": false,
+			"race": "중립",
+			"attr": "대지",
+		}],
+	}
+	battle.selected_attacker = -1
+	battle.current_player = "player"
+	battle.input_locked = false
+	battle.game_over = false
+	battle.battle_state["cards_played_this_turn"] = 0
+	var recommended: Dictionary = battle._recommended_action_state()
+	_assert_eq(String(recommended.get("kind", "")), "unit_attack_direct", "recommended action prioritizes attack over another card play")
+
 func _test_secondary_screens(main: Node) -> void:
 	main.current_run["pending_card_reward"] = {"choices": ["militia"], "gold_reward": 0}
 	main._show_card_reward()
 	_assert_eq(String(main.active_screen), "reward", "reward screen opens")
+	_assert_true(main.active_screen_controller != null, "reward screen controller is retained")
 
 	main.current_run["pending_event"] = main.event_service.roll_event()
 	main._show_event()
@@ -182,9 +242,15 @@ func _test_reward_claim_advances_node(main: Node) -> void:
 	var reward_screen: RefCounted = RewardScreenScript.new(main)
 	reward_screen._claim_card_reward("militia")
 	_assert_eq(String(main.active_screen), "map", "claiming reward returns to map")
+	_assert_true(main.active_screen_controller != null, "claiming reward rebuilds map controller")
 	_assert_eq(int(main.current_run.get("current_node_index", -1)), 1, "claiming reward advances node")
 	_assert_eq((main.current_run.get("deck_ids", []) as Array).size(), deck_before + 1, "claiming reward adds card to deck")
 	_assert_true(Dictionary(main.current_run.get("pending_card_reward", {})).is_empty(), "claiming reward clears pending reward")
+
+func _test_build_delta_summary(main: Node) -> void:
+	var summary: Dictionary = main._build_delta_summary(main.card_db.get_card("fireball"))
+	_assert_eq(String(summary.get("primary_tag", "")), "fire", "build delta summary identifies the primary tag")
+	_assert_true(String(summary.get("headline", "")).contains("화염"), "build delta summary includes readable growth headline")
 
 func _test_boss_victory_finishes_run_without_reward_stop(main: Node) -> void:
 	var acts: Array[Dictionary] = [{

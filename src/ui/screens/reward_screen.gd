@@ -15,26 +15,27 @@ func _is_reward_compact_layout() -> bool:
 func build(body: VBoxContainer) -> void:
 	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
 	var compact: bool = _is_reward_compact_layout()
+	var tight: bool = _is_tight_reward_layout()
 	body.add_child(main._make_run_summary_panel())
-	body.add_child(main.ui.make_guidance_banner("다음 행동", "카드 1장을 골라 현재 빌드를 강화", Color(0.24, 0.2, 0.12, 1.0), compact))
+	body.add_child(main.ui.make_guidance_banner("다음 행동", "추천 카드 1장만 보고 바로 고르거나 건너뛰세요", Color(0.24, 0.2, 0.12, 1.0), compact))
 	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hub.add_theme_constant_override("separation", 10)
+	hub.add_theme_constant_override("separation", 8 if tight else 10)
 	body.add_child(hub)
 
 	hub.add_child(_make_build_panel(compact))
 
 	var card_panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 14)
 	card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card_panel.custom_minimum_size = Vector2(0, 330 if compact else 360)
+	card_panel.custom_minimum_size = Vector2(0, 300 if compact else (324 if tight else 340))
 	hub.add_child(card_panel)
 	var card_box := VBoxContainer.new()
-	card_box.add_theme_constant_override("separation", 7)
+	card_box.add_theme_constant_override("separation", 5 if tight else 6)
 	card_panel.add_child(card_box)
-	var title: Label = main._make_label("카드를 선택하세요", 20 if compact else 24, Color(1.0, 0.88, 0.55, 1.0))
+	var title: Label = main._make_label("카드 1장 선택", 18 if compact else 22, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	card_box.add_child(title)
-	var subtitle: Label = main._make_label("추천 카드는 현재 빌드와 가장 잘 맞습니다. 선택한 카드는 즉시 덱에 추가됩니다.", 13 if compact else 14, Color(0.86, 0.9, 0.96, 1.0))
+	var subtitle: Label = main._make_label("추천 1장만 보면 됩니다. 선택 즉시 다음 맵으로 넘어갑니다.", 12 if tight else (13 if compact else 14), Color(0.86, 0.9, 0.96, 1.0))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	card_box.add_child(subtitle)
 
@@ -50,11 +51,11 @@ func build(body: VBoxContainer) -> void:
 
 func _make_build_panel(compact: bool) -> PanelContainer:
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.08, 0.09, 0.11, 0.96), Color(0.16, 0.18, 0.23, 1.0), 1, 12, 14)
-	panel.custom_minimum_size = Vector2(0 if compact else 190, 0)
+	panel.custom_minimum_size = Vector2(0 if compact else 168, 0)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 7)
+	box.add_theme_constant_override("separation", 6)
 	panel.add_child(box)
-	var title: Label = main._make_label("현재 빌드", 17 if compact else 18, Color(1.0, 0.88, 0.55, 1.0))
+	var title: Label = main._make_label("현재 빌드", 16 if compact else 17, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(title)
 	var scores: Dictionary = main._current_build_scores()
@@ -64,63 +65,65 @@ func _make_build_panel(compact: bool) -> PanelContainer:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
 		box.add_child(row)
-		var label: Label = main._make_label("%s %s" % [String(tag_meta.get("icon", "")), String(tag_meta.get("name", ""))], 12 if compact else 13, Color(0.88, 0.92, 0.96, 1.0))
+		var label: Label = main._make_label("%s %s" % [String(tag_meta.get("icon", "")), String(tag_meta.get("name", ""))], 11 if compact else 12, Color(0.88, 0.92, 0.96, 1.0))
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
-		var value: Label = main._make_label("%d" % int(scores.get(tag, 0)), 13 if compact else 14, Color(1.0, 0.88, 0.55, 1.0))
+		var value: Label = main._make_label("%d" % int(scores.get(tag, 0)), 12 if compact else 13, Color(1.0, 0.88, 0.55, 1.0))
 		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(value)
 	box.add_child(HSeparator.new())
 	var primary_tag: String = main._primary_build_tag(scores)
 	if not primary_tag.is_empty():
 		var meta_row: Dictionary = meta.get(primary_tag, {})
-		var focus_chip: PanelContainer = main.ui.make_chip("추천 방향: %s %s" % [String(meta_row.get("icon", "")), String(meta_row.get("name", ""))], Color(0.24, 0.18, 0.08, 1.0), Color(1.0, 0.9, 0.58, 1.0), 13 if compact else 14)
+		var focus_chip: PanelContainer = main.ui.make_chip("추천 방향: %s %s" % [String(meta_row.get("icon", "")), String(meta_row.get("name", ""))], Color(0.24, 0.18, 0.08, 1.0), Color(1.0, 0.9, 0.58, 1.0), 12 if compact else 13)
 		box.add_child(focus_chip)
-	var active: Label = main._make_label(main._active_build_text(scores), 13 if compact else 14, Color(1.0, 0.82, 0.5, 1.0))
+	var active: Label = main._make_label(main._active_build_text(scores), 12 if compact else 13, Color(1.0, 0.82, 0.5, 1.0))
 	active.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(active)
 	return panel
 
 func _make_reward_side_panel(reward: Dictionary, compact: bool) -> PanelContainer:
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.08, 0.09, 0.11, 0.96), Color(0.22, 0.19, 0.11, 1.0), 1, 12, 14)
-	panel.custom_minimum_size = Vector2(0 if compact else 210, 0)
+	panel.custom_minimum_size = Vector2(0 if compact else 192, 0)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 9)
+	box.add_theme_constant_override("separation", 7)
 	panel.add_child(box)
-	var title: Label = main._make_label("획득 보상", 17 if compact else 18, Color(1.0, 0.88, 0.55, 1.0))
+	var title: Label = main._make_label("획득 보상", 16 if compact else 17, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(title)
-	var gold: Label = main._make_label("골드 +%d" % int(reward.get("gold_reward", 0)), 15 if compact else 16, Color(1.0, 0.88, 0.55, 1.0))
+	var gold: Label = main._make_label("골드 +%d" % int(reward.get("gold_reward", 0)), 14 if compact else 15, Color(1.0, 0.88, 0.55, 1.0))
 	gold.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(gold)
 	var choice_count := (reward.get("choices", []) as Array).size()
-	var reward_chip: PanelContainer = main.ui.make_chip("카드 %d장 중 1장" % choice_count, Color(0.16, 0.18, 0.24, 1.0), Color(0.98, 0.98, 0.94, 1.0), 13 if compact else 14)
+	var reward_chip: PanelContainer = main.ui.make_chip("카드 %d장 중 1장" % choice_count, Color(0.16, 0.18, 0.24, 1.0), Color(0.98, 0.98, 0.94, 1.0), 12 if compact else 13)
 	box.add_child(reward_chip)
 	if typeof(reward.get("bonus_relic", {})) == TYPE_DICTIONARY and not Dictionary(reward.get("bonus_relic", {})).is_empty():
 		var relic: Dictionary = reward["bonus_relic"]
 		box.add_child(main.ui.make_relic_badge(relic, compact))
-		var relic_text: Label = main._make_label(String(relic.get("text", "")), 12 if compact else 13, Color(0.9, 0.86, 0.98, 1.0))
+		var relic_text: Label = main._make_label(String(relic.get("text", "")), 11 if compact else 12, Color(0.9, 0.86, 0.98, 1.0))
 		relic_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		box.add_child(relic_text)
 	box.add_child(HSeparator.new())
 	var scores: Dictionary = main._current_build_scores()
 	var primary_tag: String = main._primary_build_tag(scores)
 	var meta: Dictionary = main._build_tag_meta().get(primary_tag, {})
-	var reason_title: Label = main._make_label("추천 기준", 14 if compact else 15, Color(1.0, 0.88, 0.55, 1.0))
+	var reason_title: Label = main._make_label("추천 기준", 13 if compact else 14, Color(1.0, 0.88, 0.55, 1.0))
 	reason_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(reason_title)
-	var reason_chip: PanelContainer = main.ui.make_chip("현재 빌드에 맞음", Color(0.24, 0.18, 0.08, 1.0), Color(1.0, 0.9, 0.58, 1.0), 13 if compact else 14)
+	var reason_chip: PanelContainer = main.ui.make_chip("현재 빌드 우선", Color(0.24, 0.18, 0.08, 1.0), Color(1.0, 0.9, 0.58, 1.0), 12 if compact else 13)
 	box.add_child(reason_chip)
-	var reason: Label = main._make_label("%s %s 태그는 현재 덱과 가장 가깝습니다.\n전투 도움이 애매하면 건너뛰기로 덱을 얇게 유지하세요." % [String(meta.get("icon", "")), String(meta.get("name", "현재"))], 12 if compact else 13, Color(0.82, 0.86, 0.92, 1.0))
+	var reason: Label = main._make_label("%s %s 축에 가장 잘 맞습니다.\n애매하면 건너뛰어 덱을 얇게 유지하세요." % [String(meta.get("icon", "")), String(meta.get("name", "현재"))], 11 if compact else 12, Color(0.82, 0.86, 0.92, 1.0))
 	reason.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(reason)
-	var skip_chip: PanelContainer = main.ui.make_chip("덱 압축 후보", Color(0.12, 0.14, 0.18, 1.0), Color(0.9, 0.94, 1.0, 1.0), 12 if compact else 13)
+	var skip_chip: PanelContainer = main.ui.make_chip("선택 안 해도 됨", Color(0.12, 0.14, 0.18, 1.0), Color(0.9, 0.94, 1.0, 1.0), 11 if compact else 12)
 	box.add_child(skip_chip)
 	var skip_button := Button.new()
 	skip_button.text = "건너뛰기"
-	skip_button.custom_minimum_size = Vector2(160, 44)
+	skip_button.focus_mode = Control.FOCUS_NONE
+	skip_button.custom_minimum_size = Vector2(132 if compact else 142, 34 if compact else 36)
 	main.ui.style_button(skip_button, Color(0.16, 0.18, 0.21, 1.0))
+	skip_button.add_theme_font_size_override("font_size", 13)
 	skip_button.pressed.connect(Callable(self, "_skip_card_reward"))
 	box.add_child(skip_button)
 	return panel
@@ -140,12 +143,16 @@ func _reward_choice_reason(card: Dictionary, matches_primary: bool) -> String:
 		return "아군 강화"
 	return "덱 압축 후보"
 
+func _reward_growth_summary(card: Dictionary) -> Dictionary:
+	return main._build_delta_summary(card)
+
 func _make_reward_choice(card: Dictionary) -> Control:
 	var compact: bool = _is_reward_compact_layout()
 	var tight: bool = _is_tight_reward_layout()
 	var primary_tag: String = main._primary_build_tag(main._current_build_scores())
 	var matches_primary: bool = main._card_matches_build_tag(card, primary_tag)
 	var reason_text := _reward_choice_reason(card, matches_primary)
+	var growth: Dictionary = _reward_growth_summary(card)
 	var frame: PanelContainer = main.ui.make_surface_panel(
 		Color(0.24, 0.2, 0.12, 1.0) if matches_primary else Color(0.065, 0.07, 0.08, 1.0),
 		Color(1.0, 0.78, 0.28, 1.0) if matches_primary else Color(0.38, 0.3, 0.18, 1.0),
@@ -153,47 +160,63 @@ func _make_reward_choice(card: Dictionary) -> Control:
 		9,
 		10
 	)
-	frame.custom_minimum_size = Vector2(178 if tight else (172 if compact else 208), 0)
+	frame.custom_minimum_size = Vector2(164 if tight else (160 if compact else 188), 0)
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4 if tight else 5)
+	box.add_theme_constant_override("separation", 3 if tight else 4)
 	frame.add_child(box)
 
 	if matches_primary:
-		var recommend: PanelContainer = main.ui.make_chip("추천", Color(0.58, 0.36, 0.08, 1.0), Color(1.0, 0.94, 0.62, 1.0), 13)
+		var recommend: PanelContainer = main.ui.make_chip("추천", Color(0.58, 0.36, 0.08, 1.0), Color(1.0, 0.94, 0.62, 1.0), 12)
 		box.add_child(recommend)
 	var reason_badge: PanelContainer = main.ui.make_chip(reason_text, Color(0.12, 0.18, 0.24, 1.0) if not matches_primary else Color(0.28, 0.2, 0.08, 1.0), Color(0.9, 0.96, 1.0, 1.0) if not matches_primary else Color(1.0, 0.92, 0.6, 1.0), 11 if tight else 12)
 	box.add_child(reason_badge)
+	var growth_headline := String(growth.get("headline", ""))
+	if not growth_headline.is_empty():
+		var growth_chip: PanelContainer = main.ui.make_chip(
+			"빌드 상승  %s" % growth_headline,
+			Color(0.12, 0.22, 0.18, 1.0) if bool(growth.get("will_activate", false)) else Color(0.12, 0.14, 0.22, 1.0),
+			Color(0.72, 1.0, 0.82, 1.0) if bool(growth.get("will_activate", false)) else Color(0.86, 0.94, 1.0, 1.0),
+			10 if tight else 11
+		)
+		box.add_child(growth_chip)
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 8)
 	box.add_child(header)
 	header.add_child(main.ui.make_cost_badge("%d" % int(card.get("cost", 0)), compact))
-	var name_label: Label = main._make_label(String(card.get("name", "")), 13 if tight else (14 if compact else 16), Color(0.98, 0.98, 0.96, 1.0))
+	var name_label: Label = main._make_label(String(card.get("name", "")), 12 if tight else (13 if compact else 15), Color(0.98, 0.98, 0.96, 1.0))
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	header.add_child(name_label)
-	box.add_child(main._make_card_art_rect(card, Vector2(166, 98) if tight else (Vector2(154, 98) if compact else Vector2(196, 124))))
-	var type_label: Label = main._make_label("%s / %s / %s" % [main.deck_service.type_name(String(card.get("type", ""))), String(card.get("race", "")), String(card.get("attr", ""))], 11 if tight else 12, Color(0.82, 0.88, 0.95, 1.0))
+	box.add_child(main._make_card_art_rect(card, Vector2(150, 84) if tight else (Vector2(142, 86) if compact else Vector2(176, 106))))
+	var type_label: Label = main._make_label("%s / %s / %s" % [main.deck_service.type_name(String(card.get("type", ""))), String(card.get("race", "")), String(card.get("attr", ""))], 10 if tight else 11, Color(0.82, 0.88, 0.95, 1.0))
 	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(type_label)
 	var tag_text: String = main._format_card_tag_text(card)
 	if not tag_text.is_empty():
-		var tag_label: Label = main._make_label(tag_text, 11 if tight else 12, Color(1.0, 0.82, 0.56, 1.0))
+		var tag_label: Label = main._make_label(tag_text, 10 if tight else 11, Color(1.0, 0.82, 0.56, 1.0))
 		tag_label.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.02, 1.0))
 		tag_label.add_theme_constant_override("outline_size", 2)
 		box.add_child(tag_label)
-	var text_label: Label = main._make_label(String(card.get("text", "")), 11 if tight else 12, Color(0.82, 0.88, 0.95, 1.0))
-	text_label.custom_minimum_size = Vector2(0, 28 if tight else 34)
+	var growth_detail := String(growth.get("detail", ""))
+	if not growth_detail.is_empty():
+		var growth_label: Label = main._make_label(growth_detail, 10 if tight else 11, Color(0.74, 0.92, 0.82, 1.0) if bool(growth.get("will_activate", false)) else Color(0.78, 0.84, 0.92, 1.0))
+		growth_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(growth_label)
+	var text_label: Label = main._make_label(String(card.get("text", "")), 10 if tight else 11, Color(0.82, 0.88, 0.95, 1.0))
+	text_label.custom_minimum_size = Vector2(0, 22 if tight else 24)
 	text_label.clip_text = true
 	box.add_child(text_label)
 	var button := Button.new()
 	button.text = "덱에 추가 ▶" if matches_primary else "선택"
-	button.custom_minimum_size = Vector2(120, 36 if tight else 38)
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(98 if tight else (96 if compact else 110), 30 if tight else 32)
 	if matches_primary:
 		main.ui.style_primary_button(button, Color(0.52, 0.34, 0.1, 1.0))
 	else:
 		main.ui.style_button(button, Color(0.18, 0.34, 0.48, 1.0))
+	button.add_theme_font_size_override("font_size", 12)
 	button.pressed.connect(Callable(self, "_claim_card_reward").bind(String(card.get("id", ""))))
 	box.add_child(button)
 	return frame

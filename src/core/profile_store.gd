@@ -33,6 +33,7 @@ func make_default_profile(card_defs: Array) -> Dictionary:
 		"gold": LOCAL_DEBUG_GOLD,
 		"soul_stones": 0,
 		"last_daily_reward_day": "",
+		"battle_tutorial_seen": false,
 		"recent_runs": [],
 		"owned_cards": owned,
 		"unlocked_cards": [],
@@ -43,7 +44,7 @@ func make_default_profile(card_defs: Array) -> Dictionary:
 			"second_chance": 0,
 		},
 		"settings": {
-			"battle_cutscene": true,
+			"battle_cutscene": false,
 			"fast_ai": true,
 			"fullscreen": true,
 			"fullscreen_setting_initialized": true,
@@ -59,6 +60,8 @@ func normalize(profile: Dictionary, card_defs: Array) -> Dictionary:
 		profile["soul_stones"] = 0
 	if not profile.has("last_daily_reward_day"):
 		profile["last_daily_reward_day"] = ""
+	if not profile.has("battle_tutorial_seen"):
+		profile["battle_tutorial_seen"] = false
 	if not profile.has("recent_runs") or typeof(profile["recent_runs"]) != TYPE_ARRAY:
 		profile["recent_runs"] = []
 	if not profile.has("owned_cards") or typeof(profile["owned_cards"]) != TYPE_DICTIONARY:
@@ -78,7 +81,7 @@ func normalize(profile: Dictionary, card_defs: Array) -> Dictionary:
 	if not profile["upgrades"].has("second_chance"):
 		profile["upgrades"]["second_chance"] = 0
 	if not profile["settings"].has("battle_cutscene"):
-		profile["settings"]["battle_cutscene"] = true
+		profile["settings"]["battle_cutscene"] = false
 	if not profile["settings"].has("fast_ai"):
 		profile["settings"]["fast_ai"] = true
 	if not bool(profile["settings"].get("fullscreen_setting_initialized", false)):
