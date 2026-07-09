@@ -3158,9 +3158,10 @@ func _render_hand() -> void:
 			if frame == null or not is_instance_valid(frame):
 				return
 			var base_pos: Vector2 = frame.get_meta("base_position", Vector2.ZERO)
+			var base_scale: Vector2 = frame.get_meta("base_scale", Vector2.ONE)
 			var h_tween: Tween = frame.create_tween()
-			h_tween.tween_property(frame, "position", base_pos + Vector2(0, -28 if portrait else -22), 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-			h_tween.parallel().tween_property(frame, "scale", Vector2(1.12, 1.12), 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			h_tween.tween_property(frame, "position", base_pos + Vector2(0, -36 if portrait else -28), 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			h_tween.parallel().tween_property(frame, "scale", base_scale * 1.16, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 			h_tween.parallel().tween_property(frame, "rotation_degrees", 0.0, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 			frame.z_index = 10 + i
 			var current_cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "player")
@@ -3176,11 +3177,13 @@ func _render_hand() -> void:
 				return
 			var base_pos: Vector2 = frame.get_meta("base_position", Vector2.ZERO)
 			var base_rotation: float = float(frame.get_meta("base_rotation", 0.0))
+			var base_scale: Vector2 = frame.get_meta("base_scale", Vector2.ONE)
+			var base_z: int = int(frame.get_meta("base_z_index", i))
 			var h_tween: Tween = frame.create_tween()
 			h_tween.tween_property(frame, "position", base_pos, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-			h_tween.parallel().tween_property(frame, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			h_tween.parallel().tween_property(frame, "scale", base_scale, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 			h_tween.parallel().tween_property(frame, "rotation_degrees", base_rotation, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-			frame.z_index = i
+			frame.z_index = base_z
 			_hide_hover_popup()
 		)
 		
@@ -3253,14 +3256,16 @@ func _layout_hand_cards() -> void:
 	var max_spread: float = max(card_size.x * 0.58, min(card_size.x * 0.78, (available_width - card_size.x) / max(1.0, float(count - 1))))
 	var spacing: float = max_spread
 	if portrait:
-		spacing = min(spacing, card_size.x * 0.54)
+		spacing = min(spacing, card_size.x * 0.42)
+	else:
+		spacing = min(spacing, card_size.x * 0.48)
 	var total_width: float = card_size.x + spacing * float(max(0, count - 1))
 	var start_x: float = max(8.0, (available_width - total_width) * 0.5)
 	var mid: float = float(count - 1) * 0.5
-	var max_angle: float = 14.0 if portrait else (10.0 if tight else 8.0)
-	var arc_height: float = 18.0 if portrait else (14.0 if tight else 10.0)
-	var base_y: float = 16.0 if portrait else 10.0
-	hand_box.custom_minimum_size = Vector2(0, card_size.y + 48.0)
+	var max_angle: float = 22.0 if portrait else (16.0 if tight else 13.0)
+	var arc_height: float = 38.0 if portrait else (28.0 if tight else 22.0)
+	var base_y: float = 22.0 if portrait else 14.0
+	hand_box.custom_minimum_size = Vector2(0, card_size.y + 72.0)
 	for idx in range(count):
 		var card: Control = hand_box.get_child(idx) as Control
 		if card == null:
@@ -3268,13 +3273,18 @@ func _layout_hand_cards() -> void:
 		var normalized: float = 0.0 if count == 1 else (float(idx) - mid) / max(1.0, mid)
 		var angle: float = normalized * max_angle
 		var lift: float = (1.0 - abs(normalized)) * arc_height
+		var depth_scale: float = lerp(0.92, 1.06, 1.0 - abs(normalized))
 		var target_pos: Vector2 = Vector2(start_x + spacing * float(idx), base_y + (arc_height - lift))
 		card.position = target_pos
 		card.rotation_degrees = angle
+		card.scale = Vector2(depth_scale, depth_scale)
 		card.pivot_offset = Vector2(card.custom_minimum_size.x / 2.0, card.custom_minimum_size.y)
-		card.z_index = idx
+		card.z_index = idx + int((1.0 - abs(normalized)) * 20.0)
+		card.modulate.a = 1.0
 		card.set_meta("base_position", target_pos)
 		card.set_meta("base_rotation", angle)
+		card.set_meta("base_scale", Vector2(depth_scale, depth_scale))
+		card.set_meta("base_z_index", card.z_index)
 
 
 func _render_battle_deck() -> void:
