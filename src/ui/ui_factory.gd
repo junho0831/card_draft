@@ -7,6 +7,7 @@ var card_art_rows := 3
 var card_art_cache := {}
 var btn_tex = preload("res://assets/ui/premium_button.jpg")
 var panel_tex = preload("res://assets/ui/fantasy_ui_panel.png")
+var card_frame_tex = preload("res://assets/ui/fantasy_card_frame.png")
 const COMPACT_BREAKPOINT := 860.0
 const SCREEN_MARGIN := 10.0
 const MIN_RESPONSIVE_WIDTH := 280.0
@@ -332,6 +333,34 @@ func make_surface_panel(bg_color: Color, border_color: Color = Color(0.32, 0.35,
 	panel.add_theme_stylebox_override("panel", style)
 	return panel
 
+func make_fantasy_card_panel(tint: Color, margins: int = 10) -> PanelContainer:
+	var panel := PanelContainer.new()
+	var style := StyleBoxTexture.new()
+	style.texture = card_frame_tex
+	style.texture_margin_left = 14
+	style.texture_margin_top = 14
+	style.texture_margin_right = 14
+	style.texture_margin_bottom = 14
+	style.modulate_color = tint
+	style.content_margin_left = margins
+	style.content_margin_top = margins
+	style.content_margin_right = margins
+	style.content_margin_bottom = margins
+	panel.add_theme_stylebox_override("panel", style)
+	return panel
+
+func style_card_title(label: Label, compact: bool = false) -> void:
+	label.add_theme_font_size_override("font_size", 13 if compact else 15)
+	label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.82, 1.0))
+	label.add_theme_color_override("font_outline_color", Color(0.07, 0.04, 0.02, 1.0))
+	label.add_theme_constant_override("outline_size", 3 if compact else 4)
+
+func style_card_rules(label: Label, compact: bool = false, muted: bool = false) -> void:
+	label.add_theme_font_size_override("font_size", 10 if compact else 12)
+	label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.84, 0.72) if muted else Color(0.98, 0.95, 0.86, 1.0))
+	label.add_theme_color_override("font_outline_color", Color(0.03, 0.025, 0.02, 0.9))
+	label.add_theme_constant_override("outline_size", 2)
+
 func make_chip(text: String, bg_color: Color, text_color: Color = Color(0.96, 0.97, 0.94, 1.0), font_size: int = 14) -> PanelContainer:
 	var panel := make_surface_panel(bg_color, bg_color.lightened(0.22), 1, 8, 10)
 	panel.custom_minimum_size = Vector2(0, 44)
@@ -448,6 +477,29 @@ func make_style_box(bg_color: Color, border_color: Color, border_width: int = 1,
 	style.content_margin_bottom = 12
 	return style
 
+func style_flat_button(button: Button, base_color: Color, accent_color: Color = Color(0.96, 0.82, 0.46, 1.0), font_size: int = 16, outline_size: int = 3) -> void:
+	var style_normal := make_style_box(base_color, accent_color, 2, 10)
+	style_normal.shadow_size = 6
+	style_normal.shadow_offset = Vector2(0, 2)
+	var style_hover := style_normal.duplicate()
+	style_hover.bg_color = base_color.lightened(0.08)
+	style_hover.border_color = accent_color.lightened(0.12)
+	var style_pressed := style_normal.duplicate()
+	style_pressed.bg_color = base_color.darkened(0.08)
+	var style_disabled := style_normal.duplicate()
+	style_disabled.bg_color = Color(base_color.r, base_color.g, base_color.b, 0.45)
+	style_disabled.border_color = Color(accent_color.r, accent_color.g, accent_color.b, 0.35)
+	button.add_theme_stylebox_override("normal", style_normal)
+	button.add_theme_stylebox_override("hover", style_hover)
+	button.add_theme_stylebox_override("pressed", style_pressed)
+	button.add_theme_stylebox_override("disabled", style_disabled)
+	button.add_theme_color_override("font_color", Color(0.98, 0.98, 0.96, 1.0))
+	button.add_theme_color_override("font_disabled_color", Color(0.55, 0.57, 0.62, 1.0))
+	button.add_theme_color_override("font_outline_color", Color(0.02, 0.025, 0.03, 1.0))
+	button.add_theme_constant_override("outline_size", outline_size)
+	button.add_theme_font_size_override("font_size", font_size)
+	_apply_hover_feedback(button)
+
 func style_button(button: Button, base_color: Color) -> void:
 	var style_normal = StyleBoxTexture.new()
 	style_normal.texture = btn_tex
@@ -507,8 +559,7 @@ func style_primary_button(button: Button, base_color: Color = Color(0.55, 0.36, 
 	_apply_hover_feedback(button)
 
 func make_card_frame() -> PanelContainer:
-	var frame := PanelContainer.new()
-	frame.add_theme_stylebox_override("panel", make_style_box(Color(0.09, 0.1, 0.105, 1.0), Color(0.62, 0.48, 0.24, 1.0), 2, 8))
+	var frame := make_fantasy_card_panel(Color(0.88, 0.74, 0.44, 1.0), 10)
 	return frame
 
 func make_art_rect(art_index: int, size: Vector2) -> TextureRect:

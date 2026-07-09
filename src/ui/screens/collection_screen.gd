@@ -67,7 +67,15 @@ func _make_collection_card(card: Dictionary, compact: bool) -> Control:
 		stat_text += " | %d/%d" % [int(card.get("attack", 0)), int(card.get("health", 0))]
 	var stat = main._make_label(stat_text, 12 if compact else 13, Color(0.84, 0.88, 0.95, 1.0))
 	box.add_child(stat)
-	var text = main._make_label(String(card.get("text", "")), 12 if compact else 13, Color(0.82, 0.88, 0.95, 1.0))
+	var summary = main._make_label(main._card_effect_summary(card), 12 if compact else 14, Color(1.0, 0.95, 0.82, 1.0))
+	summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	main.ui.style_card_rules(summary, compact, false)
+	box.add_child(summary)
+	var text = main._make_label(String(card.get("text", "")), 11 if compact else 12, Color(0.82, 0.88, 0.95, 1.0))
 	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text.modulate = Color(0.82, 0.88, 0.95, 0.78)
+	main.ui.style_card_rules(text, true, true)
 	box.add_child(text)
 	return panel

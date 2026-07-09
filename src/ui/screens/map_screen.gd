@@ -161,11 +161,11 @@ func _make_objective_panel(compact: bool, act_data: Dictionary) -> PanelContaine
 	if typeof(current_layer) == TYPE_ARRAY and (current_layer as Array).size() > 1:
 		box.add_child(_make_panel_title("경로 선택", compact))
 		var recommended_path_index := _recommended_path_index(current_layer as Array)
-		var route_tip: Label = main._make_label("처음이라면 추천 진행부터 누르세요. 이후 다른 경로와 비교해도 됩니다.", 13 if compact else 14, Color(0.82, 0.88, 0.96, 1.0))
+		var route_tip: Label = main._make_label("헷갈리면 큰 추천 버튼만 누르세요. 바로 다음 화면으로 이어집니다.", 13 if compact else 14, Color(0.82, 0.88, 0.96, 1.0))
 		route_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		box.add_child(route_tip)
 		var recommended_type := String((current_layer as Array)[recommended_path_index])
-		var recommended_button: Button = main._add_menu_button(box, "추천 진행 ▶ %s" % main._node_type_name(recommended_type), "", Color(0.62, 0.4, 0.1, 1.0))
+		var recommended_button: Button = main._add_menu_button(box, "이거 누르기 ▶ %s" % main._node_type_name(recommended_type), "", Color(0.62, 0.4, 0.1, 1.0))
 		recommended_button.pressed.connect(func():
 			main._enter_current_node(recommended_path_index)
 		)
@@ -180,13 +180,13 @@ func _make_objective_panel(compact: bool, act_data: Dictionary) -> PanelContaine
 				main._enter_current_node(path_idx)
 			)
 	else:
-		var single_button_label := "바로 진행 ▶ %s" % main._node_type_name(current_type)
+		var single_button_label := "이거 누르기 ▶ %s" % main._node_type_name(current_type)
 		var enter_button: Button = main._add_menu_button(box, single_button_label, "", Color(0.55, 0.36, 0.1, 1.0))
 		enter_button.pressed.connect(func():
 			main._enter_current_node(0)
 		)
 		main.ui.style_primary_button(enter_button)
-		var quick_tip: Label = main._make_label("이 버튼만 누르면 바로 다음 장면으로 넘어갑니다.", 13 if compact else 14, Color(0.82, 0.88, 0.96, 1.0))
+		var quick_tip: Label = main._make_label("지금은 이 버튼 하나만 누르면 됩니다.", 13 if compact else 14, Color(0.82, 0.88, 0.96, 1.0))
 		quick_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		box.add_child(quick_tip)
 
@@ -343,17 +343,14 @@ func _primary_build_hint() -> String:
 func _primary_build_guidance(scores: Dictionary) -> String:
 	var primary: String = main._primary_build_tag(scores)
 	if primary.is_empty():
-		return "아직 빌드가 고정되지 않았습니다. 현재 노드 보상으로 방향을 잡으세요."
-	var meta: Dictionary = main._build_tag_meta().get(primary, {})
-	return "현재는 %s %s 축이 가장 강합니다. 이 노드의 보상이 시너지를 이어주는지 확인하세요." % [String(meta.get("icon", "")), String(meta.get("name", ""))]
+		return "아직 덱 방향이 정해지지 않았습니다. 보상에서 마음에 드는 강한 카드부터 고르세요."
+	return main._plain_build_help(primary)
 
 func _map_primary_guidance_text() -> String:
 	var current_layer: Variant = nodes_data[current_index]
 	if typeof(current_layer) == TYPE_ARRAY and (current_layer as Array).size() > 1:
-		var path_options := current_layer as Array
-		var recommended_path_index := _recommended_path_index(path_options)
-		return "추천 진행부터 눌러 빠르게 이어가거나, 경로 선택에서 비교 후 진입하세요."
-	return "오른쪽의 바로 진행 버튼을 누르면 즉시 다음 장소로 넘어갑니다."
+		return "헷갈리면 큰 추천 버튼부터 누르세요."
+	return "큰 진행 버튼 하나만 누르면 됩니다."
 
 func _recommended_path_index(path_options: Array) -> int:
 	if path_options.is_empty():

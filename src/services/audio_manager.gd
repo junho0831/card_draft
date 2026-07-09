@@ -56,6 +56,9 @@ func _generate_all_sounds() -> void:
 	streams["play"] = _generate_heavy_play()
 	streams["heal"] = _generate_heavy_heal()
 	streams["hit"] = _generate_heavy_hit()
+	streams["combo"] = _generate_combo_burst()
+	streams["finisher"] = _generate_finisher_slam()
+	streams["reward"] = _generate_reward_chime()
 	streams["victory"] = _generate_heavy_fanfare(true)
 	streams["defeat"] = _generate_heavy_fanfare(false)
 	streams["hover"] = _generate_heavy_hover()
@@ -238,6 +241,82 @@ func _generate_heavy_hit() -> AudioStreamWAV:
 	stream.data = bytes
 	return stream
 
+func _generate_combo_burst() -> AudioStreamWAV:
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = 44100
+	stream.stereo = false
+	var duration := 0.34
+	var num_samples := int(44100.0 * duration)
+	var bytes := PackedByteArray()
+	bytes.resize(num_samples * 2)
+	var phase_a := 0.0
+	var phase_b := 0.0
+	for i in range(num_samples):
+		var t := float(i) / 44100.0
+		var progress := t / duration
+		var freq_a: float = lerp(260.0, 420.0, progress)
+		var freq_b: float = lerp(390.0, 620.0, progress)
+		phase_a += (freq_a * 2.0 * PI) / 44100.0
+		phase_b += (freq_b * 2.0 * PI) / 44100.0
+		var sparkle := randf_range(-1.0, 1.0) * 0.16
+		var sample := sin(phase_a) * 0.5 + sin(phase_b) * 0.32 + sparkle
+		var envelope := exp(-progress * 5.2)
+		sample *= envelope * 0.42
+		bytes.encode_s16(i * 2, int(clamp(sample, -1.0, 1.0) * 32767.0))
+	stream.data = bytes
+	return stream
+
+func _generate_finisher_slam() -> AudioStreamWAV:
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = 44100
+	stream.stereo = false
+	var duration := 0.46
+	var num_samples := int(44100.0 * duration)
+	var bytes := PackedByteArray()
+	bytes.resize(num_samples * 2)
+	var phase_low := 0.0
+	var phase_high := 0.0
+	for i in range(num_samples):
+		var t := float(i) / 44100.0
+		var progress := t / duration
+		var low_freq: float = lerp(80.0, 36.0, progress)
+		var high_freq: float = lerp(220.0, 110.0, progress)
+		phase_low += (low_freq * 2.0 * PI) / 44100.0
+		phase_high += (high_freq * 2.0 * PI) / 44100.0
+		var sample := sin(phase_low) * 0.68 + sin(phase_high) * 0.22 + randf_range(-1.0, 1.0) * 0.18
+		var envelope := exp(-progress * 6.8)
+		sample = clamp(sample * envelope * 0.58, -1.0, 1.0)
+		bytes.encode_s16(i * 2, int(sample * 32767.0))
+	stream.data = bytes
+	return stream
+
+func _generate_reward_chime() -> AudioStreamWAV:
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = 44100
+	stream.stereo = false
+	var duration := 0.62
+	var num_samples := int(44100.0 * duration)
+	var bytes := PackedByteArray()
+	bytes.resize(num_samples * 2)
+	var notes: Array[float] = [392.0, 493.88, 587.33]
+	var phases: Array[float] = [0.0, 0.0, 0.0]
+	for i in range(num_samples):
+		var t := float(i) / 44100.0
+		var progress := t / duration
+		var sample := 0.0
+		for j in range(notes.size()):
+			phases[j] += (notes[j] * 2.0 * PI) / 44100.0
+			sample += sin(phases[j]) * (0.55 - j * 0.1)
+		sample /= 1.4
+		var envelope := exp(-progress * 3.6)
+		sample *= envelope * 0.34
+		bytes.encode_s16(i * 2, int(clamp(sample, -1.0, 1.0) * 32767.0))
+	stream.data = bytes
+	return stream
+
 func _generate_heavy_fanfare(is_win: bool) -> AudioStreamWAV:
 	var stream := AudioStreamWAV.new()
 	stream.format = AudioStreamWAV.FORMAT_16_BITS
@@ -315,4 +394,3 @@ func _generate_heavy_hover() -> AudioStreamWAV:
 		
 	stream.data = bytes
 	return stream
-

@@ -62,8 +62,12 @@ var root_scroll: ScrollContainer
 var modal_layer: Control
 var battle_cutscene
 
+func _configure_runtime_performance() -> void:
+	Engine.max_fps = 60
+
 
 func _ready() -> void:
+	_configure_runtime_performance()
 	card_db = CardDatabaseScript.new()
 	deck_service = DeckServiceScript.new()
 	enemy_service = EnemyServiceScript.new()
@@ -402,6 +406,16 @@ func _small_hub_button(parent: Node, title: String, callback_method: String, ico
 	button.pressed.connect(Callable(self, callback_method))
 	parent.add_child(button)
 
+func _small_hub_button_config(parent: Node, title: String, callback_method: String, icon_text: String, width: int = 58, height: int = 62, font_size: int = 13) -> Button:
+	var button := Button.new()
+	button.text = "%s\n%s" % [icon_text, title]
+	button.custom_minimum_size = Vector2(width, height)
+	ui.style_flat_button(button, Color(0.08, 0.11, 0.16, 1.0), Color(0.44, 0.6, 0.82, 1.0), font_size, 2)
+	button.add_theme_font_size_override("font_size", font_size)
+	button.pressed.connect(Callable(self, callback_method))
+	parent.add_child(button)
+	return button
+
 func _format_large_number(value: int) -> String:
 	var sign := "-" if value < 0 else ""
 	var abs_value := absi(value)
@@ -421,6 +435,7 @@ func _make_top_resource_chip(icon_text: String, value_text: String, compact: boo
 	return chip
 
 func _make_main_menu_top_bar(compact: bool) -> Control:
+	var phone_portrait := _is_phone_portrait_layout()
 	var panel: PanelContainer = ui.make_surface_panel(Color(0.025, 0.035, 0.05, 1.0), Color(0.28, 0.22, 0.13, 1.0), 1, 12, 14)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
@@ -484,7 +499,7 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 	var actions: Control
 	if compact:
 		var action_grid := GridContainer.new()
-		action_grid.columns = 5
+		action_grid.columns = 3 if phone_portrait else 5
 		action_grid.size_flags_horizontal = Control.SIZE_SHRINK_END
 		action_grid.add_theme_constant_override("h_separation", 8)
 		action_grid.add_theme_constant_override("v_separation", 8)
@@ -495,11 +510,16 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 		action_bar.add_theme_constant_override("separation", 8)
 		actions = action_bar
 	row.add_child(actions)
-	_small_hub_button(actions, "도감", "_show_compendium", "📖")
-	_small_hub_button(actions, "가이드", "_show_ui_guide", "🗺")
-	_small_hub_button(actions, "업적", "_show_achievements", "🏆")
-	_small_hub_button(actions, "설정", "_show_settings", "⚙")
-	_small_hub_button(actions, "종료", "_quit_game", "⏻")
+	if phone_portrait:
+		_small_hub_button_config(actions, "가이드", "_show_ui_guide", "🗺", 54, 54, 11)
+		_small_hub_button_config(actions, "설정", "_show_settings", "⚙", 54, 54, 11)
+		_small_hub_button_config(actions, "종료", "_quit_game", "⏻", 54, 54, 11)
+	else:
+		_small_hub_button(actions, "도감", "_show_compendium", "📖")
+		_small_hub_button(actions, "가이드", "_show_ui_guide", "🗺")
+		_small_hub_button(actions, "업적", "_show_achievements", "🏆")
+		_small_hub_button(actions, "설정", "_show_settings", "⚙")
+		_small_hub_button(actions, "종료", "_quit_game", "⏻")
 	return panel
 
 func _make_main_menu_node_summary(compact: bool) -> Control:
@@ -640,25 +660,27 @@ func _make_main_menu_build_panel(compact: bool) -> Control:
 	return panel
 
 func _make_main_menu_content(compact: bool) -> Control:
-	var content: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+	var phone_portrait := _is_phone_portrait_layout()
+	var content: BoxContainer = VBoxContainer.new() if compact or phone_portrait else HBoxContainer.new()
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 14)
 
-	var left_column := VBoxContainer.new()
-	left_column.custom_minimum_size = Vector2(250 if not compact else 0, 0)
-	left_column.add_theme_constant_override("separation", 8)
-	content.add_child(left_column)
 	var continue_subtitle := "진행 중인 런이 없습니다.\n새 런을 시작해 흐름을 여세요."
 	if not current_run.is_empty():
 		continue_subtitle = "Act %d - %s\n노드 %d / 8" % [int(current_run.get("act", 1)), String(_current_act().get("name", "")), int(current_run.get("current_node_index", 0)) + 1]
-	var continue_button := _menu_nav_button(left_column, "이어하기", continue_subtitle, "_continue_run", Color(0.18, 0.34, 0.16, 1.0), "✦", compact)
-	continue_button.disabled = current_run.is_empty()
-	_menu_nav_button(left_column, "새 런 시작", "새로운 모험을 시작합니다.", "_start_new_run", Color(0.16, 0.32, 0.58, 1.0), "⚔", compact)
-	_menu_nav_button(left_column, "카드 컬렉션", "카드 도감과 보유 카드를 확인합니다.", "_show_collection", Color(0.12, 0.14, 0.18, 1.0), "🃏", compact)
-	_menu_nav_button(left_column, "유물", "현재 유물과 해금 유물을 확인합니다.", "_show_compendium", Color(0.12, 0.14, 0.18, 1.0), "🜂", compact)
-	_menu_nav_button(left_column, "메타 강화", "영혼석으로 시작 보너스를 강화합니다.", "_show_meta_upgrade", Color(0.12, 0.14, 0.18, 1.0), "🌿", compact)
-	_menu_nav_button(left_column, "UI 설계 가이드", "8개 핵심 화면과 역할을 한 장으로 봅니다.", "_show_ui_guide", Color(0.12, 0.14, 0.18, 1.0), "🗺", compact)
+	if not phone_portrait:
+		var left_column := VBoxContainer.new()
+		left_column.custom_minimum_size = Vector2(250 if not compact else 0, 0)
+		left_column.add_theme_constant_override("separation", 8)
+		content.add_child(left_column)
+		var continue_button := _menu_nav_button(left_column, "이어하기", continue_subtitle, "_continue_run", Color(0.18, 0.34, 0.16, 1.0), "✦", compact)
+		continue_button.disabled = current_run.is_empty()
+		_menu_nav_button(left_column, "새 런 시작", "새로운 모험을 시작합니다.", "_start_new_run", Color(0.16, 0.32, 0.58, 1.0), "⚔", compact)
+		_menu_nav_button(left_column, "카드 컬렉션", "카드 도감과 보유 카드를 확인합니다.", "_show_collection", Color(0.12, 0.14, 0.18, 1.0), "🃏", compact)
+		_menu_nav_button(left_column, "유물", "현재 유물과 해금 유물을 확인합니다.", "_show_compendium", Color(0.12, 0.14, 0.18, 1.0), "🜂", compact)
+		_menu_nav_button(left_column, "메타 강화", "영혼석으로 시작 보너스를 강화합니다.", "_show_meta_upgrade", Color(0.12, 0.14, 0.18, 1.0), "🌿", compact)
+		_menu_nav_button(left_column, "UI 설계 가이드", "8개 핵심 화면과 역할을 한 장으로 봅니다.", "_show_ui_guide", Color(0.12, 0.14, 0.18, 1.0), "🗺", compact)
 
 	var center_column := VBoxContainer.new()
 	center_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -682,28 +704,54 @@ func _make_main_menu_content(compact: bool) -> Control:
 	hero_stack.add_child(hero_text_box)
 	var hero_kicker: PanelContainer = ui.make_chip("빌드 중심 로그라이크 덱빌딩", Color(0.14, 0.18, 0.1, 1.0), Color(0.98, 0.92, 0.72, 1.0), 12 if compact else 13)
 	hero_text_box.add_child(hero_kicker)
-	var logo_label := _make_label("CARD\nDRAFT", 42 if compact else 60, Color(0.95, 0.92, 0.86, 1.0))
+	var logo_label := _make_label("CARD\nDRAFT", 34 if phone_portrait else (42 if compact else 60), Color(0.95, 0.92, 0.86, 1.0))
 	logo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hero_text_box.add_child(logo_label)
-	var tag_label := _make_label("약한 시작 덱으로 출발해\n이번 런만의 빌드를 완성하세요.", 16 if compact else 19, Color(0.88, 0.9, 0.94, 1.0))
+	var tag_label := _make_label("약한 시작 덱으로 출발해\n이번 런만의 빌드를 완성하세요.", 15 if phone_portrait else (16 if compact else 19), Color(0.88, 0.9, 0.94, 1.0))
 	tag_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hero_text_box.add_child(tag_label)
+	if phone_portrait:
+		var primary_title := "이어하기" if not current_run.is_empty() else "새 런 시작"
+		var primary_subtitle := "바로 이어서 다음 전투로 갑니다." if not current_run.is_empty() else "바로 첫 전투 흐름으로 들어갑니다."
+		var primary_method := "_continue_run" if not current_run.is_empty() else "_start_new_run"
+		var primary_action: Button = ui.make_large_action_button(primary_title, primary_subtitle, "▶" if not current_run.is_empty() else "⚔", Color(0.16, 0.32, 0.58, 1.0), true)
+		primary_action.custom_minimum_size = Vector2(0, 96)
+		ui.style_flat_button(primary_action, Color(0.12, 0.24, 0.42, 1.0), Color(0.98, 0.82, 0.42, 1.0), 15, 3)
+		primary_action.pressed.connect(Callable(self, primary_method))
+		hero_text_box.add_child(primary_action)
+		var immediate_hint := _make_label("지금은 큰 버튼 하나만 누르면 됩니다.", 13, Color(1.0, 0.9, 0.62, 1.0))
+		immediate_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		hero_text_box.add_child(immediate_hint)
+		var quick_row := GridContainer.new()
+		quick_row.columns = 2
+		quick_row.add_theme_constant_override("h_separation", 8)
+		quick_row.add_theme_constant_override("v_separation", 8)
+		hero_text_box.add_child(quick_row)
+		var collection_button := _small_hub_button_config(quick_row, "카드", "_show_collection", "🃏", 0, 48, 11)
+		collection_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var meta_button := _small_hub_button_config(quick_row, "메타", "_show_meta_upgrade", "🌿", 0, 48, 11)
+		meta_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var relic_button := _small_hub_button_config(quick_row, "유물", "_show_compendium", "🜂", 0, 48, 11)
+		relic_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var guide_button := _small_hub_button_config(quick_row, "가이드", "_show_ui_guide", "🗺", 0, 48, 11)
+		guide_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var hero_objective: PanelContainer = ui.make_objective_panel("다음 행동", _main_menu_next_action_text().replace("다음 행동: ", ""), compact)
 	hero_text_box.add_child(hero_objective)
-	var hero_summary_panel: PanelContainer = ui.make_surface_panel(Color(0.08, 0.1, 0.12, 0.98), Color(0.22, 0.2, 0.12, 1.0), 1, 10, 12)
-	hero_text_box.add_child(hero_summary_panel)
-	var hero_summary_box := VBoxContainer.new()
-	hero_summary_box.add_theme_constant_override("separation", 6)
-	hero_summary_panel.add_child(hero_summary_box)
-	var hero_summary_title := _make_label("이번 런 핵심", 13 if compact else 14, Color(1.0, 0.88, 0.55, 1.0))
-	hero_summary_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	hero_summary_box.add_child(hero_summary_title)
-	var hero_summary := _make_label(_hero_build_name(), 15 if compact else 17, Color(0.74, 0.84, 1.0, 1.0))
-	hero_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	hero_summary_box.add_child(hero_summary)
-	var hero_active := _make_label(_active_build_text(_current_build_scores()), 13 if compact else 14, Color(0.94, 0.92, 0.78, 1.0))
-	hero_active.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	hero_summary_box.add_child(hero_active)
+	if not phone_portrait:
+		var hero_summary_panel: PanelContainer = ui.make_surface_panel(Color(0.08, 0.1, 0.12, 0.98), Color(0.22, 0.2, 0.12, 1.0), 1, 10, 12)
+		hero_text_box.add_child(hero_summary_panel)
+		var hero_summary_box := VBoxContainer.new()
+		hero_summary_box.add_theme_constant_override("separation", 6)
+		hero_summary_panel.add_child(hero_summary_box)
+		var hero_summary_title := _make_label("이번 런 핵심", 13 if compact else 14, Color(1.0, 0.88, 0.55, 1.0))
+		hero_summary_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		hero_summary_box.add_child(hero_summary_title)
+		var hero_summary := _make_label(_hero_build_name(), 15 if compact else 17, Color(0.74, 0.84, 1.0, 1.0))
+		hero_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		hero_summary_box.add_child(hero_summary)
+		var hero_active := _make_label(_active_build_text(_current_build_scores()), 13 if compact else 14, Color(0.94, 0.92, 0.78, 1.0))
+		hero_active.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		hero_summary_box.add_child(hero_active)
 	var hero_stat_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	hero_stat_row.add_theme_constant_override("separation", 8)
 	hero_text_box.add_child(hero_stat_row)
@@ -715,7 +763,8 @@ func _make_main_menu_content(compact: bool) -> Control:
 	hero_stat_row.add_child(ui.make_stat_tile("골드", _format_large_number(gold_amount), Color(0.12, 0.18, 0.14, 1.0), compact))
 	var hero_art_panel: PanelContainer = ui.make_surface_panel(Color(0.05, 0.055, 0.06, 1.0), Color(0.46, 0.38, 0.2, 1.0), 1, 12, 12)
 	hero_art_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hero_stack.add_child(hero_art_panel)
+	if not phone_portrait:
+		hero_stack.add_child(hero_art_panel)
 	var hero_art_box := VBoxContainer.new()
 	hero_art_box.add_theme_constant_override("separation", 8)
 	hero_art_panel.add_child(hero_art_box)
@@ -724,68 +773,79 @@ func _make_main_menu_content(compact: bool) -> Control:
 	hero_art_box.add_child(hero_art_header)
 	hero_art_header.add_child(ui.make_chip("필드전 중심", Color(0.18, 0.16, 0.08, 1.0), Color(1.0, 0.92, 0.7, 1.0), 12 if compact else 13))
 	hero_art_header.add_child(ui.make_chip("적 영웅 HP 0", Color(0.16, 0.09, 0.09, 1.0), Color(1.0, 0.84, 0.82, 1.0), 12 if compact else 13))
-	var hero_art := _make_art_rect(11, Vector2(360 if not compact else 260, 290 if not compact else 220))
+	if phone_portrait:
+		hero_art_header.visible = false
+	var hero_art := _make_art_rect(11, Vector2(360 if not compact else (220 if phone_portrait else 260), 290 if not compact else (180 if phone_portrait else 220)))
 	hero_art.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hero_art_box.add_child(hero_art)
-	center_column.add_child(_make_main_menu_build_panel(compact))
+	if phone_portrait:
+		center_column.add_child(_make_main_menu_node_summary(compact))
+		var build_panel: Control = _make_main_menu_build_panel(compact)
+		build_panel.visible = false
+		center_column.add_child(build_panel)
+	else:
+		center_column.add_child(_make_main_menu_build_panel(compact))
 
-	var right_column := VBoxContainer.new()
-	right_column.custom_minimum_size = Vector2(270 if not compact else 0, 0)
-	right_column.add_theme_constant_override("separation", 10)
-	content.add_child(right_column)
-	right_column.add_child(_make_main_menu_node_summary(compact))
-	right_column.add_child(_make_main_menu_recent_runs(compact))
+	if not phone_portrait:
+		var right_column := VBoxContainer.new()
+		right_column.custom_minimum_size = Vector2(270 if not compact else 0, 0)
+		right_column.add_theme_constant_override("separation", 10)
+		content.add_child(right_column)
+		right_column.add_child(_make_main_menu_node_summary(compact))
+		right_column.add_child(_make_main_menu_recent_runs(compact))
 	return content
 
 func _make_main_menu_footer(compact: bool) -> Control:
+	var phone_portrait := _is_phone_portrait_layout()
 	var footer: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_theme_constant_override("separation", 14)
 
-	var tip_panel: PanelContainer = ui.make_surface_panel(Color(0.09, 0.1, 0.12, 0.95), Color(0.16, 0.18, 0.22, 1.0), 1, 12, 16)
-	tip_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(tip_panel)
-	var tip_box := VBoxContainer.new()
-	tip_box.add_theme_constant_override("separation", 8)
-	tip_panel.add_child(tip_box)
-	var tip_title := _make_label("오늘의 팁", 18 if compact else 20, Color(1.0, 0.9, 0.56, 1.0))
-	tip_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	tip_box.add_child(tip_title)
-	var tip_chip_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	tip_chip_row.add_theme_constant_override("separation", 8)
-	tip_box.add_child(tip_chip_row)
-	tip_chip_row.add_child(ui.make_chip("🔥 화염", Color(0.22, 0.12, 0.08, 1.0), Color(1.0, 0.88, 0.76, 1.0), 12 if compact else 13))
-	tip_chip_row.add_child(ui.make_chip("💀 사망", Color(0.16, 0.1, 0.22, 1.0), Color(0.92, 0.88, 1.0, 1.0), 12 if compact else 13))
-	var tip_text := _make_label("일부 카드와 유물은 특정 빌드 시너지를 강하게 만듭니다.", 15 if compact else 16, Color(0.86, 0.9, 0.96, 1.0))
-	tip_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	tip_box.add_child(tip_text)
+	if not phone_portrait:
+		var tip_panel: PanelContainer = ui.make_surface_panel(Color(0.09, 0.1, 0.12, 0.95), Color(0.16, 0.18, 0.22, 1.0), 1, 12, 16)
+		tip_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		footer.add_child(tip_panel)
+		var tip_box := VBoxContainer.new()
+		tip_box.add_theme_constant_override("separation", 8)
+		tip_panel.add_child(tip_box)
+		var tip_title := _make_label("오늘의 팁", 18 if compact else 20, Color(1.0, 0.9, 0.56, 1.0))
+		tip_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		tip_box.add_child(tip_title)
+		var tip_chip_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+		tip_chip_row.add_theme_constant_override("separation", 8)
+		tip_box.add_child(tip_chip_row)
+		tip_chip_row.add_child(ui.make_chip("🔥 화염", Color(0.22, 0.12, 0.08, 1.0), Color(1.0, 0.88, 0.76, 1.0), 12 if compact else 13))
+		tip_chip_row.add_child(ui.make_chip("💀 사망", Color(0.16, 0.1, 0.22, 1.0), Color(0.92, 0.88, 1.0, 1.0), 12 if compact else 13))
+		var tip_text := _make_label("일부 카드와 유물은 특정 빌드 시너지를 강하게 만듭니다.", 15 if compact else 16, Color(0.86, 0.9, 0.96, 1.0))
+		tip_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		tip_box.add_child(tip_text)
 
-	var challenge_panel: PanelContainer = ui.make_surface_panel(Color(0.09, 0.1, 0.12, 0.95), Color(0.16, 0.18, 0.22, 1.0), 1, 12, 16)
-	challenge_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(challenge_panel)
-	var challenge_box := VBoxContainer.new()
-	challenge_box.add_theme_constant_override("separation", 10)
-	challenge_panel.add_child(challenge_box)
-	var challenge_title := _make_label("일일 도전", 18 if compact else 20, Color(1.0, 0.9, 0.56, 1.0))
-	challenge_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	challenge_box.add_child(challenge_title)
-	var progress: int = min(30, (current_run.get("visited_nodes", []) as Array).size() * 4) if not current_run.is_empty() else 0
-	var challenge_text := _make_label("적 30마리 처치", 15 if compact else 16, Color(0.9, 0.94, 0.98, 1.0))
-	challenge_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	challenge_box.add_child(challenge_text)
-	var reward_preview_chip: PanelContainer = ui.make_chip("보상 100 골드", Color(0.18, 0.16, 0.08, 1.0), Color(1.0, 0.92, 0.72, 1.0), 13 if compact else 14)
-	challenge_box.add_child(reward_preview_chip)
-	var progress_bar_bg := ColorRect.new()
-	progress_bar_bg.color = Color(0.16, 0.18, 0.22, 1.0)
-	progress_bar_bg.custom_minimum_size = Vector2(0, 12)
-	challenge_box.add_child(progress_bar_bg)
-	var progress_bar_fill := ColorRect.new()
-	progress_bar_fill.color = Color(0.88, 0.7, 0.24, 1.0)
-	progress_bar_fill.custom_minimum_size = Vector2(max(8.0, (float(progress) / 30.0) * 220.0), 12)
-	progress_bar_bg.add_child(progress_bar_fill)
-	var progress_label := _make_label("%d / 30" % progress, 14 if compact else 15, Color(1.0, 0.9, 0.56, 1.0))
-	progress_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	challenge_box.add_child(progress_label)
+		var challenge_panel: PanelContainer = ui.make_surface_panel(Color(0.09, 0.1, 0.12, 0.95), Color(0.16, 0.18, 0.22, 1.0), 1, 12, 16)
+		challenge_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		footer.add_child(challenge_panel)
+		var challenge_box := VBoxContainer.new()
+		challenge_box.add_theme_constant_override("separation", 10)
+		challenge_panel.add_child(challenge_box)
+		var challenge_title := _make_label("일일 도전", 18 if compact else 20, Color(1.0, 0.9, 0.56, 1.0))
+		challenge_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		challenge_box.add_child(challenge_title)
+		var progress: int = min(30, (current_run.get("visited_nodes", []) as Array).size() * 4) if not current_run.is_empty() else 0
+		var challenge_text := _make_label("적 30마리 처치", 15 if compact else 16, Color(0.9, 0.94, 0.98, 1.0))
+		challenge_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		challenge_box.add_child(challenge_text)
+		var reward_preview_chip: PanelContainer = ui.make_chip("보상 100 골드", Color(0.18, 0.16, 0.08, 1.0), Color(1.0, 0.92, 0.72, 1.0), 13 if compact else 14)
+		challenge_box.add_child(reward_preview_chip)
+		var progress_bar_bg := ColorRect.new()
+		progress_bar_bg.color = Color(0.16, 0.18, 0.22, 1.0)
+		progress_bar_bg.custom_minimum_size = Vector2(0, 12)
+		challenge_box.add_child(progress_bar_bg)
+		var progress_bar_fill := ColorRect.new()
+		progress_bar_fill.color = Color(0.88, 0.7, 0.24, 1.0)
+		progress_bar_fill.custom_minimum_size = Vector2(max(8.0, (float(progress) / 30.0) * 220.0), 12)
+		progress_bar_bg.add_child(progress_bar_fill)
+		var progress_label := _make_label("%d / 30" % progress, 14 if compact else 15, Color(1.0, 0.9, 0.56, 1.0))
+		progress_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		challenge_box.add_child(progress_label)
 
 	var reward_panel: PanelContainer = ui.make_surface_panel(Color(0.09, 0.1, 0.12, 0.95), Color(0.16, 0.18, 0.22, 1.0), 1, 12, 16)
 	reward_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -809,6 +869,11 @@ func _make_main_menu_footer(compact: bool) -> Control:
 	claim_button.disabled = not _can_claim_daily_reward()
 	claim_button.pressed.connect(Callable(self, "_claim_daily_reward"))
 	reward_box.add_child(claim_button)
+	if phone_portrait:
+		var reward_tip := _make_label("모바일에서는 먼저 이 버튼만 눌러도 됩니다.", 12, Color(0.84, 0.88, 0.94, 1.0))
+		reward_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		reward_box.add_child(reward_tip)
+		reward_panel.visible = false
 	return footer
 
 func _show_meta_upgrade() -> void:
@@ -1056,6 +1121,12 @@ func _on_fast_ai_toggled(enabled: bool) -> void:
 	_save_profile()
 
 func _on_fullscreen_toggled(enabled: bool) -> void:
+	if OS.has_feature("web"):
+		player_profile["settings"]["fullscreen"] = false
+		player_profile["settings"]["fullscreen_setting_initialized"] = true
+		_save_profile()
+		_show_settings()
+		return
 	player_profile["settings"]["fullscreen"] = enabled
 	player_profile["settings"]["fullscreen_setting_initialized"] = true
 	_save_profile()
@@ -1167,6 +1238,120 @@ func _card_build_tags(card: Dictionary) -> Array[String]:
 	if id in ["call_of_dead", "bone_soldier", "elf_ranger", "ritual_sapling", "mercenary", "militia"]:
 		tags.append("summon")
 	return tags
+
+func _base_card_id(card_id: String) -> String:
+	if card_id.ends_with("_plus"):
+		return card_id.trim_suffix("_plus")
+	return card_id
+
+func _card_effect_summary(card: Dictionary) -> String:
+	var card_id := _base_card_id(String(card.get("id", "")))
+	var card_type := String(card.get("type", ""))
+	if card_type == "unit":
+		var unit_parts: Array[String] = ["%d/%d 유닛 소환" % [int(card.get("attack", 0)), int(card.get("health", 0))]]
+		match card_id:
+			"militia":
+				unit_parts.append("앞 적 1 피해")
+			"trainee_swordsman":
+				unit_parts.append("자신 체력 +1")
+			"forest_archer":
+				unit_parts.append("카드 1장 뽑기")
+			"knight_spearman":
+				unit_parts.append("앞 아군 공격 +1")
+			"thief":
+				unit_parts.append("내 HP 1 잃음")
+			"bone_oracle":
+				unit_parts.append("적 영웅 저주 +1")
+			"ritual_sapling":
+				unit_parts.append("의식 +1")
+			"stone_golem":
+				unit_parts.append("내 HP 2 회복")
+			"bone_soldier":
+				unit_parts.append("죽으면 적 영웅 1 피해")
+			"grave_knight":
+				unit_parts.append("죽으면 내 HP 2 회복")
+			"berserker":
+				unit_parts.append("죽으면 내 HP 2 잃음")
+		return " · ".join(unit_parts.slice(0, 2))
+	if card_type == "equipment":
+		match card_id:
+			"training_sword":
+				return "앞 아군 공격 +2"
+		return "아군 장비 강화"
+	var parts: Array[String] = []
+	match card_id:
+		"small_flame":
+			parts.append("앞 적 2 피해")
+			parts.append("처치 시 1드로우")
+		"fireball":
+			parts.append("앞 적 또는 영웅 4 피해")
+		"gale_shot":
+			parts.append("앞 적 1 피해")
+			parts.append("3장째면 4 피해")
+		"first_aid":
+			parts.append("내 HP 3 회복")
+			parts.append("앞 아군 체력 +1")
+		"captain_order":
+			parts.append("아군 전체 공격 +1")
+		"royal_support":
+			parts.append("카드 1장 뽑기")
+			parts.append("인간 있으면 체력 +1")
+		"elven_insight":
+			parts.append("카드 2장 뽑기")
+		"nature_blessing":
+			parts.append("앞 아군 체력 +3")
+		"dark_bargain":
+			parts.append("내 HP 2 잃음")
+			parts.append("카드 2장 뽑기")
+		"call_of_dead":
+			parts.append("1/1 해골 2마리 소환")
+		"corpse_explosion":
+			parts.append("아군 하나 처치")
+			parts.append("모든 적 2 피해")
+		"healing_potion":
+			parts.append("내 HP 5 회복")
+		"death_mark":
+			parts.append("적 영웅 저주 +1")
+		"plague_spread":
+			parts.append("모든 적 유닛 1 피해")
+			parts.append("적 영웅 저주 +2")
+		"world_tree_ritual":
+			parts.append("의식 +1")
+		"nature_communion":
+			parts.append("의식 +1")
+			parts.append("카드 1장 뽑기")
+		"moonwell":
+			parts.append("내 HP 4 회복")
+			parts.append("의식 +1")
+		"ancient_oath":
+			parts.append("의식 +2")
+			parts.append("카드 1장 뽑기")
+		"soul_shackle":
+			parts.append("적 영웅 저주 +2")
+			parts.append("카드 1장 뽑기")
+		"funeral_fog":
+			parts.append("앞 적 또는 영웅 2 피해")
+			parts.append("적 영웅 저주 +1")
+		"vampiric_strike":
+			parts.append("앞 적 또는 영웅 2 피해")
+			parts.append("내 HP 2 회복")
+		"battlecry":
+			parts.append("아군 전체 +1/+1")
+	if parts.is_empty():
+		var raw_text := String(card.get("text", "")).strip_edges()
+		if not raw_text.is_empty() and raw_text != "효과 없음":
+			return raw_text
+		return "기본 전투용 카드"
+	return " · ".join(parts.slice(0, 2))
+
+func _card_detail_text(card: Dictionary) -> String:
+	var summary := _card_effect_summary(card)
+	var raw_text := String(card.get("text", "")).strip_edges()
+	if raw_text.is_empty() or raw_text == summary:
+		return summary
+	if raw_text == "효과 없음":
+		return "%s\n효과 없음" % summary
+	return "%s\n%s" % [summary, raw_text]
 
 func _relic_build_tags(relic: Dictionary) -> Array[String]:
 	var data_tags := _build_tags_from_data(relic)
@@ -1337,6 +1522,36 @@ func _build_delta_summary(card: Dictionary) -> Dictionary:
 		"will_activate": will_activate,
 	}
 
+func _plain_build_help(tag: String) -> String:
+	match tag:
+		"fire":
+			return "화염 카드가 더 세집니다."
+		"draw":
+			return "카드를 더 빨리 돌릴 수 있습니다."
+		"death":
+			return "죽으면서도 피해를 더 벌 수 있습니다."
+		"buff":
+			return "내 유닛을 더 크게 키울 수 있습니다."
+		"low_hp":
+			return "위험할 때 버티면서 반격하기 쉬워집니다."
+		"summon":
+			return "유닛을 많이 깔고 몰아치기 쉬워집니다."
+		_:
+			return "이번 덱 방향을 더 선명하게 만듭니다."
+
+func _plain_build_delta_text(card: Dictionary) -> String:
+	var summary: Dictionary = _build_delta_summary(card)
+	var tag := String(summary.get("primary_tag", ""))
+	if tag.is_empty():
+		return "지금 전투를 바로 돕는 카드입니다."
+	var text := _plain_build_help(tag)
+	if bool(summary.get("will_activate", false)):
+		return "%s 이번 선택으로 바로 켜집니다." % text
+	var detail := String(summary.get("detail", ""))
+	if detail.contains("핵심 직전"):
+		return "%s 거의 완성 직전입니다." % text
+	return text
+
 func _run_soul_stones(is_win: bool) -> int:
 	var stones := 0
 	var visited: Array = current_run.get("visited_nodes", [])
@@ -1458,6 +1673,10 @@ func _is_compact_layout() -> bool:
 func _is_main_menu_compact_layout() -> bool:
 	return _is_compact_layout_for(1480.0, 860.0)
 
+func _is_phone_portrait_layout() -> bool:
+	var viewport_size: Vector2 = _layout_viewport_size()
+	return viewport_size.x <= 900.0 and viewport_size.y > viewport_size.x
+
 func _is_compact_layout_for(width_breakpoint: float = 860.0, height_breakpoint: float = 0.0) -> bool:
 	var viewport_size: Vector2 = _layout_viewport_size()
 	if viewport_size.x < width_breakpoint:
@@ -1471,6 +1690,14 @@ func _layout_viewport_size() -> Vector2:
 			return Vector2(layout_override)
 		if layout_override is Vector2:
 			return layout_override
+	var env_override := OS.get_environment("CARD_DRAFT_LAYOUT_OVERRIDE")
+	if not env_override.is_empty():
+		var parts := env_override.split("x", false)
+		if parts.size() == 2:
+			var override_width := int(parts[0])
+			var override_height := int(parts[1])
+			if override_width > 0 and override_height > 0:
+				return Vector2(override_width, override_height)
 	var viewport_size := get_viewport_rect().size
 	if viewport_size.x > 0.0 and viewport_size.y > 0.0:
 		return viewport_size
@@ -1482,7 +1709,10 @@ func _layout_viewport_size() -> Vector2:
 func _apply_window_mode() -> void:
 	if DisplayServer.get_name() == "headless" or bool(get_meta("disable_window_mode_changes", false)):
 		return
-	var fullscreen_enabled := bool(player_profile.get("settings", {}).get("fullscreen", true))
+	if OS.has_feature("web"):
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		return
+	var fullscreen_enabled := bool(player_profile.get("settings", {}).get("fullscreen", false))
 	DisplayServer.window_set_mode(
 		DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen_enabled else DisplayServer.WINDOW_MODE_WINDOWED
 	)

@@ -153,6 +153,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var matches_primary: bool = main._card_matches_build_tag(card, primary_tag)
 	var reason_text := _reward_choice_reason(card, matches_primary)
 	var growth: Dictionary = _reward_growth_summary(card)
+	var growth_plain_text: String = main._plain_build_delta_text(card)
 	var frame: PanelContainer = main.ui.make_surface_panel(
 		Color(0.24, 0.2, 0.12, 1.0) if matches_primary else Color(0.065, 0.07, 0.08, 1.0),
 		Color(1.0, 0.78, 0.28, 1.0) if matches_primary else Color(0.38, 0.3, 0.18, 1.0),
@@ -160,7 +161,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 		9,
 		10
 	)
-	frame.custom_minimum_size = Vector2(164 if tight else (160 if compact else 188), 0)
+	frame.custom_minimum_size = Vector2(188 if tight else (160 if compact else 188), 0)
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 3 if tight else 4)
@@ -174,7 +175,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var growth_headline := String(growth.get("headline", ""))
 	if not growth_headline.is_empty():
 		var growth_chip: PanelContainer = main.ui.make_chip(
-			"빌드 상승  %s" % growth_headline,
+			"이 카드 고르면  %s" % growth_headline,
 			Color(0.12, 0.22, 0.18, 1.0) if bool(growth.get("will_activate", false)) else Color(0.12, 0.14, 0.22, 1.0),
 			Color(0.72, 1.0, 0.82, 1.0) if bool(growth.get("will_activate", false)) else Color(0.86, 0.94, 1.0, 1.0),
 			10 if tight else 11
@@ -189,7 +190,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	header.add_child(name_label)
-	box.add_child(main._make_card_art_rect(card, Vector2(150, 84) if tight else (Vector2(142, 86) if compact else Vector2(176, 106))))
+	box.add_child(main._make_card_art_rect(card, Vector2(176, 108) if tight else (Vector2(142, 86) if compact else Vector2(176, 106))))
 	var type_label: Label = main._make_label("%s / %s / %s" % [main.deck_service.type_name(String(card.get("type", ""))), String(card.get("race", "")), String(card.get("attr", ""))], 10 if tight else 11, Color(0.82, 0.88, 0.95, 1.0))
 	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(type_label)
@@ -204,9 +205,20 @@ func _make_reward_choice(card: Dictionary) -> Control:
 		var growth_label: Label = main._make_label(growth_detail, 10 if tight else 11, Color(0.74, 0.92, 0.82, 1.0) if bool(growth.get("will_activate", false)) else Color(0.78, 0.84, 0.92, 1.0))
 		growth_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(growth_label)
-	var text_label: Label = main._make_label(String(card.get("text", "")), 10 if tight else 11, Color(0.82, 0.88, 0.95, 1.0))
-	text_label.custom_minimum_size = Vector2(0, 22 if tight else 24)
-	text_label.clip_text = true
+	var summary_label: Label = main._make_label(main._card_effect_summary(card), 11 if tight else 12, Color(0.98, 0.96, 0.84, 1.0))
+	summary_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	main.ui.style_card_rules(summary_label, tight, false)
+	box.add_child(summary_label)
+	if not growth_plain_text.is_empty():
+		var plain_label: Label = main._make_label(growth_plain_text, 10 if tight else 11, Color(0.9, 0.94, 0.98, 1.0))
+		plain_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(plain_label)
+	var text_label: Label = main._make_label(String(card.get("text", "")), 11 if tight else 11, Color(0.82, 0.88, 0.95, 1.0))
+	text_label.custom_minimum_size = Vector2(0, 34 if tight else 24)
+	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text_label.modulate = Color(0.82, 0.88, 0.95, 0.78)
+	main.ui.style_card_rules(text_label, true, true)
 	box.add_child(text_label)
 	var button := Button.new()
 	button.text = "덱에 추가 ▶" if matches_primary else "선택"

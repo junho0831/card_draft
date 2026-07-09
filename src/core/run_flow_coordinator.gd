@@ -6,6 +6,7 @@ const MapScreenScript := preload("res://src/ui/screens/map_screen.gd")
 const RestScreenScript := preload("res://src/ui/screens/rest_screen.gd")
 const RewardScreenScript := preload("res://src/ui/screens/reward_screen.gd")
 const ShopScreenScript := preload("res://src/ui/screens/shop_screen.gd")
+const BattleScreenScript := preload("res://src/ui/screens/battle_screen.gd")
 
 var main: Node
 
@@ -15,11 +16,10 @@ func _init(main_ref: Node) -> void:
 func _ensure_battle_screen() -> bool:
 	if main.battle_screen != null:
 		return true
-	var battle_screen_script = load("res://src/ui/screens/battle_screen.gd")
-	if battle_screen_script == null:
+	if BattleScreenScript == null:
 		main._show_message("전투 화면을 불러오지 못했습니다.", "_show_main_menu")
 		return false
-	main.battle_screen = battle_screen_script.new(main)
+	main.battle_screen = BattleScreenScript.new(main)
 	return true
 
 func start_new_run() -> void:
