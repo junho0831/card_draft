@@ -393,6 +393,11 @@ func _main_menu_recent_stats() -> Dictionary:
 
 func _menu_nav_button(parent: Node, title: String, subtitle: String, callback_method: String, color: Color, icon_text: String = "◆", compact: bool = false) -> Button:
 	var button: Button = ui.make_large_action_button(title, subtitle, icon_text, color, compact)
+	if compact and not _is_phone_portrait_layout():
+		button.custom_minimum_size = Vector2(460, 66)
+		button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	else:
+		button.custom_minimum_size = Vector2(0, 78 if compact else 86)
 	button.pressed.connect(Callable(self, callback_method))
 	parent.add_child(button)
 	return button
@@ -1140,6 +1145,7 @@ func _reset_profile() -> void:
 	_show_message("로컬 프로필을 초기화했습니다.", "_show_main_menu")
 
 func _show_message(message: String, callback_method: String, target: Object = null) -> void:
+	active_screen = "message"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("알림", false, "게임 진행에 필요한 안내 메시지입니다.")
 	_retain_screen_controller(MessageScreenScript.new(self)).build(body, message, callback_method, target)

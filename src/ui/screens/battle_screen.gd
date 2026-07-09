@@ -494,29 +494,34 @@ func _dismiss_battle_tutorial() -> void:
 
 func _make_battle_tutorial_panel(compact: bool) -> PanelContainer:
 	var tight = _is_tight_battle_layout()
-	var panel = _make_battle_surface(Color(0.06, 0.075, 0.1, 0.98), Color(0.42, 0.62, 0.88, 0.82), 1, 10, 12)
-	panel.visible = _should_show_battle_tutorial()
+	var wide_tight = _is_wide_tight_battle_layout()
+	var panel = _make_battle_surface(Color(0.06, 0.075, 0.1, 0.98), Color(0.42, 0.62, 0.88, 0.82), 1, 10, 6 if wide_tight else 12)
+	panel.visible = _should_show_battle_tutorial() and not wide_tight
 	var box = VBoxContainer.new()
-	box.add_theme_constant_override("separation", 6)
+	box.add_theme_constant_override("separation", 3 if wide_tight else 6)
 	panel.add_child(box)
 	var title_row = HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", 8)
 	box.add_child(title_row)
-	var title: Label = main._make_label("첫 전투 가이드", 12 if tight else (14 if compact else 15), Color(0.92, 0.98, 1.0, 1.0))
+	var title_text := "첫 전투: 추천 진행부터 누르세요" if wide_tight else "첫 전투 가이드"
+	var title: Label = main._make_label(title_text, 11 if tight else (14 if compact else 15), Color(0.92, 0.98, 1.0, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(title)
 	var dismiss = Button.new()
 	dismiss.text = "알겠어"
 	dismiss.focus_mode = Control.FOCUS_NONE
-	dismiss.custom_minimum_size = Vector2(74 if tight else 88, 28 if tight else 30)
+	dismiss.custom_minimum_size = Vector2(64 if wide_tight else (74 if tight else 88), 24 if wide_tight else (28 if tight else 30))
 	_style_battle_button(dismiss, Color(0.08, 0.12, 0.18, 0.96), Color(0.34, 0.52, 0.76, 1.0), false)
-	dismiss.add_theme_font_size_override("font_size", 10 if tight else 11)
+	dismiss.add_theme_font_size_override("font_size", 9 if wide_tight else (10 if tight else 11))
 	dismiss.pressed.connect(Callable(self, "_dismiss_battle_tutorial"))
 	title_row.add_child(dismiss)
-	box.add_child(main._make_label("1. 큰 추천 버튼 누르기  2. 밝은 카드나 공격 가능한 유닛 누르기  3. 더 없으면 턴 종료", 10 if tight else 12, Color(0.84, 0.9, 0.98, 1.0)))
-	box.add_child(main._make_label("같은 종류 카드가 이어지면 더 세게 터집니다. 예: 화염 카드 -> 또 화염 카드", 10 if tight else 12, Color(1.0, 0.88, 0.6, 1.0)))
-	box.add_child(main._make_label("보상 화면에서는 '이 카드 고르면' 줄만 보고 골라도 초반에는 충분합니다.", 10 if tight else 12, Color(0.82, 0.92, 0.84, 1.0)))
+	if wide_tight:
+		box.add_child(main._make_label("밝은 카드/유닛만 보고, 더 할 게 없으면 턴 종료.", 9, Color(0.84, 0.9, 0.98, 1.0)))
+	else:
+		box.add_child(main._make_label("1. 큰 추천 버튼 누르기  2. 밝은 카드나 공격 가능한 유닛 누르기  3. 더 없으면 턴 종료", 10 if tight else 12, Color(0.84, 0.9, 0.98, 1.0)))
+		box.add_child(main._make_label("같은 종류 카드가 이어지면 더 세게 터집니다. 예: 화염 카드 -> 또 화염 카드", 10 if tight else 12, Color(1.0, 0.88, 0.6, 1.0)))
+		box.add_child(main._make_label("보상 화면에서는 '이 카드 고르면' 줄만 보고 골라도 초반에는 충분합니다.", 10 if tight else 12, Color(0.82, 0.92, 0.84, 1.0)))
 	return panel
 
 func _is_fast_ai_enabled() -> bool:
@@ -1690,8 +1695,8 @@ func _build_battle_ui() -> void:
 	deck_count_label = null
 	deck_list_label = null
 	log_label = null
-	var field_height = 148 if wide_tight else (128 if tight and portrait else (146 if tight else (168 if not compact else 148)))
-	var hand_height = 132 if wide_tight else (176 if tight and portrait else (154 if tight else (236 if not compact else 214)))
+	var field_height = 116 if wide_tight else (128 if tight and portrait else (146 if tight else (168 if not compact else 148)))
+	var hand_height = 174 if wide_tight else (176 if tight and portrait else (154 if tight else (236 if not compact else 214)))
 	var battle_root = _make_battle_content_root(tight)
 
 	battle_root.add_child(_make_top_status_bar(compact))
@@ -1876,7 +1881,8 @@ func _show_turn_banner(text: String, is_player: bool) -> void:
 		bg_tween.tween_property(style, "border_color", target_color, 0.6)
 
 	var banner = PanelContainer.new()
-	banner.custom_minimum_size = Vector2(260, 54)
+	var wide_tight := _is_wide_tight_battle_layout()
+	banner.custom_minimum_size = Vector2(190 if wide_tight else 260, 34 if wide_tight else 54)
 	var banner_style = StyleBoxFlat.new()
 	banner_style.bg_color = Color(0.04, 0.06, 0.08, 0.92)
 	banner_style.border_color = Color(0.52, 0.68, 0.9, 0.95) if is_player else Color(0.9, 0.36, 0.3, 0.95)
@@ -1895,7 +1901,7 @@ func _show_turn_banner(text: String, is_player: bool) -> void:
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 22)
+	label.add_theme_font_size_override("font_size", 15 if wide_tight else 22)
 	var color = Color(0.6, 0.8, 1.0) if is_player else Color(1.0, 0.5, 0.5)
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_color_override("font_outline_color", Color(0.1, 0.1, 0.1))
@@ -1905,8 +1911,9 @@ func _show_turn_banner(text: String, is_player: bool) -> void:
 	main.add_child(banner)
 	
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	banner.position = Vector2((viewport_size.x - 260.0) / 2.0, 126.0)
-	banner.pivot_offset = Vector2(130, 27)
+	var banner_size: Vector2 = banner.custom_minimum_size
+	banner.position = Vector2((viewport_size.x - banner_size.x) / 2.0, 72.0 if wide_tight else 126.0)
+	banner.pivot_offset = banner_size / 2.0
 	banner.scale = Vector2(0.88, 0.88)
 	banner.modulate.a = 0.0
 	
@@ -2047,7 +2054,7 @@ func _play_slot_pop_feedback(target: Control, text: String, color: Color) -> voi
 	var original_modulate = target.modulate
 	target.scale = original_scale * 0.82
 	target.modulate = Color(color.r, color.g, color.b, 0.88)
-	_show_outcome_text(target, text, color)
+	_show_slot_overlay_text(target, text, color)
 	_spawn_target_glow(target, color, 0.38)
 	var tween = target.create_tween()
 	tween.tween_property(target, "scale", original_scale * 1.12, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -2375,10 +2382,10 @@ func _field_slot_for(side: Dictionary, index: int) -> Control:
 	var slots = player_field_slots if side == player else opponent_field_slots
 	if index < 0 or index >= slots.size():
 		return null
-	var slot: Control = slots[index]
+	var slot = slots[index]
 	if slot == null or not is_instance_valid(slot):
 		return null
-	return slot
+	return slot as Control
 
 func _hero_target_for_player(is_player_target: bool) -> Control:
 	var target = player_hero_target if is_player_target else opponent_hero_target
@@ -2444,6 +2451,32 @@ func _show_outcome_text(target: Control, text: String, color: Color) -> void:
 	if target == null or not is_instance_valid(target):
 		return
 	_spawn_floating_text(target, text, color, 38, 0.95, Vector2(0, -32))
+
+func _show_slot_overlay_text(target: Control, text: String, color: Color) -> void:
+	if target == null or not is_instance_valid(target) or text.is_empty():
+		return
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.custom_minimum_size = Vector2(max(92.0, target.size.x), 36)
+	lbl.add_theme_font_size_override("font_size", 26 if not _is_tight_battle_layout() else 20)
+	lbl.add_theme_color_override("font_color", color)
+	lbl.add_theme_color_override("font_outline_color", Color(0.01, 0.01, 0.01, 1.0))
+	lbl.add_theme_constant_override("outline_size", 7)
+	lbl.z_index = 160
+	target.add_child(lbl)
+	lbl.position = Vector2((target.size.x - lbl.custom_minimum_size.x) * 0.5, target.size.y * 0.42 - 18.0)
+	lbl.scale = Vector2(0.72, 0.72)
+	lbl.modulate.a = 0.0
+	var tween := lbl.create_tween()
+	tween.tween_property(lbl, "scale", Vector2.ONE, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(lbl, "modulate:a", 1.0, 0.08)
+	tween.tween_interval(0.34)
+	tween.tween_property(lbl, "position:y", lbl.position.y - 22.0, 0.22).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(lbl, "modulate:a", 0.0, 0.22).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+	tween.tween_callback(Callable(self, "_queue_free_if_valid").bind(lbl))
 
 func _play_defeat_feedback(target: Control, color: Color) -> void:
 	if target == null or not is_instance_valid(target):
@@ -2863,9 +2896,10 @@ func _configure_field_button(button: Button, unit: Dictionary, index: int, is_pl
 func _make_empty_field_slot(compact: bool) -> PanelContainer:
 	var tight = _is_tight_battle_layout()
 	var portrait = _is_portrait_battle_layout()
+	var wide_tight = _is_wide_tight_battle_layout()
 	var placeholder = PanelContainer.new()
 	placeholder.add_theme_stylebox_override("panel", _make_field_slot_style(Color(0.018, 0.025, 0.035, 0.52), Color(0.18, 0.3, 0.42, 0.54), 1))
-	placeholder.custom_minimum_size = Vector2(108, 132) if tight and portrait else (Vector2(128, 150) if tight else (Vector2(150, 176) if not compact else Vector2(128, 150)))
+	placeholder.custom_minimum_size = Vector2(108, 132) if tight and portrait else (Vector2(108, 118) if wide_tight else (Vector2(128, 150) if tight else (Vector2(150, 176) if not compact else Vector2(128, 150))))
 	var box = VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 3)
@@ -2882,12 +2916,13 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	var compact = _is_compact_layout()
 	var tight = _is_tight_battle_layout()
 	var portrait = _is_portrait_battle_layout()
+	var wide_tight = _is_wide_tight_battle_layout()
 	if index >= side.field.size():
 		return _make_empty_field_slot(compact)
 	
-	var frame_size = Vector2(108, 132) if tight and portrait else (Vector2(128, 150) if tight else (Vector2(150, 176) if not compact else Vector2(128, 150)))
+	var frame_size = Vector2(108, 132) if tight and portrait else (Vector2(108, 118) if wide_tight else (Vector2(128, 150) if tight else (Vector2(150, 176) if not compact else Vector2(128, 150))))
 	var content_size = Vector2(frame_size.x - 12.0, frame_size.y - 10.0)
-	var art_size = Vector2(content_size.x, content_size.y - (24 if tight else 30))
+	var art_size = Vector2(content_size.x, content_size.y - (20 if wide_tight else (24 if tight else 30)))
 	
 	# The slot container is now a Button, making the entire card clickable!
 	var frame = Button.new()
@@ -3044,7 +3079,8 @@ func _render_hand() -> void:
 		var frame = Button.new()
 		frame.text = ""
 		frame.focus_mode = Control.FOCUS_NONE
-		var frame_size = Vector2(140, 192) if tight and portrait else (Vector2(132, 170) if tight else (Vector2(184, 212) if not compact else Vector2(156, 186)))
+		var wide_tight := _is_wide_tight_battle_layout()
+		var frame_size = Vector2(140, 192) if tight and portrait else (Vector2(150, 174) if wide_tight else (Vector2(132, 170) if tight else (Vector2(184, 212) if not compact else Vector2(156, 186))))
 		var content_size = Vector2(frame_size.x - 12.0, frame_size.y - 12.0)
 		frame.custom_minimum_size = frame_size
 		var hand_border = Color(1.0, 0.88, 0.38, 1.0) if is_recommended else (accent.lightened(0.12) if playable else accent.darkened(0.08))
@@ -3094,7 +3130,7 @@ func _render_hand() -> void:
 		subtype_label.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.03, 1.0))
 		subtype_label.add_theme_constant_override("outline_size", 2)
 		card_box.add_child(subtype_label)
-		var art_size = Vector2(content_size.x - 4.0, 72 if tight and portrait else 56) if tight else (Vector2(164, 88) if not compact else Vector2(140, 68))
+		var art_size = Vector2(content_size.x - 4.0, 72 if tight and portrait else (58 if wide_tight else 56)) if tight else (Vector2(164, 88) if not compact else Vector2(140, 68))
 		var art_rect: TextureRect = main._make_card_art_rect(card, art_size)
 		art_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_box.add_child(art_rect)
@@ -3243,6 +3279,7 @@ func _layout_hand_cards() -> void:
 		return
 	var tight := _is_tight_battle_layout()
 	var portrait := _is_portrait_battle_layout()
+	var wide_tight := _is_wide_tight_battle_layout()
 	var available_width: float = hand_box.size.x
 	if available_width <= 0.0 and hand_box.get_parent() != null and hand_box.get_parent() is Control:
 		available_width = (hand_box.get_parent() as Control).size.x
@@ -3255,17 +3292,19 @@ func _layout_hand_cards() -> void:
 	var card_size: Vector2 = first_card.custom_minimum_size
 	var max_spread: float = max(card_size.x * 0.58, min(card_size.x * 0.78, (available_width - card_size.x) / max(1.0, float(count - 1))))
 	var spacing: float = max_spread
-	if portrait:
+	if wide_tight:
+		spacing = min(spacing, card_size.x * 0.28)
+	elif portrait:
 		spacing = min(spacing, card_size.x * 0.42)
 	else:
 		spacing = min(spacing, card_size.x * 0.48)
 	var total_width: float = card_size.x + spacing * float(max(0, count - 1))
 	var start_x: float = max(8.0, (available_width - total_width) * 0.5)
 	var mid: float = float(count - 1) * 0.5
-	var max_angle: float = 22.0 if portrait else (16.0 if tight else 13.0)
-	var arc_height: float = 38.0 if portrait else (28.0 if tight else 22.0)
-	var base_y: float = 22.0 if portrait else 14.0
-	hand_box.custom_minimum_size = Vector2(0, card_size.y + 72.0)
+	var max_angle: float = 22.0 if portrait else (6.0 if wide_tight else (16.0 if tight else 13.0))
+	var arc_height: float = 38.0 if portrait else (10.0 if wide_tight else (28.0 if tight else 22.0))
+	var base_y: float = 22.0 if portrait else (2.0 if wide_tight else 14.0)
+	hand_box.custom_minimum_size = Vector2(0, card_size.y + (22.0 if wide_tight else 72.0))
 	for idx in range(count):
 		var card: Control = hand_box.get_child(idx) as Control
 		if card == null:
