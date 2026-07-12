@@ -135,194 +135,218 @@ func _release_envelope(progress: float, curve: float = 2.0) -> float:
 	return pow(max(0.0, 1.0 - progress), curve)
 
 func _generate_rune_click() -> AudioStreamWAV:
-	var duration := 0.12
+	var duration := 0.18
 	var parts := _new_stream(duration)
 	var bytes: PackedByteArray = parts["bytes"]
-	var phase_low := 0.0
-	var phase_tick := 0.0
+	var phase_low: float = 0.0
+	var phase_mid: float = 0.0
+	var phase_metal: float = 0.0
 	for i in range(int(parts["samples"])):
-		var t := float(i) / float(SAMPLE_RATE)
-		var p := t / duration
-		phase_low += (86.0 * 2.0 * PI) / float(SAMPLE_RATE)
-		phase_tick += (820.0 * 2.0 * PI) / float(SAMPLE_RATE)
-		var thock := sin(phase_low) * exp(-p * 18.0) * 0.72
-		var tick := sin(phase_tick) * exp(-p * 32.0) * 0.18
-		var grit := rng.randf_range(-1.0, 1.0) * exp(-p * 24.0) * 0.12
-		_write_sample(bytes, i, _saturate(thock + tick + grit, 1.45))
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_low += (54.0 * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_mid += (120.0 * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_metal += (680.0 * 2.0 * PI) / float(SAMPLE_RATE)
+		
+		var bass: float = sin(phase_low) * exp(-p * 14.0) * 0.65
+		var wood: float = sin(phase_mid + sin(phase_mid * 1.5) * 0.4) * exp(-p * 12.0) * 0.35
+		var ring: float = sin(phase_metal) * exp(-p * 6.5) * 0.15
+		var dust: float = rng.randf_range(-1.0, 1.0) * exp(-p * 20.0) * 0.08
+		_write_sample(bytes, i, _saturate(bass + wood + ring + dust, 1.35))
 	return _finish_stream(parts)
 
 func _generate_card_draw() -> AudioStreamWAV:
-	var duration := 0.38
-	var parts := _new_stream(duration)
-	var bytes: PackedByteArray = parts["bytes"]
-	var phase_rub := 0.0
-	var phase_body := 0.0
-	for i in range(int(parts["samples"])):
-		var t := float(i) / float(SAMPLE_RATE)
-		var p := t / duration
-		phase_rub += (lerp(150.0, 92.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		phase_body += (58.0 * 2.0 * PI) / float(SAMPLE_RATE)
-		var body := sin(phase_body) * sin(p * PI) * 0.18
-		var rub := sin(phase_rub + sin(phase_rub * 0.57) * 1.6) * sin(p * PI) * 0.28
-		var paper := rng.randf_range(-1.0, 1.0) * sin(p * PI) * 0.24
-		_write_sample(bytes, i, _saturate(body + rub + paper, 1.25))
-	return _finish_stream(parts)
-
-func _generate_card_play_slam() -> AudioStreamWAV:
 	var duration := 0.52
 	var parts := _new_stream(duration)
 	var bytes: PackedByteArray = parts["bytes"]
-	var phase_sub := 0.0
-	var phase_wood := 0.0
-	var phase_metal := 0.0
+	var phase_whoosh: float = 0.0
+	var phase_rub: float = 0.0
 	for i in range(int(parts["samples"])):
-		var t := float(i) / float(SAMPLE_RATE)
-		var p := t / duration
-		phase_sub += (lerp(72.0, 34.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		phase_wood += (lerp(145.0, 92.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		phase_metal += (lerp(520.0, 350.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		var impact := _hit_envelope(p, 0.018, 8.5)
-		var click := exp(-p * 42.0)
-		var tail := _release_envelope(p, 1.7)
-		var sub := sin(phase_sub) * impact * 0.82
-		var wood := sin(phase_wood + sin(phase_wood * 1.8) * 0.8) * impact * 0.38
-		var metal := sin(phase_metal) * click * 0.16
-		var dust := rng.randf_range(-1.0, 1.0) * tail * 0.12
-		_write_sample(bytes, i, _saturate(sub + wood + metal + dust, 1.85))
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_whoosh += (lerp(320.0, 110.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_rub += (lerp(180.0, 90.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		
+		var envelope: float = sin(p * PI)
+		var whoosh: float = sin(phase_whoosh) * envelope * 0.32
+		var rub: float = sin(phase_rub + sin(phase_rub * 0.45) * 1.8) * envelope * 0.28
+		var noise: float = rng.randf_range(-1.0, 1.0) * envelope * 0.28
+		_write_sample(bytes, i, _saturate(whoosh + rub + noise, 1.15))
+	return _finish_stream(parts)
+
+func _generate_card_play_slam() -> AudioStreamWAV:
+	var duration := 0.82
+	var parts := _new_stream(duration)
+	var bytes: PackedByteArray = parts["bytes"]
+	var phase_sub: float = 0.0
+	var phase_stone: float = 0.0
+	var phase_echo: float = 0.0
+	for i in range(int(parts["samples"])):
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_sub += (lerp(52.0, 28.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_stone += (lerp(120.0, 74.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_echo += (lerp(240.0, 180.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		
+		var impact: float = _hit_envelope(p, 0.02, 6.5)
+		var tail: float = _release_envelope(p, 1.8)
+		
+		var sub: float = sin(phase_sub) * impact * 0.92
+		var stone: float = sin(phase_stone + sin(phase_stone * 1.6) * 0.6) * impact * 0.44
+		var echo: float = sin(phase_echo) * exp(-p * 4.2) * 0.22
+		var dust: float = rng.randf_range(-1.0, 1.0) * tail * 0.16
+		
+		_write_sample(bytes, i, _saturate(sub + stone + echo + dust, 2.1))
 	return _finish_stream(parts)
 
 func _generate_summon_drop() -> AudioStreamWAV:
-	var duration := 0.72
+	var duration := 0.85
 	var parts := _new_stream(duration)
 	var bytes: PackedByteArray = parts["bytes"]
-	var phase_gate := 0.0
-	var phase_low := 0.0
-	var phase_chime := 0.0
+	var phase_portal: float = 0.0
+	var phase_sub: float = 0.0
+	var phase_shimmer: float = 0.0
 	for i in range(int(parts["samples"])):
-		var t := float(i) / float(SAMPLE_RATE)
-		var p := t / duration
-		phase_gate += (lerp(118.0, 54.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		phase_low += (lerp(64.0, 38.0, min(p * 1.6, 1.0)) * 2.0 * PI) / float(SAMPLE_RATE)
-		phase_chime += (293.66 * 2.0 * PI) / float(SAMPLE_RATE)
-		var rise: float = clamp(p / 0.16, 0.0, 1.0)
-		var drop: float = exp(-max(0.0, p - 0.18) * 5.8)
-		var gate: float = sin(phase_gate + sin(phase_gate * 2.0) * 2.4) * rise * drop * 0.46
-		var low: float = sin(phase_low) * _hit_envelope(p, 0.19, 4.8) * 0.66
-		var chime: float = sin(phase_chime) * exp(-max(0.0, p - 0.10) * 7.0) * 0.12
-		var ash: float = rng.randf_range(-1.0, 1.0) * rise * drop * 0.10
-		_write_sample(bytes, i, _saturate(gate + low + chime + ash, 1.7))
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_portal += (lerp(180.0, 52.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_sub += (lerp(58.0, 32.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_shimmer += (lerp(440.0, 330.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		
+		var rise: float = clamp(p / 0.12, 0.0, 1.0)
+		var drop: float = exp(-max(0.0, p - 0.15) * 4.8)
+		
+		var portal: float = sin(phase_portal + sin(phase_portal * 1.8) * 1.6) * rise * drop * 0.48
+		var sub: float = sin(phase_sub) * _hit_envelope(p, 0.15, 3.8) * 0.68
+		var shimmer: float = sin(phase_shimmer) * exp(-max(0.0, p - 0.10) * 3.5) * 0.18
+		var mist: float = rng.randf_range(-1.0, 1.0) * rise * drop * 0.12
+		
+		_write_sample(bytes, i, _saturate(portal + sub + shimmer + mist, 1.85))
 	return _finish_stream(parts)
 
 func _generate_spell_cast() -> AudioStreamWAV:
-	var duration := 0.46
+	var duration := 0.62
 	var parts := _new_stream(duration)
 	var bytes: PackedByteArray = parts["bytes"]
-	var phase_arc := 0.0
-	var phase_low := 0.0
+	var phase_mag: float = 0.0
+	var phase_sub: float = 0.0
 	for i in range(int(parts["samples"])):
-		var t := float(i) / float(SAMPLE_RATE)
-		var p := t / duration
-		phase_arc += (lerp(220.0, 760.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		phase_low += (lerp(82.0, 46.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		var arc := sin(phase_arc + sin(phase_arc * 0.5) * 3.2) * sin(p * PI) * 0.38
-		var low := sin(phase_low) * exp(-p * 5.2) * 0.46
-		var sparks := rng.randf_range(-1.0, 1.0) * sin(p * PI) * 0.18
-		_write_sample(bytes, i, _saturate(arc + low + sparks, 1.55))
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_mag += (lerp(380.0, 920.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_sub += (lerp(74.0, 38.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		
+		var env: float = sin(p * PI)
+		var spell: float = sin(phase_mag + sin(phase_mag * 0.45) * 3.6) * env * 0.42
+		var sub: float = sin(phase_sub) * exp(-p * 4.5) * 0.52
+		var sparks: float = rng.randf_range(-1.0, 1.0) * env * 0.22
+		
+		_write_sample(bytes, i, _saturate(spell + sub + sparks, 1.65))
 	return _finish_stream(parts)
 
 func _generate_heal_chord() -> AudioStreamWAV:
-	var duration := 0.95
+	var duration := 1.25
 	var parts := _new_stream(duration)
 	var bytes: PackedByteArray = parts["bytes"]
-	var phases: Array[float] = [0.0, 0.0, 0.0, 0.0]
-	var freqs: Array[float] = [110.0, 146.83, 185.0, 220.0]
+	var phases: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0]
+	var freqs: Array[float] = [130.81, 164.81, 196.0, 261.63, 329.63]
 	for i in range(int(parts["samples"])):
-		var t := float(i) / float(SAMPLE_RATE)
-		var p := t / duration
-		var sample := 0.0
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		var sample: float = 0.0
 		for j in range(freqs.size()):
 			phases[j] += (freqs[j] * 2.0 * PI) / float(SAMPLE_RATE)
-			sample += sin(phases[j] + sin(phases[j] * 0.5) * 0.32) * (0.42 - float(j) * 0.04)
-		var shimmer := sin(2.0 * PI * 520.0 * t) * sin(p * PI) * 0.05
-		_write_sample(bytes, i, _saturate((sample / 1.5 + shimmer) * _release_envelope(p, 2.2), 1.2))
+			sample += sin(phases[j] + sin(phases[j] * 0.4) * 0.28) * (0.38 - float(j) * 0.04)
+		var bell_phase_a: float = 2.0 * PI * 523.25 * t
+		var bell_phase_b: float = 2.0 * PI * 659.25 * t
+		var bell: float = (sin(bell_phase_a) + sin(bell_phase_b) * 0.7) * exp(-p * 3.2) * 0.16
+		
+		var organ: float = sample * _release_envelope(p, 1.8) * 0.62
+		_write_sample(bytes, i, _saturate(organ + bell, 1.3))
 	return _finish_stream(parts)
 
 func _generate_weapon_hit() -> AudioStreamWAV:
-	var duration := 0.42
+	var duration := 0.48
 	var parts := _new_stream(duration)
 	var bytes: PackedByteArray = parts["bytes"]
-	var phase_sub := 0.0
-	var phase_blade := 0.0
-	var phase_ring := 0.0
+	var phase_sub: float = 0.0
+	var phase_blade: float = 0.0
+	var phase_ring: float = 0.0
 	for i in range(int(parts["samples"])):
-		var t := float(i) / float(SAMPLE_RATE)
-		var p := t / duration
-		phase_sub += (lerp(96.0, 32.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		phase_blade += (lerp(360.0, 188.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		phase_ring += (910.0 * 2.0 * PI) / float(SAMPLE_RATE)
-		var impact := _hit_envelope(p, 0.012, 9.2)
-		var sub := sin(phase_sub) * impact * 0.82
-		var blade := sin(phase_blade + sin(phase_blade * 1.7) * 1.7) * exp(-p * 14.0) * 0.38
-		var ring := sin(phase_ring) * exp(-p * 9.5) * 0.13
-		var crack := rng.randf_range(-1.0, 1.0) * exp(-p * 18.0) * 0.28
-		_write_sample(bytes, i, _saturate(sub + blade + ring + crack, 2.15))
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_sub += (lerp(88.0, 24.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_blade += (lerp(380.0, 160.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_ring += (1040.0 * 2.0 * PI) / float(SAMPLE_RATE)
+		
+		var impact: float = _hit_envelope(p, 0.01, 8.5)
+		var sub: float = sin(phase_sub) * impact * 0.94
+		var blade: float = sin(phase_blade + sin(phase_blade * 1.8) * 1.8) * exp(-p * 11.0) * 0.44
+		var ring: float = sin(phase_ring) * exp(-p * 7.0) * 0.16
+		var blood: float = rng.randf_range(-1.0, 1.0) * exp(-p * 14.0) * 0.32
+		
+		_write_sample(bytes, i, _saturate(sub + blade + ring + blood, 2.35))
 	return _finish_stream(parts)
 
 func _generate_counter_hit() -> AudioStreamWAV:
-	var duration := 0.34
+	var duration := 0.38
 	var parts := _new_stream(duration)
 	var bytes: PackedByteArray = parts["bytes"]
-	var phase_low := 0.0
-	var phase_clang := 0.0
+	var phase_low: float = 0.0
+	var phase_clang: float = 0.0
 	for i in range(int(parts["samples"])):
-		var t := float(i) / float(SAMPLE_RATE)
-		var p := t / duration
-		phase_low += (lerp(74.0, 44.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		phase_clang += (lerp(760.0, 540.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		var sample := sin(phase_low) * exp(-p * 8.0) * 0.52
-		sample += sin(phase_clang) * exp(-p * 12.0) * 0.22
-		sample += rng.randf_range(-1.0, 1.0) * exp(-p * 20.0) * 0.18
-		_write_sample(bytes, i, _saturate(sample, 1.85))
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_low += (lerp(64.0, 36.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_clang += (lerp(880.0, 620.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		
+		var low: float = sin(phase_low) * exp(-p * 7.2) * 0.62
+		var clang: float = sin(phase_clang + sin(phase_clang * 0.8) * 1.2) * exp(-p * 9.5) * 0.28
+		var grit: float = rng.randf_range(-1.0, 1.0) * exp(-p * 18.0) * 0.22
+		
+		_write_sample(bytes, i, _saturate(low + clang + grit, 2.05))
 	return _finish_stream(parts)
 
 func _generate_combo_burst() -> AudioStreamWAV:
 	var duration := 0.62
 	var parts := _new_stream(duration)
 	var bytes: PackedByteArray = parts["bytes"]
-	var phase_low := 0.0
-	var phase_a := 0.0
-	var phase_b := 0.0
+	var phase_low: float = 0.0
+	var phase_a: float = 0.0
+	var phase_b: float = 0.0
 	for i in range(int(parts["samples"])):
-		var t := float(i) / float(SAMPLE_RATE)
-		var p := t / duration
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
 		phase_low += (lerp(86.0, 54.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
 		phase_a += (lerp(220.0, 392.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
 		phase_b += (lerp(329.63, 587.33, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		var low := sin(phase_low) * exp(-p * 5.0) * 0.44
-		var chant := (sin(phase_a) * 0.32 + sin(phase_b) * 0.24) * _release_envelope(p, 1.5)
-		var dust := rng.randf_range(-1.0, 1.0) * exp(-p * 7.5) * 0.09
+		var low: float = sin(phase_low) * exp(-p * 5.0) * 0.44
+		var chant: float = (sin(phase_a) * 0.32 + sin(phase_b) * 0.24) * _release_envelope(p, 1.5)
+		var dust: float = rng.randf_range(-1.0, 1.0) * exp(-p * 7.5) * 0.09
 		_write_sample(bytes, i, _saturate(low + chant + dust, 1.45))
 	return _finish_stream(parts)
 
 func _generate_finisher_slam() -> AudioStreamWAV:
-	var duration := 0.78
+	var duration := 0.95
 	var parts := _new_stream(duration)
 	var bytes: PackedByteArray = parts["bytes"]
-	var phase_low := 0.0
-	var phase_gong := 0.0
-	var phase_blade := 0.0
+	var phase_low: float = 0.0
+	var phase_gong: float = 0.0
+	var phase_blade: float = 0.0
 	for i in range(int(parts["samples"])):
-		var t := float(i) / float(SAMPLE_RATE)
-		var p := t / duration
-		phase_low += (lerp(104.0, 30.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		phase_gong += (146.83 * 2.0 * PI) / float(SAMPLE_RATE)
-		phase_blade += (lerp(620.0, 320.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
-		var impact := _hit_envelope(p, 0.01, 6.2)
-		var sub := sin(phase_low) * impact * 0.98
-		var gong := sin(phase_gong + sin(phase_gong * 1.5) * 0.35) * exp(-p * 2.7) * 0.30
-		var blade := sin(phase_blade) * exp(-p * 14.0) * 0.18
-		var burst := rng.randf_range(-1.0, 1.0) * exp(-p * 16.0) * 0.24
-		_write_sample(bytes, i, _saturate(sub + gong + blade + burst, 2.1))
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_low += (lerp(88.0, 22.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_gong += (110.0 * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_blade += (lerp(580.0, 220.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		
+		var impact: float = _hit_envelope(p, 0.008, 5.2)
+		var sub: float = sin(phase_low) * impact * 1.12
+		var gong: float = sin(phase_gong + sin(phase_gong * 1.8) * 0.46) * exp(-p * 1.8) * 0.38
+		var blade: float = sin(phase_blade) * exp(-p * 12.0) * 0.22
+		var burst: float = rng.randf_range(-1.0, 1.0) * exp(-p * 14.0) * 0.28
+		
+		_write_sample(bytes, i, _saturate(sub + gong + blade + burst, 2.45))
 	return _finish_stream(parts)
 
 func _generate_reward_chime() -> AudioStreamWAV:
@@ -331,17 +355,17 @@ func _generate_reward_chime() -> AudioStreamWAV:
 	var bytes: PackedByteArray = parts["bytes"]
 	var notes: Array[float] = [196.0, 246.94, 293.66]
 	var phases: Array[float] = [0.0, 0.0, 0.0]
-	var phase_low := 0.0
+	var phase_low: float = 0.0
 	for i in range(int(parts["samples"])):
-		var t := float(i) / float(SAMPLE_RATE)
-		var p := t / duration
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
 		phase_low += (73.42 * 2.0 * PI) / float(SAMPLE_RATE)
-		var sample := 0.0
+		var sample: float = 0.0
 		for j in range(notes.size()):
 			phases[j] += (notes[j] * 2.0 * PI) / float(SAMPLE_RATE)
 			sample += sin(phases[j] + sin(phases[j] * 0.75) * 0.18) * (0.36 - float(j) * 0.04)
-		var bell := sample * exp(-p * 2.8)
-		var low := sin(phase_low) * exp(-p * 3.2) * 0.22
+		var bell: float = sample * exp(-p * 2.8)
+		var low: float = sin(phase_low) * exp(-p * 3.2) * 0.22
 		_write_sample(bytes, i, _saturate(bell + low, 1.25))
 	return _finish_stream(parts)
 
@@ -355,7 +379,7 @@ func _generate_heavy_fanfare(is_win: bool) -> AudioStreamWAV:
 	var phases_f: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0]
 	var phases_u: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0]
 	var phases_l: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0]
-	var phase_drum := 0.0
+	var phase_drum: float = 0.0
 	for i in range(int(parts["samples"])):
 		var t: float = float(i) / float(SAMPLE_RATE)
 		var progress: float = t / duration
@@ -372,23 +396,24 @@ func _generate_heavy_fanfare(is_win: bool) -> AudioStreamWAV:
 		var note_envelope: float = _hit_envelope(note_progress, 0.035, 3.8)
 		var global_envelope: float = _release_envelope(progress, 1.25 if is_win else 1.05)
 		var horn_sample: float = (fundamental + detuned_upper + detuned_lower) * note_envelope * global_envelope
-		var drum := sin(phase_drum) * exp(-note_progress * 12.0) * global_envelope * (0.28 if is_win else 0.22)
-		var sample := horn_sample * (0.34 if is_win else 0.40) + drum
+		var drum: float = sin(phase_drum) * exp(-note_progress * 12.0) * global_envelope * (0.28 if is_win else 0.22)
+		var sample: float = horn_sample * (0.34 if is_win else 0.40) + drum
 		_write_sample(bytes, i, _saturate(sample, 1.45))
 	return _finish_stream(parts)
 
 func _generate_hover_tick() -> AudioStreamWAV:
-	var duration: float = 0.035
+	var duration: float = 0.028
 	var parts := _new_stream(duration)
 	var bytes: PackedByteArray = parts["bytes"]
 	var phase: float = 0.0
 	for i in range(int(parts["samples"])):
 		var t: float = float(i) / float(SAMPLE_RATE)
 		var progress: float = t / duration
-		var freq: float = lerp(480.0, 320.0, progress)
+		var freq: float = lerp(220.0, 110.0, progress)
 		phase += (freq * 2.0 * PI) / float(SAMPLE_RATE)
 		var sample: float = sin(phase)
-		var envelope: float = exp(-progress * 18.0)
-		sample *= envelope * 0.18
+		var envelope: float = exp(-progress * 14.0)
+		sample *= envelope * 0.22
 		_write_sample(bytes, i, sample)
 	return _finish_stream(parts)
+
