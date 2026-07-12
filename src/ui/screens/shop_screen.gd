@@ -231,6 +231,8 @@ func _make_shop_relic_product(relic: Dictionary, shop_state: Dictionary, compact
 		var relic_tag_label: Label = main._make_label(" / ".join(tag_names), 10 if tight else 11, Color(1.0, 0.82, 0.56, 1.0))
 		relic_tag_label.clip_text = true
 		box.add_child(relic_tag_label)
+		var promise: PanelContainer = main.ui.make_chip(main._choice_playstyle_text(relic), Color(0.12, 0.18, 0.24, 1.0), Color(0.84, 0.94, 1.0, 1.0), 10 if tight else 11)
+		box.add_child(promise)
 	var button := Button.new()
 	button.text = "유물 구매 ▶"
 	button.custom_minimum_size = Vector2(120, 34)

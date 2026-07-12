@@ -85,7 +85,8 @@ func _capture_all() -> void:
 	await _capture("01b_ui_guide")
 
 	root.remove_child(main)
-	main.free()
+	main.queue_free()
+	await _wait_for_capture_frame()
 	print("UI captures saved to %s" % global_dir)
 	quit(0)
 

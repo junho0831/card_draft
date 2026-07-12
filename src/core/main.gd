@@ -1531,19 +1531,55 @@ func _build_delta_summary(card: Dictionary) -> Dictionary:
 func _plain_build_help(tag: String) -> String:
 	match tag:
 		"fire":
-			return "화염 카드가 더 세집니다."
+			return "화염 폭발로 앞라인을 빨리 지웁니다."
 		"draw":
-			return "카드를 더 빨리 돌릴 수 있습니다."
+			return "카드를 계속 뽑아 한 턴을 길게 씁니다."
 		"death":
-			return "죽으면서도 피해를 더 벌 수 있습니다."
+			return "희생과 사망이 적 영웅 압박으로 바뀝니다."
 		"buff":
-			return "내 유닛을 더 크게 키울 수 있습니다."
+			return "필드 유닛을 크게 키워 교환을 이깁니다."
 		"low_hp":
-			return "위험할 때 버티면서 반격하기 쉬워집니다."
+			return "위험 체력에서 버티며 반격합니다."
 		"summon":
-			return "유닛을 많이 깔고 몰아치기 쉬워집니다."
+			return "유닛을 많이 깔고 즉시 몰아칩니다."
 		_:
 			return "이번 덱 방향을 더 선명하게 만듭니다."
+
+func _build_playstyle_text(tag: String) -> String:
+	match tag:
+		"fire":
+			return "화염 폭발 빨라짐"
+		"draw":
+			return "연속 플레이 강화"
+		"death":
+			return "희생 덱 핵심"
+		"buff":
+			return "필드 성장"
+		"low_hp":
+			return "위험 반격"
+		"summon":
+			return "물량 전개"
+		_:
+			return "전투 방향 선명"
+
+func _build_progress_text_for_tags(tags: Array[String]) -> String:
+	if tags.is_empty():
+		return "전투 보조"
+	var scores := _current_build_scores()
+	var meta := _build_tag_meta()
+	var best_tag := String(tags[0])
+	var best_after := -1
+	for tag in tags:
+		var after_score := int(scores.get(tag, 0)) + 1
+		if after_score > best_after:
+			best_after = after_score
+			best_tag = tag
+	var current := int(scores.get(best_tag, 0))
+	var next := current + 1
+	var tag_meta: Dictionary = meta.get(best_tag, {})
+	if current < _build_threshold() and next >= _build_threshold():
+		return "%s 활성" % String(tag_meta.get("name", best_tag))
+	return "%s %d/%d" % [String(tag_meta.get("name", best_tag)), mini(next, _build_threshold()), _build_threshold()]
 
 func _plain_build_delta_text(card: Dictionary) -> String:
 	var summary: Dictionary = _build_delta_summary(card)
@@ -1557,6 +1593,18 @@ func _plain_build_delta_text(card: Dictionary) -> String:
 	if detail.contains("핵심 직전"):
 		return "%s 거의 완성 직전입니다." % text
 	return text
+
+func _choice_playstyle_text(source: Dictionary) -> String:
+	var tags := _build_tags_from_data(source)
+	if tags.is_empty() and source.has("id"):
+		if source.has("cost"):
+			tags = _card_build_tags(source)
+		else:
+			tags = _relic_build_tags(source)
+	if tags.is_empty():
+		return "즉시 전투 도움"
+	var primary := String(tags[0])
+	return "%s · %s" % [_build_playstyle_text(primary), _build_progress_text_for_tags(tags)]
 
 func _run_soul_stones(is_win: bool) -> int:
 	var stones := 0

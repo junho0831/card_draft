@@ -669,6 +669,7 @@ func _reset_battle_state() -> void:
 		"cards_played_this_turn": 0,
 		"combo_tag": "",
 		"combo_streak": 0,
+		"build_trigger_count": 0,
 		"necromancer_ring_used": false,
 		"second_chance_used": false,
 		"active_build_tags": main._active_build_tags(main._current_build_scores()),
@@ -709,6 +710,16 @@ func _is_build_active(tag: String) -> bool:
 func _add_build_log(message: String) -> void:
 	_add_log("빌드 효과: %s" % message)
 
+func _record_build_trigger(tag: String, text: String, target: Control, color: Color, strong: bool = false) -> void:
+	battle_state["build_trigger_count"] = int(battle_state.get("build_trigger_count", 0)) + 1
+	var tag_key := "build_trigger_%s" % tag
+	battle_state[tag_key] = int(battle_state.get(tag_key, 0)) + 1
+	if _should_skip_timed_battle_fx():
+		return
+	_play_effect_hit_feedback(target, text, color)
+	if strong:
+		_trigger_hype_moment(target, text, color, "finisher", 14.0, 44, true)
+
 func _spawn_build_token() -> void:
 	if not _is_build_active("summon") or bool(battle_state.get("summon_build_started", false)):
 		return
@@ -729,22 +740,26 @@ func _spawn_build_token() -> void:
 	_apply_build_on_unit_summoned(player, token)
 	battle_state["summon_build_started"] = true
 	_add_build_log("소환 빌드 활성, 전투 시작 시 1/1 토큰 소환")
+	_record_build_trigger("summon", "전열 토큰", _hero_target_for_player(true), Color(0.4, 1.0, 0.62, 1.0), false)
 
 func _apply_build_on_turn_start() -> void:
 	if _is_build_active("draw"):
 		_draw_cards(player, 1)
 		_add_build_log("드로우 빌드 활성, 카드 1장 추가 드로우")
+		_record_build_trigger("draw", "추가 드로우", _hero_target_for_player(true), Color(0.42, 0.76, 1.0, 1.0), false)
 
 func _apply_build_on_unit_summoned(owner_state: Dictionary, unit: Dictionary) -> void:
 	if owner_state == player and _is_build_active("buff"):
 		unit["health"] = int(unit.get("health", 0)) + 1
 		unit["max_health"] = int(unit.get("max_health", 0)) + 1
 		_add_build_log("버프 빌드 활성, %s 체력 +1" % String(unit.get("name", "유닛")))
+		_record_build_trigger("buff", "전열 성장", _hero_target_for_player(true), Color(1.0, 0.82, 0.34, 1.0), false)
 
 func _apply_build_on_ally_died(enemy_state: Dictionary) -> void:
 	if _is_build_active("death"):
 		enemy_state["health"] = int(enemy_state.get("health", 0)) - 1
 		_add_build_log("사망 빌드 활성, 적 영웅 피해 1")
+		_record_build_trigger("death", "희생 피해", _hero_target_for_player(false), Color(0.76, 0.5, 1.0, 1.0), false)
 
 func _combo_candidate_tags(card: Dictionary) -> Array[String]:
 	var active_tags: Array[String] = []
@@ -777,43 +792,49 @@ func _trigger_combo_bonus(tag: String, streak: int) -> void:
 	var combo_color := Color(1.0, 0.86, 0.34, 1.0)
 	match tag:
 		"fire":
+			var burst_damage: int = 2 + int(streak / 3)
 			if opponent.field.is_empty():
-				opponent["health"] = int(opponent.get("health", 0)) - 2
-				_play_effect_hit_feedback(_hero_target_for_player(false), combo_name, Color(1.0, 0.46, 0.24, 1.0))
+				opponent["health"] = int(opponent.get("health", 0)) - burst_damage
+				_play_effect_hit_feedback(_hero_target_for_player(false), "폭발 %d" % burst_damage, Color(1.0, 0.46, 0.24, 1.0))
 				combo_color = Color(1.0, 0.46, 0.24, 1.0)
 			else:
-				opponent.field[0]["health"] = int(opponent.field[0].get("health", 0)) - 2
-				_play_effect_hit_feedback(_field_slot_for(opponent, 0), combo_name, Color(1.0, 0.46, 0.24, 1.0))
+				opponent.field[0]["health"] = int(opponent.field[0].get("health", 0)) - burst_damage
+				_play_effect_hit_feedback(_field_slot_for(opponent, 0), "폭발 %d" % burst_damage, Color(1.0, 0.46, 0.24, 1.0))
 				combo_color = Color(1.0, 0.46, 0.24, 1.0)
 				_cleanup_dead_units(player, opponent)
-			_add_log("연계 발동: 화염 카드 연속 사용으로 추가 피해 2")
+			_add_log("연계 발동: 화염 카드 연속 사용으로 폭발 피해 %d" % burst_damage)
 		"draw":
 			_draw_cards(player, 1)
-			_add_log("연계 발동: 드로우 카드 연속 사용으로 카드 1장 추가")
+			player["mana"] = int(player.get("mana", 0)) + 1 if streak >= 3 else int(player.get("mana", 0))
+			_add_log("연계 발동: 드로우 카드 연속 사용으로 카드 1장 추가%s" % (" / 마나 +1" if streak >= 3 else ""))
 			_play_effect_hit_feedback(_hero_target_for_player(true), combo_name, Color(0.42, 0.76, 1.0, 1.0))
 			combo_color = Color(0.42, 0.76, 1.0, 1.0)
 		"buff":
 			if not player.field.is_empty():
 				player.field[0]["attack"] = int(player.field[0].get("attack", 0)) + 1
-				_add_log("연계 발동: 버프 카드 연속 사용으로 선봉 공격력 +1")
-				_play_effect_hit_feedback(_field_slot_for(player, 0), combo_name, Color(1.0, 0.82, 0.34, 1.0))
+				player.field[0]["health"] = int(player.field[0].get("health", 0)) + (1 if streak >= 3 else 0)
+				player.field[0]["max_health"] = int(player.field[0].get("max_health", 0)) + (1 if streak >= 3 else 0)
+				_add_log("연계 발동: 버프 카드 연속 사용으로 선봉 성장")
+				_play_slot_pop_feedback(_field_slot_for(player, 0), "성장", Color(1.0, 0.82, 0.34, 1.0))
 				combo_color = Color(1.0, 0.82, 0.34, 1.0)
 		"death":
-			opponent["health"] = int(opponent.get("health", 0)) - 1
-			_add_log("연계 발동: 사망 카드 연속 사용으로 적 영웅 피해 1")
-			_play_effect_hit_feedback(_hero_target_for_player(false), combo_name, Color(0.76, 0.5, 1.0, 1.0))
+			var death_damage: int = 1 + (1 if streak >= 3 else 0)
+			opponent["health"] = int(opponent.get("health", 0)) - death_damage
+			_add_log("연계 발동: 사망 카드 연속 사용으로 적 영웅 피해 %d" % death_damage)
+			_play_effect_hit_feedback(_hero_target_for_player(false), "영혼 피해 %d" % death_damage, Color(0.76, 0.5, 1.0, 1.0))
 			combo_color = Color(0.76, 0.5, 1.0, 1.0)
 		"summon":
 			if not player.field.is_empty():
 				var last_index: int = player.field.size() - 1
 				player.field[last_index]["can_attack"] = true
 				_add_log("연계 발동: 소환 카드 연속 사용으로 마지막 소환 유닛 즉시 공격")
-				_play_effect_hit_feedback(_field_slot_for(player, last_index), combo_name, Color(0.4, 1.0, 0.62, 1.0))
+				_play_slot_pop_feedback(_field_slot_for(player, last_index), "즉시 공격", Color(0.4, 1.0, 0.62, 1.0))
 				combo_color = Color(0.4, 1.0, 0.62, 1.0)
 		"low_hp":
-			player["health"] = min(int(player.get("max_health", 0)), int(player.get("health", 0)) + 1)
-			_add_log("연계 발동: 저체력 카드 연속 사용으로 영웅 체력 1 회복")
-			_play_effect_hit_feedback(_hero_target_for_player(true), combo_name, Color(0.42, 1.0, 0.62, 1.0))
+			var recover: int = 1 + (1 if int(player.get("health", 0)) <= int(player.get("max_health", 0)) / 2 else 0)
+			player["health"] = min(int(player.get("max_health", 0)), int(player.get("health", 0)) + recover)
+			_add_log("연계 발동: 저체력 카드 연속 사용으로 영웅 체력 %d 회복" % recover)
+			_play_effect_hit_feedback(_hero_target_for_player(true), "위험 반격", Color(0.42, 1.0, 0.62, 1.0))
 			combo_color = Color(0.42, 1.0, 0.62, 1.0)
 	var focus_target := _hero_target_for_player(true)
 	if tag in ["fire", "death"]:
@@ -822,6 +843,7 @@ func _trigger_combo_bonus(tag: String, streak: int) -> void:
 		focus_target = _field_slot_for(player, 0)
 	elif tag == "summon" and not player.field.is_empty():
 		focus_target = _field_slot_for(player, player.field.size() - 1)
+	_record_build_trigger(tag, combo_name, focus_target, combo_color, false)
 	_trigger_hype_moment(focus_target, combo_name, combo_color, "combo", 10.0 + float(streak - 2) * 2.0, 34 + min(10, streak * 2), streak >= 3)
 
 func _build_damage_bonus(source: Dictionary, is_spell: bool, owner_state: Dictionary) -> int:
@@ -2031,7 +2053,7 @@ func _on_hand_card_pressed(index: int) -> void:
 	var old_field_size: int = player.field.size()
 	player.mana -= cost
 	player.hand.remove_at(index)
-	_play_sfx("play")
+	_play_sfx(_card_play_sfx(card_type))
 	_add_log("%s 사용" % String(card.get("name", "카드")))
 	if card_type != "unit":
 		player.discard_pile.append(card)
@@ -2069,6 +2091,14 @@ func _battle_effect_context() -> Dictionary:
 		"cards_played_this_turn": int(battle_state.get("cards_played_this_turn", 0)),
 	}
 
+func _card_play_sfx(card_type: String) -> String:
+	match card_type:
+		"unit":
+			return "summon"
+		"equipment":
+			return "combo"
+	return "spell"
+
 
 func _calculate_damage(card_or_unit: Dictionary, is_spell: bool, owner_state: Dictionary, base_damage: int) -> int:
 	return base_damage + main.relic_service.damage_bonus(main.current_run, card_or_unit, is_spell, owner_state) + _build_damage_bonus(card_or_unit, is_spell, owner_state)
@@ -2096,6 +2126,8 @@ func _play_card_resolution_feedback(card: Dictionary, card_type: String, summone
 			_play_effect_hit_feedback(_hero_target_for_player(false), "빌드 활성", Color(0.42, 1.0, 0.62, 1.0))
 	elif player_hp_gain > 0:
 		_play_effect_hit_feedback(_hero_target_for_player(true), "회복 %d" % player_hp_gain, Color(0.34, 1.0, 0.62, 1.0))
+	elif _is_build_active("low_hp") and int(player.get("health", 0)) <= int(player.get("max_health", 0)) / 2:
+		_play_effect_hit_feedback(_hero_target_for_player(true), "위험 반격 활성", Color(1.0, 0.36, 0.38, 1.0))
 	elif not opponent.field.is_empty():
 		_play_effect_hit_feedback(_field_slot_for(opponent, 0), _card_result_preview(card), Color(0.78, 0.9, 1.0, 1.0))
 	else:
@@ -2107,15 +2139,15 @@ func _play_slot_pop_feedback(target: Control, text: String, color: Color) -> voi
 	target.pivot_offset = target.size * 0.5
 	var original_scale = target.scale
 	var original_modulate = target.modulate
-	target.scale = original_scale * 0.82
+	target.scale = original_scale * 0.72
 	target.modulate = Color(color.r, color.g, color.b, 0.88)
 	_show_slot_overlay_text(target, text, color)
-	_spawn_target_glow(target, color, 0.38)
+	_spawn_target_glow(target, color, 0.48)
 	var tween = target.create_tween()
-	tween.tween_property(target, "scale", original_scale * 1.12, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(target, "modulate", original_modulate, 0.18)
-	tween.tween_property(target, "scale", original_scale, 0.14).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_shake_target(target, 4.0)
+	tween.tween_property(target, "scale", original_scale * 1.2, 0.11).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(target, "modulate", original_modulate, 0.22)
+	tween.tween_property(target, "scale", original_scale, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_shake_target(target, 7.0)
 
 func _play_effect_hit_feedback(target: Control, text: String, color: Color) -> void:
 	if target == null or not is_instance_valid(target):
@@ -2453,7 +2485,10 @@ func _play_unit_battle_feedback(attacker_side: Dictionary, defender_side: Dictio
 	var defender_node = _field_slot_for(defender_side, defender_index)
 	if not _is_battle_cutscene_enabled():
 		_show_damage_number(defender_node, attack_damage)
+		_play_sfx("hit")
 		_show_damage_number(attacker_node, defense_damage, true)
+		if defense_damage > 0:
+			_play_sfx("counter")
 		if not _should_skip_timed_battle_fx():
 			_spawn_impact_slash(defender_node, false)
 			_flash_target(defender_node, Color(1.0, 0.28, 0.22, 1.0), 0.22)
@@ -2470,6 +2505,7 @@ func _play_hero_attack_feedback(attacker_side: Dictionary, attacker_index: int, 
 	var defender_node = _hero_target_for_player(defender_is_player)
 	if not _is_battle_cutscene_enabled():
 		_show_damage_number(defender_node, damage)
+		_play_sfx("hit")
 		if not _should_skip_timed_battle_fx():
 			_spawn_impact_slash(defender_node, false)
 			_flash_target(defender_node, Color(1.0, 0.28, 0.22, 1.0), 0.22)
@@ -2492,6 +2528,7 @@ func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control
 	lunge.parallel().tween_property(attacker_node, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await lunge.finished
 	_show_damage_number(defender_node, damage, counter)
+	_play_sfx("counter" if counter else "hit")
 	_spawn_impact_slash(defender_node, counter)
 	_flash_target(defender_node, Color(1.0, 0.66, 0.18, 1.0) if counter else Color(1.0, 0.28, 0.22, 1.0), 0.24)
 	await _shake_target(defender_node, 12.0 if damage < 3 else 18.0)
@@ -2500,7 +2537,11 @@ func _show_damage_number(target: Control, damage: int, counter: bool = false) ->
 	if damage <= 0 or target == null or not is_instance_valid(target):
 		return
 	var color = Color(1.0, 0.72, 0.24, 1.0) if counter else Color(1.0, 0.26, 0.24, 1.0)
-	_spawn_floating_text(target, "-%d" % damage, color, 46, 0.9, Vector2.ZERO)
+	var font_size := 42 if counter else (58 if damage >= 4 else 50)
+	var lifetime := 1.0 if damage >= 4 else 0.9
+	_spawn_floating_text(target, "-%d" % damage, color, font_size, lifetime, Vector2.ZERO)
+	if damage >= 4 and not counter:
+		_shake_screen(12.0, 0.2)
 
 func _show_outcome_text(target: Control, text: String, color: Color) -> void:
 	if target == null or not is_instance_valid(target):
@@ -2662,7 +2703,7 @@ func _show_opponent_played_card_fx(card: Dictionary) -> void:
 		return
 	
 	if main.audio_manager != null:
-		main.audio_manager.play_sound("play")
+		main.audio_manager.play_sound(_card_play_sfx(String(card.get("type", ""))))
 		
 	var popup = PanelContainer.new()
 	var frame_size = Vector2(200, 260)

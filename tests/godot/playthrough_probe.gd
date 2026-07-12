@@ -65,12 +65,14 @@ func _run() -> void:
 	
 	if safety >= 40:
 		_note(main, "safety_stop")
+	_note_fun_metrics(main)
 	
 	for line in report:
 		print(line)
 	print("Playthrough probe captures saved to %s" % global_dir)
 	root.remove_child(main)
-	main.free()
+	main.queue_free()
+	await _wait_for_frame()
 	quit(0)
 
 func _play_battle(main: Node, safety: int) -> void:
@@ -163,6 +165,24 @@ func _note(main: Node, text: String) -> void:
 		(main.current_run.get("deck_ids", []) as Array).size(),
 		(main.current_run.get("relic_ids", []) as Array).size(),
 	])
+
+func _note_fun_metrics(main: Node) -> void:
+	var scores: Dictionary = main._current_build_scores()
+	var active: Array = main._active_build_tags(scores)
+	var trigger_count := 0
+	if main.battle_screen != null:
+		trigger_count = int(main.battle_screen.battle_state.get("build_trigger_count", 0))
+	report.append("fun_metrics active_builds=%s build_scores=%s build_triggers=%d relics=%d result=%s" % [
+		str(active),
+		str(scores),
+		trigger_count,
+		(main.current_run.get("relic_ids", []) as Array).size(),
+		String(main.current_run.get("result", "")),
+	])
+	if active.is_empty():
+		report.append("fun_warning:no_active_build")
+	if trigger_count <= 0:
+		report.append("fun_warning:no_build_trigger_seen")
 
 func _capture(file_name: String) -> void:
 	var image: Image = null

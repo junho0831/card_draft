@@ -130,7 +130,7 @@ func _make_reward_side_panel(reward: Dictionary, compact: bool) -> PanelContaine
 
 func _reward_choice_reason(card: Dictionary, matches_primary: bool) -> String:
 	if matches_primary:
-		return "현재 빌드에 맞음"
+		return main._choice_playstyle_text(card)
 	var card_type := String(card.get("type", ""))
 	var card_id := String(card.get("id", "")).trim_suffix("_plus")
 	if card_type == "unit":
@@ -175,7 +175,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var growth_headline := String(growth.get("headline", ""))
 	if not growth_headline.is_empty():
 		var growth_chip: PanelContainer = main.ui.make_chip(
-			"이 카드 고르면  %s" % growth_headline,
+			"%s  |  %s" % [growth_headline, main._choice_playstyle_text(card)],
 			Color(0.12, 0.22, 0.18, 1.0) if bool(growth.get("will_activate", false)) else Color(0.12, 0.14, 0.22, 1.0),
 			Color(0.72, 1.0, 0.82, 1.0) if bool(growth.get("will_activate", false)) else Color(0.86, 0.94, 1.0, 1.0),
 			10 if tight else 11

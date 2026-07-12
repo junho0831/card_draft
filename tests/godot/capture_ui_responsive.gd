@@ -154,7 +154,7 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[7]])
 
 	root.remove_child(main)
-	main.free()
+	main.queue_free()
 	await _wait_for_capture_frame()
 
 func _capture(file_name: String) -> void:

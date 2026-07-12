@@ -58,7 +58,7 @@ func run() -> Dictionary:
 	main.remove_meta("layout_viewport_override")
 
 	tree.root.remove_child(main)
-	main.free()
+	main.queue_free()
 
 	return {
 		"count": _count,

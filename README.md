@@ -59,7 +59,7 @@ res://src/core/Main.tscn
 
 ## 테스트
 
-최소 로직 회귀 테스트를 headless Godot script로 실행할 수 있다.
+기본 개발 루프는 headless 회귀 테스트 하나만 실행한다.
 
 ```bash
 godot4 --headless -s res://tests/godot/run_tests.gd
@@ -70,6 +70,20 @@ godot4 --headless -s res://tests/godot/run_tests.gd
 - `CardDatabase`의 `*_plus` 카드 복원 회귀
 - `EventRunService` 이벤트 해결 로직 회귀
 - `ShopRunService` 상점 구매/회복/제거 로직 회귀
+- 카드 효과, 런 페이싱, 메인 플로우 smoke 테스트
+
+UI를 바꾼 경우에만 반응형 캡처를 따로 확인한다.
+
+```bash
+godot4 --path . -s res://tests/godot/capture_ui_responsive.gd
+godot4 --path . -s res://tests/godot/validate_ui_captures.gd
+```
+
+전투 재미/런 흐름을 확인할 때만 플레이스루 프로브를 실행한다.
+
+```bash
+godot4 --path . -s res://tests/godot/playthrough_probe.gd
+```
 
 ## 문서
 
