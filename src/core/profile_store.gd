@@ -34,6 +34,7 @@ func make_default_profile(card_defs: Array) -> Dictionary:
 		"soul_stones": 0,
 		"last_daily_reward_day": "",
 		"battle_tutorial_seen": false,
+		"battle_tutorial_stage": 0,
 		"recent_runs": [],
 		"owned_cards": owned,
 		"unlocked_cards": [],
@@ -62,6 +63,11 @@ func normalize(profile: Dictionary, card_defs: Array) -> Dictionary:
 		profile["last_daily_reward_day"] = ""
 	if not profile.has("battle_tutorial_seen"):
 		profile["battle_tutorial_seen"] = false
+	if not profile.has("battle_tutorial_stage"):
+		profile["battle_tutorial_stage"] = 3 if bool(profile.get("battle_tutorial_seen", false)) else 0
+	profile["battle_tutorial_stage"] = clampi(int(profile.get("battle_tutorial_stage", 0)), 0, 3)
+	if int(profile.get("battle_tutorial_stage", 0)) >= 3:
+		profile["battle_tutorial_seen"] = true
 	if not profile.has("recent_runs") or typeof(profile["recent_runs"]) != TYPE_ARRAY:
 		profile["recent_runs"] = []
 	if not profile.has("owned_cards") or typeof(profile["owned_cards"]) != TYPE_DICTIONARY:

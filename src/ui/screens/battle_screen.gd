@@ -484,10 +484,55 @@ func _make_battle_guidance_panel(compact: bool) -> PanelContainer:
 	return panel
 
 func _should_show_battle_tutorial() -> bool:
-	return not bool(main.player_profile.get("battle_tutorial_seen", false))
+	return _battle_tutorial_stage() < 3 and not bool(main.player_profile.get("battle_tutorial_seen", false))
+
+func _battle_tutorial_stage() -> int:
+	return clampi(int(main.player_profile.get("battle_tutorial_stage", 0)), 0, 3)
+
+func _battle_tutorial_content() -> Dictionary:
+	var stage := _battle_tutorial_stage()
+	match stage:
+		0:
+			return {
+				"title": "첫 전투: 추천 진행부터 누르세요",
+				"compact": "밝은 카드와 큰 추천 버튼만 보고 시작하면 됩니다.",
+				"lines": [
+					"1. 큰 추천 버튼 누르기  2. 밝은 카드나 공격 가능한 유닛 누르기  3. 더 없으면 턴 종료",
+					"초반에는 카드 전체를 다 읽지 않아도 됩니다. 추천 진행과 밝은 카드만 따라가도 충분합니다.",
+					"보상 화면에서는 '이 카드 고르면' 줄만 보고 골라도 첫 런에는 충분합니다.",
+				],
+			}
+		1:
+			return {
+				"title": "두 번째 전투: 공격 순서를 익히세요",
+				"compact": "카드 쓴 뒤엔 공격 가능한 유닛을 먼저 보세요.",
+				"lines": [
+					"카드를 쓴 뒤 공격 가능한 유닛이 생기면, 카드 추가 사용보다 공격을 먼저 처리하는 편이 좋습니다.",
+					"영웅을 바로 치기보다 앞 적을 정리하면 다음 턴 피해를 줄일 수 있습니다.",
+					"'지금 할 일' 문구와 추천 버튼 텍스트는 같은 다음 행동을 가리킵니다.",
+				],
+			}
+		2:
+			return {
+				"title": "세 번째 전투: 연계를 터뜨리세요",
+				"compact": "같은 빌드 태그 카드를 이어 쓰면 더 세게 터집니다.",
+				"lines": [
+					"같은 빌드 태그 카드를 한 턴에 연속으로 쓰면 연계가 발동합니다. 예: 화염 카드 -> 또 화염 카드",
+					"이번 런에서 자주 뜨는 태그를 따라가면 카드 보상과 전투가 같이 쉬워집니다.",
+					"이 전투를 지나면 튜토리얼 패널은 사라지고, 이후에는 추천 진행과 하이라이트만 남습니다.",
+				],
+			}
+		_:
+			return {
+				"title": "",
+				"compact": "",
+				"lines": [],
+			}
 
 func _dismiss_battle_tutorial() -> void:
-	main.player_profile["battle_tutorial_seen"] = true
+	var next_stage: int = min(_battle_tutorial_stage() + 1, 3)
+	main.player_profile["battle_tutorial_stage"] = next_stage
+	main.player_profile["battle_tutorial_seen"] = next_stage >= 3
 	main._save_profile()
 	if tutorial_panel != null and is_instance_valid(tutorial_panel):
 		tutorial_panel.visible = false
@@ -495,6 +540,7 @@ func _dismiss_battle_tutorial() -> void:
 func _make_battle_tutorial_panel(compact: bool) -> PanelContainer:
 	var tight = _is_tight_battle_layout()
 	var wide_tight = _is_wide_tight_battle_layout()
+	var tutorial_content := _battle_tutorial_content()
 	var panel = _make_battle_surface(Color(0.06, 0.075, 0.1, 0.98), Color(0.42, 0.62, 0.88, 0.82), 1, 10, 6 if wide_tight else 12)
 	panel.visible = _should_show_battle_tutorial() and not wide_tight
 	var box = VBoxContainer.new()
@@ -503,13 +549,17 @@ func _make_battle_tutorial_panel(compact: bool) -> PanelContainer:
 	var title_row = HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", 8)
 	box.add_child(title_row)
-	var title_text := "첫 전투: 추천 진행부터 누르세요" if wide_tight else "첫 전투 가이드"
+	var title_text := String(tutorial_content.get("title", "전투 가이드"))
 	var title: Label = main._make_label(title_text, 11 if tight else (14 if compact else 15), Color(0.92, 0.98, 1.0, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(title)
+	var stage_badge: Label = main._make_label("%d/3" % min(_battle_tutorial_stage() + 1, 3), 10 if tight else 11, Color(0.7, 0.84, 1.0, 1.0))
+	stage_badge.custom_minimum_size = Vector2(34, 0)
+	stage_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_row.add_child(stage_badge)
 	var dismiss = Button.new()
-	dismiss.text = "알겠어"
+	dismiss.text = "확인"
 	dismiss.focus_mode = Control.FOCUS_NONE
 	dismiss.custom_minimum_size = Vector2(64 if wide_tight else (74 if tight else 88), 24 if wide_tight else (28 if tight else 30))
 	_style_battle_button(dismiss, Color(0.08, 0.12, 0.18, 0.96), Color(0.34, 0.52, 0.76, 1.0), false)
@@ -517,11 +567,16 @@ func _make_battle_tutorial_panel(compact: bool) -> PanelContainer:
 	dismiss.pressed.connect(Callable(self, "_dismiss_battle_tutorial"))
 	title_row.add_child(dismiss)
 	if wide_tight:
-		box.add_child(main._make_label("밝은 카드/유닛만 보고, 더 할 게 없으면 턴 종료.", 9, Color(0.84, 0.9, 0.98, 1.0)))
+		box.add_child(main._make_label(String(tutorial_content.get("compact", "밝은 카드/유닛만 보고, 더 할 게 없으면 턴 종료.")), 9, Color(0.84, 0.9, 0.98, 1.0)))
 	else:
-		box.add_child(main._make_label("1. 큰 추천 버튼 누르기  2. 밝은 카드나 공격 가능한 유닛 누르기  3. 더 없으면 턴 종료", 10 if tight else 12, Color(0.84, 0.9, 0.98, 1.0)))
-		box.add_child(main._make_label("같은 종류 카드가 이어지면 더 세게 터집니다. 예: 화염 카드 -> 또 화염 카드", 10 if tight else 12, Color(1.0, 0.88, 0.6, 1.0)))
-		box.add_child(main._make_label("보상 화면에서는 '이 카드 고르면' 줄만 보고 골라도 초반에는 충분합니다.", 10 if tight else 12, Color(0.82, 0.92, 0.84, 1.0)))
+		var lines: Array = tutorial_content.get("lines", [])
+		var line_colors := [
+			Color(0.84, 0.9, 0.98, 1.0),
+			Color(1.0, 0.88, 0.6, 1.0),
+			Color(0.82, 0.92, 0.84, 1.0),
+		]
+		for idx in range(lines.size()):
+			box.add_child(main._make_label(String(lines[idx]), 10 if tight else 12, line_colors[min(idx, line_colors.size() - 1)]))
 	return panel
 
 func _is_fast_ai_enabled() -> bool:

@@ -41,6 +41,7 @@ func _test_boots_to_main_menu(main: Node) -> void:
 	_assert_true(main.root_box != null, "main scene builds root ui")
 	_assert_true(main.card_defs.size() > 0, "main scene loads card data")
 	_assert_true(not bool(main.player_profile.get("battle_tutorial_seen", true)), "battle tutorial starts enabled for new profile")
+	_assert_eq(int(main.player_profile.get("battle_tutorial_stage", -1)), 0, "battle tutorial starts at stage 0")
 
 func _test_run_start_and_battle_entry(main: Node) -> void:
 	main._start_new_run()
@@ -58,8 +59,12 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	_assert_true(battle.detail_panel != null, "battle detail panel exists")
 	_assert_true(not bool(battle.detail_panel.visible), "battle detail panel starts collapsed")
 	_assert_true(battle.tutorial_panel != null, "battle tutorial panel exists")
+	_assert_true(bool(battle.tutorial_panel.visible), "battle tutorial starts visible on first battle")
 	_assert_true(battle.recommended_action_button != null, "battle recommends a primary action button")
 	_assert_true(battle.end_turn_button != null, "battle keeps end turn button visible")
+	battle._dismiss_battle_tutorial()
+	_assert_eq(int(main.player_profile.get("battle_tutorial_stage", -1)), 1, "dismissing tutorial advances tutorial stage")
+	_assert_true(not bool(battle.tutorial_panel.visible), "dismissing tutorial hides panel")
 
 	battle.player = {
 		"name": "플레이어",
