@@ -220,6 +220,7 @@ func _store_battle_snapshot() -> void:
 			"necromancer_ring_used": bool(battle_state.get("necromancer_ring_used", false)),
 			"second_chance_used": bool(battle_state.get("second_chance_used", false)),
 			"summon_build_started": bool(battle_state.get("summon_build_started", false)),
+			"boss_turn_count": int(battle_state.get("boss_turn_count", 0)),
 		},
 	}
 	_save_run()
@@ -241,6 +242,7 @@ func _restore_battle_snapshot(snapshot: Dictionary) -> void:
 	battle_state["necromancer_ring_used"] = bool(flags.get("necromancer_ring_used", false))
 	battle_state["second_chance_used"] = bool(flags.get("second_chance_used", false))
 	battle_state["summon_build_started"] = bool(flags.get("summon_build_started", false))
+	battle_state["boss_turn_count"] = int(flags.get("boss_turn_count", 0))
 	_build_battle_ui()
 	if log_label != null:
 		log_label.text = String(snapshot.get("log_text", ""))
@@ -310,7 +312,12 @@ func _format_opponent_victory_gauge() -> String:
 	return "적 자원: %s" % _format_side_resources(opponent)
 
 func _format_player_victory_gauge() -> String:
-	return "%s | %s" % [main._battle_build_hint_text(), _format_side_resources(player)]
+	var parts: Array[String] = [main._battle_build_hint_text()]
+	var combo_text := _combo_status_text()
+	if not combo_text.is_empty():
+		parts.append(combo_text)
+	parts.append(_format_side_resources(player))
+	return " | ".join(parts)
 
 func _recommended_action_state() -> Dictionary:
 	if _is_player_input_locked():
@@ -413,6 +420,51 @@ func _enemy_strategy_text() -> String:
 		return "체력을 깎고 강한 효과를 사용"
 	return "카드 사용과 공격을 준비"
 
+func _boss_pattern_text() -> String:
+	var enemy_data: Dictionary = main.current_run.get("active_enemy", {})
+	if String(enemy_data.get("tier", "")) != "boss":
+		return ""
+	match String(enemy_data.get("id", "")):
+		"border_guardian":
+			return "보스 패턴: 매 적 턴 선봉 공격 +1"
+		"undead_king":
+			return "보스 패턴: 3턴마다 해골 지원"
+		"necro_lord":
+			return "보스 패턴: 매 적 턴 저주 +1"
+	return "보스 패턴: %s" % _enemy_strategy_text()
+
+func _apply_boss_pattern_on_turn_start() -> void:
+	var enemy_data: Dictionary = main.current_run.get("active_enemy", {})
+	if String(enemy_data.get("tier", "")) != "boss":
+		return
+	battle_state["boss_turn_count"] = int(battle_state.get("boss_turn_count", 0)) + 1
+	match String(enemy_data.get("id", "")):
+		"border_guardian":
+			if not opponent.field.is_empty():
+				opponent.field[0]["attack"] = int(opponent.field[0].get("attack", 0)) + 1
+				_add_log("보스 패턴: 국경 수호자가 선봉 공격력 +1")
+				_record_build_trigger("boss", "선봉 강화", _field_slot_for(opponent, 0), Color(1.0, 0.58, 0.24, 1.0), false)
+		"undead_king":
+			if int(battle_state.get("boss_turn_count", 0)) % 3 == 0 and opponent.field.size() < 3:
+				opponent.field.append({
+					"id": "bone_soldier",
+					"name": "왕의 해골",
+					"race": "언데드",
+					"attr": "암흑",
+					"attack": 1,
+					"health": 1,
+					"max_health": 1,
+					"art": 2,
+					"art_id": "bone_soldier",
+					"can_attack": false,
+				})
+				_add_log("보스 패턴: 언데드 왕이 해골 지원 소환")
+				_record_build_trigger("boss", "해골 소환", _field_slot_for(opponent, opponent.field.size() - 1), Color(0.76, 0.5, 1.0, 1.0), false)
+		"necro_lord":
+			player["curses"] = int(player.get("curses", 0)) + 1
+			_add_log("보스 패턴: 강령술사 군주가 저주 +1")
+			_record_build_trigger("boss", "저주 +1", _hero_target_for_player(true), Color(0.76, 0.5, 1.0, 1.0), false)
+
 func _next_enemy_action_text() -> String:
 	var ready_attack = 0
 	for unit in opponent.field:
@@ -428,26 +480,54 @@ func _next_enemy_action_text() -> String:
 			return "다음 적 행동: 소환 준비 · %s" % _enemy_strategy_text()
 	return "다음 적 행동: %s" % _enemy_strategy_text()
 
+func _combo_status_text() -> String:
+	var tag := String(battle_state.get("combo_tag", ""))
+	var streak := int(battle_state.get("combo_streak", 0))
+	if tag.is_empty() or streak <= 0:
+		var active_tags: Array = battle_state.get("active_build_tags", []) as Array
+		if active_tags.is_empty():
+			return ""
+		var active_tag := String(active_tags[0])
+		var active_meta: Dictionary = main._build_tag_meta().get(active_tag, {})
+		return "%s 연계 준비" % String(active_meta.get("name", active_tag))
+	var meta: Dictionary = main._build_tag_meta().get(tag, {})
+	var next_text := "다음 같은 태그면 발동" if streak == 1 else "연계 발동 중"
+	return "%s %d연계 · %s" % [String(meta.get("name", tag)), streak, next_text]
+
+func _strongest_active_build_text() -> String:
+	var scores: Dictionary = main._current_build_scores()
+	var active: Array[String] = main._active_build_tags(scores)
+	if active.is_empty():
+		return main._active_build_text(scores)
+	var tag := String(active[0])
+	return main._build_activation_effect_text(tag)
+
 func _current_battle_guidance_text() -> String:
 	if game_over:
 		return "전투 종료"
-	return String(_recommended_action_state().get("guidance", "추천 진행 또는 턴 종료 ▶ 를 누르세요."))
+	var guidance := String(_recommended_action_state().get("guidance", "추천 진행 또는 턴 종료 ▶ 를 누르세요."))
+	var combo_text := _combo_status_text()
+	if not combo_text.is_empty() and current_player == "player" and not input_locked:
+		guidance = "%s  |  %s" % [guidance, combo_text]
+	return guidance
 
 func _current_battle_focus_text() -> String:
+	var boss_pattern := _boss_pattern_text()
 	if selected_attacker != -1 and selected_attacker < player.field.size():
 		var attacker: Dictionary = player.field[selected_attacker]
 		if opponent.field.is_empty():
 			return "이번 턴 플랜: %s 누르고 적 영웅 치기 -> 끝" % String(attacker.get("name", "유닛"))
 		return "이번 턴 플랜: %s로 앞 적부터 치기 -> 더 할 것 확인" % String(attacker.get("name", "유닛"))
 	if _is_player_input_locked():
-		return "이번 턴 플랜: 지금은 기다리면 됩니다."
+		return boss_pattern if not boss_pattern.is_empty() else "이번 턴 플랜: 지금은 기다리면 됩니다."
 	for unit in player.field:
 		if bool(Dictionary(unit).get("can_attack", false)):
 			return "이번 턴 플랜: 공격 가능한 내 유닛 먼저 누르기 -> 필요하면 카드 쓰기"
 	var recommended_card = _recommended_hand_card()
 	if not recommended_card.is_empty():
-		return "이번 턴 플랜: %s 먼저 쓰기 -> 공격 가능해졌는지 보기" % String(recommended_card.get("name", "추천 카드"))
-	return "이번 턴 플랜: 밝은 카드 하나 쓰고, 더 없으면 턴 종료"
+		var impact: String = main._choice_impact_text(recommended_card)
+		return "이번 턴 플랜: %s 먼저 쓰기 -> %s" % [String(recommended_card.get("name", "추천 카드")), impact]
+	return "이번 턴 플랜: %s" % _strongest_active_build_text()
 
 func _unplayable_card_hint(card: Dictionary, cost: int) -> String:
 	if _is_player_input_locked():
@@ -675,6 +755,7 @@ func _reset_battle_state() -> void:
 		"second_chance_used": false,
 		"active_build_tags": main._active_build_tags(main._current_build_scores()),
 		"summon_build_started": false,
+		"boss_turn_count": 0,
 	}
 
 func _prepare_battle(tier: String) -> void:
@@ -1653,10 +1734,17 @@ func _render_build_chips() -> void:
 		var tag = String(item.get("tag", ""))
 		var val = int(item.get("value", 0))
 		var active: bool = active_tags.has(tag)
+		var combo_active := String(battle_state.get("combo_tag", "")) == tag and int(battle_state.get("combo_streak", 0)) > 0
 		var base_color: Color = _build_stat_chip_color(i)
-		var panel: PanelContainer = main.ui.make_surface_panel(base_color.lightened(0.14) if active else base_color, Color(1.0, 0.78, 0.34, 1.0) if active else base_color.lightened(0.16), 2 if active else 1, 8, 6)
+		var border_color := Color(1.0, 0.78, 0.34, 1.0) if active else base_color.lightened(0.16)
+		if combo_active:
+			border_color = Color(1.0, 0.96, 0.62, 1.0)
+		var panel: PanelContainer = main.ui.make_surface_panel(base_color.lightened(0.2) if combo_active else (base_color.lightened(0.14) if active else base_color), border_color, 3 if combo_active else (2 if active else 1), 8, 6)
 		panel.custom_minimum_size = Vector2(48 if tight else (54 if compact else 62), 38 if tight else (44 if compact else 48))
-		var label: Label = main._make_label("%s\n%d" % [String(item.get("label", "")), val], 9 if tight else (10 if compact else 11), Color(1.0, 0.96, 0.82, 1.0) if active else Color(0.92, 0.94, 0.92, 1.0))
+		var label_text := "%s\n%d" % [String(item.get("label", "")), val]
+		if combo_active:
+			label_text = "%s\n%d연계" % [String(item.get("label", "")), int(battle_state.get("combo_streak", 0))]
+		var label: Label = main._make_label(label_text, 9 if tight else (10 if compact else 11), Color(1.0, 0.96, 0.82, 1.0) if active or combo_active else Color(0.92, 0.94, 0.92, 1.0))
 		label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		panel.add_child(label)
 		build_chip_box.add_child(panel)
@@ -1673,6 +1761,8 @@ func _render_build_chips() -> void:
 				status_str = "[color=#5CD65C][b]● 활성화됨[/b][/color] (효과 적용 중)"
 			else:
 				status_str = "[color=#A0A5B0]○ 비활성화됨[/color] (활성화까지 %d장 부족)" % (main._build_threshold() - val)
+			if combo_active:
+				status_str += "\n[color=#FFE76A][b]연계 %d[/b][/color] - 같은 태그 카드를 이어 쓰면 추가 효과" % int(battle_state.get("combo_streak", 0))
 			var desc_text = "%s\n\n[color=#F2C96B][b]효과:[/b][/color] %s" % [status_str, meta.get("bonus", "")]
 			_show_hover_popup(panel, title_text, desc_text, base_color)
 		)
@@ -1944,6 +2034,8 @@ func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
 		battle_state["combo_streak"] = 0
 		main.relic_service.on_turn_start(main.current_run, battle_state, player)
 		_apply_build_on_turn_start()
+	else:
+		_apply_boss_pattern_on_turn_start()
 	_apply_delayed_status(side)
 	_check_game_over()
 	if game_over:
@@ -2119,7 +2211,12 @@ func _card_play_sfx(card_type: String) -> String:
 
 
 func _calculate_damage(card_or_unit: Dictionary, is_spell: bool, owner_state: Dictionary, base_damage: int) -> int:
-	return base_damage + main.relic_service.damage_bonus(main.current_run, card_or_unit, is_spell, owner_state) + _build_damage_bonus(card_or_unit, is_spell, owner_state)
+	var damage: int = base_damage + main.relic_service.damage_bonus(main.current_run, card_or_unit, is_spell, owner_state) + _build_damage_bonus(card_or_unit, is_spell, owner_state)
+	if owner_state == player and is_spell and String(card_or_unit.get("attr", "")) == "화염":
+		var relic_ids: Array = main.current_run.get("relic_ids", [])
+		if relic_ids.has("burning_heart") and int(battle_state.get("cards_played_this_turn", 0)) >= 2:
+			damage += 1
+	return damage
 
 func _play_card_resolution_feedback(card: Dictionary, card_type: String, summoned_index: int, old_player_hp: int, old_opponent_hp: int) -> void:
 	if _should_skip_timed_battle_fx():
@@ -2322,6 +2419,7 @@ func _recommended_hand_index() -> int:
 	var front_enemy_health = 0
 	if not opponent.field.is_empty():
 		front_enemy_health = int(Dictionary(opponent.field[0]).get("health", 0))
+	var build_scores: Dictionary = main._current_build_scores()
 	for i in range(player.hand.size()):
 		var card: Dictionary = player.hand[i]
 		if not _can_play_card(player, card, "player"):
@@ -2342,6 +2440,17 @@ func _recommended_hand_index() -> int:
 			score = 60
 		elif card_type == "equipment":
 			score = 55
+		for tag in main._card_build_tags(card):
+			var current_score := int(build_scores.get(tag, 0))
+			if current_score >= main._build_threshold():
+				score += 28
+			elif current_score + 1 >= main._build_threshold():
+				score += 42
+			elif current_score >= main._build_threshold() - 2:
+				score += 18
+		var combo_tag := String(battle_state.get("combo_tag", ""))
+		if not combo_tag.is_empty() and main._card_build_tags(card).has(combo_tag):
+			score += 34
 		if score > best_score:
 			best_score = score
 			best_index = i
@@ -3466,7 +3575,8 @@ func _refresh_timer_label() -> void:
 
 func _refresh_status_labels() -> void:
 	if status_label != null and is_instance_valid(status_label):
-		status_label.text = "현재 목표: 추천 순서대로 전개하고 적 영웅 체력을 0으로 만드세요."
+		var boss_pattern := _boss_pattern_text()
+		status_label.text = boss_pattern if not boss_pattern.is_empty() else "현재 목표: 추천 순서대로 전개하고 적 영웅 체력을 0으로 만드세요."
 	if opponent_info != null and is_instance_valid(opponent_info):
 		opponent_info.text = "적 영웅 HP %d/%d" % [int(opponent.get("health", 0)), int(opponent.get("max_health", 0))]
 	if opponent_gauge_info != null and is_instance_valid(opponent_gauge_info):
@@ -3474,7 +3584,7 @@ func _refresh_status_labels() -> void:
 	if player_info != null and is_instance_valid(player_info):
 		player_info.text = "HP %d/%d" % [int(player.get("health", 0)), int(player.get("max_health", 0))]
 	if player_gauge_info != null and is_instance_valid(player_gauge_info):
-		player_gauge_info.text = main._battle_build_hint_text()
+		player_gauge_info.text = _format_player_victory_gauge()
 	if battle_guidance_label != null and is_instance_valid(battle_guidance_label):
 		var new_guidance = _current_battle_guidance_text()
 		if battle_guidance_label.text != new_guidance:

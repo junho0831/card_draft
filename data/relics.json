@@ -8,13 +8,13 @@
 	{
 		"id": "knight_banner",
 		"name": "기사단 깃발",
-		"text": "아군 유닛은 소환될 때 공격력 +1",
+		"text": "아군 유닛은 소환될 때 공격력 +1. 1체력 유닛은 체력도 +1",
 		"build_tags": ["buff", "summon"]
 	},
 	{
 		"id": "world_tree_leaf",
 		"name": "세계수 잎",
-		"text": "내 턴 시작 시 카드 1장 추가 드로우",
+		"text": "내 턴 시작 시 카드 1장 추가 드로우. 첫 카드 전이면 마나 +1",
 		"build_tags": ["draw"]
 	},
 	{
@@ -32,13 +32,13 @@
 	{
 		"id": "burning_heart",
 		"name": "불타는 심장",
-		"text": "화염 피해 +2",
+		"text": "화염 피해 +2. 한 턴의 2번째 이후 화염 주문 피해 +1",
 		"build_tags": ["fire"]
 	},
 	{
 		"id": "blood_chalice",
 		"name": "피의 성배",
-		"text": "내 영웅 체력이 감소할 때 가장 앞의 아군 공격력 +1",
+		"text": "내 영웅 체력이 감소할 때 가장 앞의 아군 공격력 +1. 위험 체력에서는 체력도 +1",
 		"build_tags": ["low_hp", "buff"]
 	},
 	{
@@ -56,7 +56,7 @@
 	{
 		"id": "necromancer_ring",
 		"name": "사령술사의 반지",
-		"text": "전투마다 처음 사망한 아군 유닛을 1/1 해골로 되살림",
+		"text": "전투마다 처음 사망한 아군 유닛을 즉시 공격 가능한 1/1 해골로 되살림",
 		"build_tags": ["death", "summon"]
 	},
 	{
@@ -86,7 +86,7 @@
 	{
 		"id": "war_drum",
 		"name": "전장의 북",
-		"text": "전투 시작 시 카드 1장 드로우, 마나 +1",
+		"text": "전투 시작 시 카드 1장 드로우, 마나 +1. 소환 연계 시작을 돕습니다",
 		"build_tags": ["draw", "summon"]
 	}
 ]

@@ -131,6 +131,9 @@ func _make_reward_side_panel(reward: Dictionary, compact: bool) -> PanelContaine
 func _reward_choice_reason(card: Dictionary, matches_primary: bool) -> String:
 	if matches_primary:
 		return main._choice_playstyle_text(card)
+	var impact: String = main._choice_impact_text(card)
+	if impact.contains("바로 활성") or impact.contains("연계 카드"):
+		return impact
 	var card_type := String(card.get("type", ""))
 	var card_id := String(card.get("id", "")).trim_suffix("_plus")
 	if card_type == "unit":
@@ -154,6 +157,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var reason_text := _reward_choice_reason(card, matches_primary)
 	var growth: Dictionary = _reward_growth_summary(card)
 	var growth_plain_text: String = main._plain_build_delta_text(card)
+	var impact_text: String = main._choice_impact_text(card)
 	var frame: PanelContainer = main.ui.make_surface_panel(
 		Color(0.24, 0.2, 0.12, 1.0) if matches_primary else Color(0.065, 0.07, 0.08, 1.0),
 		Color(1.0, 0.78, 0.28, 1.0) if matches_primary else Color(0.38, 0.3, 0.18, 1.0),
@@ -172,6 +176,13 @@ func _make_reward_choice(card: Dictionary) -> Control:
 		box.add_child(recommend)
 	var reason_badge: PanelContainer = main.ui.make_chip(reason_text, Color(0.12, 0.18, 0.24, 1.0) if not matches_primary else Color(0.28, 0.2, 0.08, 1.0), Color(0.9, 0.96, 1.0, 1.0) if not matches_primary else Color(1.0, 0.92, 0.6, 1.0), 11 if tight else 12)
 	box.add_child(reason_badge)
+	var impact_badge: PanelContainer = main.ui.make_chip(
+		impact_text,
+		Color(0.18, 0.13, 0.24, 1.0) if impact_text.contains("활성") else Color(0.1, 0.15, 0.2, 1.0),
+		Color(1.0, 0.84, 0.58, 1.0) if impact_text.contains("활성") else Color(0.82, 0.92, 1.0, 1.0),
+		10 if tight else 11
+	)
+	box.add_child(impact_badge)
 	var growth_headline := String(growth.get("headline", ""))
 	if not growth_headline.is_empty():
 		var growth_chip: PanelContainer = main.ui.make_chip(
@@ -214,6 +225,13 @@ func _make_reward_choice(card: Dictionary) -> Control:
 		var plain_label: Label = main._make_label(growth_plain_text, 10 if tight else 11, Color(0.9, 0.94, 0.98, 1.0))
 		plain_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(plain_label)
+	var tag := String(growth.get("primary_tag", ""))
+	if not tag.is_empty():
+		var effect_label: Label = main._make_label(main._build_activation_effect_text(tag), 10 if tight else 11, Color(1.0, 0.84, 0.62, 1.0))
+		effect_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		main.ui.style_card_rules(effect_label, true, false)
+		box.add_child(effect_label)
 	var text_label: Label = main._make_label(String(card.get("text", "")), 11 if tight else 11, Color(0.82, 0.88, 0.95, 1.0))
 	text_label.custom_minimum_size = Vector2(0, 34 if tight else 24)
 	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

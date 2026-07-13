@@ -1198,12 +1198,12 @@ func _profile_upgrades() -> Dictionary:
 
 func _build_tag_meta() -> Dictionary:
 	return {
-		"fire": {"icon": "🔥", "name": "화염", "color": Color(0.84, 0.34, 0.16, 1.0), "bonus": "화염 피해 +2"},
-		"draw": {"icon": "📖", "name": "드로우", "color": Color(0.24, 0.46, 0.82, 1.0), "bonus": "드로우 엔진 성장"},
-		"death": {"icon": "💀", "name": "사망", "color": Color(0.48, 0.28, 0.58, 1.0), "bonus": "사망 시너지 성장"},
-		"buff": {"icon": "⚔", "name": "버프", "color": Color(0.7, 0.58, 0.18, 1.0), "bonus": "필드 강화 시너지 성장"},
-		"low_hp": {"icon": "❤️", "name": "저체력", "color": Color(0.76, 0.22, 0.28, 1.0), "bonus": "위험할수록 강해짐"},
-		"summon": {"icon": "👥", "name": "소환", "color": Color(0.22, 0.58, 0.32, 1.0), "bonus": "토큰/물량 시너지 성장"},
+		"fire": {"icon": "🔥", "name": "화염", "color": Color(0.84, 0.34, 0.16, 1.0), "bonus": "화염 피해 +2 / 연계 시 폭발 피해"},
+		"draw": {"icon": "📖", "name": "드로우", "color": Color(0.24, 0.46, 0.82, 1.0), "bonus": "추가 드로우 / 연계 시 마나 회복"},
+		"death": {"icon": "💀", "name": "사망", "color": Color(0.48, 0.28, 0.58, 1.0), "bonus": "아군 사망 시 적 영웅 피해"},
+		"buff": {"icon": "⚔", "name": "버프", "color": Color(0.7, 0.58, 0.18, 1.0), "bonus": "소환 유닛 체력 +1 / 연계 시 선봉 성장"},
+		"low_hp": {"icon": "❤️", "name": "저체력", "color": Color(0.76, 0.22, 0.28, 1.0), "bonus": "위험 체력에서 공격 피해 +1 / 연계 회복"},
+		"summon": {"icon": "👥", "name": "소환", "color": Color(0.22, 0.58, 0.32, 1.0), "bonus": "전투 시작 토큰 / 연계 시 즉시 공격"},
 	}
 
 func _build_threshold() -> int:
@@ -1531,17 +1531,17 @@ func _build_delta_summary(card: Dictionary) -> Dictionary:
 func _plain_build_help(tag: String) -> String:
 	match tag:
 		"fire":
-			return "화염 폭발로 앞라인을 빨리 지웁니다."
+			return "화염 2연계부터 폭발 피해가 터집니다."
 		"draw":
-			return "카드를 계속 뽑아 한 턴을 길게 씁니다."
+			return "드로우 2연계부터 손패가 다시 차오릅니다."
 		"death":
-			return "희생과 사망이 적 영웅 압박으로 바뀝니다."
+			return "희생과 사망이 적 영웅 피해로 바뀝니다."
 		"buff":
-			return "필드 유닛을 크게 키워 교환을 이깁니다."
+			return "선봉을 키워 교환과 보스 압박을 이깁니다."
 		"low_hp":
-			return "위험 체력에서 버티며 반격합니다."
+			return "위험 체력에서 피해와 회복이 같이 켜집니다."
 		"summon":
-			return "유닛을 많이 깔고 즉시 몰아칩니다."
+			return "소환 2연계부터 방금 낸 유닛이 바로 공격합니다."
 		_:
 			return "이번 덱 방향을 더 선명하게 만듭니다."
 
@@ -1606,6 +1606,50 @@ func _choice_playstyle_text(source: Dictionary) -> String:
 	var primary := String(tags[0])
 	return "%s · %s" % [_build_playstyle_text(primary), _build_progress_text_for_tags(tags)]
 
+func _build_activation_effect_text(tag: String) -> String:
+	match tag:
+		"fire":
+			return "활성 후: 화염 피해 +2, 2번째 화염 더 강함"
+		"draw":
+			return "활성 후: 턴 시작 추가 드로우, 첫 카드 마나 보강"
+		"death":
+			return "활성 후: 아군 사망이 적 영웅 피해"
+		"buff":
+			return "활성 후: 소환 유닛 체력 +1, 선봉 성장"
+		"low_hp":
+			return "활성 후: 위험 체력에서 공격 피해 +1"
+		"summon":
+			return "활성 후: 시작 토큰, 즉시 공격 소환 연계"
+		_:
+			return "활성 후: 전투 리듬이 더 선명해집니다."
+
+func _choice_impact_text(source: Dictionary) -> String:
+	var tags := _build_tags_from_data(source)
+	if tags.is_empty() and source.has("id"):
+		if source.has("cost"):
+			tags = _card_build_tags(source)
+		else:
+			tags = _relic_build_tags(source)
+	if tags.is_empty():
+		return "즉시 전투 안정"
+	var scores := _current_build_scores()
+	var best_tag := String(tags[0])
+	var best_after := -1
+	for tag in tags:
+		var after_score := int(scores.get(tag, 0)) + (2 if not source.has("cost") else 1)
+		if after_score > best_after:
+			best_after = after_score
+			best_tag = String(tag)
+	var current := int(scores.get(best_tag, 0))
+	var gain := 2 if not source.has("cost") else 1
+	var next_score := current + gain
+	var meta: Dictionary = _build_tag_meta().get(best_tag, {})
+	if current < _build_threshold() and next_score >= _build_threshold():
+		return "%s %s 바로 활성" % [String(meta.get("icon", "")), String(meta.get("name", best_tag))]
+	if next_score >= _build_threshold():
+		return "%s 연계 카드 확보" % String(meta.get("name", best_tag))
+	return "%s 활성까지 %d" % [String(meta.get("name", best_tag)), max(0, _build_threshold() - next_score)]
+
 func _run_soul_stones(is_win: bool) -> int:
 	var stones := 0
 	var visited: Array = current_run.get("visited_nodes", [])
@@ -1618,16 +1662,24 @@ func _run_soul_stones(is_win: bool) -> int:
 		var node_index := int(parts[1])
 		if act_index < 0 or act_index >= acts.size():
 			continue
-		var nodes: Array = Dictionary(acts[act_index]).get("nodes", [])
-		if node_index < 0 or node_index >= nodes.size():
-			continue
-		match String(nodes[node_index]):
-			"battle":
-				stones += 5
-			"elite":
-				stones += 15
-			"boss":
-				stones += 30
+			var nodes: Array = Dictionary(acts[act_index]).get("nodes", [])
+			if node_index < 0 or node_index >= nodes.size():
+				continue
+			var node_value: Variant = nodes[node_index]
+			var node_type := ""
+			if typeof(node_value) == TYPE_ARRAY:
+				var node_options: Array = node_value
+				if not node_options.is_empty():
+					node_type = String(node_options[0])
+			else:
+				node_type = String(node_value)
+				match node_type:
+					"battle":
+						stones += 5
+					"elite":
+						stones += 15
+					"boss":
+						stones += 30
 	if is_win:
 		stones += 100
 	return stones
