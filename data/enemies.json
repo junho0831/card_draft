@@ -64,14 +64,12 @@
         "id": "skeleton_horde",
         "name": "해골 무리",
         "tier": "normal",
-        "base_hp": 14,
+        "base_hp": 11,
         "deck_ids": [
             "bone_soldier",
-            "bone_soldier",
-            "call_of_dead",
+            "bone_oracle",
             "corpse_explosion",
-            "dark_bargain",
-            "militia"
+            "funeral_fog"
         ],
         "ai_tags": [
             "death"
@@ -104,13 +102,13 @@
         "id": "shield_bearer",
         "name": "방패병",
         "tier": "normal",
-        "base_hp": 13,
+        "base_hp": 11,
         "deck_ids": [
             "shield_guard",
-            "shield_guard",
             "training_sword",
-            "first_aid",
             "militia",
+            "small_flame",
+            "flame_swordsman",
             "captain_order"
         ],
         "ai_tags": [
@@ -169,15 +167,14 @@
         "id": "border_guardian",
         "name": "국경 수호자",
         "tier": "boss",
-        "base_hp": 28,
+        "base_hp": 18,
         "deck_ids": [
             "flame_swordsman",
-            "shield_guard",
             "captain_order",
             "knight_spearman",
             "small_flame",
             "training_sword",
-            "first_aid"
+            "fireball"
         ],
         "ai_tags": [
             "boss",
@@ -191,7 +188,7 @@
         "id": "undead_king",
         "name": "언데드 왕",
         "tier": "boss",
-        "base_hp": 30,
+        "base_hp": 19,
         "deck_ids": [
             "bone_soldier",
             "bone_soldier",
@@ -257,14 +254,12 @@
         "id": "necro_lord",
         "name": "강령술사 군주",
         "tier": "boss",
-        "base_hp": 30,
+        "base_hp": 18,
         "deck_ids": [
             "bone_soldier",
-            "bone_oracle",
-            "corpse_explosion",
             "death_mark",
-            "bone_soldier",
-            "bone_soldier"
+            "funeral_fog",
+            "dark_bargain"
         ],
         "ai_tags": [
             "summon_heavy",

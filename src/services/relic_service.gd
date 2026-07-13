@@ -44,22 +44,31 @@ func apply_on_acquire(run_data: Dictionary, relic_id: String) -> void:
 		run_data["max_hp"] = int(run_data.get("max_hp", 50)) + 15
 		run_data["hp"] = int(run_data.get("hp", 50)) + 15
 
+func _emit_relic_trigger(battle_state: Dictionary, relic_id: String, text: String) -> void:
+	var trigger: Callable = battle_state.get("relic_trigger", Callable())
+	if trigger.is_valid():
+		trigger.call(relic_id, text)
+
 func on_battle_start(run_data: Dictionary, player_state: Dictionary, battle_state: Dictionary) -> void:
 	var relic_ids: Array = run_data.get("relic_ids", [])
 	battle_state["holy_shield_ready"] = relic_ids.has("holy_shield")
 	if relic_ids.has("mana_crystal"):
 		battle_state["mana_crystal_bonus"] = true
+		_emit_relic_trigger(battle_state, "mana_crystal", "첫 턴 마나 +1")
 	if relic_ids.has("cursed_crown"):
 		run_data["hp"] = max(1, int(run_data.get("hp", 1)) - 3)
 		player_state["health"] = int(run_data["hp"])
+		_emit_relic_trigger(battle_state, "cursed_crown", "체력 -3 / 최대 체력 유지")
 	if relic_ids.has("tactical_manual"):
 		battle_state["first_card_discount_available"] = true
+		_emit_relic_trigger(battle_state, "tactical_manual", "첫 카드 비용 -1")
 	if relic_ids.has("war_drum"):
 		var draw_cards: Callable = battle_state.get("draw_cards", Callable())
 		if draw_cards.is_valid():
 			draw_cards.call(player_state, 1)
 		player_state["mana"] = int(player_state.get("mana", 0)) + 1
 		player_state["max_mana"] = int(player_state.get("max_mana", 0)) + 1
+		_emit_relic_trigger(battle_state, "war_drum", "드로우 +1 / 마나 +1")
 		var log: Callable = battle_state.get("log", Callable())
 		if log.is_valid():
 			log.call("전장의 북 효과: 카드 1장 드로우, 마나 +1")
@@ -71,11 +80,13 @@ func on_turn_start(run_data: Dictionary, battle_state: Dictionary, player_state:
 		var draw_cards: Callable = battle_state.get("draw_cards", Callable())
 		if draw_cards.is_valid():
 			draw_cards.call(player_state, 1)
+		_emit_relic_trigger(battle_state, "world_tree_leaf", "추가 드로우")
 		var log: Callable = battle_state.get("log", Callable())
 		if log.is_valid():
 			log.call("세계수 잎 효과: 카드 1장 추가 드로우")
 	if relic_ids.has("gladiator_helm") and player_state.field.size() >= 3 and not player_state.field.is_empty():
 		player_state.field[0]["attack"] = int(player_state.field[0].get("attack", 0)) + 1
+		_emit_relic_trigger(battle_state, "gladiator_helm", "선봉 공격 +1")
 		var log: Callable = battle_state.get("log", Callable())
 		if log.is_valid():
 			log.call("검투사 투구 효과: 가장 앞의 아군 공격력 +1")
@@ -95,10 +106,11 @@ func consume_card_discount(battle_state: Dictionary) -> void:
 	if bool(battle_state.get("first_card_discount_available", false)):
 		battle_state["first_card_discount_available"] = false
 
-func on_unit_summoned(run_data: Dictionary, unit: Dictionary) -> void:
+func on_unit_summoned(run_data: Dictionary, unit: Dictionary, battle_state: Dictionary = {}) -> void:
 	var relic_ids: Array = run_data.get("relic_ids", [])
 	if relic_ids.has("knight_banner"):
 		unit["attack"] = int(unit.get("attack", 0)) + 1
+		_emit_relic_trigger(battle_state, "knight_banner", "소환 유닛 공격 +1")
 
 func damage_bonus(run_data: Dictionary, source: Dictionary, is_spell: bool, owner_state: Dictionary) -> int:
 	var relic_ids: Array = run_data.get("relic_ids", [])
@@ -113,6 +125,7 @@ func on_ally_unit_died(run_data: Dictionary, battle_state: Dictionary, dead_unit
 		var draw_cards: Callable = battle_state.get("draw_cards", Callable())
 		if draw_cards.is_valid():
 			draw_cards.call(battle_state.get("player_state", {}), 1)
+		_emit_relic_trigger(battle_state, "book_of_death", "사망 드로우 +1")
 		var log: Callable = battle_state.get("log", Callable())
 		if log.is_valid():
 			log.call("죽음의 서 효과: 카드 1장 드로우")
@@ -132,6 +145,7 @@ func on_ally_unit_died(run_data: Dictionary, battle_state: Dictionary, dead_unit
 				"can_attack": false,
 			})
 			battle_state["necromancer_ring_used"] = true
+			_emit_relic_trigger(battle_state, "necromancer_ring", "해골 부활")
 			if log.is_valid():
 				log.call("사령술사의 반지 효과: 1/1 해골 부활")
 
@@ -141,6 +155,7 @@ func on_card_played(run_data: Dictionary, battle_state: Dictionary, player_state
 		var draw_cards: Callable = battle_state.get("draw_cards", Callable())
 		if draw_cards.is_valid():
 			draw_cards.call(player_state, 1)
+		_emit_relic_trigger(battle_state, "wind_feather", "3번째 카드 드로우")
 		var log: Callable = battle_state.get("log", Callable())
 		if log.is_valid():
 			log.call("바람의 깃털 효과: 카드 1장 드로우")
@@ -151,6 +166,7 @@ func on_hero_hp_lost(run_data: Dictionary, battle_state: Dictionary, owner_state
 	var relic_ids: Array = run_data.get("relic_ids", [])
 	if relic_ids.has("blood_chalice") and not owner_state.field.is_empty():
 		owner_state.field[0]["attack"] = int(owner_state.field[0].get("attack", 0)) + 1
+		_emit_relic_trigger(battle_state, "blood_chalice", "피해를 힘으로 전환")
 		var log: Callable = battle_state.get("log", Callable())
 		if log.is_valid():
 			log.call("피의 성배 효과: 가장 앞의 아군 공격력 +1")
@@ -161,6 +177,7 @@ func mitigate_hero_damage(run_data: Dictionary, battle_state: Dictionary, amount
 	var relic_ids: Array = run_data.get("relic_ids", [])
 	if relic_ids.has("holy_shield") and bool(battle_state.get("holy_shield_ready", false)):
 		battle_state["holy_shield_ready"] = false
+		_emit_relic_trigger(battle_state, "holy_shield", "첫 영웅 피해 차단")
 		var log: Callable = battle_state.get("log", Callable())
 		if log.is_valid():
 			log.call("성스러운 방패 효과: 첫 영웅 피해를 막았습니다.")

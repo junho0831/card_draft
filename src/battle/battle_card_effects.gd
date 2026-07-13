@@ -24,7 +24,7 @@ func play_card(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: 
 			}
 			var relic_service = context.get("relic_service")
 			if relic_service != null:
-				relic_service.on_unit_summoned(context.get("run_data", {}), unit)
+				relic_service.on_unit_summoned(context.get("run_data", {}), unit, context)
 			owner.field.append(unit)
 			var on_unit_summoned: Callable = context.get("on_unit_summoned", Callable())
 			if on_unit_summoned.is_valid():

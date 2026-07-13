@@ -660,6 +660,7 @@ func _reset_battle_state() -> void:
 		"log": Callable(self, "_add_log"),
 		"cleanup_dead_units": Callable(self, "_cleanup_dead_units"),
 		"calculate_damage": Callable(self, "_calculate_damage"),
+		"relic_trigger": Callable(self, "_on_relic_trigger"),
 		"relic_service": main.relic_service,
 		"run_data": main.current_run,
 		"max_health": int(main.current_run.get("max_hp", 50)),
@@ -709,6 +710,22 @@ func _is_build_active(tag: String) -> bool:
 
 func _add_build_log(message: String) -> void:
 	_add_log("빌드 효과: %s" % message)
+
+func _on_relic_trigger(relic_id: String, text: String) -> void:
+	battle_state["relic_trigger_count"] = int(battle_state.get("relic_trigger_count", 0)) + 1
+	var relic: Dictionary = main.relic_service.get_relic(relic_id)
+	var tags: Array[String] = main._relic_build_tags(relic)
+	var tag := String(tags[0]) if not tags.is_empty() else ""
+	var meta: Dictionary = main._build_tag_meta().get(tag, {})
+	var color: Color = meta.get("color", Color(0.82, 0.72, 1.0, 1.0))
+	var label := "%s: %s" % [String(relic.get("name", relic_id)), text]
+	_add_log("유물 발동: %s" % label)
+	var target := _hero_target_for_player(true)
+	if tag in ["fire", "death"]:
+		target = _hero_target_for_player(false)
+	elif tag in ["buff", "summon"] and not player.field.is_empty():
+		target = _field_slot_for(player, 0)
+	_record_build_trigger(tag if not tag.is_empty() else "relic", label, target, color, false)
 
 func _record_build_trigger(tag: String, text: String, target: Control, color: Color, strong: bool = false) -> void:
 	battle_state["build_trigger_count"] = int(battle_state.get("build_trigger_count", 0)) + 1
@@ -2085,6 +2102,7 @@ func _battle_effect_context() -> Dictionary:
 		"cleanup_dead_units": Callable(self, "_cleanup_dead_units"),
 		"calculate_damage": Callable(self, "_calculate_damage"),
 		"on_unit_summoned": Callable(self, "_apply_build_on_unit_summoned"),
+		"relic_trigger": Callable(self, "_on_relic_trigger"),
 		"relic_service": main.relic_service,
 		"run_data": main.current_run,
 		"max_health": int(main.current_run.get("max_hp", 50)),

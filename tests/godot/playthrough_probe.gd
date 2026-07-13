@@ -4,6 +4,8 @@ const MAIN_SCENE := preload("res://src/core/Main.tscn")
 
 var output_dir := "user://playthrough_probe"
 var report: Array[String] = []
+var boss_steps := 0
+var max_battle_steps := 0
 
 func _init() -> void:
 	call_deferred("_run")
@@ -110,6 +112,10 @@ func _play_battle(main: Node, safety: int) -> void:
 		if steps == 3:
 			await _capture("%02d_battle_mid" % safety)
 	await _wait_frames(20)
+	max_battle_steps = maxi(max_battle_steps, steps)
+	var node_type := String(main.run_store.current_node(main.current_run).get("type", ""))
+	if node_type == "boss":
+		boss_steps += steps
 	_note(main, "battle_end screen=%s steps=%d run_hp=%d" % [
 		String(main.active_screen),
 		steps,
@@ -170,12 +176,17 @@ func _note_fun_metrics(main: Node) -> void:
 	var scores: Dictionary = main._current_build_scores()
 	var active: Array = main._active_build_tags(scores)
 	var trigger_count := 0
+	var relic_trigger_count := 0
 	if main.battle_screen != null:
 		trigger_count = int(main.battle_screen.battle_state.get("build_trigger_count", 0))
-	report.append("fun_metrics active_builds=%s build_scores=%s build_triggers=%d relics=%d result=%s" % [
+		relic_trigger_count = int(main.battle_screen.battle_state.get("relic_trigger_count", 0))
+	report.append("fun_metrics active_builds=%s build_scores=%s build_triggers=%d relic_triggers=%d boss_steps=%d max_battle_steps=%d relics=%d result=%s" % [
 		str(active),
 		str(scores),
 		trigger_count,
+		relic_trigger_count,
+		boss_steps,
+		max_battle_steps,
 		(main.current_run.get("relic_ids", []) as Array).size(),
 		String(main.current_run.get("result", "")),
 	])

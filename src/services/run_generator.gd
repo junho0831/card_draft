@@ -51,7 +51,7 @@ func get_starting_relic(race_id: String) -> String:
 		"human": return "knight_banner"
 		"elf": return "world_tree_leaf"
 		"undead": return "necromancer_ring"
-		_: return ""
+		_: return "knight_banner"
 
 func create_map_nodes(acts: Array[Dictionary]) -> Array[Dictionary]:
 	var nodes: Array[Dictionary] = []
