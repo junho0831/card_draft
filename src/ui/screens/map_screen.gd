@@ -638,13 +638,20 @@ func _show_hover_popup(node: Control, title_text: String, description_text: Stri
 	hover_popup.custom_minimum_size = Vector2(popup_width, 0)
 	hover_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
-	var style: StyleBoxTexture = StyleBoxTexture.new()
-	style.texture = load("res://assets/ui/fantasy_ui_panel.png")
-	style.texture_margin_left = 16
-	style.texture_margin_top = 16
-	style.texture_margin_right = 16
-	style.texture_margin_bottom = 16
-	style.modulate_color = Color(0.12, 0.1, 0.08, 0.98).lerp(accent_color, 0.08)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.045, 0.055, 0.07, 0.98).lerp(accent_color, 0.08)
+	style.border_color = accent_color.darkened(0.08)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.32)
+	style.shadow_size = 8
+	style.shadow_offset = Vector2(0, 3)
 	style.content_margin_left = 14
 	style.content_margin_top = 12
 	style.content_margin_right = 14
@@ -656,8 +663,7 @@ func _show_hover_popup(node: Control, title_text: String, description_text: Stri
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hover_popup.add_child(box)
 	
-	var stylized_title := "❖  %s  ❖" % title_text
-	var title_label: Label = main._make_label(stylized_title, 16, accent_color.lightened(0.24))
+	var title_label: Label = main._make_label(title_text, 16, accent_color.lightened(0.24))
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_label.add_theme_constant_override("outline_size", 5)

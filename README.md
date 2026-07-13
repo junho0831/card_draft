@@ -12,6 +12,10 @@
 - 유물 15개, 이벤트 5개
 - 전투 규칙: 영웅 체력 0 승패, 마나 1부터 시작, 턴마다 +1, 필드 5칸
 - 빌드 태그: 화염, 드로우, 사망, 버프, 저체력, 소환
+- 전투 조작감
+  - 손패 카드는 고정 슬롯 기반으로 배치되어 카드를 사용해도 남은 카드가 매번 한쪽으로 밀리지 않음
+  - 카드 hover 시 확대, 회전 복원, 보드 프리뷰, 간단 툴팁을 함께 표시
+  - 공격/소환/처치/연계 순간에는 플로팅 텍스트, 화면 흔들림, 직접 제작한 효과음을 사용
 - 빌드 체감
   - 전투 중 같은 활성 빌드 태그 카드를 이어 쓰면 연계 카운터가 표시되고 추가 효과가 발동
   - 보상 화면은 `바로 활성`, `연계 카드 확보`, `활성까지 N`, `활성 후 효과`를 표시
@@ -58,12 +62,33 @@ res://src/core/Main.tscn
 - 메인 허브: `res://src/core/main.gd`
 - 런 흐름 코디네이터: `res://src/core/run_flow_coordinator.gd`
 - 전투 화면: `res://src/ui/screens/battle_screen.gd`
+- 공통 UI 스타일: `res://src/ui/styles/ui_styles.gd`
+- 전투 UI 스타일: `res://src/ui/styles/battle_styles.gd`
+- 오디오 매니저: `res://src/services/audio_manager.gd`
 - 런 저장/진행 상태: `res://src/services/run_state.gd`
 - 카드 데이터: `res://data/cards.json`
 - 유물 데이터: `res://data/relics.json`
 - 이벤트 데이터: `res://data/events.json`
 - 적 데이터: `res://data/enemies.json`
 - Act 데이터: `res://data/acts.json`
+- 직접 제작 효과음: `res://assets/audio/*.wav`
+- 효과음 생성 스크립트: `tools/generate_game_sfx.py`
+
+## 효과음
+
+전투/버튼 효과음은 직접 생성한 44.1kHz 16-bit mono WAV 파일을 사용한다.
+
+```bash
+python3 tools/generate_game_sfx.py
+```
+
+생성 대상:
+
+- `click`, `hover`, `draw`, `play`, `summon`, `spell`
+- `hit`, `counter`, `finisher`, `combo`, `heal`
+- `reward`, `victory`, `defeat`
+
+`AudioManager`는 `res://assets/audio/{name}.wav`가 있으면 우선 사용하고, 파일이 없으면 코드에서 생성한 fallback 스트림을 사용한다. 새 WAV는 Godot import 상태에 의존하지 않도록 런타임에서 직접 PCM을 읽어 `AudioStreamWAV`로 캐시한다.
 
 ## 테스트
 

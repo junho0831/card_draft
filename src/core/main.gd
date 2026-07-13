@@ -128,10 +128,17 @@ func _build_base_ui() -> void:
 		background.texture = bg_tex
 	else:
 		background.texture = _create_premium_background()
+	background.modulate = Color(0.38, 0.46, 0.56, 1.0)
 	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
+
+	var ambient_scrim := ColorRect.new()
+	ambient_scrim.color = Color(0.0, 0.015, 0.028, 0.64)
+	ambient_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ambient_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(ambient_scrim)
 
 	var backdrop := Control.new()
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -197,7 +204,7 @@ func _build_backdrop_layer(parent: Control) -> void:
 
 	for i in range(12):
 		var line := ColorRect.new()
-		line.color = Color(0.36, 0.3, 0.18, 0.055)
+		line.color = Color(0.18, 0.48, 0.72, 0.045)
 		line.custom_minimum_size = Vector2(max(1280.0, viewport_size.x), 1)
 		line.position = Vector2(0, 86 + i * 58)
 		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -205,7 +212,7 @@ func _build_backdrop_layer(parent: Control) -> void:
 
 	for i in range(9):
 		var seam := ColorRect.new()
-		seam.color = Color(0.0, 0.0, 0.0, 0.12)
+		seam.color = Color(0.24, 0.62, 0.9, 0.035)
 		seam.custom_minimum_size = Vector2(1, max(720.0, viewport_size.y))
 		seam.position = Vector2(84 + i * 180, 0)
 		seam.mouse_filter = Control.MOUSE_FILTER_IGNORE

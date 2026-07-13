@@ -8,6 +8,7 @@ var max_players := 12
 var current_player_idx := 0
 
 var streams := {}
+var custom_streams := {}
 var sound_volume_db := {}
 var sound_pitch_jitter := {}
 var rng := RandomNumberGenerator.new()
@@ -22,6 +23,7 @@ func _ready() -> void:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		players.append(p)
+	_load_custom_sounds()
 
 func play_sound(sound_name: String) -> void:
 	if not streams.has(sound_name):
@@ -34,32 +36,74 @@ func play_sound(sound_name: String) -> void:
 	p.volume_db = float(sound_volume_db.get(sound_name, -3.5))
 	var jitter := float(sound_pitch_jitter.get(sound_name, 0.0))
 	p.pitch_scale = 1.0 + rng.randf_range(-jitter, jitter)
-	
-	var custom_path_wav := "res://assets/audio/%s.wav" % sound_name
-	var custom_path_ogg := "res://assets/audio/%s.ogg" % sound_name
-	var custom_path_mp3 := "res://assets/audio/%s.mp3" % sound_name
-	
-	if FileAccess.file_exists(custom_path_wav):
-		var custom_stream := load(custom_path_wav)
-		if custom_stream != null:
-			p.stream = custom_stream
-			p.play()
-			return
-	elif FileAccess.file_exists(custom_path_ogg):
-		var custom_stream := load(custom_path_ogg)
-		if custom_stream != null:
-			p.stream = custom_stream
-			p.play()
-			return
-	elif FileAccess.file_exists(custom_path_mp3):
-		var custom_stream := load(custom_path_mp3)
-		if custom_stream != null:
-			p.stream = custom_stream
-			p.play()
-			return
-			
-	p.stream = streams[sound_name]
+
+	p.stream = custom_streams.get(sound_name, streams[sound_name])
 	p.play()
+
+func _load_custom_sounds() -> void:
+	custom_streams.clear()
+	for sound_name in streams.keys():
+		for extension in ["wav", "ogg", "mp3"]:
+			var custom_path := "res://assets/audio/%s.%s" % [sound_name, extension]
+			if not FileAccess.file_exists(custom_path):
+				continue
+			var custom_stream = _load_wav_stream(custom_path) if extension == "wav" else load(custom_path)
+			if custom_stream != null:
+				custom_streams[sound_name] = custom_stream
+				break
+
+func _load_wav_stream(path: String) -> AudioStreamWAV:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return null
+	var bytes: PackedByteArray = file.get_buffer(file.get_length())
+	if bytes.size() < 44:
+		return null
+	if _read_ascii(bytes, 0, 4) != "RIFF" or _read_ascii(bytes, 8, 4) != "WAVE":
+		return null
+
+	var channels := 1
+	var sample_rate := SAMPLE_RATE
+	var bits_per_sample := 16
+	var data := PackedByteArray()
+	var offset := 12
+	while offset + 8 <= bytes.size():
+		var chunk_id := _read_ascii(bytes, offset, 4)
+		var chunk_size := _read_u32_le(bytes, offset + 4)
+		var chunk_start := offset + 8
+		var chunk_end: int = min(chunk_start + chunk_size, bytes.size())
+		if chunk_id == "fmt " and chunk_size >= 16:
+			var audio_format := _read_u16_le(bytes, chunk_start)
+			if audio_format != 1:
+				return null
+			channels = _read_u16_le(bytes, chunk_start + 2)
+			sample_rate = _read_u32_le(bytes, chunk_start + 4)
+			bits_per_sample = _read_u16_le(bytes, chunk_start + 14)
+		elif chunk_id == "data":
+			data = bytes.slice(chunk_start, chunk_end)
+		offset = chunk_end + int(chunk_size % 2)
+
+	if data.is_empty() or bits_per_sample != 16:
+		return null
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = sample_rate
+	stream.stereo = channels == 2
+	stream.data = data
+	return stream
+
+func _read_ascii(bytes: PackedByteArray, offset: int, length: int) -> String:
+	var chars := PackedByteArray()
+	chars.resize(length)
+	for i in range(length):
+		chars[i] = bytes[offset + i]
+	return chars.get_string_from_ascii()
+
+func _read_u16_le(bytes: PackedByteArray, offset: int) -> int:
+	return int(bytes[offset]) | (int(bytes[offset + 1]) << 8)
+
+func _read_u32_le(bytes: PackedByteArray, offset: int) -> int:
+	return int(bytes[offset]) | (int(bytes[offset + 1]) << 8) | (int(bytes[offset + 2]) << 16) | (int(bytes[offset + 3]) << 24)
 
 func _generate_all_sounds() -> void:
 	streams["click"] = _generate_rune_click()
@@ -79,18 +123,18 @@ func _generate_all_sounds() -> void:
 
 	sound_volume_db = {
 		"hover": -18.0,
-		"click": -9.0,
-		"draw": -8.5,
-		"play": -3.8,
-		"summon": -2.8,
-		"spell": -4.0,
-		"counter": -4.4,
-		"hit": -2.8,
-		"finisher": -1.8,
-		"combo": -4.0,
-		"heal": -6.0,
-		"reward": -5.0,
-		"victory": -3.0,
+		"click": -8.0,
+		"draw": -6.8,
+		"play": -2.8,
+		"summon": -1.6,
+		"spell": -2.8,
+		"counter": -3.4,
+		"hit": -1.9,
+		"finisher": -0.8,
+		"combo": -2.6,
+		"heal": -5.0,
+		"reward": -3.6,
+		"victory": -1.8,
 		"defeat": -3.5,
 	}
 	sound_pitch_jitter = {
@@ -416,4 +460,3 @@ func _generate_hover_tick() -> AudioStreamWAV:
 		sample *= envelope * 0.22
 		_write_sample(bytes, i, sample)
 	return _finish_stream(parts)
-

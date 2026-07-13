@@ -30,22 +30,26 @@ Card Draft UI의 목표는 플레이어가 매 화면에서 세 가지를 바로
 
 - 전체 화면 셸: `ScrollContainer + VBoxContainer`
 - 공통 패널/버튼/칩: `src/ui/ui_factory.gd`
+- 공통 스타일 모듈: `src/ui/styles/ui_styles.gd`
+- 전투 스타일 모듈: `src/ui/styles/battle_styles.gd`
 - 전장 행: `HBoxContainer`
-- 손패: `Control` 기반 수동 부채꼴 배치
+- 손패: `Control` 기반 고정 슬롯 수동 배치
 - 카드 내부 텍스트 스타일: `style_card_title()`, `style_card_rules()`
-- 카드 프레임 자산: `assets/ui/fantasy_card_frame.png`
-- 공용 패널 자산: `assets/ui/fantasy_ui_panel.png`
+- 효과음: `src/services/audio_manager.gd` + `assets/audio/*.wav`
 
 현재 구현에서 잘 쓰고 있는 부분:
 
 - 화면 단위 레이아웃은 `VBoxContainer`, `HBoxContainer`, `GridContainer`, `HFlowContainer`로 빠르게 정리한다.
 - 카드/버튼 hover는 `mouse_entered`, `mouse_exited`, `create_tween()`으로 처리한다.
 - 카드에 마우스를 올렸을 때 확대, 앞으로 튀어나오기, 툴팁 노출까지 연결되어 있다.
+- 카드에 마우스를 올렸을 때 보드 위 예상 소환/피해/회복 위치도 짧게 프리뷰한다.
 - 카드 텍스트는 그냥 Label 한 장으로 끝내지 않고 `이름`, `핵심 효과`, `원문 보조 설명`, `상태 바`로 나눈다.
+- 손패 카드는 `_hand_slot`으로 위치를 유지해서 카드를 낸 뒤 남은 카드가 계속 한쪽으로 밀리지 않는다.
+- 직접 제작 효과음이 버튼/카드/전투 결과별로 구분되어 있다.
 
 현재 아직 부족한 부분:
 
-- 손패는 부채꼴 배치까지 들어왔지만 드래그 기반 상호작용은 아직 없다.
+- 손패는 고정 슬롯과 hover 확대까지 들어왔지만 드래그 기반 상호작용은 아직 없다.
 - 카드 드래그 중 목표 지점 프리뷰, 스냅 이동, 손패 재배치 애니메이션은 아직 없다.
 
 권장 다음 단계:
@@ -54,8 +58,9 @@ Card Draft UI의 목표는 플레이어가 매 화면에서 세 가지를 바로
 2. hover 시 `scale`, `y offset`, `rotation reset`, `z_index`를 지금보다 더 명확한 피드백으로 다듬는다.
 3. 드래그 중에는 가장 가까운 슬롯 또는 타깃을 하이라이트한다.
 4. 모바일에서는 가로 스와이프와 중앙 확대 카드 패턴이 더 나은지 검증한다.
+5. 효과음은 새 연출이 추가될 때마다 `tools/generate_game_sfx.py`에 생성식을 먼저 추가하고, `assets/audio`에 WAV를 재생성한다.
 
-즉, Godot에서는 `모든 것을 컨테이너로만 해결하려고 할수록 카드 게임 UI가 개발툴처럼 보이기 쉽다.` 현재 프로젝트는 손패를 수동 배치로 옮겨 첫 단계를 넘겼고, 다음 과제는 조작감과 행동 유도다.
+즉, Godot에서는 `모든 것을 컨테이너로만 해결하려고 할수록 카드 게임 UI가 개발툴처럼 보이기 쉽다.` 현재 프로젝트는 손패를 고정 슬롯 수동 배치로 옮겨 첫 단계를 넘겼고, 다음 과제는 드래그 조작감과 행동 유도다.
 
 ## 카드 한 장의 권장 구조
 
