@@ -25,7 +25,19 @@ func _ready() -> void:
 		players.append(p)
 	_load_custom_sounds()
 
+func _exit_tree() -> void:
+	for player in players:
+		if player == null or not is_instance_valid(player):
+			continue
+		player.stop()
+		player.stream = null
+	players.clear()
+	custom_streams.clear()
+	streams.clear()
+
 func play_sound(sound_name: String) -> void:
+	if _is_headless_runtime():
+		return
 	if not streams.has(sound_name):
 		return
 	if players.is_empty():
@@ -39,6 +51,9 @@ func play_sound(sound_name: String) -> void:
 
 	p.stream = custom_streams.get(sound_name, streams[sound_name])
 	p.play()
+
+func _is_headless_runtime() -> bool:
+	return DisplayServer.get_name() == "headless"
 
 func _load_custom_sounds() -> void:
 	custom_streams.clear()

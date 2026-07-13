@@ -29,7 +29,7 @@ func run() -> Dictionary:
 	main._clear_screen()
 	main._clear_run()
 	tree.root.remove_child(main)
-	main.queue_free()
+	main.free()
 
 	return {
 		"count": _count,
