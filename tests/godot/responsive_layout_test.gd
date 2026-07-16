@@ -25,6 +25,8 @@ func run() -> Dictionary:
 		_check_screen(main, viewport_size, "main_menu", Callable(main, "_show_main_menu"))
 
 		main._start_new_run()
+		_check_current_screen(main, viewport_size, "race_selection")
+		main._init_run("human")
 		_check_current_screen(main, viewport_size, "map")
 
 		main._enter_current_node()
@@ -72,6 +74,11 @@ func _check_screen(main: Node, viewport_size: Vector2i, screen_name: String, sho
 func _check_current_screen(main: Node, viewport_size: Vector2i, screen_name: String) -> void:
 	main._apply_root_layout()
 	var viewport_width: float = main._layout_viewport_size().x
+	if screen_name == "race_selection" and viewport_size.y > viewport_size.x and viewport_size.x <= 900:
+		var controller = main.active_screen_controller
+		_assert_true(controller != null and controller.fixed_footer != null, "race selection keeps a fixed mobile start bar @ %s" % str(viewport_size))
+		if controller != null and controller.fixed_footer != null:
+			_assert_true(controller.fixed_footer.get_parent() == main.modal_layer, "race selection mobile start bar stays outside scrolling content @ %s" % str(viewport_size))
 	_assert_true(main.root_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "%s root horizontal scroll disabled @ %s" % [screen_name, str(viewport_size)])
 	_assert_true(main.root_box.custom_minimum_size.x <= viewport_width + 1.0, "%s root width fits viewport @ %s" % [screen_name, str(viewport_size)])
 	_assert_true(main.root_box.get_combined_minimum_size().x <= viewport_width + 1.0, "%s content minimum width fits viewport @ %s: %.1f > %.1f" % [screen_name, str(viewport_size), main.root_box.get_combined_minimum_size().x, viewport_width])

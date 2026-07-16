@@ -23,9 +23,10 @@ func _ensure_battle_screen() -> bool:
 	return true
 
 func start_new_run() -> void:
-	init_run("")
+	main._show_race_selection()
 
 func init_run(race_id: String) -> void:
+	race_id = main._normalize_race_id(race_id)
 	var acts: Array[Dictionary] = main.run_generator.load_acts()
 	if acts.is_empty():
 		main._show_message("Act 데이터를 불러오지 못했습니다.", "_show_main_menu")
@@ -34,7 +35,7 @@ func init_run(race_id: String) -> void:
 	var start_hp := 26 + int(upgrades.get("start_hp", 0)) * 4
 	var start_gold := 85 + int(upgrades.get("start_gold", 0)) * 15
 	var deck_ids: Array[String] = main.run_generator.starter_deck(race_id)
-	main.current_run = main.run_store.create_new_run(acts, deck_ids, start_hp, start_gold)
+	main.current_run = main.run_store.create_new_run(acts, deck_ids, start_hp, start_gold, race_id)
 	var relic_id: String = main.run_generator.get_starting_relic(race_id)
 	if not relic_id.is_empty():
 		(main.current_run.get("relic_ids", []) as Array).append(relic_id)

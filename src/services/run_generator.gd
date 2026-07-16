@@ -40,8 +40,8 @@ func starter_deck(race_id: String = "") -> Array[String]:
 	# Default (Human or empty)
 	return [
 		"militia", "militia", "militia",
-		"trainee_swordsman", "trainee_swordsman",
-		"small_flame", "small_flame", "small_flame",
+		"trainee_swordsman", "trainee_swordsman", "trainee_swordsman",
+		"small_flame", "small_flame",
 		"fireball",
 		"first_aid",
 	]

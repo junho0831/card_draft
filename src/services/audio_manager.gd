@@ -135,6 +135,11 @@ func _generate_all_sounds() -> void:
 	streams["victory"] = _generate_heavy_fanfare(true)
 	streams["defeat"] = _generate_heavy_fanfare(false)
 	streams["hover"] = _generate_hover_tick()
+	streams["power_human"] = _generate_human_power()
+	streams["power_elf"] = _generate_elf_power()
+	streams["power_undead"] = _generate_undead_power()
+	streams["impact_heavy"] = _generate_heavy_impact()
+	streams["victory_burst"] = _generate_victory_burst()
 
 	sound_volume_db = {
 		"hover": -18.0,
@@ -151,6 +156,11 @@ func _generate_all_sounds() -> void:
 		"reward": -3.6,
 		"victory": -1.8,
 		"defeat": -3.5,
+		"power_human": -0.8,
+		"power_elf": -2.0,
+		"power_undead": -0.8,
+		"impact_heavy": -0.4,
+		"victory_burst": -0.8,
 	}
 	sound_pitch_jitter = {
 		"click": 0.025,
@@ -161,6 +171,11 @@ func _generate_all_sounds() -> void:
 		"hit": 0.035,
 		"counter": 0.035,
 		"finisher": 0.012,
+		"power_human": 0.008,
+		"power_elf": 0.012,
+		"power_undead": 0.008,
+		"impact_heavy": 0.012,
+		"victory_burst": 0.0,
 	}
 
 func _new_stream(duration: float) -> Dictionary:
@@ -416,6 +431,145 @@ func _generate_combo_burst() -> AudioStreamWAV:
 		var chant: float = (sin(phase_a) * 0.32 + sin(phase_b) * 0.24) * _release_envelope(p, 1.5)
 		var dust: float = rng.randf_range(-1.0, 1.0) * exp(-p * 7.5) * 0.09
 		_write_sample(bytes, i, _saturate(low + chant + dust, 1.45))
+	return _finish_stream(parts)
+
+func _generate_human_power() -> AudioStreamWAV:
+	var duration := 0.92
+	var parts := _new_stream(duration)
+	var bytes: PackedByteArray = parts["bytes"]
+	var phase_drum := 0.0
+	var phase_metal_a := 0.0
+	var phase_metal_b := 0.0
+	var noise_lp := 0.0
+	for i in range(int(parts["samples"])):
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_drum += (lerpf(78.0, 38.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_metal_a += (392.0 * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_metal_b += (658.0 * 2.0 * PI) / float(SAMPLE_RATE)
+		var raw_noise := rng.randf_range(-1.0, 1.0)
+		noise_lp = lerpf(noise_lp, raw_noise, 0.1)
+		var first_hit := exp(-p * 16.0)
+		var second_hit := _impact_after(p, 0.28, 12.0)
+		var drum: float = sin(phase_drum) * (first_hit + second_hit * 0.86) * 0.82
+		var metal: float = (sin(phase_metal_a) * 0.28 + sin(phase_metal_b) * 0.18) * second_hit
+		var strike: float = (raw_noise - noise_lp) * (first_hit + second_hit) * 0.24
+		_write_sample(bytes, i, _saturate(drum + metal + strike, 2.35))
+	return _finish_stream(parts)
+
+func _generate_elf_power() -> AudioStreamWAV:
+	var duration := 1.02
+	var parts := _new_stream(duration)
+	var bytes: PackedByteArray = parts["bytes"]
+	var phase_low := 0.0
+	var phase_a := 0.0
+	var phase_b := 0.0
+	var wind_lp := 0.0
+	for i in range(int(parts["samples"])):
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_low += (110.0 * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_a += (lerpf(246.94, 493.88, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_b += (lerpf(329.63, 659.25, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		var raw_noise := rng.randf_range(-1.0, 1.0)
+		wind_lp = lerpf(wind_lp, raw_noise, 0.035)
+		var rise := sin(phase_a) * 0.3 + sin(phase_b) * 0.2
+		var shimmer := sin(phase_b * 2.03) * _impact_after(p, 0.38, 4.2) * 0.12
+		var wind := wind_lp * sin(p * PI) * 0.22
+		var low := sin(phase_low) * exp(-p * 4.0) * 0.14
+		_write_sample(bytes, i, _saturate((rise + shimmer + wind) * _release_envelope(p, 1.2) + low, 1.35))
+	return _finish_stream(parts)
+
+func _generate_undead_power() -> AudioStreamWAV:
+	var duration := 1.08
+	var parts := _new_stream(duration)
+	var bytes: PackedByteArray = parts["bytes"]
+	var phase_sub := 0.0
+	var phase_voice_a := 0.0
+	var phase_voice_b := 0.0
+	var noise_lp := 0.0
+	for i in range(int(parts["samples"])):
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_sub += (lerpf(64.0, 29.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_voice_a += (lerpf(138.0, 92.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_voice_b += (lerpf(207.0, 146.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		var raw_noise := rng.randf_range(-1.0, 1.0)
+		noise_lp = lerpf(noise_lp, raw_noise, 0.025)
+		var impact := exp(-p * 10.0)
+		var return_pulse := _impact_after(p, 0.36, 5.5)
+		var sub: float = sin(phase_sub) * (impact + return_pulse * 0.72) * 0.9
+		var voice: float = (sin(phase_voice_a) * 0.28 + _triangle_wave(phase_voice_b) * 0.12) * _release_envelope(p, 1.6)
+		var breath: float = noise_lp * sin(p * PI) * 0.24
+		_write_sample(bytes, i, _saturate(sub + voice + breath, 2.2))
+	return _finish_stream(parts)
+
+func _generate_heavy_impact() -> AudioStreamWAV:
+	var duration := 0.82
+	var parts := _new_stream(duration)
+	var bytes: PackedByteArray = parts["bytes"]
+	var phase_sub := 0.0
+	var phase_body := 0.0
+	var phase_metal_a := 0.0
+	var phase_metal_b := 0.0
+	var noise_lp := 0.0
+	for i in range(int(parts["samples"])):
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_sub += (lerpf(104.0, 24.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_body += (lerpf(176.0, 48.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_metal_a += (lerpf(920.0, 338.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_metal_b += (1379.0 * 2.0 * PI) / float(SAMPLE_RATE)
+		var raw_noise := rng.randf_range(-1.0, 1.0)
+		noise_lp = lerpf(noise_lp, raw_noise, 0.14)
+		var first := exp(-p * 15.0)
+		var second := _impact_after(p, 0.12, 13.0)
+		var tail := _impact_after(p, 0.31, 6.0)
+		var sub: float = sin(phase_sub) * (first + second * 0.92 + tail * 0.34) * 1.16
+		var body: float = _triangle_wave(phase_body) * (first + second * 0.56) * 0.52
+		var metal: float = (sin(phase_metal_a) * 0.26 + sin(phase_metal_b) * 0.11) * (first + second * 0.7)
+		var crack: float = (raw_noise - noise_lp * 0.35) * (first + second * 0.82) * 0.5
+		var air: float = noise_lp * tail * 0.18
+		_write_sample(bytes, i, _saturate(sub + body + metal + crack + air, 2.9))
+	return _finish_stream(parts)
+
+func _generate_victory_burst() -> AudioStreamWAV:
+	var duration := 2.7
+	var parts := _new_stream(duration)
+	var bytes: PackedByteArray = parts["bytes"]
+	var horn_freqs: Array[float] = [65.41, 98.0, 130.81, 164.81, 196.0]
+	var horn_phases: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0]
+	var horn_upper_phases: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0]
+	var phase_sub := 0.0
+	var phase_bell_a := 0.0
+	var phase_bell_b := 0.0
+	var noise_lp := 0.0
+	for i in range(int(parts["samples"])):
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_sub += (lerpf(72.0, 38.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_bell_a += (784.0 * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_bell_b += (1174.66 * 2.0 * PI) / float(SAMPLE_RATE)
+		var raw_noise := rng.randf_range(-1.0, 1.0)
+		noise_lp = lerpf(noise_lp, raw_noise, 0.04)
+		var horn_sample := 0.0
+		for note_index in range(horn_freqs.size()):
+			horn_phases[note_index] += (horn_freqs[note_index] * 2.0 * PI) / float(SAMPLE_RATE)
+			horn_upper_phases[note_index] += (horn_freqs[note_index] * 2.015 * 2.0 * PI) / float(SAMPLE_RATE)
+			var note_start := 0.08 + float(note_index) * 0.11
+			var note_env := _impact_after(p, note_start, 2.6)
+			horn_sample += (sin(horn_phases[note_index]) * 0.22 + sin(horn_upper_phases[note_index]) * 0.055) * note_env
+		var drum_a := exp(-p * 24.0)
+		var drum_b := _impact_after(p, 0.13, 22.0)
+		var drum_c := _impact_after(p, 0.26, 20.0)
+		var final_slam := _impact_after(p, 0.57, 12.0)
+		var drums: float = sin(phase_sub) * (drum_a + drum_b * 0.88 + drum_c * 0.76 + final_slam * 0.92) * 0.9
+		var bell_env := _impact_after(p, 0.34, 3.8)
+		var bells: float = (sin(phase_bell_a) * 0.14 + sin(phase_bell_b) * 0.1) * bell_env
+		var shimmer: float = noise_lp * sin(clampf((p - 0.2) / 0.8, 0.0, 1.0) * PI) * 0.2
+		var global_release := _release_envelope(p, 0.82)
+		var sample: float = (horn_sample * 0.78 + drums + bells + shimmer) * global_release
+		_write_sample(bytes, i, _saturate(sample, 2.15))
 	return _finish_stream(parts)
 
 func _generate_finisher_slam() -> AudioStreamWAV:

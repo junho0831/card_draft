@@ -2,13 +2,14 @@ extends SceneTree
 
 const CAPTURE_NAMES := [
 	"01_main_menu",
-	"02_run_map",
-	"03_battle",
-	"04_card_reward",
-	"05_shop",
-	"06_event",
-	"07_rest",
-	"08_run_result",
+	"02_race_selection",
+	"03_run_map",
+	"04_battle",
+	"05_card_reward",
+	"06_shop",
+	"07_event",
+	"08_rest",
+	"09_run_result",
 ]
 const RESPONSIVE_VIEWPORTS := [
 	"desktop_1920x1080",
@@ -30,7 +31,7 @@ func _validate_all() -> void:
 				"user://ui_captures_responsive/%s_%s.png" % [viewport_name, capture_name],
 				failures
 			)
-	_validate_capture("user://ui_captures_responsive/mobile_390x844_03b_battle_hand.png", failures)
+	_validate_capture("user://ui_captures_responsive/mobile_390x844_04b_battle_hand.png", failures)
 	if failures.is_empty():
 		print("PASS responsive UI captures validated")
 		quit(0)

@@ -27,7 +27,7 @@ func _test_create_new_run(run_state) -> void:
 		{"name": "Act 1", "nodes": ["battle", "boss"]},
 	]
 	var deck: Array[String] = ["militia", "small_flame"]
-	var run_data: Dictionary = run_state.create_new_run(acts, deck, 55, 120)
+	var run_data: Dictionary = run_state.create_new_run(acts, deck, 55, 120, "elf")
 	_assert_eq(int(run_data.get("act", 0)), 1, "create_new_run starts at act 1")
 	_assert_eq(int(run_data.get("current_node_index", -1)), 0, "create_new_run starts at node 0")
 	_assert_eq(int(run_data.get("hp", 0)), 55, "create_new_run sets hp")
@@ -35,8 +35,11 @@ func _test_create_new_run(run_state) -> void:
 	_assert_true(run_data.has("battle_snapshot"), "create_new_run includes battle_snapshot")
 	_assert_true(run_data.has("pending_message"), "create_new_run includes pending_message")
 	_assert_true(run_data.has("pending_subscreen"), "create_new_run includes pending_subscreen")
+	_assert_eq(String(run_data.get("race_id", "")), "elf", "create_new_run stores selected race")
 	deck[0] = "changed"
 	_assert_eq(String((run_data.get("deck_ids", []) as Array)[0]), "militia", "create_new_run duplicates deck ids")
+	var fallback_run: Dictionary = run_state.create_new_run(acts, deck, 55, 120, "unknown")
+	_assert_eq(String(fallback_run.get("race_id", "")), "human", "create_new_run falls back to human for unknown race")
 
 func _test_mark_node_cleared_idempotent(run_state) -> void:
 	var run_data: Dictionary = {"act": 2, "current_node_index": 3, "visited_nodes": []}

@@ -9,6 +9,7 @@ const STARTING_MAX_MANA = 1
 const TURN_TIME_SECONDS = 35.0
 const BATTLE_MAX_CONTENT_WIDTH = 1560.0
 const BATTLE_STYLES = preload("res://src/ui/styles/battle_styles.gd")
+const BATTLE_FX_LAYER = preload("res://src/ui/effects/battle_fx_layer.gd")
 
 var main
 var root_box: VBoxContainer
@@ -19,6 +20,7 @@ var opponent_info: Label
 var opponent_gauge_info: Label
 var opponent_field_box: HBoxContainer
 var hero_attack_button: Button
+var race_power_button: Button
 var recommended_action_button: Button
 var detail_toggle_button: Button
 var detail_panel: PanelContainer
@@ -68,6 +70,7 @@ var last_hand_layout_width: float = 0.0
 var player_field_signature: String = ""
 var opponent_field_signature: String = ""
 var deck_render_signature: String = ""
+var battle_fx_layer: Control
 
 func _show_hover_popup(node: Control, title_text: String, description_text: String, accent_color: Color) -> void:
 	if _should_skip_timed_battle_fx():
@@ -219,6 +222,7 @@ func _store_battle_snapshot() -> void:
 			"second_chance_used": bool(battle_state.get("second_chance_used", false)),
 			"summon_build_started": bool(battle_state.get("summon_build_started", false)),
 			"boss_turn_count": int(battle_state.get("boss_turn_count", 0)),
+			"race_power_used": bool(battle_state.get("race_power_used", false)),
 		},
 	}
 	_save_run()
@@ -241,6 +245,7 @@ func _restore_battle_snapshot(snapshot: Dictionary) -> void:
 	battle_state["second_chance_used"] = bool(flags.get("second_chance_used", false))
 	battle_state["summon_build_started"] = bool(flags.get("summon_build_started", false))
 	battle_state["boss_turn_count"] = int(flags.get("boss_turn_count", 0))
+	battle_state["race_power_used"] = bool(flags.get("race_power_used", false))
 	_build_battle_ui()
 	if log_label != null:
 		log_label.text = String(snapshot.get("log_text", ""))
@@ -353,6 +358,10 @@ func _recommended_action_state() -> Dictionary:
 			"text": "%s 영웅 공격" % String(selected.get("name", "유닛")),
 			"guidance": "1. 공격 대상 선택  2. 적 영웅 압박",
 		}
+
+	var race_power_state := _recommended_race_power_state()
+	if not race_power_state.is_empty():
+		return race_power_state
 
 	var ready_attacker_index = _recommended_ready_attacker_index()
 	if ready_attacker_index != -1 and ready_attacker_index < player.field.size():
@@ -803,6 +812,7 @@ func _reset_battle_state() -> void:
 		"active_build_tags": main._active_build_tags(main._current_build_scores()),
 		"summon_build_started": false,
 		"boss_turn_count": 0,
+		"race_power_used": false,
 	}
 
 func _prepare_battle(tier: String) -> void:
@@ -909,6 +919,142 @@ func _apply_build_on_ally_died(enemy_state: Dictionary) -> void:
 		enemy_state["health"] = int(enemy_state.get("health", 0)) - 1
 		_add_build_log("사망 빌드 활성, 적 영웅 피해 1")
 		_record_build_trigger("death", "희생 피해", _hero_target_for_player(false), Color(0.76, 0.5, 1.0, 1.0), false)
+
+func _race_power_button_text() -> String:
+	var meta: Dictionary = main._current_race_meta()
+	if bool(battle_state.get("race_power_used", false)):
+		return "필살기 사용 완료"
+	return "필살기 · %s\n%s" % [String(meta.get("power_name", "")), String(meta.get("power_short", "전투당 1회"))]
+
+func _can_use_race_power() -> bool:
+	if _is_player_input_locked() or bool(battle_state.get("race_power_used", false)):
+		return false
+	if main._current_race_id() == "undead" and player.field.is_empty():
+		return false
+	return true
+
+func _recommended_race_power_state() -> Dictionary:
+	if not _can_use_race_power():
+		return {}
+	var race_id: String = main._current_race_id()
+	var should_recommend := false
+	match race_id:
+		"human":
+			should_recommend = player.field.size() >= 2 or (_recommended_hand_index() == -1 and player.field.size() < MAX_FIELD)
+		"elf":
+			should_recommend = player.hand.size() <= 3 or _recommended_hand_index() == -1
+		"undead":
+			should_recommend = int(opponent.get("health", 0)) <= 3
+			if not should_recommend:
+				for unit_variant in player.field:
+					if int(Dictionary(unit_variant).get("health", 0)) <= 1:
+						should_recommend = true
+						break
+	if not should_recommend:
+		return {}
+	var meta: Dictionary = main._current_race_meta()
+	return {
+		"kind": "race_power",
+		"text": "%s 사용" % String(meta.get("power_name", "필살기")),
+		"guidance": "1. 세력 필살기 사용  2. 강화된 전장으로 공격",
+	}
+
+func _on_race_power_pressed() -> void:
+	if not _can_use_race_power():
+		return
+	input_locked = true
+	selected_attacker = -1
+	battle_state["race_power_used"] = true
+	var old_player_hp := int(player.get("health", 0))
+	var old_opponent_hp := int(opponent.get("health", 0))
+	match main._current_race_id():
+		"elf":
+			_resolve_elf_race_power()
+		"undead":
+			_resolve_undead_race_power()
+		_:
+			_resolve_human_race_power()
+	input_locked = false
+	_apply_damage_juice(old_player_hp, old_opponent_hp)
+	_refresh_ui()
+	_play_race_power_feedback()
+	_store_battle_snapshot()
+	_check_game_over()
+	_check_no_actions_loss()
+
+func _resolve_human_race_power() -> void:
+	if player.field.size() < MAX_FIELD:
+		_summon_race_token({
+			"id": "kingdom_guard_token",
+			"name": "왕국 근위대",
+			"race": "인간",
+			"attr": "대지",
+			"attack": 1,
+			"health": 2,
+			"max_health": 2,
+			"art": 7,
+			"art_id": "knight_spearman",
+			"can_attack": true,
+		})
+	for unit_variant in player.field:
+		var unit: Dictionary = unit_variant
+		unit["attack"] = int(unit.get("attack", 0)) + 1
+	_add_log("세력 필살기: 왕국의 집결 - 근위대 소환 / 모든 아군 공격력 +1")
+
+func _resolve_elf_race_power() -> void:
+	_draw_cards(player, 2)
+	player["mana"] = int(player.get("mana", 0)) + 2
+	_add_log("세력 필살기: 바람의 순환 - 카드 2장 드로우 / 마나 +2")
+
+func _resolve_undead_race_power() -> void:
+	var sacrifice_index := 0
+	var lowest_health := 999999
+	for i in range(player.field.size()):
+		var health := int(player.field[i].get("health", 0))
+		if health < lowest_health:
+			lowest_health = health
+			sacrifice_index = i
+	var sacrifice_name := String(player.field[sacrifice_index].get("name", "아군"))
+	player.field[sacrifice_index]["health"] = 0
+	_cleanup_dead_units(player, opponent)
+	opponent["health"] = int(opponent.get("health", 0)) - 3
+	if player.field.size() < MAX_FIELD:
+		_summon_race_token({
+			"id": "grave_skeleton_token",
+			"name": "계약의 해골",
+			"race": "언데드",
+			"attr": "암흑",
+			"attack": 1,
+			"health": 1,
+			"max_health": 1,
+			"art": 2,
+			"art_id": "bone_soldier",
+			"can_attack": true,
+		})
+	_add_log("세력 필살기: 죽음의 계약 - %s 희생 / 적 영웅 피해 3" % sacrifice_name)
+
+func _summon_race_token(token: Dictionary) -> void:
+	if player.field.size() >= MAX_FIELD:
+		return
+	main.relic_service.on_unit_summoned(main.current_run, token, _battle_effect_context())
+	player.field.append(token)
+	_apply_build_on_unit_summoned(player, token)
+
+func _play_race_power_feedback() -> void:
+	var meta: Dictionary = main._current_race_meta()
+	var color: Color = meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
+	_play_sfx(String(meta.get("power_sfx", "combo")))
+	if _should_skip_timed_battle_fx():
+		return
+	var target := _hero_target_for_player(true)
+	if main._current_race_id() == "undead":
+		target = _hero_target_for_player(false)
+	elif main._current_race_id() == "human" and not player.field.is_empty():
+		target = _field_slot_for(player, player.field.size() - 1)
+	if _is_battle_cutscene_enabled():
+		_trigger_hype_moment(target, String(meta.get("power_name", "필살기")), color, "", 14.0, 48, true)
+	else:
+		_play_effect_hit_feedback(target, String(meta.get("power_name", "필살기")), color)
 
 func _combo_candidate_tags(card: Dictionary) -> Array[String]:
 	var active_tags: Array[String] = []
@@ -1054,6 +1200,13 @@ func _make_exit_button(text: String, callback_method: String, color: Color, tigh
 	button.pressed.connect(Callable(main, callback_method))
 	return button
 
+func _make_battle_hero_art(hero_art: int, size: Vector2, enemy_side: bool) -> TextureRect:
+	if enemy_side:
+		return main._make_art_rect(hero_art, size)
+	var race_meta: Dictionary = main._current_race_meta()
+	var representative_card: Dictionary = main.card_db.get_card(String(race_meta.get("representative_card_id", "")))
+	return main._make_card_art_rect(representative_card, size)
+
 func _make_side_info_card(title_text: String, side: Dictionary, hero_art: int, compact: bool, enemy_side: bool) -> PanelContainer:
 	var tight = _is_tight_battle_layout()
 	var panel = _make_battle_surface(Color(0.035, 0.048, 0.062, 0.86), Color(0.24, 0.38, 0.52, 0.7), 1, 10, 10)
@@ -1069,7 +1222,7 @@ func _make_side_info_card(title_text: String, side: Dictionary, hero_art: int, c
 	var row = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	box.add_child(row)
-	row.add_child(main._make_art_rect(hero_art, Vector2(48, 48) if tight else (Vector2(54, 54) if compact else Vector2(62, 62))))
+	row.add_child(_make_battle_hero_art(hero_art, Vector2(48, 48) if tight else (Vector2(54, 54) if compact else Vector2(62, 62)), enemy_side))
 
 	var info_box = VBoxContainer.new()
 	info_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1150,7 +1303,7 @@ func _make_hero_target(side: Dictionary, hero_art: int, enemy_target: bool, comp
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content_parent.add_child(row)
 
-	var art: TextureRect = main._make_art_rect(hero_art, Vector2(36, 36) if mobile else (Vector2(24, 24) if wide_tight else (Vector2(30, 30) if tight else (Vector2(50, 50) if compact else Vector2(42, 42)))))
+	var art: TextureRect = _make_battle_hero_art(hero_art, Vector2(36, 36) if mobile else (Vector2(24, 24) if wide_tight else (Vector2(30, 30) if tight else (Vector2(50, 50) if compact else Vector2(42, 42)))), enemy_target)
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(art)
 
@@ -1404,6 +1557,20 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 		var action_hint_chip: PanelContainer = _make_battle_badge("추천 진행 -> 필요시 직접 선택 -> 턴 종료", Color(0.08, 0.1, 0.13, 0.92), Color(0.25, 0.48, 0.72, 1.0), 10 if tight else 11)
 		box.add_child(action_hint_chip)
 
+	var race_meta: Dictionary = main._current_race_meta()
+	var race_color: Color = race_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
+	race_power_button = Button.new()
+	race_power_button.text = _race_power_button_text()
+	race_power_button.tooltip_text = "전투당 1회 · %s" % String(race_meta.get("power_text", ""))
+	race_power_button.custom_minimum_size = Vector2(0 if phone_stack else (300 if vertical_stack else 0), 52 if mobile else (42 if phone_stack else (46 if wide_tight else (50 if tight else (54 if compact else 60)))))
+	race_power_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if vertical_stack:
+		race_power_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if phone_stack else Control.SIZE_SHRINK_CENTER
+	_style_battle_button(race_power_button, race_color.darkened(0.56), race_color, true)
+	race_power_button.add_theme_font_size_override("font_size", 12 if mobile else (11 if tight else 14))
+	race_power_button.pressed.connect(Callable(self, "_on_race_power_pressed"))
+	box.add_child(race_power_button)
+
 	recommended_action_button = Button.new()
 	recommended_action_button.text = "추천 행동"
 	recommended_action_button.custom_minimum_size = Vector2(0 if phone_stack else (320 if vertical_stack else 0), 52 if mobile else (42 if phone_stack else (46 if wide_tight else (52 if tight else (56 if compact else 64)))))
@@ -1590,6 +1757,8 @@ func _on_recommended_action_pressed() -> void:
 			_check_no_actions_loss()
 		"play_card":
 			_on_hand_card_pressed(int(state.get("card_index", -1)))
+		"race_power":
+			_on_race_power_pressed()
 		_:
 			_on_end_turn_pressed()
 
@@ -1833,6 +2002,8 @@ func _refresh_battle_dashboard() -> void:
 func _player_has_available_action() -> bool:
 	if _is_player_input_locked():
 		return false
+	if _can_use_race_power():
+		return true
 	for card in player.hand:
 		if _can_play_card(player, card, "player"):
 			return true
@@ -1847,12 +2018,15 @@ func _build_battle_ui() -> void:
 	var wide_tight = _is_wide_tight_battle_layout()
 	var portrait = _is_portrait_battle_layout()
 	var mobile = _is_mobile_battle_layout()
+	battle_fx_layer = BATTLE_FX_LAYER.new()
+	main.modal_layer.add_child(battle_fx_layer)
 	root_box.add_theme_constant_override("separation", 5 if tight else 8)
 	battle_detail_visible = false
 	player_info = null
 	player_gauge_info = null
 	battle_focus_label = null
 	hero_attack_button = null
+	race_power_button = null
 	recommended_action_button = null
 	detail_toggle_button = null
 	detail_panel = null
@@ -2674,10 +2848,12 @@ func _play_unit_battle_feedback(attacker_side: Dictionary, defender_side: Dictio
 	var defender_node = _field_slot_for(defender_side, defender_index)
 	if not _is_battle_cutscene_enabled():
 		_show_damage_number(defender_node, attack_damage)
-		_play_sfx("hit")
+		_play_attack_impact_fx(attacker_node, defender_node, attack_damage, false)
+		_play_sfx(_attack_impact_sfx(attack_damage, false))
 		_show_damage_number(attacker_node, defense_damage, true)
 		if defense_damage > 0:
-			_play_sfx("counter")
+			_play_attack_impact_fx(defender_node, attacker_node, defense_damage, true)
+			_play_sfx(_attack_impact_sfx(defense_damage, true))
 		if not _should_skip_timed_battle_fx():
 			_spawn_impact_slash(defender_node, false)
 			_flash_target(defender_node, Color(1.0, 0.28, 0.22, 1.0), 0.22)
@@ -2694,7 +2870,8 @@ func _play_hero_attack_feedback(attacker_side: Dictionary, attacker_index: int, 
 	var defender_node = _hero_target_for_player(defender_is_player)
 	if not _is_battle_cutscene_enabled():
 		_show_damage_number(defender_node, damage)
-		_play_sfx("hit")
+		_play_attack_impact_fx(attacker_node, defender_node, damage, false)
+		_play_sfx(_attack_impact_sfx(damage, false))
 		if not _should_skip_timed_battle_fx():
 			_spawn_impact_slash(defender_node, false)
 			_flash_target(defender_node, Color(1.0, 0.28, 0.22, 1.0), 0.22)
@@ -2706,28 +2883,54 @@ func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control
 		_show_damage_number(defender_node, damage, counter)
 		return
 	var start_pos = attacker_node.position
-	var lunge_offset = Vector2(0, -42 if attacker_is_player else 42)
+	var start_rotation := attacker_node.rotation
+	var lunge_offset = Vector2(0, -58 if attacker_is_player else 58)
 	if counter:
 		lunge_offset *= 0.72
 	attacker_node.pivot_offset = attacker_node.size * 0.5
 	var lunge = attacker_node.create_tween()
-	lunge.tween_property(attacker_node, "position", start_pos + lunge_offset, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	lunge.parallel().tween_property(attacker_node, "scale", Vector2(1.08, 1.08), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	lunge.tween_property(attacker_node, "position", start_pos, 0.15).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-	lunge.parallel().tween_property(attacker_node, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	lunge.tween_property(attacker_node, "position", start_pos + lunge_offset, 0.1).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	lunge.parallel().tween_property(attacker_node, "scale", Vector2(1.15, 1.15), 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	lunge.parallel().tween_property(attacker_node, "rotation", start_rotation + deg_to_rad(-3.5 if attacker_is_player else 3.5), 0.1)
+	lunge.tween_property(attacker_node, "position", start_pos, 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	lunge.parallel().tween_property(attacker_node, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	lunge.parallel().tween_property(attacker_node, "rotation", start_rotation, 0.16)
 	await lunge.finished
 	_show_damage_number(defender_node, damage, counter)
-	_play_sfx("counter" if counter else "hit")
+	_play_attack_impact_fx(attacker_node, defender_node, damage, counter)
+	_play_sfx(_attack_impact_sfx(damage, counter))
 	_spawn_impact_slash(defender_node, counter)
 	_flash_target(defender_node, Color(1.0, 0.66, 0.18, 1.0) if counter else Color(1.0, 0.28, 0.22, 1.0), 0.24)
 	await _shake_target(defender_node, 12.0 if damage < 3 else 18.0)
+
+func _attack_impact_sfx(damage: int, counter: bool) -> String:
+	if counter:
+		return "counter"
+	return "impact_heavy" if damage >= 4 else "hit"
+
+func _play_attack_impact_fx(attacker: Control, defender: Control, damage: int, counter: bool) -> void:
+	if _should_skip_timed_battle_fx():
+		return
+	if battle_fx_layer != null and is_instance_valid(battle_fx_layer):
+		battle_fx_layer.play_attack(attacker, defender, damage, counter)
+	_pulse_impact_target(defender, damage >= 4)
+
+func _pulse_impact_target(target: Control, strong: bool) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	target.pivot_offset = target.size * 0.5
+	var original_scale := target.scale
+	var squash := Vector2(original_scale.x * (1.12 if strong else 1.07), original_scale.y * (0.9 if strong else 0.94))
+	var tween := target.create_tween()
+	tween.tween_property(target, "scale", squash, 0.045).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	tween.tween_property(target, "scale", original_scale, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _show_damage_number(target: Control, damage: int, counter: bool = false) -> void:
 	if damage <= 0 or target == null or not is_instance_valid(target):
 		return
 	var color = Color(1.0, 0.72, 0.24, 1.0) if counter else Color(1.0, 0.26, 0.24, 1.0)
-	var font_size := 42 if counter else (58 if damage >= 4 else 50)
-	var lifetime := 1.0 if damage >= 4 else 0.9
+	var font_size := 48 if counter else (72 if damage >= 4 else 58)
+	var lifetime := 1.15 if damage >= 4 else 1.0
 	_spawn_floating_text(target, "-%d" % damage, color, font_size, lifetime, Vector2.ZERO)
 	if damage >= 4 and not counter:
 		_shake_screen(12.0, 0.2)
@@ -3137,22 +3340,43 @@ func _check_game_over() -> void:
 		_finish_player_defeat()
 	elif int(opponent.health) <= 0:
 		_add_log("적 영웅을 쓰러뜨려 승리했습니다.")
-		_trigger_hype_moment(_hero_target_for_player(false), "승리!", Color(1.0, 0.84, 0.26, 1.0), "victory", 18.0, 56, true)
 		_finish_player_victory("health")
 		await _finish_battle_victory()
 
 func _finish_battle_victory() -> void:
+	var reward: Dictionary = _apply_battle_victory_rewards()
+	await _play_battle_victory_sequence(reward)
 	main.current_run["active_enemy"] = {}
 	main.current_run["battle_snapshot"] = {}
-	var reward: Dictionary = _apply_battle_victory_rewards()
-	_trigger_hype_moment(_hero_target_for_player(false), "승리 +%dG" % int(reward.get("gold_reward", 0)), Color(1.0, 0.86, 0.3, 1.0), "reward", 16.0, 54, true)
 	if battle_tier == "boss":
 		main.current_run["pending_card_reward"] = {}
+		main.set_meta("suppress_next_result_victory_audio", true)
 		main.run_flow.advance_from_current_node()
 		return
 	main.current_run["pending_card_reward"] = reward
 	_save_run()
 	_show_card_reward()
+
+func _play_battle_victory_sequence(reward: Dictionary) -> void:
+	var race_meta: Dictionary = main._current_race_meta()
+	var accent: Color = race_meta.get("color", Color(1.0, 0.82, 0.28, 1.0))
+	var target := _hero_target_for_player(false)
+	var title := "보스 격파!" if battle_tier == "boss" else "전투 승리!"
+	_play_sfx("victory_burst")
+	if _should_skip_timed_battle_fx():
+		return
+	if battle_fx_layer != null and is_instance_valid(battle_fx_layer):
+		battle_fx_layer.play_victory(accent, _is_battle_cutscene_enabled() or battle_tier == "boss")
+	if target != null and is_instance_valid(target):
+		_spawn_target_glow(target, Color(1.0, 0.82, 0.28, 1.0), 0.92)
+		_spawn_floating_text(target, title, Color(1.0, 0.88, 0.38, 1.0), 62, 1.25, Vector2(0, -8))
+	_spawn_center_banner(title, Color(1.0, 0.9, 0.48, 1.0), 56, 1.18)
+	_shake_screen(22.0 if battle_tier == "boss" else 17.0, 0.38)
+	var full_sequence := _is_battle_cutscene_enabled() or battle_tier == "boss"
+	await main.get_tree().create_timer(0.58 if full_sequence else 0.22).timeout
+	_spawn_center_banner("보상 +%dG" % int(reward.get("gold_reward", 0)), accent.lightened(0.36), 36, 0.72)
+	_play_sfx("reward")
+	await main.get_tree().create_timer(0.48 if full_sequence else 0.12).timeout
 
 func _spawn_floating_text(target: Control, text: String, color: Color, font_size: int = 42, duration: float = 0.85, center_offset: Vector2 = Vector2.ZERO) -> void:
 	if text.is_empty() or target == null or not is_instance_valid(target):
@@ -3787,6 +4011,23 @@ func _refresh_status_labels() -> void:
 func _refresh_action_buttons() -> void:
 	if detail_toggle_button != null and is_instance_valid(detail_toggle_button):
 		detail_toggle_button.text = "상세 닫기" if battle_detail_visible else "상세 정보"
+	if race_power_button != null and is_instance_valid(race_power_button):
+		var race_meta: Dictionary = main._current_race_meta()
+		var race_color: Color = race_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
+		var power_used := bool(battle_state.get("race_power_used", false))
+		var can_use_power := _can_use_race_power()
+		race_power_button.disabled = not can_use_power
+		race_power_button.text = _race_power_button_text()
+		if power_used:
+			race_power_button.tooltip_text = "이번 전투에서 이미 사용했습니다."
+		elif main._current_race_id() == "undead" and player.field.is_empty():
+			race_power_button.tooltip_text = "희생할 아군 유닛을 먼저 소환하세요."
+		else:
+			race_power_button.tooltip_text = "전투당 1회 · %s" % String(race_meta.get("power_text", ""))
+		if can_use_power:
+			_style_battle_button(race_power_button, race_color.darkened(0.56), race_color, true)
+		else:
+			_style_battle_button(race_power_button, Color(0.07, 0.08, 0.1, 0.84), Color(0.24, 0.28, 0.34, 0.8), false)
 	var only_end_turn = _only_end_turn_remains()
 	if recommended_action_button != null:
 		recommended_action_button.disabled = _is_player_input_locked()
@@ -3883,7 +4124,7 @@ func start_battle() -> void:
 		_restore_battle_snapshot(snapshot)
 		return
 	battle_tier = String(enemy.get("tier", "normal"))
-	player = _new_side("플레이어", main.card_db.build_deck_from_ids(main.current_run.get("deck_ids", [])), int(main.current_run.get("hp", 50)), int(main.current_run.get("max_hp", 50)))
+	player = _new_side(main._current_race_hero_name(), main.card_db.build_deck_from_ids(main.current_run.get("deck_ids", [])), int(main.current_run.get("hp", 50)), int(main.current_run.get("max_hp", 50)))
 	opponent = _new_side(String(enemy.get("name", "적")), main.card_db.build_deck_from_ids(enemy.get("deck_ids", [])), int(enemy.get("base_hp", 20)), int(enemy.get("base_hp", 20)))
 	_draw_cards(player, START_HAND)
 	_draw_cards(opponent, START_HAND)

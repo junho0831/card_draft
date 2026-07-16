@@ -173,14 +173,17 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var tight: bool = _is_tight_reward_layout()
 	var primary_tag: String = main._primary_build_tag(main._current_build_scores())
 	var matches_primary: bool = main._card_matches_build_tag(card, primary_tag)
+	var matches_race: bool = main._card_matches_current_race(card)
+	var race_meta: Dictionary = main._current_race_meta()
+	var race_color: Color = race_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
 	var reason_text := _reward_choice_reason(card, matches_primary)
 	var growth: Dictionary = _reward_growth_summary(card)
 	var growth_plain_text: String = main._plain_build_delta_text(card)
 	var impact_text: String = main._choice_impact_text(card)
 	var frame: PanelContainer = main.ui.make_surface_panel(
-		Color(0.06, 0.085, 0.13, 1.0) if matches_primary else Color(0.055, 0.065, 0.082, 1.0),
-		Color(0.44, 0.7, 1.0, 1.0) if matches_primary else Color(0.24, 0.3, 0.38, 1.0),
-		2 if matches_primary else 1,
+		Color(0.06, 0.085, 0.13, 1.0) if matches_primary else Color(0.055, 0.072, 0.08, 1.0) if matches_race else Color(0.055, 0.065, 0.082, 1.0),
+		Color(0.44, 0.7, 1.0, 1.0) if matches_primary else race_color if matches_race else Color(0.24, 0.3, 0.38, 1.0),
+		2 if matches_primary or matches_race else 1,
 		9,
 		10
 	)
@@ -193,6 +196,9 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	if matches_primary:
 		var recommend: PanelContainer = main.ui.make_chip("추천", Color(0.1, 0.28, 0.56, 1.0), Color(0.82, 0.92, 1.0, 1.0), 12)
 		box.add_child(recommend)
+	if matches_race:
+		var race_badge: PanelContainer = main.ui.make_chip("%s 세력 연계" % String(race_meta.get("name", "현재")), race_color.darkened(0.58), race_color.lightened(0.3), 11 if tight else 12)
+		box.add_child(race_badge)
 	var reason_badge: PanelContainer = main.ui.make_chip(reason_text, Color(0.12, 0.18, 0.24, 1.0) if not matches_primary else Color(0.1, 0.2, 0.36, 1.0), Color(0.9, 0.96, 1.0, 1.0), 11 if tight else 12)
 	box.add_child(reason_badge)
 	var impact_badge: PanelContainer = main.ui.make_chip(

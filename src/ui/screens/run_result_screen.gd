@@ -1,18 +1,25 @@
 extends RefCounted
 class_name RunResultScreen
 
+const BATTLE_FX_LAYER = preload("res://src/ui/effects/battle_fx_layer.gd")
+
 var main: Node
 
 func _init(_main: Node) -> void:
 	main = _main
 
 func build(body: VBoxContainer, is_win: bool, play_audio: bool = true) -> void:
-	if play_audio and main.audio_manager != null:
-		main.audio_manager.play_sound("victory" if is_win else "defeat")
+	var suppress_victory_audio := is_win and bool(main.get_meta("suppress_next_result_victory_audio", false))
+	if play_audio and main.has_meta("suppress_next_result_victory_audio"):
+		main.remove_meta("suppress_next_result_victory_audio")
+	if play_audio and main.audio_manager != null and not suppress_victory_audio:
+		main.audio_manager.play_sound("victory_burst" if is_win else "defeat")
 	var compact: bool = _is_run_result_compact_layout()
 	var scores: Dictionary = main._current_build_scores()
 	var primary_tag: String = main._primary_build_tag(scores)
 	var tag_meta: Dictionary = main._build_tag_meta().get(primary_tag, {})
+	var race_meta: Dictionary = main._current_race_meta()
+	var race_color: Color = race_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
 	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hub.add_theme_constant_override("separation", 10)
@@ -28,7 +35,13 @@ func build(body: VBoxContainer, is_win: bool, play_audio: bool = true) -> void:
 	hero_box.add_child(main._make_label("런 종료", 13 if compact else 14, Color(1.0, 0.86, 0.48, 1.0)))
 	var result_banner: PanelContainer = main.ui.make_chip("런 %s" % ("클리어" if is_win else "패배"), Color(0.18, 0.3, 0.18, 1.0) if is_win else Color(0.36, 0.14, 0.14, 1.0), Color(1.0, 0.96, 0.88, 1.0), 13 if compact else 14)
 	hero_box.add_child(result_banner)
-	hero_box.add_child(main._make_art_rect(8 if is_win else 11, Vector2(260, 190) if compact else Vector2(340, 250)))
+	var representative_card: Dictionary = main.card_db.get_card(String(race_meta.get("representative_card_id", "")))
+	var representative_art: Control = main._make_card_art_rect(representative_card, Vector2(260, 190) if compact else Vector2(340, 250))
+	hero_box.add_child(representative_art)
+	if is_win and play_audio and not suppress_victory_audio and DisplayServer.get_name() != "headless":
+		var result_fx: Control = BATTLE_FX_LAYER.new()
+		main.modal_layer.add_child(result_fx)
+		main.get_tree().create_timer(0.08).timeout.connect(Callable(self, "_start_result_victory_fx").bind(result_fx, race_color, representative_art))
 	hero_box.add_child(main._make_label("승리!" if is_win else "패배", 30 if compact else 38, Color(1.0, 0.88, 0.55, 1.0) if is_win else Color(1.0, 0.68, 0.62, 1.0)))
 	hero_box.add_child(main._make_label("이번 런의 최종 빌드와 보상을 확인하세요.", 13 if compact else 15, Color(0.86, 0.9, 0.96, 1.0)))
 	var hero_result_panel: PanelContainer = main.ui.make_objective_panel("런 평가", _run_result_headline(is_win), compact)
@@ -37,6 +50,7 @@ func build(body: VBoxContainer, is_win: bool, play_audio: bool = true) -> void:
 	hero_chips.add_theme_constant_override("separation", 8)
 	hero_box.add_child(hero_chips)
 	hero_chips.add_child(main.ui.make_chip("최종 Act %d" % int(main.current_run.get("act", 1)), Color(0.14, 0.22, 0.34, 1.0), Color(0.86, 0.92, 1.0, 1.0), 13 if compact else 14))
+	hero_chips.add_child(main.ui.make_chip(String(race_meta.get("name", "인간")), race_color.darkened(0.58), race_color.lightened(0.28), 13 if compact else 14))
 	hero_chips.add_child(main.ui.make_chip("%s %s" % [String(tag_meta.get("icon", "")), String(tag_meta.get("name", "빌드"))], Color(0.32, 0.22, 0.08, 1.0), Color(1.0, 0.88, 0.55, 1.0), 13 if compact else 14))
 	var hero_metrics: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	hero_metrics.add_theme_constant_override("separation", 8)
@@ -105,6 +119,13 @@ func build(body: VBoxContainer, is_win: bool, play_audio: bool = true) -> void:
 
 func _is_run_result_compact_layout() -> bool:
 	return main._is_compact_layout_for(1180.0, 900.0)
+
+func _start_result_victory_fx(result_fx: Control, color: Color, anchor: Control) -> void:
+	if main.active_screen != "run_result":
+		return
+	if result_fx == null or not is_instance_valid(result_fx) or anchor == null or not is_instance_valid(anchor):
+		return
+	result_fx.play_victory(color, false, anchor)
 
 func _format_run_duration() -> String:
 	var started_at := int(main.current_run.get("started_at", 0))

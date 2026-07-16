@@ -25,6 +25,7 @@ const CompendiumScreenScript := preload("res://src/ui/screens/compendium_screen.
 const DeckEditScreenScript := preload("res://src/ui/screens/deck_edit_screen.gd")
 const MessageScreenScript := preload("res://src/ui/screens/message_screen.gd")
 const MetaUpgradeScreenScript := preload("res://src/ui/screens/meta_upgrade_screen.gd")
+const RaceSelectionScreenScript := preload("res://src/ui/screens/race_selection_screen.gd")
 const RunResultScreenScript := preload("res://src/ui/screens/run_result_screen.gd")
 const SettingsScreenScript := preload("res://src/ui/screens/settings_screen.gd")
 const UiGuideScreenScript := preload("res://src/ui/screens/ui_guide_screen.gd")
@@ -56,6 +57,7 @@ var player_profile := {}
 var current_run := {}
 var collection_filter := "전체"
 var active_screen := "main_menu"
+var pending_race_selection_id := "human"
 
 var root_box: VBoxContainer
 var root_scroll: ScrollContainer
@@ -238,6 +240,8 @@ func _rebuild_active_screen_for_layout() -> void:
 	match active_screen:
 		"main_menu":
 			_show_main_menu()
+		"race_selection":
+			_show_race_selection()
 		"map":
 			_show_map()
 		"battle":
@@ -341,10 +345,17 @@ func _show_main_menu() -> void:
 	root_box.add_child(_make_main_menu_footer(compact))
 
 func _start_new_run() -> void:
+	pending_race_selection_id = "human"
 	run_flow.start_new_run()
 
 func _init_run(race_id: String) -> void:
 	run_flow.init_run(race_id)
+
+func _show_race_selection() -> void:
+	active_screen = "race_selection"
+	_clear_screen()
+	var body: VBoxContainer = _begin_menu_screen("세력 선택", false, "짧은 런의 시작 덱과 전투 필살기를 정합니다.")
+	_retain_screen_controller(RaceSelectionScreenScript.new(self)).build(body)
 
 func _continue_run() -> void:
 	run_flow.continue_run()
@@ -378,12 +389,88 @@ func _claim_daily_reward() -> void:
 func _show_achievements() -> void:
 	_show_message("업적 화면은 다음 단계에서 연결합니다.", "_show_main_menu")
 
+func _race_meta() -> Dictionary:
+	return {
+		"human": {
+			"name": "인간",
+			"start_text": "인간으로 시작",
+			"data_race": "인간",
+			"hero_name": "왕국 지휘관",
+			"style": "안정적인 전열",
+			"builds": "소환 · 버프",
+			"description": "병사를 빠르게 전개하고 전열 전체를 성장시키는 가장 직관적인 세력입니다.",
+			"color": Color(0.78, 0.58, 0.24, 1.0),
+			"relic_id": "knight_banner",
+			"representative_card_id": "bone_soldier",
+			"representative_card_names": ["민병대", "초보 검병", "화염구"],
+			"power_name": "왕국의 집결",
+			"power_text": "근위대를 소환하고 모든 아군 공격력을 1 올립니다.",
+			"power_short": "근위대 · 전열 공격 +1",
+			"power_sfx": "power_human",
+		},
+		"elf": {
+			"name": "엘프",
+			"start_text": "엘프로 시작",
+			"data_race": "엘프",
+			"hero_name": "숲의 인도자",
+			"style": "빠른 연속 전개",
+			"builds": "드로우 · 소환",
+			"description": "손패와 마나를 순환시켜 한 턴에 여러 카드를 이어 쓰는 세력입니다.",
+			"color": Color(0.22, 0.68, 0.54, 1.0),
+			"relic_id": "world_tree_leaf",
+			"representative_card_id": "flame_swordsman",
+			"representative_card_names": ["숲의 궁수", "엘프의 통찰", "의식의 묘목"],
+			"power_name": "바람의 순환",
+			"power_text": "카드 2장을 뽑고 이번 턴에 사용할 마나를 2 얻습니다.",
+			"power_short": "드로우 2 · 마나 +2",
+			"power_sfx": "power_elf",
+		},
+		"undead": {
+			"name": "언데드",
+			"start_text": "언데드로 시작",
+			"data_race": "언데드",
+			"hero_name": "묘지의 군주",
+			"style": "희생과 압박",
+			"builds": "사망 · 소환",
+			"description": "약한 아군의 죽음을 영웅 피해와 새로운 해골 전열로 바꾸는 세력입니다.",
+			"color": Color(0.62, 0.38, 0.82, 1.0),
+			"relic_id": "necromancer_ring",
+			"representative_card_id": "knight_spearman",
+			"representative_card_names": ["해골 병사", "어둠의 거래", "망자의 부름"],
+			"power_name": "죽음의 계약",
+			"power_text": "가장 약한 아군을 희생해 적 영웅에게 피해 3을 주고 해골을 소환합니다.",
+			"power_short": "아군 희생 · 영웅 피해 3",
+			"power_sfx": "power_undead",
+		},
+	}
+
+func _valid_race_ids() -> Array[String]:
+	return ["human", "elf", "undead"]
+
+func _normalize_race_id(race_id: String) -> String:
+	return race_id if _valid_race_ids().has(race_id) else "human"
+
+func _current_race_id() -> String:
+	return _normalize_race_id(String(current_run.get("race_id", "human")))
+
+func _current_race_meta() -> Dictionary:
+	return _race_meta().get(_current_race_id(), _race_meta()["human"])
+
+func _current_race_name() -> String:
+	return String(_current_race_meta().get("name", "인간"))
+
+func _current_race_hero_name() -> String:
+	return String(_current_race_meta().get("hero_name", "왕국 지휘관"))
+
+func _card_matches_current_race(card: Dictionary) -> bool:
+	return String(card.get("race", "")) == String(_current_race_meta().get("data_race", "인간"))
+
 func _hero_build_name() -> String:
 	var primary := _primary_build_tag(_current_build_scores())
 	if primary.is_empty():
-		return "탐색 빌드"
+		return "%s · 탐색 빌드" % _current_race_name()
 	var meta: Dictionary = _build_tag_meta().get(primary, {})
-	return "%s 빌드" % String(meta.get("name", "탐색"))
+	return "%s · %s 빌드" % [_current_race_name(), String(meta.get("name", "탐색"))]
 
 func _recent_runs() -> Array:
 	if not player_profile.has("recent_runs") or typeof(player_profile["recent_runs"]) != TYPE_ARRAY:
@@ -1253,7 +1340,10 @@ func _make_run_summary_panel() -> Control:
 	var hp_chip: PanelContainer = ui.make_chip("HP %d/%d" % [int(current_run.get("hp", 0)), int(current_run.get("max_hp", 0))], Color(0.34, 0.12, 0.12, 1.0), Color(1.0, 0.82, 0.82, 1.0), chip_font_size)
 	var gold_chip: PanelContainer = ui.make_chip("골드 %s" % _format_large_number(int(current_run.get("gold", 0))), Color(0.38, 0.28, 0.1, 1.0), Color(1.0, 0.9, 0.56, 1.0), chip_font_size)
 	var deck_chip: PanelContainer = ui.make_chip("덱 %d" % (current_run.get("deck_ids", []) as Array).size(), Color(0.12, 0.22, 0.34, 1.0), Color(0.86, 0.92, 1.0, 1.0), chip_font_size)
-	for chip in [hp_chip, gold_chip, deck_chip]:
+	var race_meta: Dictionary = _current_race_meta()
+	var race_color: Color = race_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
+	var race_chip: PanelContainer = ui.make_chip(String(race_meta.get("name", "인간")), race_color.darkened(0.58), race_color.lightened(0.28), chip_font_size)
+	for chip in [hp_chip, gold_chip, deck_chip, race_chip]:
 		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL if compact else Control.SIZE_FILL
 		resource_row.add_child(chip)
 	var relics: Array = current_run.get("relic_ids", [])
@@ -1801,19 +1891,35 @@ func _roll_card_choices(count: int) -> Array[String]:
 func _roll_card_reward_choices(count: int, high_cost_only: bool = false) -> Array[String]:
 	var ids: Array[String] = []
 	var primary_tag := _primary_build_tag(_current_build_scores())
-	if not primary_tag.is_empty():
-		var tagged_pool := _reward_card_pool(primary_tag, high_cost_only)
-		if not tagged_pool.is_empty():
-			var tagged_index := randi() % tagged_pool.size()
-			ids.append(tagged_pool[tagged_index])
+	var race_name := String(_current_race_meta().get("data_race", "인간"))
+	if count > 0:
+		var focused_pool := _reward_card_pool(primary_tag, high_cost_only, race_name)
+		if focused_pool.is_empty():
+			focused_pool = _reward_card_pool(primary_tag, high_cost_only)
+		if focused_pool.is_empty():
+			focused_pool = _reward_card_pool("", high_cost_only, race_name)
+		_append_random_reward_choice(ids, focused_pool)
+	if ids.size() < count:
+		var affinity_pool := _reward_card_pool("", high_cost_only, race_name)
+		for neutral_id in _reward_card_pool("", high_cost_only, "중립"):
+			if not affinity_pool.has(neutral_id):
+				affinity_pool.append(neutral_id)
+		_append_random_reward_choice(ids, affinity_pool)
 	var pool: Array[String] = _reward_card_pool("", high_cost_only)
+	while ids.size() < count:
+		var before_size := ids.size()
+		_append_random_reward_choice(ids, pool)
+		if ids.size() == before_size:
+			break
+	return ids
+
+func _append_random_reward_choice(ids: Array[String], source_pool: Array[String]) -> void:
+	var pool := source_pool.duplicate()
 	for picked_id in ids:
 		pool.erase(picked_id)
-	while ids.size() < count and not pool.is_empty():
-		var index := randi() % pool.size()
-		ids.append(pool[index])
-		pool.remove_at(index)
-	return ids
+	if pool.is_empty():
+		return
+	ids.append(String(pool[randi() % pool.size()]))
 
 func _roll_high_cost_cards(count: int) -> Array[String]:
 	var pool: Array[String] = _reward_card_pool("", true)
@@ -1826,7 +1932,7 @@ func _roll_high_cost_cards(count: int) -> Array[String]:
 		pool.remove_at(index)
 	return ids
 
-func _reward_card_pool(tag_filter: String = "", high_cost_only: bool = false) -> Array[String]:
+func _reward_card_pool(tag_filter: String = "", high_cost_only: bool = false, race_filter: String = "") -> Array[String]:
 	var pool: Array[String] = []
 	for card in card_defs:
 		var card_id := String(card.get("id", ""))
@@ -1835,6 +1941,8 @@ func _reward_card_pool(tag_filter: String = "", high_cost_only: bool = false) ->
 		if high_cost_only and int(card.get("cost", 0)) < 3:
 			continue
 		if not tag_filter.is_empty() and not _card_build_tags(card).has(tag_filter):
+			continue
+		if not race_filter.is_empty() and String(card.get("race", "")) != race_filter:
 			continue
 		pool.append(card_id)
 	return pool

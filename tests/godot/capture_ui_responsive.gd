@@ -3,13 +3,14 @@ extends SceneTree
 const MAIN_SCENE := preload("res://src/core/Main.tscn")
 const CAPTURE_NAMES := [
 	"01_main_menu",
-	"02_run_map",
-	"03_battle",
-	"04_card_reward",
-	"05_shop",
-	"06_event",
-	"07_rest",
-	"08_run_result",
+	"02_race_selection",
+	"03_run_map",
+	"04_battle",
+	"05_card_reward",
+	"06_shop",
+	"07_event",
+	"08_rest",
+	"09_run_result",
 ]
 const VIEWPORTS := [
 	{"name": "desktop_1920x1080", "size": Vector2i(1920, 1080)},
@@ -107,6 +108,11 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	await _wait_for_capture_frame()
 	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[1]])
 
+	main._init_run("human")
+	await _wait_for_capture_frame()
+	await _wait_for_capture_frame()
+	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[2]])
+
 	main._enter_current_node()
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
@@ -118,12 +124,12 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 			quit(1)
 			return
 	await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[2]])
+	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[3]])
 	if viewport_size.x <= 600:
 		main.root_scroll.scroll_vertical = 1000000
 		await _wait_for_capture_frame()
 		await _wait_for_capture_frame()
-		await _capture("%s_03b_battle_hand" % viewport_name)
+		await _capture("%s_04b_battle_hand" % viewport_name)
 		main.root_scroll.scroll_vertical = 0
 		await _wait_for_capture_frame()
 
@@ -135,7 +141,7 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	main._show_card_reward()
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[3]])
+	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[4]])
 
 	main.current_run["pending_shop"] = main.shop_run_service.generate_shop_state({
 		"roll_card_choices": Callable(main, "_roll_card_choices"),
@@ -145,14 +151,14 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	main._show_shop()
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[4]])
+	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[5]])
 
 	main.current_run["pending_event"] = main.event_service.roll_event()
 	main.current_run["pending_card_reward"] = {}
 	main._show_event()
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[5]])
+	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[6]])
 
 	main.current_run["pending_card_reward"] = {}
 	main.current_run["pending_event"] = {}
@@ -160,7 +166,7 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	main._show_rest()
 	for i in range(10):
 		await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[6]])
+	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[7]])
 
 	main.current_run["pending_card_reward"] = {}
 	main.current_run["pending_shop"] = {}
@@ -169,7 +175,7 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	main._show_run_result(true)
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[7]])
+	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[8]])
 
 	root.remove_child(main)
 	main.queue_free()

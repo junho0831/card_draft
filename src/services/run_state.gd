@@ -15,9 +15,10 @@ func load_or_empty(path: String) -> Dictionary:
 func has_saved_run(path: String) -> bool:
 	return not load_or_empty(path).is_empty()
 
-func create_new_run(acts: Array[Dictionary], deck_ids: Array[String], start_hp: int = 50, start_gold: int = 100) -> Dictionary:
+func create_new_run(acts: Array[Dictionary], deck_ids: Array[String], start_hp: int = 50, start_gold: int = 100, race_id: String = "human") -> Dictionary:
 	return {
 		"seed": randi(),
+		"race_id": race_id if race_id in ["human", "elf", "undead"] else "human",
 		"act": 1,
 		"current_node_index": 0,
 		"max_hp": start_hp,

@@ -16,6 +16,11 @@ const SOUND_NAMES := [
 	"reward",
 	"victory",
 	"defeat",
+	"power_human",
+	"power_elf",
+	"power_undead",
+	"impact_heavy",
+	"victory_burst",
 ]
 
 func _init() -> void:

@@ -4,7 +4,7 @@
 
 ## 현재 빌드
 
-- 메인 흐름: `새 런 시작 -> 맵 -> 전투 -> 카드 보상 -> 이벤트/상점/휴식 -> 보스 -> 결과`
+- 메인 흐름: `새 런 시작 -> 세력 선택 -> 맵 -> 전투 -> 카드 보상 -> 이벤트/상점/휴식 -> 보스 -> 결과`
 - Act 1개: 국경지대
 - 기본 런 길이: 5개 노드
   - `battle -> event/shop -> battle -> rest/shop -> boss`
@@ -12,6 +12,11 @@
 - 유물 15개, 이벤트 5개
 - 전투 규칙: 영웅 체력 0 승패, 마나 1부터 시작, 턴마다 +1, 필드 5칸
 - 빌드 태그: 화염, 드로우, 사망, 버프, 저체력, 소환
+- 시작 세력과 필살기
+  - 인간: 소환·버프 중심, `왕국의 집결`로 근위대 소환과 전열 공격력 강화
+  - 엘프: 드로우·소환 중심, `바람의 순환`으로 카드 2장과 이번 턴 마나 2 획득
+  - 언데드: 사망·소환 중심, `죽음의 계약`으로 가장 약한 아군을 영웅 피해와 해골로 전환
+  - 세력 필살기는 마나 없이 전투당 1회 사용하며 전투 저장에도 사용 여부를 기록
 - 전투 조작감
   - 손패 카드는 고정 슬롯 기반으로 배치되어 카드를 사용해도 남은 카드가 매번 한쪽으로 밀리지 않음
   - 카드 hover 시 확대, 회전 복원, 보드 프리뷰, 간단 툴팁을 함께 표시
@@ -48,11 +53,11 @@ res://src/core/Main.tscn
 
 ## 조작
 
-- 메인 메뉴에서 `새 런 시작` 또는 `이어하기`
+- 메인 메뉴에서 `새 런 시작` 후 인간·엘프·언데드 중 하나를 선택하거나 `이어하기`
 - 맵에서 밝게 표시된 현재 노드 `진입`
 - 전투에서는 `다음 행동` 안내를 보고, 밝게 표시된 카드나 유닛부터 선택
 - 전투 승리 후 카드 3장 중 1장 선택
-- 보상 카드 중 1장은 현재 최고 빌드 태그에 맞춰 우선 제시되며, 선택 시 빌드 완성도가 어떻게 변하는지 함께 표시
+- 보상 첫 카드는 현재 세력과 최고 빌드 태그를 함께 맞추고, 두 번째 카드는 같은 세력 또는 중립에서 우선 제시
 - 상점에서 카드/유물 구매 또는 카드 제거
 - 휴식에서 회복 또는 카드 강화
 - 런 종료 후 결과 화면에서 메인 메뉴 복귀
@@ -62,8 +67,10 @@ res://src/core/Main.tscn
 - 메인 허브: `res://src/core/main.gd`
 - 런 흐름 코디네이터: `res://src/core/run_flow_coordinator.gd`
 - 전투 화면: `res://src/ui/screens/battle_screen.gd`
+- 세력 선택 화면: `res://src/ui/screens/race_selection_screen.gd`
 - 공통 UI 스타일: `res://src/ui/styles/ui_styles.gd`
 - 전투 UI 스타일: `res://src/ui/styles/battle_styles.gd`
+- 전투 충격/승리 FX: `res://src/ui/effects/battle_fx_layer.gd`
 - 공통 Godot 테마: `res://assets/ui/main_theme.tres`
 - 오디오 매니저: `res://src/services/audio_manager.gd`
 - 런 저장/진행 상태: `res://src/services/run_state.gd`
@@ -86,8 +93,10 @@ godot4 --headless --path . -s res://tools/generate_game_sfx.gd
 생성 대상:
 
 - `click`, `hover`, `draw`, `play`, `summon`, `spell`
-- `hit`, `counter`, `finisher`, `combo`, `heal`
-- `reward`, `victory`, `defeat`
+- `hit`, `counter`, `impact_heavy`, `finisher`, `combo`, `heal`
+- `reward`, `victory`, `victory_burst`, `defeat`
+- `power_human`, `power_elf`, `power_undead`
+- `power_human`, `power_elf`, `power_undead`
 
 `AudioManager`는 `res://assets/audio/{name}.wav`가 있으면 우선 사용하고, 파일이 없으면 같은 합성식으로 만든 fallback 스트림을 사용한다. WAV는 Godot import 상태에 의존하지 않도록 런타임에서 직접 PCM을 읽어 `AudioStreamWAV`로 캐시한다.
 

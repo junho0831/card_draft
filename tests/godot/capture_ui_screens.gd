@@ -25,7 +25,12 @@ func _capture_all() -> void:
 	main._start_new_run()
 	await process_frame
 	await process_frame
-	await _capture("02_run_map")
+	await _capture("02_race_selection")
+
+	main._init_run("human")
+	await process_frame
+	await process_frame
+	await _capture("03_run_map")
 
 	main._enter_current_node()
 	await process_frame
@@ -33,7 +38,7 @@ func _capture_all() -> void:
 	await process_frame
 	_seed_battle_preview_units(main)
 	await process_frame
-	await _capture("03_battle")
+	await _capture("04_battle")
 
 	main.current_run["pending_card_reward"] = {
 		"choices": main._roll_card_reward_choices(3, false),
@@ -43,7 +48,7 @@ func _capture_all() -> void:
 	main._show_card_reward()
 	await process_frame
 	await process_frame
-	await _capture("04_card_reward")
+	await _capture("05_card_reward")
 
 	main.current_run["pending_shop"] = main.shop_run_service.generate_shop_state({
 		"roll_card_choices": Callable(main, "_roll_card_choices"),
@@ -53,14 +58,14 @@ func _capture_all() -> void:
 	main._show_shop()
 	await process_frame
 	await process_frame
-	await _capture("05_shop")
+	await _capture("06_shop")
 
 	main.current_run["pending_event"] = main.event_service.roll_event()
 	main.current_run["pending_card_reward"] = {}
 	main._show_event()
 	await process_frame
 	await process_frame
-	await _capture("06_event")
+	await _capture("07_event")
 
 	main.current_run["pending_card_reward"] = {}
 	main.current_run["pending_event"] = {}
@@ -68,7 +73,7 @@ func _capture_all() -> void:
 	main._show_rest()
 	for i in range(10):
 		await _wait_for_capture_frame()
-	await _capture("07_rest")
+	await _capture("08_rest")
 
 	main.current_run["pending_card_reward"] = {}
 	main.current_run["pending_shop"] = {}
@@ -77,7 +82,7 @@ func _capture_all() -> void:
 	main._show_run_result(true)
 	await process_frame
 	await process_frame
-	await _capture("08_run_result")
+	await _capture("09_run_result")
 
 	main._show_ui_guide()
 	await process_frame
