@@ -42,8 +42,10 @@
   - 공통 UI 버튼/패널/카드 텍스트 스타일
 - `res://src/ui/styles/battle_styles.gd`
   - 전투 화면 전용 카드/필드/버튼 스타일
-- `res://tools/generate_game_sfx.py`
-  - 직접 제작 효과음 WAV 재생성 스크립트
+- `res://src/ui/styles/arcane_button_ornament.gd`
+  - 공통/전투 버튼의 룬 선과 비대칭 프레임 장식
+- `res://tools/generate_game_sfx.gd`
+  - `AudioManager` 합성식을 이용한 효과음 WAV 재생성 스크립트
 - `res://docs/ui-card-draft-guide.md`
   - 8개 핵심 화면의 역할, 정보 우선순위, 플레이어 유도 기준
 - `res://docs/game-design.md`
@@ -99,10 +101,12 @@
 - 현재 기본 Act는 `battle -> event/shop -> battle -> rest/shop -> boss` 5노드 구조다.
 - 엘리트는 기본 런에서 제외하고, 후속 도전 모드 후보로 둔다.
 - 전투 안내는 플레이어 추천 행동과 다음 적 행동을 짧은 문장으로 보여준다.
-- 카드 UI는 현재 공통/전투 스타일 모듈의 flat dark TCG 스타일을 사용한다. 이름, 비용, 종족/속성, 핵심 효과, 보조 설명, 상태 바를 카드 안에서 분리한다.
+- 화면은 `arcane_battle_table.png`의 흑철/옵시디언 전장을 공통 배경으로 사용한다. 버튼은 비대칭 흑철 프레임과 청록 룬 선을 공통 장식 모듈로 얹고, 황동은 추천/주요 행동에만 사용한다.
+- 카드 UI는 이름, 비용, 종족/속성, 핵심 효과, 보조 설명, 상태 바를 카드 안에서 분리하고 종족별 색은 테두리 우선순위로 유지한다.
 - 손패는 현재 `Control` 기반 수동 배치다. 카드마다 `_hand_slot` 런타임 값을 부여해 카드를 사용해도 남은 카드가 매번 재정렬되지 않게 하고, 위치/회전/scale/`z_index`는 슬롯 기준으로 계산한다.
 - 카드 hover 시 확대, 회전 복원, 보드 프리뷰, 간단 툴팁을 함께 보여준다.
-- 효과음은 `assets/audio/*.wav`를 우선 사용한다. `AudioManager`는 Godot `.import`에 의존하지 않고 WAV PCM을 직접 읽어 `AudioStreamWAV`로 캐시하며, 파일이 없으면 코드 생성 fallback 스트림을 사용한다.
+- 효과음은 `assets/audio/*.wav`를 우선 사용한다. `tools/generate_game_sfx.gd`가 `AudioManager`와 같은 합성식으로 파일을 만들며, 파일이 없을 때도 같은 런타임 생성 스트림을 사용한다.
+- 효과음 재질 기준은 `draw=카드 마찰`, `play=가죽 슬랩+테이블`, `summon=포털+착지`, `hit/counter=무기/방패 금속`, `finisher=다중 저역 충격`이다.
 - 전투 도파민 포인트는 `연계`, `처치`, `강타`, `승리 + 골드` 순간에 집중한다.
 - Godot CLI가 셸 PATH에 없으면 현재 개발 머신에서는 `/opt/homebrew/bin/godot` 경로를 사용했다.
 
@@ -174,13 +178,13 @@
 ## 2026-07-13 추가 작업 기록
 
 - UI 스타일 모듈화
-  - 공통 스타일은 `src/ui/styles/ui_styles.gd`, 전투 스타일은 `src/ui/styles/battle_styles.gd`로 분리
-  - 기존 fantasy texture 중심 버튼/패널 의존을 줄이고, 어두운 TCG 톤의 flat panel, 얇은 라인, 비대칭 버튼 코너를 사용
+	- 공통 스타일은 `src/ui/styles/ui_styles.gd`, 전투 스타일은 `src/ui/styles/battle_styles.gd`로 분리
+	- 기존 fantasy texture 중심 버튼/패널 의존을 줄이고, 흑철 패널, 얇은 룬 라인, 비대칭 버튼 코너를 사용
 - 손패 안정화
   - 손패 카드에 `_hand_slot`을 부여해 카드 사용 후 남은 카드 위치가 한쪽으로 밀리지 않도록 변경
   - 새로 뽑은 카드는 중앙 우선 슬롯 순서로 빈자리에 들어가며, 기존 카드는 슬롯을 유지
 - 효과음 직접 제작
-  - `tools/generate_game_sfx.py`로 `click`, `hover`, `draw`, `play`, `summon`, `spell`, `hit`, `counter`, `finisher`, `combo`, `heal`, `reward`, `victory`, `defeat` WAV 생성
+	- 현재는 `tools/generate_game_sfx.gd`로 `click`, `hover`, `draw`, `play`, `summon`, `spell`, `hit`, `counter`, `finisher`, `combo`, `heal`, `reward`, `victory`, `defeat` WAV 생성
   - `AudioManager`에 커스텀 사운드 캐시와 WAV 직접 로더 추가
 - 검증 상태
   - `run_tests.gd`: `PASS 273 assertions`

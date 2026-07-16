@@ -123,31 +123,32 @@ func _create_premium_background() -> Texture2D:
 
 func _build_base_ui() -> void:
 	var background := TextureRect.new()
-	var bg_tex := load("res://assets/backgrounds/game_board_bg.png") as Texture2D
+	var bg_tex := load("res://assets/backgrounds/arcane_battle_table.png") as Texture2D
 	if bg_tex != null:
 		background.texture = bg_tex
 	else:
 		background.texture = _create_premium_background()
-	background.modulate = Color(0.38, 0.46, 0.56, 1.0)
+	background.modulate = Color(0.68, 0.72, 0.76, 1.0)
 	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 
 	var ambient_scrim := ColorRect.new()
-	ambient_scrim.color = Color(0.0, 0.015, 0.028, 0.64)
+	ambient_scrim.color = Color(0.002, 0.01, 0.014, 0.46)
 	ambient_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ambient_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(ambient_scrim)
 
-	var backdrop := Control.new()
-	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(backdrop)
-	_build_backdrop_layer(backdrop)
+	var bottom_fade := ColorRect.new()
+	bottom_fade.color = Color(0.0, 0.0, 0.0, 0.34)
+	bottom_fade.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bottom_fade.offset_top = -180
+	bottom_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bottom_fade)
 
 	var top_shadow := ColorRect.new()
-	top_shadow.color = Color(0.0, 0.0, 0.0, 0.36)
+	top_shadow.color = Color(0.0, 0.0, 0.0, 0.42)
 	top_shadow.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	top_shadow.offset_bottom = 92
 	add_child(top_shadow)
@@ -176,54 +177,6 @@ func _build_base_ui() -> void:
 
 	battle_cutscene = BATTLE_CUTSCENE_SCENE.instantiate()
 	add_child(battle_cutscene)
-
-func _build_backdrop_layer(parent: Control) -> void:
-	var viewport_size: Vector2 = _layout_viewport_size()
-	
-	var hero_texture := preload("res://assets/card_art/novice_swordsman.png")
-	var hero_art := TextureRect.new()
-	hero_art.texture = hero_texture
-	hero_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	hero_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	hero_art.custom_minimum_size = Vector2(520, 520)
-	hero_art.modulate = Color(1.0, 1.0, 1.0, 0.4) # Make it more visible
-	hero_art.position = Vector2(max(260.0, viewport_size.x * 0.52), max(70.0, viewport_size.y * 0.08))
-	hero_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(hero_art)
-
-	var enemy_texture := preload("res://assets/portraits/skeleton_swarm.png")
-	var player_art := TextureRect.new()
-	player_art.texture = enemy_texture
-	player_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	player_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	player_art.custom_minimum_size = Vector2(360, 360)
-	player_art.modulate = Color(1.0, 1.0, 1.0, 0.3)
-	player_art.position = Vector2(max(24.0, viewport_size.x * 0.05), max(240.0, viewport_size.y * 0.42))
-	player_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(player_art)
-
-	for i in range(12):
-		var line := ColorRect.new()
-		line.color = Color(0.18, 0.48, 0.72, 0.045)
-		line.custom_minimum_size = Vector2(max(1280.0, viewport_size.x), 1)
-		line.position = Vector2(0, 86 + i * 58)
-		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		parent.add_child(line)
-
-	for i in range(9):
-		var seam := ColorRect.new()
-		seam.color = Color(0.24, 0.62, 0.9, 0.035)
-		seam.custom_minimum_size = Vector2(1, max(720.0, viewport_size.y))
-		seam.position = Vector2(84 + i * 180, 0)
-		seam.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		parent.add_child(seam)
-
-	var bottom_fade := ColorRect.new()
-	bottom_fade.color = Color(0.0, 0.0, 0.0, 0.34)
-	bottom_fade.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bottom_fade.offset_top = -180
-	bottom_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(bottom_fade)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
@@ -448,9 +401,10 @@ func _make_top_resource_chip(icon_text: String, value_text: String, compact: boo
 
 func _make_main_menu_top_bar(compact: bool) -> Control:
 	var phone_portrait := _is_phone_portrait_layout()
+	var stack_top_bar := phone_portrait
 	var panel: PanelContainer = ui.make_surface_panel(Color(0.025, 0.035, 0.05, 1.0), Color(0.28, 0.22, 0.13, 1.0), 1, 12, 14)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+	var row: BoxContainer = VBoxContainer.new() if stack_top_bar else HBoxContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_theme_constant_override("separation", 14)
 	panel.add_child(row)
@@ -491,7 +445,7 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 	level_row.add_child(progress_label)
 
 	var resources_row: Control
-	if compact:
+	if stack_top_bar:
 		var resource_grid := GridContainer.new()
 		resource_grid.columns = 2
 		resource_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -509,9 +463,9 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 	resources_row.add_child(_make_top_resource_chip("🔷", _format_large_number(int(player_profile.get("soul_stones", 0))), compact))
 
 	var actions: Control
-	if compact:
+	if stack_top_bar:
 		var action_grid := GridContainer.new()
-		action_grid.columns = 3 if phone_portrait else 5
+		action_grid.columns = 3
 		action_grid.size_flags_horizontal = Control.SIZE_SHRINK_END
 		action_grid.add_theme_constant_override("h_separation", 8)
 		action_grid.add_theme_constant_override("v_separation", 8)

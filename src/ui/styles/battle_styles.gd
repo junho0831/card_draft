@@ -1,11 +1,13 @@
 extends RefCounted
 class_name BattleStyles
 
+const ARCANE_BUTTON_ORNAMENT = preload("res://src/ui/styles/arcane_button_ornament.gd")
+
 static func _battle_button_base(color: Color) -> Color:
-	return Color(0.032, 0.03, 0.03, color.a).lerp(color.darkened(0.24), 0.5)
+	return Color(0.018, 0.026, 0.03, color.a).lerp(color.darkened(0.3), 0.38)
 
 static func _battle_button_accent(color: Color) -> Color:
-	return color.darkened(0.2).lerp(Color(0.76, 0.56, 0.28, color.a), 0.12)
+	return color.darkened(0.12).lerp(Color(0.4, 0.68, 0.68, color.a), 0.08)
 
 static func make_modern_style(bg_color: Color, border_color: Color, border_width: int = 1, radius: int = 8, margin: int = 10) -> StyleBoxFlat:
 	var style = StyleBoxFlat.new()
@@ -16,8 +18,8 @@ static func make_modern_style(bg_color: Color, border_color: Color, border_width
 	style.border_width_right = border_width
 	style.border_width_bottom = border_width
 	style.corner_radius_top_left = radius
-	style.corner_radius_top_right = radius
-	style.corner_radius_bottom_left = radius
+	style.corner_radius_top_right = max(2, radius - 5)
+	style.corner_radius_bottom_left = max(2, radius - 5)
 	style.corner_radius_bottom_right = radius
 	style.content_margin_left = margin
 	style.content_margin_top = margin
@@ -53,10 +55,10 @@ static func make_battle_surface(bg_color: Color, accent_color: Color, border_wid
 static func apply_battle_button(button: Button, bg_color: Color, accent_color: Color, active: bool = false) -> void:
 	var base := _battle_button_base(bg_color)
 	var accent := _battle_button_accent(accent_color)
-	var corner := 8 if active else 7
+	var corner := 11 if active else 9
 	var normal = make_modern_style(base, accent, 1, corner, 8)
-	normal.corner_radius_top_right = max(4, corner - 4)
-	normal.corner_radius_bottom_left = max(4, corner - 4)
+	normal.corner_radius_top_right = 2
+	normal.corner_radius_bottom_left = 2
 	normal.border_width_left = 2 if active else 1
 	normal.border_width_top = 1
 	normal.border_width_right = 2 if active else 1
@@ -86,6 +88,7 @@ static func apply_battle_button(button: Button, bg_color: Color, accent_color: C
 	button.add_theme_color_override("font_disabled_color", Color(0.46, 0.5, 0.58, 1.0))
 	button.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.65))
 	button.add_theme_constant_override("outline_size", 2)
+	ARCANE_BUTTON_ORNAMENT.attach_to(button, accent, active)
 
 static func make_field_slot_style(bg_color: Color, border_color: Color, border_width: int = 2) -> StyleBoxFlat:
 	var style: StyleBoxFlat = make_modern_style(bg_color, border_color, border_width, 8, 6)

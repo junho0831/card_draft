@@ -179,6 +179,7 @@ Act 데이터는 `data/acts.json`에 있으며, 현재 기본 Act는 5개 레이
 - 전투 루트는 `src/ui/screens/battle_screen.gd`
 - 공통 패널/칩/배지/카드 텍스트 스타일은 `src/ui/ui_factory.gd`
 - 공통 스타일은 `src/ui/styles/ui_styles.gd`, 전투 전용 스타일은 `src/ui/styles/battle_styles.gd`
+- 공통 버튼 룬 장식은 `src/ui/styles/arcane_button_ornament.gd`
 - 효과음은 `src/services/audio_manager.gd`와 `assets/audio/*.wav`
 - 손패 영역은 `Control` 부모 아래에서 수동 위치/회전 계산으로 배치
 - 전장 유닛은 `Button` 형태의 카드 슬롯으로 구성
@@ -204,9 +205,10 @@ Act 데이터는 `data/acts.json`에 있으며, 현재 기본 Act는 5개 레이
 
 현재 효과음 기준:
 
-- `tools/generate_game_sfx.py`로 직접 생성한 44.1kHz 16-bit mono WAV를 사용한다.
+- `tools/generate_game_sfx.gd`로 직접 생성한 44.1kHz 16-bit mono WAV를 사용한다.
 - `click`, `hover`, `draw`, `play`, `summon`, `spell`, `hit`, `counter`, `finisher`, `combo`, `heal`, `reward`, `victory`, `defeat`가 있다.
 - `AudioManager`는 `assets/audio/{name}.wav`를 우선 로드하고, 없으면 코드 생성 fallback 스트림을 사용한다.
+- 카드/가죽/금속/마법/저역 충격을 서로 다른 주파수와 감쇠 구조로 만들어 행동을 소리만으로도 구분한다.
 
 현재 아직 남아 있는 다음 단계:
 

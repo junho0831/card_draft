@@ -32,6 +32,7 @@ Card Draft UI의 목표는 플레이어가 매 화면에서 세 가지를 바로
 - 공통 패널/버튼/칩: `src/ui/ui_factory.gd`
 - 공통 스타일 모듈: `src/ui/styles/ui_styles.gd`
 - 전투 스타일 모듈: `src/ui/styles/battle_styles.gd`
+- 버튼 룬 장식: `src/ui/styles/arcane_button_ornament.gd`
 - 전장 행: `HBoxContainer`
 - 손패: `Control` 기반 고정 슬롯 수동 배치
 - 카드 내부 텍스트 스타일: `style_card_title()`, `style_card_rules()`
@@ -58,7 +59,9 @@ Card Draft UI의 목표는 플레이어가 매 화면에서 세 가지를 바로
 2. hover 시 `scale`, `y offset`, `rotation reset`, `z_index`를 지금보다 더 명확한 피드백으로 다듬는다.
 3. 드래그 중에는 가장 가까운 슬롯 또는 타깃을 하이라이트한다.
 4. 모바일에서는 가로 스와이프와 중앙 확대 카드 패턴이 더 나은지 검증한다.
-5. 효과음은 새 연출이 추가될 때마다 `tools/generate_game_sfx.py`에 생성식을 먼저 추가하고, `assets/audio`에 WAV를 재생성한다.
+5. 효과음은 새 연출이 추가될 때마다 `AudioManager`에 합성식을 추가하고, `godot4 --headless --path . -s res://tools/generate_game_sfx.gd`로 `assets/audio` WAV를 재생성한다.
+
+현재 시각 언어는 흑철/옵시디언 바탕, 청록 룬, 제한적인 황동 포인트다. 일반 버튼과 전투 버튼은 같은 룬 장식 모듈을 사용하며, 배경의 목재/켈트 장식이나 평면 업무용 UI 스타일을 다시 섞지 않는다.
 
 즉, Godot에서는 `모든 것을 컨테이너로만 해결하려고 할수록 카드 게임 UI가 개발툴처럼 보이기 쉽다.` 현재 프로젝트는 손패를 고정 슬롯 수동 배치로 옮겨 첫 단계를 넘겼고, 다음 과제는 드래그 조작감과 행동 유도다.
 

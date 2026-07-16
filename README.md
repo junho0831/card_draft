@@ -64,6 +64,7 @@ res://src/core/Main.tscn
 - 전투 화면: `res://src/ui/screens/battle_screen.gd`
 - 공통 UI 스타일: `res://src/ui/styles/ui_styles.gd`
 - 전투 UI 스타일: `res://src/ui/styles/battle_styles.gd`
+- 버튼 룬 장식: `res://src/ui/styles/arcane_button_ornament.gd`
 - 오디오 매니저: `res://src/services/audio_manager.gd`
 - 런 저장/진행 상태: `res://src/services/run_state.gd`
 - 카드 데이터: `res://data/cards.json`
@@ -72,14 +73,15 @@ res://src/core/Main.tscn
 - 적 데이터: `res://data/enemies.json`
 - Act 데이터: `res://data/acts.json`
 - 직접 제작 효과음: `res://assets/audio/*.wav`
-- 효과음 생성 스크립트: `tools/generate_game_sfx.py`
+- 전역 아케인 배경: `res://assets/backgrounds/arcane_battle_table.png`
+- 효과음 생성 스크립트: `res://tools/generate_game_sfx.gd`
 
 ## 효과음
 
-전투/버튼 효과음은 직접 생성한 44.1kHz 16-bit mono WAV 파일을 사용한다.
+전투/버튼 효과음은 Godot 합성식으로 직접 생성한 44.1kHz 16-bit mono WAV 파일을 사용한다. 카드 마찰음, 가죽 착지음, 금속 타격음, 저역 충격을 역할별로 나누어 전자음처럼 들리지 않게 구성한다.
 
 ```bash
-python3 tools/generate_game_sfx.py
+godot4 --headless --path . -s res://tools/generate_game_sfx.gd
 ```
 
 생성 대상:
@@ -88,7 +90,7 @@ python3 tools/generate_game_sfx.py
 - `hit`, `counter`, `finisher`, `combo`, `heal`
 - `reward`, `victory`, `defeat`
 
-`AudioManager`는 `res://assets/audio/{name}.wav`가 있으면 우선 사용하고, 파일이 없으면 코드에서 생성한 fallback 스트림을 사용한다. 새 WAV는 Godot import 상태에 의존하지 않도록 런타임에서 직접 PCM을 읽어 `AudioStreamWAV`로 캐시한다.
+`AudioManager`는 `res://assets/audio/{name}.wav`가 있으면 우선 사용하고, 파일이 없으면 같은 합성식으로 만든 fallback 스트림을 사용한다. WAV는 Godot import 상태에 의존하지 않도록 런타임에서 직접 PCM을 읽어 `AudioStreamWAV`로 캐시한다.
 
 ## 테스트
 

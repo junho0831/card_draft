@@ -1,11 +1,13 @@
 extends RefCounted
 class_name UiStyles
 
+const ARCANE_BUTTON_ORNAMENT = preload("res://src/ui/styles/arcane_button_ornament.gd")
+
 static func _game_button_base(color: Color) -> Color:
-	return Color(0.035, 0.032, 0.03, color.a).lerp(color.darkened(0.22), 0.46)
+	return Color(0.025, 0.03, 0.034, color.a).lerp(color.darkened(0.3), 0.34)
 
 static func _game_button_accent(color: Color) -> Color:
-	return color.darkened(0.18).lerp(Color(0.78, 0.58, 0.28, color.a), 0.16)
+	return color.darkened(0.12).lerp(Color(0.46, 0.68, 0.66, color.a), 0.1)
 
 static func make_style_box(bg_color: Color, border_color: Color, border_width: int = 1, radius: int = 6) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -16,8 +18,8 @@ static func make_style_box(bg_color: Color, border_color: Color, border_width: i
 	style.border_width_right = border_width
 	style.border_width_bottom = border_width
 	style.corner_radius_top_left = radius
-	style.corner_radius_top_right = radius
-	style.corner_radius_bottom_left = radius
+	style.corner_radius_top_right = max(2, radius - 4)
+	style.corner_radius_bottom_left = max(2, radius - 4)
 	style.corner_radius_bottom_right = radius
 	style.shadow_color = Color(0.0, 0.0, 0.0, 0.58)
 	style.shadow_size = 8
@@ -33,11 +35,11 @@ static func make_style_box(bg_color: Color, border_color: Color, border_width: i
 static func make_action_button_style(bg_color: Color, accent_color: Color, active: bool = false, radius: int = 5) -> StyleBoxFlat:
 	var base := _game_button_base(bg_color)
 	var accent := _game_button_accent(accent_color)
-	var corner: int = max(radius, 8 if active else 7)
+	var corner: int = max(radius, 11 if active else 9)
 	var style := make_style_box(base, accent, 1, corner)
 	style.corner_radius_top_left = corner
-	style.corner_radius_top_right = max(4, corner - 4)
-	style.corner_radius_bottom_left = max(4, corner - 4)
+	style.corner_radius_top_right = 2
+	style.corner_radius_bottom_left = 2
 	style.corner_radius_bottom_right = corner
 	style.border_width_left = 2 if active else 1
 	style.border_width_top = 1
@@ -78,6 +80,7 @@ static func apply_flat_button(button: Button, base_color: Color, accent_color: C
 	button.add_theme_color_override("font_outline_color", Color(0.02, 0.025, 0.03, 1.0))
 	button.add_theme_constant_override("outline_size", outline_size)
 	button.add_theme_font_size_override("font_size", font_size)
+	ARCANE_BUTTON_ORNAMENT.attach_to(button, accent, false)
 
 static func apply_button(button: Button, base_color: Color) -> void:
 	var accent := _game_button_accent(base_color.lightened(0.42))
@@ -103,6 +106,7 @@ static func apply_button(button: Button, base_color: Color) -> void:
 	button.add_theme_color_override("font_outline_color", Color(0.02, 0.025, 0.03, 1.0))
 	button.add_theme_constant_override("outline_size", 2)
 	button.add_theme_font_size_override("font_size", 16)
+	ARCANE_BUTTON_ORNAMENT.attach_to(button, accent, false)
 
 static func apply_primary_button(button: Button, base_color: Color = Color(0.55, 0.36, 0.1, 1.0)) -> void:
 	var accent := _game_button_accent(base_color.lightened(0.48))
@@ -128,3 +132,4 @@ static func apply_primary_button(button: Button, base_color: Color = Color(0.55,
 	button.add_theme_color_override("font_outline_color", Color(0.02, 0.025, 0.03, 1.0))
 	button.add_theme_constant_override("outline_size", 4)
 	button.add_theme_font_size_override("font_size", 17)
+	ARCANE_BUTTON_ORNAMENT.attach_to(button, accent, true)

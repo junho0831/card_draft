@@ -1954,6 +1954,8 @@ func _build_battle_ui() -> void:
 	hand_box_wrap.add_child(hand_header)
 	var hand_title: Label = main._make_label("내 손패", 11 if tight else (13 if compact else 15), Color(1.0, 0.88, 0.55, 1.0))
 	hand_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	hand_title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	hand_title.custom_minimum_size = Vector2(54 if tight else 72, 0)
 	hand_header.add_child(hand_title)
 	var hand_hint: Label = main._make_label("밝은 카드를 사용하세요", 10 if tight else (11 if compact else 12), Color(0.76, 0.82, 0.9, 1.0))
 	hand_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -1963,6 +1965,7 @@ func _build_battle_ui() -> void:
 	hand_box.custom_minimum_size = Vector2(0, hand_height)
 	hand_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hand_box.mouse_filter = Control.MOUSE_FILTER_PASS
+	hand_box.resized.connect(Callable(self, "_layout_hand_cards"))
 	hand_box_wrap.add_child(hand_box)
 
 	if not compact:
@@ -3608,10 +3611,8 @@ func _layout_hand_cards() -> void:
 	var portrait := _is_portrait_battle_layout()
 	var wide_tight := _is_wide_tight_battle_layout()
 	var available_width: float = hand_box.size.x
-	if available_width <= 0.0 and hand_box.get_parent() != null and hand_box.get_parent() is Control:
-		available_width = (hand_box.get_parent() as Control).size.x
-	if available_width <= 0.0:
-		available_width = main._layout_viewport_size().x - 80.0
+	if available_width <= 1.0:
+		return
 	last_hand_layout_width = available_width
 	var first_card: Control = hand_box.get_child(0) as Control
 	if first_card == null:

@@ -512,7 +512,7 @@ func _apply_hover_feedback(button: Button) -> void:
 			root.audio_manager.play_sound("hover")
 		button.pivot_offset = button.size / 2.0
 		var tween := button.create_tween()
-		tween.tween_property(button, "scale", Vector2(1.05, 1.05), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_property(button, "scale", Vector2(1.02, 1.02), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	)
 	button.mouse_exited.connect(func():
 		if button == null or not is_instance_valid(button):
