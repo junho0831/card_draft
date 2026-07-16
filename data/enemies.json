@@ -3,7 +3,7 @@
         "id": "goblin_raider",
         "name": "고블린 약탈자",
         "tier": "normal",
-        "base_hp": 10,
+        "base_hp": 8,
         "deck_ids": [
             "militia",
             "thief",

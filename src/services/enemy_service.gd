@@ -40,3 +40,9 @@ func pick_enemy(act: int, tier: String) -> Dictionary:
 	if pool.is_empty():
 		return {}
 	return pool[randi() % pool.size()].duplicate(true)
+
+func enemy_by_id(enemy_id: String) -> Dictionary:
+	for enemy in enemies:
+		if String(enemy.get("id", "")) == enemy_id:
+			return enemy.duplicate(true)
+	return {}

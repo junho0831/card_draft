@@ -8,6 +8,7 @@ func run() -> Dictionary:
 	_count = 0
 	_test_run_shape_targets_short_clear_run()
 	_test_enemy_health_keeps_battles_short()
+	_test_intro_enemy_is_fast_to_clear()
 	return {
 		"count": _count,
 		"failures": _failures,
@@ -39,6 +40,16 @@ func _test_enemy_health_keeps_battles_short() -> void:
 				_assert_true(hp <= 22, "%s elite hp stays threatening without dragging out the run" % String(enemy.get("id", "")))
 			"boss":
 				_assert_true(hp <= 36, "%s boss hp supports a short run without turning into a slog" % String(enemy.get("id", "")))
+
+func _test_intro_enemy_is_fast_to_clear() -> void:
+	var enemies: Array = _load_json_array("res://data/enemies.json")
+	for raw_enemy in enemies:
+		var enemy: Dictionary = raw_enemy
+		if String(enemy.get("id", "")) == "goblin_raider":
+			_assert_eq(int(enemy.get("base_hp", 0)), 8, "intro enemy stays short enough for the first guided battle")
+			_assert_true((enemy.get("act_pool", []) as Array).has(1), "intro enemy remains available in act 1")
+			return
+	_failures.append("intro enemy goblin_raider should exist")
 
 func _load_json_array(path: String) -> Array:
 	var text := FileAccess.get_file_as_string(path)

@@ -6,11 +6,13 @@ var output_dir := "user://playthrough_probe"
 var report: Array[String] = []
 var boss_steps := 0
 var max_battle_steps := 0
+var headless := false
 
 func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	headless = DisplayServer.get_name() == "headless"
 	var global_dir := ProjectSettings.globalize_path(output_dir)
 	DirAccess.make_dir_recursive_absolute(global_dir)
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -20,9 +22,13 @@ func _run() -> void:
 	var main = MAIN_SCENE.instantiate()
 	main.set_meta("disable_window_mode_changes", true)
 	main.set_meta("layout_viewport_override", Vector2i(1280, 720))
+	main.set_meta("disable_timed_battle_fx", true)
+	main.set_meta("disable_battle_ui_rerender", true)
 	root.add_child(main)
 	await _wait_for_frame()
 	await _wait_for_frame()
+	main.player_profile["settings"]["battle_cutscene"] = false
+	main.player_profile["settings"]["fast_ai"] = true
 	main._clear_run()
 	main._show_main_menu()
 	await _capture("01_main_menu")
@@ -90,11 +96,26 @@ func _play_battle(main: Node, safety: int) -> void:
 	])
 	await _capture("%02d_battle_start" % safety)
 	var steps := 0
+	var wait_ticks := 0
 	while String(main.active_screen) == "battle" and steps < 80:
 		steps += 1
 		if battle.input_locked or String(battle.current_player) != "player":
-			await _wait_frames(18)
+			wait_ticks += 1
+			if wait_ticks % 20 == 0:
+				_note(main, "battle_wait tick=%d current_player=%s input_locked=%s player_hp=%d enemy_hp=%d pfield=%d efield=%d ohand=%d omana=%d" % [
+					wait_ticks,
+					String(battle.current_player),
+					str(battle.input_locked),
+					int(battle.player.get("health", 0)),
+					int(battle.opponent.get("health", 0)),
+					(battle.player.get("field", []) as Array).size(),
+					(battle.opponent.get("field", []) as Array).size(),
+					(battle.opponent.get("hand", []) as Array).size(),
+					int(battle.opponent.get("mana", 0)),
+				])
+			await _wait_frames(3 if headless else 18)
 			continue
+		wait_ticks = 0
 		var action: Dictionary = battle._recommended_action_state()
 		_note(main, "battle_action step=%d kind=%s text=%s player_hp=%d enemy_hp=%d mana=%d hand=%d pfield=%d efield=%d" % [
 			steps,
@@ -108,10 +129,10 @@ func _play_battle(main: Node, safety: int) -> void:
 			(battle.opponent.get("field", []) as Array).size(),
 		])
 		battle._on_recommended_action_pressed()
-		await _wait_frames(28)
+		await _wait_frames(4 if headless else 28)
 		if steps == 3:
 			await _capture("%02d_battle_mid" % safety)
-	await _wait_frames(20)
+	await _wait_frames(3 if headless else 20)
 	max_battle_steps = maxi(max_battle_steps, steps)
 	var node_type := String(main.run_store.current_node(main.current_run).get("type", ""))
 	if node_type == "boss":
@@ -121,6 +142,16 @@ func _play_battle(main: Node, safety: int) -> void:
 		steps,
 		int(main.current_run.get("hp", 0)),
 	])
+	if String(main.active_screen) == "battle":
+		_note(main, "battle_stalled current_player=%s input_locked=%s enemy_hp=%d player_hp=%d hand=%d pfield=%d efield=%d" % [
+			String(battle.current_player),
+			str(battle.input_locked),
+			int(battle.opponent.get("health", 0)),
+			int(battle.player.get("health", 0)),
+			(battle.player.get("hand", []) as Array).size(),
+			(battle.player.get("field", []) as Array).size(),
+			(battle.opponent.get("field", []) as Array).size(),
+		])
 	await _capture("%02d_battle_end_%s" % [safety, String(main.active_screen)])
 
 func _claim_first_reward(main: Node, safety: int) -> void:
@@ -163,14 +194,16 @@ func _complete_rest(main: Node, safety: int) -> void:
 	await _wait_for_frame()
 
 func _note(main: Node, text: String) -> void:
-	report.append("%s | screen=%s node=%d result=%s deck=%d relics=%d" % [
+	var line := "%s | screen=%s node=%d result=%s deck=%d relics=%d" % [
 		text,
 		String(main.active_screen),
 		int(main.current_run.get("current_node_index", -1)),
 		String(main.current_run.get("result", "")),
 		(main.current_run.get("deck_ids", []) as Array).size(),
 		(main.current_run.get("relic_ids", []) as Array).size(),
-	])
+	]
+	report.append(line)
+	print(line)
 
 func _note_fun_metrics(main: Node) -> void:
 	var scores: Dictionary = main._current_build_scores()
@@ -196,6 +229,9 @@ func _note_fun_metrics(main: Node) -> void:
 		report.append("fun_warning:no_build_trigger_seen")
 
 func _capture(file_name: String) -> void:
+	if headless:
+		report.append("capture_skipped:%s" % file_name)
+		return
 	var image: Image = null
 	for i in range(20):
 		await _wait_for_frame()
@@ -210,10 +246,15 @@ func _capture(file_name: String) -> void:
 	image.save_png("%s/%s.png" % [output_dir, file_name])
 
 func _wait_frames(count: int) -> void:
+	if headless:
+		count = mini(count, 4)
 	for i in range(count):
 		await process_frame
 
 func _wait_for_frame() -> void:
+	if headless:
+		await process_frame
+		return
 	var draw_state := {"ready": false}
 	var mark_draw := func() -> void:
 		draw_state["ready"] = true

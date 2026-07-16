@@ -292,6 +292,8 @@ func _can_play_card(side: Dictionary, card: Dictionary, owner_key: String) -> bo
 	return true
 
 func _is_battle_cutscene_enabled() -> bool:
+	if _should_skip_timed_battle_fx():
+		return false
 	return bool(main.player_profile.get("settings", {}).get("battle_cutscene", true))
 
 func _is_player_input_locked() -> bool:
@@ -783,6 +785,10 @@ func _reset_battle_state() -> void:
 
 func _prepare_battle(tier: String) -> void:
 	var enemy: Dictionary = main.enemy_service.pick_enemy(int(main.current_run.get("act", 1)), tier)
+	if tier == "normal" and int(main.current_run.get("act", 1)) == 1 and int(main.current_run.get("current_node_index", 0)) == 0:
+		var intro_enemy: Dictionary = main.enemy_service.enemy_by_id("goblin_raider")
+		if not intro_enemy.is_empty():
+			enemy = intro_enemy
 	if enemy.is_empty():
 		_show_message("적 데이터를 준비하지 못했습니다. 런을 다시 시작해주세요.", "_show_main_menu")
 		return
@@ -2507,7 +2513,10 @@ func _execute_player_hero_attack(attacker_index: int) -> void:
 	damage = main.relic_service.mitigate_hero_damage(main.current_run, battle_state, damage, false)
 	input_locked = true
 	_refresh_ui()
-	await _play_hero_cutscene(attacker, opponent.name, damage, player, attacker_index, false)
+	if _is_battle_cutscene_enabled():
+		await _play_hero_cutscene(attacker, opponent.name, damage, player, attacker_index, false)
+	else:
+		_play_hero_attack_feedback(player, attacker_index, false, damage)
 	opponent.health -= damage
 	attacker.can_attack = false
 	if damage >= 3:
@@ -2541,7 +2550,10 @@ func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_inde
 	input_locked = true
 	_refresh_ui()
 
-	await _play_unit_battle_feedback(attacker_side, defender_side, attacker_index, defender_index, attack_damage, defense_damage)
+	if _is_battle_cutscene_enabled():
+		await _play_unit_battle_feedback(attacker_side, defender_side, attacker_index, defender_index, attack_damage, defense_damage)
+	else:
+		_play_unit_battle_feedback(attacker_side, defender_side, attacker_index, defender_index, attack_damage, defense_damage)
 
 	defender.health -= attack_damage
 	attacker.health -= defense_damage
@@ -3045,7 +3057,10 @@ func _run_ai_hero_attack(index: int) -> void:
 	damage = main.relic_service.mitigate_hero_damage(main.current_run, battle_state, damage, true)
 	input_locked = true
 	_refresh_ui()
-	await _play_hero_cutscene(unit, player.name, damage, opponent, index, true)
+	if _is_battle_cutscene_enabled():
+		await _play_hero_cutscene(unit, player.name, damage, opponent, index, true)
+	else:
+		_play_hero_attack_feedback(opponent, index, true, damage)
 	player.health -= damage
 	if damage > 0:
 		main.relic_service.on_hero_hp_lost(main.current_run, battle_state, player, damage)
@@ -3722,6 +3737,8 @@ func _refresh_ui() -> void:
 	_refresh_status_labels()
 	_refresh_battle_dashboard()
 	_refresh_action_buttons()
+	if bool(main.get_meta("disable_battle_ui_rerender", false)):
+		return
 	if opponent_field_box != null:
 		var next_opponent_signature: String = _field_signature(opponent, false)
 		if next_opponent_signature != opponent_field_signature:
@@ -3732,7 +3749,7 @@ func _refresh_ui() -> void:
 		if next_player_signature != player_field_signature:
 			_render_field(player_field_box, player, true)
 			player_field_signature = next_player_signature
-	if hand_box != null:
+	if hand_box != null and not input_locked:
 		var next_signature: String = _hand_signature()
 		var layout_width: float = hand_box.size.x
 		if next_signature != hand_render_signature:
