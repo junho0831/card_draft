@@ -61,6 +61,11 @@ var root_box: VBoxContainer
 var root_scroll: ScrollContainer
 var modal_layer: Control
 var battle_cutscene
+var layout_resize_timer: Timer
+var last_layout_signature := ""
+var pending_layout_signature := ""
+var active_message_text := ""
+var active_message_callback := ""
 
 func _configure_runtime_performance() -> void:
 	Engine.max_fps = 60
@@ -103,62 +108,62 @@ func _ready() -> void:
 	_apply_window_mode()
 	current_run = run_store.load_or_empty(RUN_PATH)
 	_show_main_menu()
+	last_layout_signature = _layout_signature(_layout_viewport_size())
+	var game_window := get_window()
+	if game_window != null and not game_window.size_changed.is_connected(Callable(self, "_on_window_size_changed")):
+		game_window.size_changed.connect(Callable(self, "_on_window_size_changed"))
 
 func _create_premium_background() -> Texture2D:
 	var gradient := Gradient.new()
-	gradient.offsets = [0.0, 0.6, 1.0]
+	gradient.offsets = [0.0, 0.48, 1.0]
 	gradient.colors = [
-		Color(0.06, 0.09, 0.15, 1.0),
-		Color(0.02, 0.03, 0.05, 1.0),
-		Color(0.008, 0.01, 0.015, 1.0)
+		Color(0.075, 0.09, 0.12, 1.0),
+		Color(0.026, 0.033, 0.046, 1.0),
+		Color(0.012, 0.016, 0.025, 1.0)
 	]
 	var tex := GradientTexture2D.new()
 	tex.gradient = gradient
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(0.85, 0.85)
+	tex.fill = GradientTexture2D.FILL_LINEAR
+	tex.fill_from = Vector2(0.0, 0.0)
+	tex.fill_to = Vector2(1.0, 1.0)
 	tex.width = 512
 	tex.height = 512
 	return tex
 
 func _build_base_ui() -> void:
 	var background := TextureRect.new()
-	var bg_tex := load("res://assets/backgrounds/arcane_battle_table.png") as Texture2D
-	if bg_tex != null:
-		background.texture = bg_tex
-	else:
-		background.texture = _create_premium_background()
-	background.modulate = Color(0.68, 0.72, 0.76, 1.0)
+	background.texture = _create_premium_background()
+	background.modulate = Color.WHITE
 	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 
 	var ambient_scrim := ColorRect.new()
-	ambient_scrim.color = Color(0.002, 0.01, 0.014, 0.46)
+	ambient_scrim.color = Color(0.01, 0.018, 0.03, 0.12)
 	ambient_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ambient_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(ambient_scrim)
 
 	var bottom_fade := ColorRect.new()
-	bottom_fade.color = Color(0.0, 0.0, 0.0, 0.34)
+	bottom_fade.color = Color(0.0, 0.0, 0.0, 0.18)
 	bottom_fade.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	bottom_fade.offset_top = -180
 	bottom_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bottom_fade)
 
 	var top_shadow := ColorRect.new()
-	top_shadow.color = Color(0.0, 0.0, 0.0, 0.42)
+	top_shadow.color = Color(0.0, 0.0, 0.0, 0.2)
 	top_shadow.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	top_shadow.offset_bottom = 92
 	add_child(top_shadow)
 
 	root_scroll = ScrollContainer.new()
 	root_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root_scroll.offset_left = 10
-	root_scroll.offset_top = 10
-	root_scroll.offset_right = -10
-	root_scroll.offset_bottom = -10
+	root_scroll.offset_left = 8
+	root_scroll.offset_top = 8
+	root_scroll.offset_right = -8
+	root_scroll.offset_bottom = -8
 	root_scroll.follow_focus = true
 	root_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	root_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
@@ -170,7 +175,7 @@ func _build_base_ui() -> void:
 	add_child(modal_layer)
 
 	root_box = VBoxContainer.new()
-	root_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root_box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	root_box.add_theme_constant_override("separation", 12)
 	root_scroll.add_child(root_box)
 	_apply_root_layout()
@@ -178,14 +183,116 @@ func _build_base_ui() -> void:
 	battle_cutscene = BATTLE_CUTSCENE_SCENE.instantiate()
 	add_child(battle_cutscene)
 
+	layout_resize_timer = Timer.new()
+	layout_resize_timer.one_shot = true
+	layout_resize_timer.wait_time = 0.2
+	layout_resize_timer.timeout.connect(Callable(self, "_on_layout_resize_timeout"))
+	add_child(layout_resize_timer)
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
-		_apply_root_layout()
+		_on_window_size_changed()
+
+func _on_window_size_changed() -> void:
+	_apply_root_layout()
+	_schedule_layout_rebuild()
+
+func _layout_signature(viewport_size: Vector2) -> String:
+	var portrait := viewport_size.y > viewport_size.x
+	return "%s|%s|%s|%s|%s|%s|%s" % [
+		"portrait" if portrait else "landscape",
+		"mobile" if portrait and viewport_size.x <= 600.0 else "wide",
+		"phone" if portrait and viewport_size.x <= 900.0 else "non_phone",
+		"compact860" if viewport_size.x < 860.0 else "wide860",
+		"compact1080" if viewport_size.x < 1080.0 else "wide1080",
+		"compact1400" if viewport_size.x < 1400.0 else "wide1400",
+		"short" if viewport_size.y <= 760.0 else "tall",
+	]
+
+func _schedule_layout_rebuild() -> void:
+	if layout_resize_timer == null or not is_instance_valid(layout_resize_timer):
+		return
+	pending_layout_signature = _layout_signature(_layout_viewport_size())
+	if pending_layout_signature == last_layout_signature:
+		return
+	layout_resize_timer.start()
+
+func _on_layout_resize_timeout() -> void:
+	var next_signature := _layout_signature(_layout_viewport_size())
+	if next_signature == last_layout_signature:
+		return
+	if active_screen == "battle" and battle_screen != null and bool(battle_screen.input_locked):
+		pending_layout_signature = next_signature
+		layout_resize_timer.start()
+		return
+	last_layout_signature = next_signature
+	pending_layout_signature = next_signature
+	_rebuild_active_screen_for_layout()
+
+func _rebuild_active_screen_for_layout() -> void:
+	var scroll_ratio := 0.0
+	if root_scroll != null and is_instance_valid(root_scroll):
+		var scroll_bar := root_scroll.get_v_scroll_bar()
+		var scroll_range := maxf(1.0, scroll_bar.max_value - scroll_bar.page)
+		scroll_ratio = clampf(float(root_scroll.scroll_vertical) / scroll_range, 0.0, 1.0)
+	match active_screen:
+		"main_menu":
+			_show_main_menu()
+		"map":
+			_show_map()
+		"battle":
+			if battle_screen != null:
+				battle_screen.rebuild_layout()
+		"reward":
+			_show_card_reward()
+		"event":
+			_show_event()
+		"shop":
+			_show_shop()
+		"rest":
+			_show_rest()
+		"remove_card":
+			var pending_remove: Dictionary = current_run.get("pending_subscreen", {})
+			_show_remove_card_screen(String(pending_remove.get("reason", "카드 정리")))
+		"upgrade_card":
+			_show_upgrade_card_screen()
+		"run_result":
+			_show_run_result(String(current_run.get("result", "")) == "win", false)
+		"collection":
+			_show_collection()
+		"compendium":
+			_show_compendium()
+		"meta_upgrade":
+			_show_meta_upgrade()
+		"settings":
+			_show_settings()
+		"ui_guide":
+			_show_ui_guide()
+		"message":
+			if not active_message_text.is_empty() and not active_message_callback.is_empty():
+				_show_message(active_message_text, active_message_callback)
+	_restore_scroll_after_layout(scroll_ratio)
+
+func _restore_scroll_after_layout(scroll_ratio: float) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if root_scroll == null or not is_instance_valid(root_scroll):
+		return
+	var scroll_bar := root_scroll.get_v_scroll_bar()
+	var scroll_range := maxf(0.0, scroll_bar.max_value - scroll_bar.page)
+	root_scroll.scroll_vertical = int(round(scroll_range * scroll_ratio))
 
 func _apply_root_layout() -> void:
 	if root_box == null:
 		return
-	ui.apply_root_layout(root_box, _layout_viewport_size())
+	var viewport_size := _layout_viewport_size()
+	if root_scroll != null:
+		var outer_margin := 4.0 if viewport_size.x <= 600.0 else 8.0
+		root_scroll.offset_left = outer_margin
+		root_scroll.offset_top = outer_margin
+		root_scroll.offset_right = -outer_margin
+		root_scroll.offset_bottom = -outer_margin
+	ui.apply_root_layout(root_box, viewport_size)
 
 
 func _clear_screen() -> void:
@@ -228,7 +335,7 @@ func _show_main_menu() -> void:
 	active_screen = "main_menu"
 	_clear_screen()
 	var compact := _is_main_menu_compact_layout()
-	root_box.add_theme_constant_override("separation", 14)
+	root_box.add_theme_constant_override("separation", 10)
 	root_box.add_child(_make_main_menu_top_bar(compact))
 	root_box.add_child(_make_main_menu_content(compact))
 	root_box.add_child(_make_main_menu_footer(compact))
@@ -354,7 +461,7 @@ func _main_menu_recent_stats() -> Dictionary:
 func _menu_nav_button(parent: Node, title: String, subtitle: String, callback_method: String, color: Color, icon_text: String = "◆", compact: bool = false) -> Button:
 	var button: Button = ui.make_large_action_button(title, subtitle, icon_text, color, compact)
 	if compact and not _is_phone_portrait_layout():
-		button.custom_minimum_size = Vector2(460, 66)
+		button.custom_minimum_size = Vector2(300, 62)
 		button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	else:
 		button.custom_minimum_size = Vector2(0, 78 if compact else 86)
@@ -364,10 +471,11 @@ func _menu_nav_button(parent: Node, title: String, subtitle: String, callback_me
 
 func _small_hub_button(parent: Node, title: String, callback_method: String, icon_text: String) -> void:
 	var button := Button.new()
-	button.text = "%s\n%s" % [icon_text, title]
-	button.custom_minimum_size = Vector2(58, 62)
+	button.text = icon_text
+	button.tooltip_text = title
+	button.custom_minimum_size = Vector2(42, 42)
 	ui.style_button(button, Color(0.1, 0.12, 0.16, 1.0))
-	button.add_theme_font_size_override("font_size", 13)
+	button.add_theme_font_size_override("font_size", 18)
 	button.pressed.connect(Callable(self, callback_method))
 	parent.add_child(button)
 
@@ -396,13 +504,13 @@ func _format_large_number(value: int) -> String:
 
 func _make_top_resource_chip(icon_text: String, value_text: String, compact: bool) -> PanelContainer:
 	var chip: PanelContainer = ui.make_chip("%s %s" % [icon_text, value_text], Color(0.08, 0.1, 0.14, 1.0), Color(0.96, 0.97, 0.94, 1.0), 13 if compact else 14)
-	chip.custom_minimum_size = Vector2(0, 38)
+	chip.custom_minimum_size = Vector2(0, 34)
 	return chip
 
 func _make_main_menu_top_bar(compact: bool) -> Control:
 	var phone_portrait := _is_phone_portrait_layout()
 	var stack_top_bar := phone_portrait
-	var panel: PanelContainer = ui.make_surface_panel(Color(0.025, 0.035, 0.05, 1.0), Color(0.28, 0.22, 0.13, 1.0), 1, 12, 14)
+	var panel: PanelContainer = ui.make_surface_panel(Color(0.035, 0.045, 0.06, 1.0), Color(0.18, 0.24, 0.32, 1.0), 1, 8, 10)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row: BoxContainer = VBoxContainer.new() if stack_top_bar else HBoxContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -413,13 +521,13 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 	profile_row.custom_minimum_size = Vector2(290 if compact else 340, 0)
 	profile_row.add_theme_constant_override("separation", 12)
 	row.add_child(profile_row)
-	profile_row.add_child(_make_art_rect(8, Vector2(56, 56) if compact else Vector2(64, 64)))
+	profile_row.add_child(_make_art_rect(8, Vector2(48, 48) if compact else Vector2(54, 54)))
 
 	var profile_box := VBoxContainer.new()
 	profile_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	profile_box.add_theme_constant_override("separation", 8)
 	profile_row.add_child(profile_box)
-	var title := _make_label("Card Draft", 19 if compact else 21, Color(1.0, 0.9, 0.72, 1.0))
+	var title := _make_label("Card Draft", 18 if compact else 20, Color(0.96, 0.98, 1.0, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	profile_box.add_child(title)
@@ -447,7 +555,7 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 	var resources_row: Control
 	if stack_top_bar:
 		var resource_grid := GridContainer.new()
-		resource_grid.columns = 2
+		resource_grid.columns = 4
 		resource_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		resource_grid.add_theme_constant_override("h_separation", 10)
 		resource_grid.add_theme_constant_override("v_separation", 10)
@@ -465,7 +573,7 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 	var actions: Control
 	if stack_top_bar:
 		var action_grid := GridContainer.new()
-		action_grid.columns = 3
+		action_grid.columns = 2
 		action_grid.size_flags_horizontal = Control.SIZE_SHRINK_END
 		action_grid.add_theme_constant_override("h_separation", 8)
 		action_grid.add_theme_constant_override("v_separation", 8)
@@ -477,15 +585,14 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 		actions = action_bar
 	row.add_child(actions)
 	if phone_portrait:
-		_small_hub_button_config(actions, "가이드", "_show_ui_guide", "🗺", 54, 54, 11)
-		_small_hub_button_config(actions, "설정", "_show_settings", "⚙", 54, 54, 11)
-		_small_hub_button_config(actions, "종료", "_quit_game", "⏻", 54, 54, 11)
+		_small_hub_button_config(actions, "가이드", "_show_ui_guide", "🗺", 46, 44, 10)
+		_small_hub_button_config(actions, "설정", "_show_settings", "⚙", 46, 44, 10)
 	else:
 		_small_hub_button(actions, "도감", "_show_compendium", "📖")
-		_small_hub_button(actions, "가이드", "_show_ui_guide", "🗺")
 		_small_hub_button(actions, "업적", "_show_achievements", "🏆")
 		_small_hub_button(actions, "설정", "_show_settings", "⚙")
-		_small_hub_button(actions, "종료", "_quit_game", "⏻")
+		if not OS.has_feature("web"):
+			_small_hub_button(actions, "종료", "_quit_game", "⏻")
 	return panel
 
 func _make_main_menu_node_summary(compact: bool) -> Control:
@@ -627,7 +734,7 @@ func _make_main_menu_build_panel(compact: bool) -> Control:
 
 func _make_main_menu_content(compact: bool) -> Control:
 	var phone_portrait := _is_phone_portrait_layout()
-	var content: BoxContainer = VBoxContainer.new() if compact or phone_portrait else HBoxContainer.new()
+	var content: BoxContainer = VBoxContainer.new() if phone_portrait else HBoxContainer.new()
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 14)
@@ -637,7 +744,7 @@ func _make_main_menu_content(compact: bool) -> Control:
 		continue_subtitle = "Act %d - %s\n노드 %d / 8" % [int(current_run.get("act", 1)), String(_current_act().get("name", "")), int(current_run.get("current_node_index", 0)) + 1]
 	if not phone_portrait:
 		var left_column := VBoxContainer.new()
-		left_column.custom_minimum_size = Vector2(250 if not compact else 0, 0)
+		left_column.custom_minimum_size = Vector2(220 if not compact else 300, 0)
 		left_column.add_theme_constant_override("separation", 8)
 		content.add_child(left_column)
 		var continue_button := _menu_nav_button(left_column, "이어하기", continue_subtitle, "_continue_run", Color(0.18, 0.34, 0.16, 1.0), "✦", compact)
@@ -646,7 +753,6 @@ func _make_main_menu_content(compact: bool) -> Control:
 		_menu_nav_button(left_column, "카드 컬렉션", "카드 도감과 보유 카드를 확인합니다.", "_show_collection", Color(0.12, 0.14, 0.18, 1.0), "🃏", compact)
 		_menu_nav_button(left_column, "유물", "현재 유물과 해금 유물을 확인합니다.", "_show_compendium", Color(0.12, 0.14, 0.18, 1.0), "🜂", compact)
 		_menu_nav_button(left_column, "메타 강화", "영혼석으로 시작 보너스를 강화합니다.", "_show_meta_upgrade", Color(0.12, 0.14, 0.18, 1.0), "🌿", compact)
-		_menu_nav_button(left_column, "UI 설계 가이드", "8개 핵심 화면과 역할을 한 장으로 봅니다.", "_show_ui_guide", Color(0.12, 0.14, 0.18, 1.0), "🗺", compact)
 
 	var center_column := VBoxContainer.new()
 	center_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -661,16 +767,16 @@ func _make_main_menu_content(compact: bool) -> Control:
 	hero_layer.add_theme_constant_override("margin_right", 14)
 	hero_layer.add_theme_constant_override("margin_bottom", 14)
 	hero_panel.add_child(hero_layer)
-	var hero_stack: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+	var hero_stack: BoxContainer = VBoxContainer.new() if phone_portrait else HBoxContainer.new()
 	hero_stack.add_theme_constant_override("separation", 12)
 	hero_layer.add_child(hero_stack)
 	var hero_text_box := VBoxContainer.new()
-	hero_text_box.custom_minimum_size = Vector2(240 if not compact else 0, 0)
+	hero_text_box.custom_minimum_size = Vector2(220 if not phone_portrait else 0, 0)
 	hero_text_box.add_theme_constant_override("separation", 10)
 	hero_stack.add_child(hero_text_box)
 	var hero_kicker: PanelContainer = ui.make_chip("빌드 중심 로그라이크 덱빌딩", Color(0.14, 0.18, 0.1, 1.0), Color(0.98, 0.92, 0.72, 1.0), 12 if compact else 13)
 	hero_text_box.add_child(hero_kicker)
-	var logo_label := _make_label("CARD\nDRAFT", 34 if phone_portrait else (42 if compact else 60), Color(0.95, 0.92, 0.86, 1.0))
+	var logo_label := _make_label("CARD\nDRAFT", 34 if phone_portrait else (40 if compact else 48), Color(0.96, 0.98, 1.0, 1.0))
 	logo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hero_text_box.add_child(logo_label)
 	var tag_label := _make_label("약한 시작 덱으로 출발해\n이번 런만의 빌드를 완성하세요.", 15 if phone_portrait else (16 if compact else 19), Color(0.88, 0.9, 0.94, 1.0))
@@ -741,7 +847,9 @@ func _make_main_menu_content(compact: bool) -> Control:
 	hero_art_header.add_child(ui.make_chip("적 영웅 HP 0", Color(0.16, 0.09, 0.09, 1.0), Color(1.0, 0.84, 0.82, 1.0), 12 if compact else 13))
 	if phone_portrait:
 		hero_art_header.visible = false
-	var hero_art := _make_art_rect(11, Vector2(360 if not compact else (220 if phone_portrait else 260), 290 if not compact else (180 if phone_portrait else 220)))
+	var hero_art_size := Vector2(420, 440) if compact and not phone_portrait else Vector2(440 if not compact else 220, 460 if not compact else 180)
+	var hero_card: Dictionary = cards_by_id.get("flame_swordsman", {})
+	var hero_art: TextureRect = _make_card_art_rect(hero_card, hero_art_size) if not hero_card.is_empty() else _make_art_rect(8, hero_art_size)
 	hero_art.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hero_art_box.add_child(hero_art)
 	if phone_portrait:
@@ -751,8 +859,10 @@ func _make_main_menu_content(compact: bool) -> Control:
 		center_column.add_child(build_panel)
 	else:
 		center_column.add_child(_make_main_menu_build_panel(compact))
+		if compact:
+			center_column.add_child(_make_main_menu_node_summary(compact))
 
-	if not phone_portrait:
+	if not phone_portrait and not compact:
 		var right_column := VBoxContainer.new()
 		right_column.custom_minimum_size = Vector2(270 if not compact else 0, 0)
 		right_column.add_theme_constant_override("separation", 10)
@@ -1022,11 +1132,11 @@ func _cancel_pending_subscreen() -> void:
 		_:
 			_show_shop()
 
-func _show_run_result(is_win: bool) -> void:
+func _show_run_result(is_win: bool, play_audio: bool = true) -> void:
 	active_screen = "run_result"
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("런 결과", false, "이번 모험이 종료되었습니다. 최종 달성 기록과 통계를 확인하세요.")
-	_retain_screen_controller(RunResultScreenScript.new(self)).build(body, is_win)
+	_retain_screen_controller(RunResultScreenScript.new(self)).build(body, is_win, play_audio)
 
 func _finish_run(is_win: bool) -> void:
 	current_run["result"] = "win" if is_win else "loss"
@@ -1107,6 +1217,8 @@ func _reset_profile() -> void:
 
 func _show_message(message: String, callback_method: String, target: Object = null) -> void:
 	active_screen = "message"
+	active_message_text = message
+	active_message_callback = callback_method
 	_clear_screen()
 	var body: VBoxContainer = _begin_menu_screen("알림", false, "게임 진행에 필요한 안내 메시지입니다.")
 	_retain_screen_controller(MessageScreenScript.new(self)).build(body, message, callback_method, target)
@@ -1114,18 +1226,19 @@ func _show_message(message: String, callback_method: String, target: Object = nu
 func _make_run_summary_panel() -> Control:
 	var compact := _is_compact_layout()
 	var viewport_size := _layout_viewport_size()
+	var phone := _is_mobile_phone_layout()
 	var short_landscape := viewport_size.y <= 760.0 and viewport_size.x > viewport_size.y
-	var panel: PanelContainer = ui.make_surface_panel(Color(0.055, 0.065, 0.075, 0.98), Color(0.25, 0.21, 0.12, 1.0), 1, 10, 6 if short_landscape else 10)
+	var panel: PanelContainer = ui.make_surface_panel(Color(0.055, 0.065, 0.075, 0.98), Color(0.25, 0.21, 0.12, 1.0), 1, 8 if phone else 10, 6 if phone or short_landscape else 10)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var wrapper := VBoxContainer.new()
-	wrapper.add_theme_constant_override("separation", 4 if short_landscape else 6)
+	wrapper.add_theme_constant_override("separation", 4 if phone or short_landscape else 6)
 	panel.add_child(wrapper)
 	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 6)
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wrapper.add_child(row)
-	var act_label: Label = _make_label("Act %d · %s" % [int(current_run.get("act", 1)), String(_current_act().get("name", "런"))], 14 if compact else 15, Color(1.0, 0.88, 0.55, 1.0))
+	var act_label: Label = _make_label("Act %d · %s" % [int(current_run.get("act", 1)), String(_current_act().get("name", "런"))], 13 if phone else (14 if compact else 15), Color(1.0, 0.88, 0.55, 1.0))
 	act_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	act_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(act_label)
@@ -1136,9 +1249,10 @@ func _make_run_summary_panel() -> Control:
 		row.add_child(resource_row)
 	else:
 		resource_row = row
-	var hp_chip: PanelContainer = ui.make_chip("HP %d/%d" % [int(current_run.get("hp", 0)), int(current_run.get("max_hp", 0))], Color(0.34, 0.12, 0.12, 1.0), Color(1.0, 0.82, 0.82, 1.0), 13 if compact else 14)
-	var gold_chip: PanelContainer = ui.make_chip("골드 %s" % _format_large_number(int(current_run.get("gold", 0))), Color(0.38, 0.28, 0.1, 1.0), Color(1.0, 0.9, 0.56, 1.0), 13 if compact else 14)
-	var deck_chip: PanelContainer = ui.make_chip("덱 %d" % (current_run.get("deck_ids", []) as Array).size(), Color(0.12, 0.22, 0.34, 1.0), Color(0.86, 0.92, 1.0, 1.0), 13 if compact else 14)
+	var chip_font_size := 12 if phone else (13 if compact else 14)
+	var hp_chip: PanelContainer = ui.make_chip("HP %d/%d" % [int(current_run.get("hp", 0)), int(current_run.get("max_hp", 0))], Color(0.34, 0.12, 0.12, 1.0), Color(1.0, 0.82, 0.82, 1.0), chip_font_size)
+	var gold_chip: PanelContainer = ui.make_chip("골드 %s" % _format_large_number(int(current_run.get("gold", 0))), Color(0.38, 0.28, 0.1, 1.0), Color(1.0, 0.9, 0.56, 1.0), chip_font_size)
+	var deck_chip: PanelContainer = ui.make_chip("덱 %d" % (current_run.get("deck_ids", []) as Array).size(), Color(0.12, 0.22, 0.34, 1.0), Color(0.86, 0.92, 1.0, 1.0), chip_font_size)
 	for chip in [hp_chip, gold_chip, deck_chip]:
 		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL if compact else Control.SIZE_FILL
 		resource_row.add_child(chip)
@@ -1148,12 +1262,23 @@ func _make_run_summary_panel() -> Control:
 			var relic_def: Dictionary = relic_service.get_relic(String(relic_id))
 			row.add_child(ui.make_relic_badge(relic_def, true))
 	var scores := _current_build_scores()
-	var build_line := _build_status_text(scores).replace("현재 빌드  ", "")
-	var active_line := _active_build_text(scores)
-	var build_label: Label = _make_label("%s  |  %s" % [build_line, active_line], 12 if compact else 13, Color(0.86, 0.9, 0.96, 1.0))
+	var build_summary := "빌드 탐색 중"
+	if phone:
+		var primary_tag := _primary_build_tag(scores)
+		if not primary_tag.is_empty():
+			var primary_meta: Dictionary = _build_tag_meta().get(primary_tag, {})
+			var active_suffix := " · 활성" if int(scores.get(primary_tag, 0)) >= _build_threshold() else ""
+			build_summary = "%s %s %d%s" % [String(primary_meta.get("icon", "")), String(primary_meta.get("name", "")), int(scores.get(primary_tag, 0)), active_suffix]
+	else:
+		var build_line := _build_status_text(scores).replace("현재 빌드  ", "")
+		var active_line := _active_build_text(scores)
+		build_summary = "%s  |  %s" % [build_line, active_line]
+	var build_label: Label = _make_label(build_summary, 12 if compact else 13, Color(0.86, 0.9, 0.96, 1.0))
 	build_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	build_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	build_label.clip_text = phone
 	wrapper.add_child(build_label)
-	if not relics.is_empty() and not short_landscape:
+	if not relics.is_empty() and not short_landscape and not phone:
 		var relic_row := HFlowContainer.new()
 		relic_row.add_theme_constant_override("h_separation", 6)
 		relic_row.add_theme_constant_override("v_separation", 6)
@@ -1757,11 +1882,15 @@ func _is_compact_layout() -> bool:
 	return _is_compact_layout_for()
 
 func _is_main_menu_compact_layout() -> bool:
-	return _is_compact_layout_for(1480.0, 860.0)
+	return _is_compact_layout_for(1400.0)
 
 func _is_phone_portrait_layout() -> bool:
 	var viewport_size: Vector2 = _layout_viewport_size()
 	return viewport_size.x <= 900.0 and viewport_size.y > viewport_size.x
+
+func _is_mobile_phone_layout() -> bool:
+	var viewport_size: Vector2 = _layout_viewport_size()
+	return viewport_size.x <= 600.0 and viewport_size.y > viewport_size.x
 
 func _is_compact_layout_for(width_breakpoint: float = 860.0, height_breakpoint: float = 0.0) -> bool:
 	var viewport_size: Vector2 = _layout_viewport_size()
@@ -1784,10 +1913,12 @@ func _layout_viewport_size() -> Vector2:
 			var override_height := int(parts[1])
 			if override_width > 0 and override_height > 0:
 				return Vector2(override_width, override_height)
+	var window_size: Vector2i = DisplayServer.window_get_size()
+	if DisplayServer.get_name() != "headless" and window_size.x > 0 and window_size.y > 0:
+		return Vector2(window_size.x, window_size.y)
 	var viewport_size := get_viewport_rect().size
 	if viewport_size.x > 0.0 and viewport_size.y > 0.0:
 		return viewport_size
-	var window_size: Vector2i = DisplayServer.window_get_size()
 	if window_size.x > 0 and window_size.y > 0:
 		return Vector2(window_size.x, window_size.y)
 	return Vector2(1920, 1080)
@@ -1807,7 +1938,7 @@ func _begin_menu_screen(title: String, with_profile: bool = false, subtitle: Str
 	var summary: Control = null
 	if with_profile and not current_run.is_empty():
 		summary = _make_run_summary_panel()
-	var body: VBoxContainer = ui.begin_screen(root_box, title, summary, 12, subtitle)
+	var body: VBoxContainer = ui.begin_screen(root_box, title, summary, 10 if _is_mobile_phone_layout() else 12, subtitle, _is_compact_layout())
 	if _should_show_run_escape_actions():
 		body.add_child(_make_run_escape_bar())
 	return body
@@ -1819,17 +1950,18 @@ func _should_show_run_escape_actions() -> bool:
 
 func _make_run_escape_bar() -> PanelContainer:
 	var compact := _is_compact_layout_for(1180.0, 760.0)
-	var phone_stack := _layout_viewport_size().x < 700.0
-	var panel: PanelContainer = ui.make_surface_panel(Color(0.055, 0.065, 0.08, 0.98), Color(0.24, 0.2, 0.12, 1.0), 1, 10, 10)
+	var phone := _is_mobile_phone_layout()
+	var panel: PanelContainer = ui.make_surface_panel(Color(0.055, 0.065, 0.08, 0.98), Color(0.24, 0.2, 0.12, 1.0), 1, 8 if phone else 10, 6 if phone else 10)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row: BoxContainer = VBoxContainer.new() if phone_stack else HBoxContainer.new()
+	var row: BoxContainer = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	panel.add_child(row)
 
-	var hint: Label = _make_label("중간 종료", 12 if compact else 13, Color(1.0, 0.88, 0.55, 1.0))
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(hint)
+	if not phone:
+		var hint: Label = _make_label("런 메뉴", 12 if compact else 13, Color(1.0, 0.88, 0.55, 1.0))
+		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(hint)
 
 	var actions: BoxContainer = HBoxContainer.new()
 	actions.alignment = BoxContainer.ALIGNMENT_END
@@ -1837,18 +1969,20 @@ func _make_run_escape_bar() -> PanelContainer:
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(actions)
 
-	_add_escape_action_button(actions, "메인 메뉴", "_show_main_menu", Color(0.16, 0.2, 0.26, 1.0), compact)
-	_add_escape_action_button(actions, "런 포기", "_abandon_run", Color(0.34, 0.14, 0.14, 1.0), compact)
-	_add_escape_action_button(actions, "게임 종료", "_quit_game", Color(0.18, 0.18, 0.18, 1.0), compact)
+	_add_escape_action_button(actions, "메인 메뉴", "_show_main_menu", Color(0.16, 0.2, 0.26, 1.0), compact, phone)
+	_add_escape_action_button(actions, "런 포기", "_abandon_run", Color(0.34, 0.14, 0.14, 1.0), compact, phone)
+	if not phone and not OS.has_feature("web"):
+		_add_escape_action_button(actions, "게임 종료", "_quit_game", Color(0.18, 0.18, 0.18, 1.0), compact, false)
 	return panel
 
-func _add_escape_action_button(parent: Node, text: String, callback_method: String, color: Color, compact: bool) -> Button:
+func _add_escape_action_button(parent: Node, text: String, callback_method: String, color: Color, compact: bool, phone: bool = false) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = Vector2(96 if compact else 108, 34 if compact else 36)
+	button.custom_minimum_size = Vector2(0 if phone else (96 if compact else 108), 48 if phone else (34 if compact else 36))
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if phone else Control.SIZE_FILL
 	ui.style_button(button, color)
-	button.add_theme_font_size_override("font_size", 12 if compact else 13)
+	button.add_theme_font_size_override("font_size", 13 if phone else (12 if compact else 13))
 	button.pressed.connect(Callable(self, callback_method))
 	parent.add_child(button)
 	return button

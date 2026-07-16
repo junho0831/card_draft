@@ -64,7 +64,7 @@ res://src/core/Main.tscn
 - 전투 화면: `res://src/ui/screens/battle_screen.gd`
 - 공통 UI 스타일: `res://src/ui/styles/ui_styles.gd`
 - 전투 UI 스타일: `res://src/ui/styles/battle_styles.gd`
-- 버튼 룬 장식: `res://src/ui/styles/arcane_button_ornament.gd`
+- 공통 Godot 테마: `res://assets/ui/main_theme.tres`
 - 오디오 매니저: `res://src/services/audio_manager.gd`
 - 런 저장/진행 상태: `res://src/services/run_state.gd`
 - 카드 데이터: `res://data/cards.json`
@@ -73,7 +73,6 @@ res://src/core/Main.tscn
 - 적 데이터: `res://data/enemies.json`
 - Act 데이터: `res://data/acts.json`
 - 직접 제작 효과음: `res://assets/audio/*.wav`
-- 전역 아케인 배경: `res://assets/backgrounds/arcane_battle_table.png`
 - 효과음 생성 스크립트: `res://tools/generate_game_sfx.gd`
 
 ## 효과음
@@ -108,6 +107,8 @@ godot4 --headless -s res://tests/godot/run_tests.gd
 - 카드 효과, 런 페이싱, 메인 플로우 smoke 테스트
 
 UI를 바꾼 경우에만 반응형 캡처를 따로 확인한다.
+
+반응형 기준은 `1920x1080`, `1280x720`, `1024x768`, `800x1280`, 모바일 웹 `390x844`다. 모바일 전투는 필드와 손패 카드 크기를 줄이지 않고 가로 스와이프로 탐색한다.
 
 ```bash
 godot4 --path . -s res://tests/godot/capture_ui_responsive.gd

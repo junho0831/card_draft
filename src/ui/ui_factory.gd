@@ -10,16 +10,17 @@ var card_art_cache := {}
 const COMPACT_BREAKPOINT := 860.0
 const SCREEN_MARGIN := 10.0
 const MIN_RESPONSIVE_WIDTH := 280.0
-const THEME_BG := Color(0.025, 0.032, 0.042, 1.0)
-const THEME_PANEL := Color(0.065, 0.075, 0.085, 0.98)
-const THEME_PANEL_DARK := Color(0.035, 0.045, 0.055, 1.0)
-const THEME_GOLD := Color(0.86, 0.65, 0.28, 1.0)
-const THEME_GOLD_SOFT := Color(1.0, 0.86, 0.52, 1.0)
-const THEME_BLUE := Color(0.12, 0.28, 0.48, 1.0)
-const THEME_GREEN := Color(0.15, 0.3, 0.16, 1.0)
-const THEME_RED := Color(0.42, 0.13, 0.12, 1.0)
-const THEME_TEXT := Color(0.94, 0.96, 0.94, 1.0)
-const THEME_TEXT_MUTED := Color(0.72, 0.76, 0.8, 1.0)
+const THEME_BG := Color(0.018, 0.024, 0.034, 1.0)
+const THEME_PANEL := Color(0.06, 0.072, 0.09, 0.98)
+const THEME_PANEL_DARK := Color(0.032, 0.042, 0.057, 0.98)
+const THEME_GOLD := Color(0.93, 0.68, 0.3, 1.0)
+const THEME_GOLD_SOFT := Color(0.95, 0.97, 1.0, 1.0)
+const THEME_BLUE := Color(0.18, 0.4, 0.76, 1.0)
+const THEME_GREEN := Color(0.12, 0.38, 0.28, 1.0)
+const THEME_RED := Color(0.52, 0.16, 0.2, 1.0)
+const THEME_TEXT := Color(0.94, 0.96, 1.0, 1.0)
+const THEME_TEXT_MUTED := Color(0.58, 0.64, 0.72, 1.0)
+const THEME_BORDER := Color(0.18, 0.23, 0.3, 1.0)
 
 func setup(art_sheet: Texture2D, cols: int, rows: int) -> void:
 	card_art_sheet = art_sheet
@@ -42,7 +43,8 @@ func responsive_width(viewport_width: float, preferred_width: int) -> float:
 	return min(float(preferred_width), max(MIN_RESPONSIVE_WIDTH, viewport_width - (SCREEN_MARGIN * 2.0 + 12.0)))
 
 func apply_root_layout(root: Control, viewport_size: Vector2) -> void:
-	root.custom_minimum_size = Vector2(max(320.0, viewport_size.x - SCREEN_MARGIN * 2.0), 0.0)
+	var margin := 6.0 if viewport_size.x <= 600.0 else SCREEN_MARGIN
+	root.custom_minimum_size = Vector2(min(1480.0, max(300.0, viewport_size.x - margin * 2.0)), 0.0)
 
 func make_responsive_box(compact: bool, separation: int = 14) -> BoxContainer:
 	var box: BoxContainer
@@ -109,14 +111,14 @@ func make_showcase_card(title: String, art_index: int, compact: bool = false) ->
 	return panel
 
 func make_stat_tile(title: String, value: String, color: Color, compact: bool = false) -> PanelContainer:
-	var panel := make_surface_panel(color.darkened(0.04), color.lightened(0.08), 1, 10, 10)
-	panel.custom_minimum_size = Vector2(96 if compact else 126, 68 if compact else 76)
+	var panel := make_surface_panel(color, color.lightened(0.12), 1, 8, 9)
+	panel.custom_minimum_size = Vector2(96 if compact else 120, 58 if compact else 66)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 3)
 	panel.add_child(box)
-	var title_label := make_label(title, 12, Color(0.9, 0.92, 0.94, 1.0))
+	var title_label := make_label(title, 11 if compact else 12, THEME_TEXT_MUTED)
 	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	var value_label := make_label(value, 19 if compact else 20, Color(1.0, 0.98, 0.9, 1.0))
+	var value_label := make_label(value, 18 if compact else 20, THEME_TEXT)
 	value_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	box.add_child(title_label)
 	box.add_child(value_label)
@@ -138,17 +140,17 @@ func make_status_badge(title: String, value: String, color: Color) -> PanelConta
 	return panel
 
 func make_guidance_banner(title: String, value: String, color: Color, compact: bool = false) -> PanelContainer:
-	var panel := make_surface_panel(color.darkened(0.08), Color(0.38, 0.34, 0.18, 1.0), 1, 10, 12)
-	panel.custom_minimum_size = Vector2(0, 54 if compact else 62)
+	var panel := make_surface_panel(color, Color(0.34, 0.5, 0.76, 1.0), 1, 8, 10)
+	panel.custom_minimum_size = Vector2(0, 46 if compact else 52)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 10)
 	panel.add_child(row)
-	var title_label := make_label(title, 12 if compact else 13, Color(1.0, 0.88, 0.55, 1.0))
+	var title_label := make_label(title, 11 if compact else 12, Color(0.48, 0.7, 1.0, 1.0))
 	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title_label.custom_minimum_size = Vector2(82 if compact else 110, 0)
-	var value_label := make_label(value, 16 if compact else 18, Color(1.0, 0.98, 0.86, 1.0))
+	var value_label := make_label(value, 15 if compact else 17, THEME_TEXT)
 	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(title_label)
@@ -156,17 +158,15 @@ func make_guidance_banner(title: String, value: String, color: Color, compact: b
 	return panel
 
 func add_title(parent: Node, text: String) -> void:
-	var title := make_label(text, 40, Color(1.0, 0.88, 0.55, 1.0))
+	var title := make_label(text, 40, THEME_TEXT)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_constant_override("outline_size", 6)
-	title.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.018, 1.0))
 	parent.add_child(title)
 
-func begin_screen(root: Node, title: String, summary: Control = null, spacing: int = 12, subtitle: String = "") -> VBoxContainer:
+func begin_screen(root: Node, title: String, summary: Control = null, spacing: int = 12, subtitle: String = "", compact: bool = false) -> VBoxContainer:
 	var sub := subtitle
 	if sub.is_empty():
 		sub = "지금 무엇을 해야 하는지와 이번 런의 빌드를 확인하세요."
-	root.add_child(make_screen_header(title, sub))
+	root.add_child(make_screen_header(title, sub, compact))
 	if summary != null:
 		root.add_child(summary)
 	var body := VBoxContainer.new()
@@ -221,23 +221,19 @@ func add_menu_button(parent: Node, target: Object, text: String, callback_method
 	return button
 
 func make_panel_container(color: Color) -> PanelContainer:
-	var panel := PanelContainer.new()
-	var style := make_style_box(color, color.lightened(0.14), 1, 10)
-	panel.add_theme_stylebox_override("panel", style)
-	return panel
+	return make_surface_panel(color, color.lightened(0.12), 1, 8, 12)
 
 func make_premium_panel(min_height: int = 0, prominent: bool = false) -> PanelContainer:
-	var border_color := THEME_GOLD if prominent else Color(0.24, 0.21, 0.15, 1.0)
-	var border_width := 2 if prominent else 1
-	var panel := make_surface_panel(THEME_PANEL, border_color, border_width, 12, 16)
+	var border_color := Color(0.42, 0.62, 0.96, 1.0) if prominent else THEME_BORDER
+	var panel := make_surface_panel(THEME_PANEL, border_color, 1, 8, 14)
 	if min_height > 0:
 		panel.custom_minimum_size = Vector2(0, min_height)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return panel
 
 func make_screen_header(title: String, subtitle: String, compact: bool = false) -> PanelContainer:
-	var panel := make_surface_panel(THEME_PANEL_DARK, Color(0.34, 0.27, 0.15, 1.0), 1, 12, 14)
-	panel.custom_minimum_size = Vector2(0, 58 if compact else 66)
+	var panel := make_surface_panel(THEME_PANEL_DARK, THEME_BORDER, 1, 8, 12)
+	panel.custom_minimum_size = Vector2(0, 54 if compact else 62)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -247,11 +243,9 @@ func make_screen_header(title: String, subtitle: String, compact: bool = false) 
 	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_box.add_theme_constant_override("separation", 4)
 	row.add_child(title_box)
-	var title_label := make_label(title, 22 if compact else 26, THEME_GOLD_SOFT)
+	var title_label := make_label(title, 21 if compact else 25, THEME_TEXT)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	title_label.add_theme_color_override("font_outline_color", Color(0.01, 0.012, 0.014, 1.0))
-	title_label.add_theme_constant_override("outline_size", 5)
 	title_box.add_child(title_label)
 	if not subtitle.is_empty():
 		var subtitle_label := make_label(subtitle, 12 if compact else 13, THEME_TEXT_MUTED)
@@ -261,13 +255,13 @@ func make_screen_header(title: String, subtitle: String, compact: bool = false) 
 
 func make_large_action_button(title: String, subtitle: String, icon_text: String, base_color: Color, compact: bool = false) -> Button:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(0, 82 if compact else 96)
+	button.custom_minimum_size = Vector2(0, 70 if compact else 82)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.text = "%s  %s\n%s" % [icon_text, title, subtitle]
 	button.add_theme_font_size_override("font_size", 16 if compact else 18)
 	
-	var accent := base_color.lightened(0.46)
+	var accent := Color(0.46, 0.7, 1.0, 1.0).lerp(base_color.lightened(0.36), 0.3)
 	var style_normal := make_action_button_style(base_color.darkened(0.06), accent, true, 5)
 	style_normal.content_margin_left = 20
 	style_normal.content_margin_top = 12
@@ -275,13 +269,12 @@ func make_large_action_button(title: String, subtitle: String, icon_text: String
 	style_normal.content_margin_bottom = 12
 	
 	var style_hover = style_normal.duplicate()
-	style_hover.bg_color = base_color.lightened(0.08)
+	style_hover.bg_color = style_normal.bg_color.lightened(0.07)
 	style_hover.border_color = accent.lightened(0.14)
-	style_hover.border_width_bottom = 4
 	
 	var style_pressed = style_normal.duplicate()
-	style_pressed.bg_color = base_color.darkened(0.18)
-	style_pressed.shadow_size = 4
+	style_pressed.bg_color = style_normal.bg_color.darkened(0.1)
+	style_pressed.shadow_size = 1
 	style_pressed.shadow_offset = Vector2(0, 1)
 	
 	var style_disabled = style_normal.duplicate()
@@ -295,41 +288,44 @@ func make_large_action_button(title: String, subtitle: String, icon_text: String
 	button.add_theme_color_override("font_color", THEME_TEXT)
 	button.add_theme_color_override("font_disabled_color", Color(0.5, 0.52, 0.56, 1.0))
 	button.add_theme_color_override("font_outline_color", Color(0.01, 0.012, 0.014, 1.0))
-	button.add_theme_constant_override("outline_size", 4)
+	button.add_theme_constant_override("outline_size", 0)
 	_apply_hover_feedback(button)
 	return button
 
 func make_objective_panel(title: String, objective: String, compact: bool = false) -> PanelContainer:
-	var panel := make_surface_panel(Color(0.09, 0.11, 0.08, 0.98), Color(0.48, 0.4, 0.18, 1.0), 1, 10, 12)
+	var panel := make_surface_panel(Color(0.07, 0.1, 0.15, 0.98), Color(0.28, 0.5, 0.82, 1.0), 1, 8, 10)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
 	panel.add_child(box)
-	var title_label := make_label(title, 12 if compact else 13, THEME_GOLD_SOFT)
+	var title_label := make_label(title, 11 if compact else 12, Color(0.48, 0.7, 1.0, 1.0))
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	box.add_child(title_label)
-	var objective_label := make_label(objective, 15 if compact else 17, Color(0.98, 0.96, 0.82, 1.0))
+	var objective_label := make_label(objective, 15 if compact else 17, THEME_TEXT)
 	objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(objective_label)
 	return panel
 
 func make_surface_panel(bg_color: Color, border_color: Color = Color(0.32, 0.35, 0.4, 1.0), border_width: int = 1, radius: int = 10, margins: int = 12) -> PanelContainer:
 	var panel := PanelContainer.new()
-	var style := make_style_box(bg_color, border_color, border_width, min(radius, 8))
+	var surface_base := Color(THEME_PANEL.r, THEME_PANEL.g, THEME_PANEL.b, bg_color.a)
+	var surface_color := surface_base.lerp(bg_color, 0.24)
+	var surface_border := THEME_BORDER.lerp(border_color, 0.34)
+	var style := make_style_box(surface_color, surface_border, border_width, min(radius, 8))
 	style.content_margin_left = margins
 	style.content_margin_top = margins
 	style.content_margin_right = margins
 	style.content_margin_bottom = margins
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.24)
-	style.shadow_size = 8
-	style.shadow_offset = Vector2(0, 3)
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.2)
+	style.shadow_size = 3
+	style.shadow_offset = Vector2(0, 1)
 	panel.add_theme_stylebox_override("panel", style)
 	return panel
 
 func make_fantasy_card_panel(tint: Color, margins: int = 10) -> PanelContainer:
 	var panel := PanelContainer.new()
-	var style := make_style_box(Color(0.055, 0.065, 0.078, 0.98), tint, 2, 8)
+	var style := make_style_box(Color(0.045, 0.055, 0.07, 0.98), tint, 2, 8)
 	style.content_margin_left = margins
 	style.content_margin_top = margins
 	style.content_margin_right = margins
@@ -339,19 +335,17 @@ func make_fantasy_card_panel(tint: Color, margins: int = 10) -> PanelContainer:
 
 func style_card_title(label: Label, compact: bool = false) -> void:
 	label.add_theme_font_size_override("font_size", 13 if compact else 15)
-	label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.82, 1.0))
-	label.add_theme_color_override("font_outline_color", Color(0.07, 0.04, 0.02, 1.0))
-	label.add_theme_constant_override("outline_size", 3 if compact else 4)
+	label.add_theme_color_override("font_color", THEME_TEXT)
+	label.add_theme_constant_override("outline_size", 0)
 
 func style_card_rules(label: Label, compact: bool = false, muted: bool = false) -> void:
 	label.add_theme_font_size_override("font_size", 10 if compact else 12)
-	label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.84, 0.72) if muted else Color(0.98, 0.95, 0.86, 1.0))
-	label.add_theme_color_override("font_outline_color", Color(0.03, 0.025, 0.02, 0.9))
-	label.add_theme_constant_override("outline_size", 2)
+	label.add_theme_color_override("font_color", Color(0.7, 0.75, 0.82, 0.78) if muted else Color(0.9, 0.93, 0.98, 1.0))
+	label.add_theme_constant_override("outline_size", 0)
 
 func make_chip(text: String, bg_color: Color, text_color: Color = Color(0.96, 0.97, 0.94, 1.0), font_size: int = 14) -> PanelContainer:
-	var panel := make_surface_panel(bg_color, bg_color.lightened(0.22), 1, 8, 10)
-	panel.custom_minimum_size = Vector2(0, 44)
+	var panel := make_surface_panel(bg_color, bg_color.lightened(0.2), 1, 7, 7)
+	panel.custom_minimum_size = Vector2(0, 32)
 	var label := make_label(text, font_size, text_color)
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	panel.add_child(label)
@@ -424,22 +418,34 @@ func make_relic_badge(relic: Dictionary, compact: bool = false, show_text: bool 
 
 func make_cost_badge(value: String, compact: bool = false) -> PanelContainer:
 	var size := 32 if compact else 38
-	var panel := make_surface_panel(Color(0.08, 0.24, 0.48, 1.0), Color(0.9, 0.72, 0.32, 1.0), 2, size / 2, 4)
+	var panel := PanelContainer.new()
+	var style := make_style_box(Color(0.12, 0.32, 0.68, 1.0), Color(0.44, 0.7, 1.0, 1.0), 1, 8)
+	style.content_margin_left = 2
+	style.content_margin_top = 2
+	style.content_margin_right = 2
+	style.content_margin_bottom = 2
+	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(size, size)
-	var label := make_label(value, 16 if compact else 19, Color(1.0, 0.96, 0.84, 1.0))
+	var label := make_label(value, 16 if compact else 19, Color(0.96, 0.98, 1.0, 1.0))
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.add_theme_color_override("font_outline_color", Color(0.01, 0.02, 0.04, 1.0))
-	label.add_theme_constant_override("outline_size", 3)
+	label.add_theme_constant_override("outline_size", 0)
 	panel.add_child(label)
 	return panel
 
 func make_stat_badge(value: String, bg_color: Color, compact: bool = false) -> PanelContainer:
-	var panel := make_surface_panel(bg_color, bg_color.lightened(0.2), 1, 8, 6)
+	var panel := PanelContainer.new()
+	var style := make_style_box(bg_color, bg_color.lightened(0.2), 1, 7)
+	style.content_margin_left = 4
+	style.content_margin_top = 2
+	style.content_margin_right = 4
+	style.content_margin_bottom = 2
+	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(42 if compact else 48, 28 if compact else 32)
 	var label := make_label(value, 13 if compact else 15, Color(1.0, 0.96, 0.86, 1.0))
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.02, 1.0))
-	label.add_theme_constant_override("outline_size", 2)
+	label.add_theme_constant_override("outline_size", 0)
 	panel.add_child(label)
 	return panel
 
@@ -449,7 +455,7 @@ func make_style_box(bg_color: Color, border_color: Color, border_width: int = 1,
 func make_action_button_style(bg_color: Color, accent_color: Color, active: bool = false, radius: int = 5) -> StyleBoxFlat:
 	return UI_STYLES.make_action_button_style(bg_color, accent_color, active, radius)
 
-func style_flat_button(button: Button, base_color: Color, accent_color: Color = Color(0.96, 0.82, 0.46, 1.0), font_size: int = 16, outline_size: int = 3) -> void:
+func style_flat_button(button: Button, base_color: Color, accent_color: Color = Color(0.42, 0.68, 1.0, 1.0), font_size: int = 16, outline_size: int = 0) -> void:
 	UI_STYLES.apply_flat_button(button, base_color, accent_color, font_size, outline_size)
 	_apply_hover_feedback(button)
 
@@ -457,12 +463,12 @@ func style_button(button: Button, base_color: Color) -> void:
 	UI_STYLES.apply_button(button, base_color)
 	_apply_hover_feedback(button)
 
-func style_primary_button(button: Button, base_color: Color = Color(0.55, 0.36, 0.1, 1.0)) -> void:
+func style_primary_button(button: Button, base_color: Color = Color(0.16, 0.34, 0.66, 1.0)) -> void:
 	UI_STYLES.apply_primary_button(button, base_color)
 	_apply_hover_feedback(button)
 
 func make_card_frame() -> PanelContainer:
-	var frame := make_fantasy_card_panel(Color(0.88, 0.74, 0.44, 1.0), 10)
+	var frame := make_fantasy_card_panel(Color(0.42, 0.62, 0.9, 1.0), 10)
 	return frame
 
 func make_art_rect(art_index: int, size: Vector2) -> TextureRect:

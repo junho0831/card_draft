@@ -6,8 +6,8 @@ var main: Node
 func _init(_main: Node) -> void:
 	main = _main
 
-func build(body: VBoxContainer, is_win: bool) -> void:
-	if main.audio_manager != null:
+func build(body: VBoxContainer, is_win: bool, play_audio: bool = true) -> void:
+	if play_audio and main.audio_manager != null:
 		main.audio_manager.play_sound("victory" if is_win else "defeat")
 	var compact: bool = _is_run_result_compact_layout()
 	var scores: Dictionary = main._current_build_scores()

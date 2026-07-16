@@ -15,6 +15,7 @@ const RESPONSIVE_VIEWPORTS := [
 	"landscape_1280x720",
 	"landscape_1024x768",
 	"portrait_800x1280",
+	"mobile_390x844",
 ]
 const MIN_PNG_BYTES := 10 * 1024
 
@@ -29,6 +30,7 @@ func _validate_all() -> void:
 				"user://ui_captures_responsive/%s_%s.png" % [viewport_name, capture_name],
 				failures
 			)
+	_validate_capture("user://ui_captures_responsive/mobile_390x844_03b_battle_hand.png", failures)
 	if failures.is_empty():
 		print("PASS responsive UI captures validated")
 		quit(0)

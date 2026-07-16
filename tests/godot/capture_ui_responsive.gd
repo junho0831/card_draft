@@ -16,6 +16,7 @@ const VIEWPORTS := [
 	{"name": "landscape_1280x720", "size": Vector2i(1280, 720)},
 	{"name": "landscape_1024x768", "size": Vector2i(1024, 768)},
 	{"name": "portrait_800x1280", "size": Vector2i(800, 1280)},
+	{"name": "mobile_390x844", "size": Vector2i(390, 844)},
 ]
 
 var output_dir := "user://ui_captures_responsive"
@@ -83,14 +84,19 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	await _wait_for_window_size(viewport_size)
 
 	var main = MAIN_SCENE.instantiate()
+	var initial_layout_size := Vector2i(1280, 720) if viewport_size.y > viewport_size.x else viewport_size
 	main.set_meta("disable_window_mode_changes", true)
-	main.set_meta("layout_viewport_override", viewport_size)
+	main.set_meta("layout_viewport_override", initial_layout_size)
 	main.set_meta("disable_timed_battle_fx", true)
 	root.add_child(main)
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
 	main._clear_run()
 	main._show_main_menu()
+	if initial_layout_size != viewport_size:
+		main.set_meta("layout_viewport_override", viewport_size)
+		main._apply_root_layout()
+		main._on_layout_resize_timeout()
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
 
@@ -106,8 +112,20 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
 	_seed_battle_preview_units(main)
+	if initial_layout_size != viewport_size:
+		var battle_state_preserved: bool = await _exercise_battle_runtime_resize(main, initial_layout_size, viewport_size)
+		if not battle_state_preserved:
+			quit(1)
+			return
 	await _wait_for_capture_frame()
 	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[2]])
+	if viewport_size.x <= 600:
+		main.root_scroll.scroll_vertical = 1000000
+		await _wait_for_capture_frame()
+		await _wait_for_capture_frame()
+		await _capture("%s_03b_battle_hand" % viewport_name)
+		main.root_scroll.scroll_vertical = 0
+		await _wait_for_capture_frame()
 
 	main.current_run["pending_card_reward"] = {
 		"choices": main._roll_card_reward_choices(3, false),
@@ -220,6 +238,44 @@ func _image_has_content(image: Image) -> bool:
 			min_luma = minf(min_luma, luma)
 			max_luma = maxf(max_luma, luma)
 	return max_luma - min_luma > 0.02
+
+func _exercise_battle_runtime_resize(main: Node, wide_size: Vector2i, target_size: Vector2i) -> bool:
+	var before: String = _battle_state_signature(main)
+	for layout_size in [wide_size, target_size]:
+		main.set_meta("layout_viewport_override", layout_size)
+		main._apply_root_layout()
+		main._on_layout_resize_timeout()
+		await _wait_for_capture_frame()
+		await _wait_for_capture_frame()
+	var after: String = _battle_state_signature(main)
+	if before != after:
+		printerr("Battle state changed during responsive rebuild.\nBefore: %s\nAfter: %s" % [before, after])
+		return false
+	return true
+
+func _battle_state_signature(main: Node) -> String:
+	var battle = main.battle_screen
+	if battle == null:
+		return ""
+	return JSON.stringify({
+		"current_player": String(battle.current_player),
+		"selected_attacker": int(battle.selected_attacker),
+		"player_hp": int(battle.player.get("health", 0)),
+		"player_mana": int(battle.player.get("mana", 0)),
+		"player_hand": _card_ids(battle.player.get("hand", [])),
+		"player_field": _card_ids(battle.player.get("field", [])),
+		"opponent_hp": int(battle.opponent.get("health", 0)),
+		"opponent_mana": int(battle.opponent.get("mana", 0)),
+		"opponent_hand": _card_ids(battle.opponent.get("hand", [])),
+		"opponent_field": _card_ids(battle.opponent.get("field", [])),
+	})
+
+func _card_ids(cards: Array) -> Array[String]:
+	var ids: Array[String] = []
+	for card_data in cards:
+		var card: Dictionary = card_data
+		ids.append(String(card.get("id", card.get("name", ""))))
+	return ids
 
 func _seed_battle_preview_units(main: Node) -> void:
 	if main.battle_screen == null:

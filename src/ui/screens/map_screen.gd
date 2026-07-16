@@ -17,8 +17,10 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 
 	body.add_child(main._make_run_summary_panel())
 	var compact: bool = _is_map_compact_layout()
+	var phone: bool = main._is_mobile_phone_layout()
+	var viewport_size: Vector2 = main._layout_viewport_size()
+	var portrait_flow: bool = viewport_size.y > viewport_size.x
 	body.add_child(main.ui.make_guidance_banner("다음 행동", _map_primary_guidance_text(), Color(0.2, 0.24, 0.18, 1.0), compact))
-	body.add_child(_make_map_status_strip(compact))
 
 	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -26,14 +28,19 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	hub.add_theme_constant_override("separation", 10)
 	body.add_child(hub)
 
-	hub.add_child(_make_legend_panel(compact))
-	hub.add_child(_make_map_panel(compact))
-	hub.add_child(_make_objective_panel(compact, act_data))
+	if portrait_flow:
+		hub.add_child(_make_map_panel(compact))
+		hub.add_child(_make_objective_panel(compact, act_data))
+		hub.add_child(_make_legend_panel(compact))
+	else:
+		hub.add_child(_make_legend_panel(compact))
+		hub.add_child(_make_map_panel(compact))
+		hub.add_child(_make_objective_panel(compact, act_data))
 
 	body.add_child(_make_build_direction_panel(compact))
 
 func _is_map_compact_layout() -> bool:
-	return main._is_compact_layout_for(1360.0, 760.0)
+	return main._is_compact_layout_for(1080.0)
 
 func _make_map_status_strip(compact: bool) -> PanelContainer:
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 0.98), Color(0.2, 0.18, 0.12, 1.0), 1, 12, 12)
@@ -48,8 +55,9 @@ func _make_map_status_strip(compact: bool) -> PanelContainer:
 	return panel
 
 func _make_map_panel(compact: bool) -> PanelContainer:
+	var phone: bool = bool(main._is_mobile_phone_layout())
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.055, 0.065, 0.075, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 12)
-	panel.custom_minimum_size = Vector2(0, 300 if compact else 318)
+	panel.custom_minimum_size = Vector2(0, 286 if phone else (300 if compact else 318))
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
@@ -69,14 +77,16 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	progress.autowrap_mode = TextServer.AUTOWRAP_OFF
 	progress.custom_minimum_size = Vector2(96, 0)
 	title_row.add_child(progress)
-	var subtitle: Label = main._make_label("현재 진입 가능한 노드만 밝게 표시됩니다.", 13 if compact else 14, Color(0.8, 0.84, 0.9, 1.0))
+	var subtitle_text := "좌우로 밀어 경로를 보고, 밝은 노드를 누르세요." if phone else "현재 진입 가능한 노드만 밝게 표시됩니다."
+	var subtitle: Label = main._make_label(subtitle_text, 13 if compact else 14, Color(0.8, 0.84, 0.9, 1.0))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(subtitle)
 
 	map_scroll = ScrollContainer.new()
-	map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if phone else ScrollContainer.SCROLL_MODE_DISABLED
 	map_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	map_scroll.custom_minimum_size = Vector2(0, 206 if compact else 220)
+	map_scroll.custom_minimum_size = Vector2(0, 194 if phone else (206 if compact else 220))
+	map_scroll.follow_focus = true
 	map_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	map_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(map_scroll)
@@ -84,7 +94,7 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	map_canvas = Control.new()
 	var step_count: int = max(1, nodes_data.size() - 1)
 	var viewport_width: int = int(main._layout_viewport_size().x)
-	var visible_map_width: int = max(420 if compact else 520, viewport_width - (48 if compact else 420))
+	var visible_map_width: int = max(420 if compact else 520, viewport_width - (20 if phone else (48 if compact else 420)))
 	var min_spacing: int = 60 if compact else 66
 	var max_spacing: int = 116 if compact else 126
 	var node_spacing: int = clampi(int((visible_map_width - 184) / step_count), min_spacing, max_spacing)
@@ -100,6 +110,7 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	return panel
 
 func _make_legend_panel(compact: bool) -> PanelContainer:
+	var phone: bool = bool(main._is_mobile_phone_layout())
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.08, 0.09, 0.11, 0.96), Color(0.16, 0.18, 0.23, 1.0), 1, 12, 14)
 	panel.custom_minimum_size = Vector2(0 if compact else 160, 0)
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -109,8 +120,16 @@ func _make_legend_panel(compact: bool) -> PanelContainer:
 	var title: Label = main._make_label("노드 범례", 16 if compact else 17, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(title)
-	for node_type in ["battle", "elite", "event", "shop", "rest", "boss"]:
-		box.add_child(_make_legend_row(node_type, compact))
+	if phone:
+		var legend_flow := HFlowContainer.new()
+		legend_flow.add_theme_constant_override("h_separation", 6)
+		legend_flow.add_theme_constant_override("v_separation", 6)
+		box.add_child(legend_flow)
+		for node_type in ["battle", "elite", "event", "shop", "rest", "boss"]:
+			legend_flow.add_child(main.ui.make_chip("%s %s" % [_node_icon(node_type), main._node_type_name(node_type)], _node_color(node_type).darkened(0.34), Color(0.94, 0.96, 1.0, 1.0), 11))
+	else:
+		for node_type in ["battle", "elite", "event", "shop", "rest", "boss"]:
+			box.add_child(_make_legend_row(node_type, compact))
 	box.add_child(HSeparator.new())
 	var hint: Label = main._make_label("빛나는 노드만 진입 가능", 12 if compact else 13, Color(0.82, 0.86, 0.92, 1.0))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT

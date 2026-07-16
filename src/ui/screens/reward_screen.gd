@@ -60,8 +60,27 @@ func _make_build_panel(compact: bool) -> PanelContainer:
 	box.add_child(title)
 	var scores: Dictionary = main._current_build_scores()
 	var meta: Dictionary = main._build_tag_meta()
+	var compact_grid: GridContainer = null
+	if compact:
+		compact_grid = GridContainer.new()
+		compact_grid.columns = 3
+		compact_grid.add_theme_constant_override("h_separation", 6)
+		compact_grid.add_theme_constant_override("v_separation", 6)
+		compact_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		box.add_child(compact_grid)
 	for tag in main._valid_build_tags():
 		var tag_meta: Dictionary = meta.get(tag, {})
+		if compact:
+			var tag_color: Color = tag_meta.get("color", Color(0.16, 0.18, 0.22, 1.0))
+			var compact_chip: PanelContainer = main.ui.make_chip(
+				"%s %s  %d" % [String(tag_meta.get("icon", "")), String(tag_meta.get("name", "")), int(scores.get(tag, 0))],
+				tag_color.darkened(0.5),
+				Color(0.9, 0.94, 1.0, 1.0),
+				11
+			)
+			compact_chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			compact_grid.add_child(compact_chip)
+			continue
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
 		box.add_child(row)
@@ -159,9 +178,9 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var growth_plain_text: String = main._plain_build_delta_text(card)
 	var impact_text: String = main._choice_impact_text(card)
 	var frame: PanelContainer = main.ui.make_surface_panel(
-		Color(0.24, 0.2, 0.12, 1.0) if matches_primary else Color(0.065, 0.07, 0.08, 1.0),
-		Color(1.0, 0.78, 0.28, 1.0) if matches_primary else Color(0.38, 0.3, 0.18, 1.0),
-		3 if matches_primary else 1,
+		Color(0.06, 0.085, 0.13, 1.0) if matches_primary else Color(0.055, 0.065, 0.082, 1.0),
+		Color(0.44, 0.7, 1.0, 1.0) if matches_primary else Color(0.24, 0.3, 0.38, 1.0),
+		2 if matches_primary else 1,
 		9,
 		10
 	)
@@ -172,9 +191,9 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	frame.add_child(box)
 
 	if matches_primary:
-		var recommend: PanelContainer = main.ui.make_chip("추천", Color(0.58, 0.36, 0.08, 1.0), Color(1.0, 0.94, 0.62, 1.0), 12)
+		var recommend: PanelContainer = main.ui.make_chip("추천", Color(0.1, 0.28, 0.56, 1.0), Color(0.82, 0.92, 1.0, 1.0), 12)
 		box.add_child(recommend)
-	var reason_badge: PanelContainer = main.ui.make_chip(reason_text, Color(0.12, 0.18, 0.24, 1.0) if not matches_primary else Color(0.28, 0.2, 0.08, 1.0), Color(0.9, 0.96, 1.0, 1.0) if not matches_primary else Color(1.0, 0.92, 0.6, 1.0), 11 if tight else 12)
+	var reason_badge: PanelContainer = main.ui.make_chip(reason_text, Color(0.12, 0.18, 0.24, 1.0) if not matches_primary else Color(0.1, 0.2, 0.36, 1.0), Color(0.9, 0.96, 1.0, 1.0), 11 if tight else 12)
 	box.add_child(reason_badge)
 	var impact_badge: PanelContainer = main.ui.make_chip(
 		impact_text,
@@ -243,7 +262,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(98 if tight else (96 if compact else 110), 30 if tight else 32)
 	if matches_primary:
-		main.ui.style_primary_button(button, Color(0.52, 0.34, 0.1, 1.0))
+		main.ui.style_primary_button(button, Color(0.12, 0.32, 0.66, 1.0))
 	else:
 		main.ui.style_button(button, Color(0.18, 0.34, 0.48, 1.0))
 	button.add_theme_font_size_override("font_size", 12)
