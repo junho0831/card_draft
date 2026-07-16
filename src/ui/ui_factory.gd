@@ -404,7 +404,7 @@ func make_relic_badge(relic: Dictionary, compact: bool = false, show_text: bool 
 	var bg: Color = meta["bg"]
 	var accent: Color = meta["accent"]
 	var panel := make_surface_panel(bg, accent, 1, 8, 8 if compact else 10)
-	panel.custom_minimum_size = Vector2(0, 38 if compact else 44)
+	panel.custom_minimum_size = Vector2((118 if compact else 144) if show_text else 38, 38 if compact else 44)
 	panel.tooltip_text = String(relic.get("text", ""))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -417,6 +417,7 @@ func make_relic_badge(relic: Dictionary, compact: bool = false, show_text: bool 
 		var label := make_label(String(relic.get("name", "유물")), 12 if compact else 13, Color(0.96, 0.94, 1.0, 1.0))
 		label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		label.clip_text = true
+		label.custom_minimum_size = Vector2(72 if compact else 92, 0)
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
 	return panel

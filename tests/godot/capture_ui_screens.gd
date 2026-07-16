@@ -66,8 +66,8 @@ func _capture_all() -> void:
 	main.current_run["pending_event"] = {}
 	main.current_run["pending_shop"] = {}
 	main._show_rest()
-	await process_frame
-	await process_frame
+	for i in range(10):
+		await _wait_for_capture_frame()
 	await _capture("07_rest")
 
 	main.current_run["pending_card_reward"] = {}
@@ -92,6 +92,8 @@ func _capture_all() -> void:
 
 func _capture(file_name: String) -> void:
 	var image: Image = null
+	for i in range(3):
+		await _wait_for_capture_frame()
 	for i in range(12):
 		await _wait_for_capture_frame()
 		var texture := root.get_viewport().get_texture()

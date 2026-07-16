@@ -1159,10 +1159,12 @@ func _show_message(message: String, callback_method: String, target: Object = nu
 
 func _make_run_summary_panel() -> Control:
 	var compact := _is_compact_layout()
-	var panel: PanelContainer = ui.make_surface_panel(Color(0.055, 0.065, 0.075, 0.98), Color(0.25, 0.21, 0.12, 1.0), 1, 10, 10)
+	var viewport_size := _layout_viewport_size()
+	var short_landscape := viewport_size.y <= 760.0 and viewport_size.x > viewport_size.y
+	var panel: PanelContainer = ui.make_surface_panel(Color(0.055, 0.065, 0.075, 0.98), Color(0.25, 0.21, 0.12, 1.0), 1, 10, 6 if short_landscape else 10)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var wrapper := VBoxContainer.new()
-	wrapper.add_theme_constant_override("separation", 6)
+	wrapper.add_theme_constant_override("separation", 4 if short_landscape else 6)
 	panel.add_child(wrapper)
 	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1173,20 +1175,37 @@ func _make_run_summary_panel() -> Control:
 	act_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	act_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(act_label)
-	row.add_child(ui.make_chip("HP %d/%d" % [int(current_run.get("hp", 0)), int(current_run.get("max_hp", 0))], Color(0.34, 0.12, 0.12, 1.0), Color(1.0, 0.82, 0.82, 1.0), 13 if compact else 14))
-	row.add_child(ui.make_chip("골드 %s" % _format_large_number(int(current_run.get("gold", 0))), Color(0.38, 0.28, 0.1, 1.0), Color(1.0, 0.9, 0.56, 1.0), 13 if compact else 14))
-	row.add_child(ui.make_chip("덱 %d" % (current_run.get("deck_ids", []) as Array).size(), Color(0.12, 0.22, 0.34, 1.0), Color(0.86, 0.92, 1.0, 1.0), 13 if compact else 14))
+	var resource_row: BoxContainer = HBoxContainer.new()
+	resource_row.add_theme_constant_override("separation", 6)
+	resource_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if compact:
+		row.add_child(resource_row)
+	else:
+		resource_row = row
+	var hp_chip: PanelContainer = ui.make_chip("HP %d/%d" % [int(current_run.get("hp", 0)), int(current_run.get("max_hp", 0))], Color(0.34, 0.12, 0.12, 1.0), Color(1.0, 0.82, 0.82, 1.0), 13 if compact else 14)
+	var gold_chip: PanelContainer = ui.make_chip("골드 %s" % _format_large_number(int(current_run.get("gold", 0))), Color(0.38, 0.28, 0.1, 1.0), Color(1.0, 0.9, 0.56, 1.0), 13 if compact else 14)
+	var deck_chip: PanelContainer = ui.make_chip("덱 %d" % (current_run.get("deck_ids", []) as Array).size(), Color(0.12, 0.22, 0.34, 1.0), Color(0.86, 0.92, 1.0, 1.0), 13 if compact else 14)
+	for chip in [hp_chip, gold_chip, deck_chip]:
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL if compact else Control.SIZE_FILL
+		resource_row.add_child(chip)
+	var relics: Array = current_run.get("relic_ids", [])
+	if short_landscape:
+		for relic_id in relics:
+			var relic_def: Dictionary = relic_service.get_relic(String(relic_id))
+			row.add_child(ui.make_relic_badge(relic_def, true))
 	var scores := _current_build_scores()
 	var build_line := _build_status_text(scores).replace("현재 빌드  ", "")
 	var active_line := _active_build_text(scores)
 	var build_label: Label = _make_label("%s  |  %s" % [build_line, active_line], 12 if compact else 13, Color(0.86, 0.9, 0.96, 1.0))
 	build_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	wrapper.add_child(build_label)
-	var relics: Array = current_run.get("relic_ids", [])
-	if not relics.is_empty():
-		var relic_row = HBoxContainer.new()
-		relic_row.add_theme_constant_override("separation", 6)
-		var relic_title = _make_label("보유 유물:", 12 if compact else 13, Color(0.8, 0.8, 0.8, 1.0))
+	if not relics.is_empty() and not short_landscape:
+		var relic_row := HFlowContainer.new()
+		relic_row.add_theme_constant_override("h_separation", 6)
+		relic_row.add_theme_constant_override("v_separation", 6)
+		var relic_title := _make_label("보유 유물", 12 if compact else 13, Color(0.8, 0.8, 0.8, 1.0))
+		relic_title.autowrap_mode = TextServer.AUTOWRAP_OFF
+		relic_title.custom_minimum_size = Vector2(66 if compact else 76, 38 if compact else 44)
 		relic_row.add_child(relic_title)
 		for relic_id in relics:
 			var relic_def = relic_service.get_relic(String(relic_id))
@@ -1846,9 +1865,10 @@ func _should_show_run_escape_actions() -> bool:
 
 func _make_run_escape_bar() -> PanelContainer:
 	var compact := _is_compact_layout_for(1180.0, 760.0)
+	var phone_stack := _layout_viewport_size().x < 700.0
 	var panel: PanelContainer = ui.make_surface_panel(Color(0.055, 0.065, 0.08, 0.98), Color(0.24, 0.2, 0.12, 1.0), 1, 10, 10)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+	var row: BoxContainer = VBoxContainer.new() if phone_stack else HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	panel.add_child(row)
 

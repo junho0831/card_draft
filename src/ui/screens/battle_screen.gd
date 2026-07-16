@@ -1937,6 +1937,11 @@ func _build_battle_ui() -> void:
 	bottom_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom_row.add_theme_constant_override("separation", 8 if tight else 10)
 	center_column.add_child(bottom_row)
+	var bottom_action_panel = _make_battle_action_panel(compact)
+	bottom_action_panel.custom_minimum_size = Vector2(220 if not compact else 0, 0)
+	bottom_action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_END
+	if compact:
+		bottom_row.add_child(bottom_action_panel)
 
 	var hand_panel: PanelContainer = main.ui.make_surface_panel(Color(0.06, 0.07, 0.09, 1.0), Color(0.22, 0.18, 0.1, 1.0), 1, 12, 10)
 	hand_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1960,10 +1965,8 @@ func _build_battle_ui() -> void:
 	hand_box.mouse_filter = Control.MOUSE_FILTER_PASS
 	hand_box_wrap.add_child(hand_box)
 
-	var bottom_action_panel = _make_battle_action_panel(compact)
-	bottom_action_panel.custom_minimum_size = Vector2(220 if not compact else 0, 0)
-	bottom_action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_END
-	bottom_row.add_child(bottom_action_panel)
+	if not compact:
+		bottom_row.add_child(bottom_action_panel)
 
 	battle_root.add_child(_make_detail_toggle_row(compact))
 	detail_panel = _make_battle_detail_panel(compact)

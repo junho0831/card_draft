@@ -140,8 +140,8 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	main.current_run["pending_event"] = {}
 	main.current_run["pending_shop"] = {}
 	main._show_rest()
-	await _wait_for_capture_frame()
-	await _wait_for_capture_frame()
+	for i in range(10):
+		await _wait_for_capture_frame()
 	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[6]])
 
 	main.current_run["pending_card_reward"] = {}
@@ -159,6 +159,8 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 
 func _capture(file_name: String) -> void:
 	var image: Image = null
+	for i in range(3):
+		await _wait_for_capture_frame()
 	for i in range(30):
 		await _wait_for_capture_frame()
 		var texture := root.get_viewport().get_texture()

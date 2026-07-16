@@ -29,13 +29,13 @@
 ```text
 window/size/viewport_width=1920
 window/size/viewport_height=1080
-window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
+window/stretch/mode="disabled"
 ```
 
 의도:
 
-- 기준 해상도는 1920x1080으로 둔다.
+- Control 기반 UI가 창의 실제 픽셀 크기로 반응하도록 stretch를 비활성화한다.
+- 기본 창 크기는 1920x1080으로 두되 1280x720, 1024x768, 800x1280에서는 각 해상도에 맞는 레이아웃을 직접 사용한다.
 - 화면이 커지면 UI가 확장된다.
 - 화면 비율이 달라도 캔버스가 잘리지 않게 한다.
 

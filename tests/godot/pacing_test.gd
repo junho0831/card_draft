@@ -47,7 +47,8 @@ func _test_intro_enemy_is_fast_to_clear() -> void:
 		var enemy: Dictionary = raw_enemy
 		if String(enemy.get("id", "")) == "goblin_raider":
 			_assert_eq(int(enemy.get("base_hp", 0)), 8, "intro enemy stays short enough for the first guided battle")
-			_assert_true((enemy.get("act_pool", []) as Array).has(1), "intro enemy remains available in act 1")
+			var act_pool: Array = enemy.get("act_pool", [])
+			_assert_true(act_pool.any(func(act): return int(act) == 1), "intro enemy remains available in act 1")
 			return
 	_failures.append("intro enemy goblin_raider should exist")
 
