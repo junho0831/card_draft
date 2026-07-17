@@ -44,7 +44,11 @@ func responsive_width(viewport_width: float, preferred_width: int) -> float:
 
 func apply_root_layout(root: Control, viewport_size: Vector2) -> void:
 	var margin := 6.0 if viewport_size.x <= 600.0 else SCREEN_MARGIN
-	root.custom_minimum_size = Vector2(min(1480.0, max(300.0, viewport_size.x - margin * 2.0)), 0.0)
+	var available_width := maxf(300.0, viewport_size.x - margin * 2.0)
+	var target_width := available_width
+	if viewport_size.x >= 1600.0:
+		target_width = minf(2200.0, available_width * 0.94)
+	root.custom_minimum_size = Vector2(target_width, 0.0)
 
 func make_responsive_box(compact: bool, separation: int = 14) -> BoxContainer:
 	var box: BoxContainer

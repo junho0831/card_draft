@@ -2,6 +2,7 @@ extends RefCounted
 
 const MAIN_SCENE := preload("res://src/core/Main.tscn")
 const RewardScreenScript := preload("res://src/ui/screens/reward_screen.gd")
+const BattleObjectiveServiceScript := preload("res://src/battle/battle_objective_service.gd")
 
 var _failures: Array[String] = []
 var _count := 0
@@ -15,6 +16,8 @@ func run() -> Dictionary:
 	tree.root.add_child(main)
 
 	_test_boots_to_main_menu(main)
+	_test_content_scaling(main)
+	_test_battle_objective_service()
 	_test_run_start_and_battle_entry(main)
 	_test_battle_ui_defaults(main)
 	_test_race_powers(main)
@@ -31,7 +34,7 @@ func run() -> Dictionary:
 	main._clear_screen()
 	main._clear_run()
 	tree.root.remove_child(main)
-	main.free()
+	main.queue_free()
 
 	return {
 		"count": _count,
@@ -46,6 +49,31 @@ func _test_boots_to_main_menu(main: Node) -> void:
 	_assert_eq(int(main.player_profile.get("battle_tutorial_stage", -1)), 0, "battle tutorial starts at stage 0")
 	_assert_true(main.audio_manager.streams.has("impact_heavy"), "audio manager provides heavy impact sound")
 	_assert_true(main.audio_manager.streams.has("victory_burst"), "audio manager provides victory burst sound")
+	var sfx_bus := AudioServer.get_bus_index(&"SFX")
+	_assert_true(sfx_bus >= 0, "audio manager creates a dedicated SFX bus")
+	_assert_true(sfx_bus >= 0 and AudioServer.get_bus_effect_count(sfx_bus) > 0, "SFX bus includes a limiter")
+
+func _test_content_scaling(main: Node) -> void:
+	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/mode", "")), "canvas_items", "project uses Canvas Items stretch mode")
+	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/aspect", "")), "expand", "project uses Expand stretch aspect")
+	_assert_eq(main._layout_size_for_physical_size(Vector2(390, 844)), Vector2(390, 844), "phone layout keeps native logical pixels")
+	_assert_eq(main._layout_size_for_physical_size(Vector2(800, 1280)), Vector2(800, 1280), "tablet layout keeps native logical pixels")
+	var full_hd_layout: Vector2 = main._layout_size_for_physical_size(Vector2(1920, 1080))
+	_assert_true(is_equal_approx(full_hd_layout.x, 1600.0) and is_equal_approx(full_hd_layout.y, 900.0), "full HD caps automatic UI scale at 1.2")
+	_assert_true(is_equal_approx(main._content_scale_factor_for_physical_size(Vector2(1920, 1080)), 0.8), "full HD applies the capped Canvas Items factor")
+	var ultrawide_layout: Vector2 = main._layout_size_for_physical_size(Vector2(2560, 1080))
+	_assert_true(is_equal_approx(ultrawide_layout.x, 2133.3333) and is_equal_approx(ultrawide_layout.y, 900.0), "ultrawide keeps extra horizontal layout space")
+
+func _test_battle_objective_service() -> void:
+	var service = BattleObjectiveServiceScript.new()
+	var combo: Dictionary = service.create_objective(1, "normal", false)
+	_assert_eq(String(combo.get("id", "")), "combo", "objective seed selects a deterministic challenge")
+	_assert_true(not service.record_event(combo, "combo", 1), "combo objective stays pending below target")
+	_assert_true(service.record_event(combo, "combo", 2), "combo objective completes at two cards")
+	_assert_true(String(service.status_text(combo)).contains("+10G"), "completed objective exposes its gold reward")
+	var untouched: Dictionary = service.create_objective(2, "normal", false)
+	service.record_event(untouched, "hero_damage", 1)
+	_assert_true(not service.resolve_victory(untouched), "taking hero damage fails the untouched objective")
 
 func _test_run_start_and_battle_entry(main: Node) -> void:
 	var run_before_selection: Dictionary = main.current_run.duplicate(true)
@@ -92,6 +120,8 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	_assert_true(battle.race_power_button != null, "battle shows the race power button")
 	_assert_true(battle.end_turn_button != null, "battle keeps end turn button visible")
 	_assert_true(battle.battle_fx_layer != null, "battle mounts the combat fx layer")
+	_assert_true(not Dictionary(battle.battle_state.get("battle_objective", {})).is_empty(), "battle creates one optional objective")
+	_assert_true(battle.battle_objective_label != null, "battle displays objective progress beside guidance")
 	battle._dismiss_battle_tutorial()
 	_assert_eq(int(main.player_profile.get("battle_tutorial_stage", -1)), 1, "dismissing tutorial advances tutorial stage")
 	_assert_true(not bool(battle.tutorial_panel.visible), "dismissing tutorial hides panel")
@@ -161,6 +191,8 @@ func _test_race_powers(main: Node) -> void:
 	battle._reset_battle_state()
 	battle._on_race_power_pressed()
 	_assert_true(bool(battle.battle_state.get("race_power_used", false)), "human power is marked used")
+	_assert_true(bool(Dictionary(battle.battle_state.get("battle_objective", {})).get("completed", false)), "first battle power completes its teaching objective")
+	_assert_true(not Dictionary(main.current_run.get("battle_snapshot", {})).get("battle_objective", {}).is_empty(), "battle snapshot preserves objective progress")
 	_assert_eq(battle.player.field.size(), 2, "human power summons one guard")
 	_assert_eq(int(battle.player.field[0].get("attack", 0)), 2, "human power buffs existing ally attack")
 	_assert_true(bool(battle.player.field[1].get("can_attack", false)), "human guard can attack immediately")

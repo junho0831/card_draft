@@ -33,6 +33,8 @@ const UiFactoryScript := preload("res://src/ui/ui_factory.gd")
 const AudioManagerScript := preload("res://src/services/audio_manager.gd")
 const CARD_ART_COLS := 4
 const CARD_ART_ROWS := 3
+const BASE_VIEWPORT_SIZE := Vector2(1280.0, 720.0)
+const MAX_AUTO_UI_SCALE := 1.2
 
 var card_db
 var deck_service
@@ -61,6 +63,7 @@ var pending_race_selection_id := "human"
 
 var root_box: VBoxContainer
 var root_scroll: ScrollContainer
+var root_center: CenterContainer
 var modal_layer: Control
 var battle_cutscene
 var layout_resize_timer: Timer
@@ -75,6 +78,7 @@ func _configure_runtime_performance() -> void:
 
 func _ready() -> void:
 	_configure_runtime_performance()
+	_configure_content_scale()
 	card_db = CardDatabaseScript.new()
 	deck_service = DeckServiceScript.new()
 	enemy_service = EnemyServiceScript.new()
@@ -176,10 +180,16 @@ func _build_base_ui() -> void:
 	modal_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(modal_layer)
 
+	root_center = CenterContainer.new()
+	root_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root_center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	root_scroll.add_child(root_center)
+
 	root_box = VBoxContainer.new()
 	root_box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	root_box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root_box.add_theme_constant_override("separation", 12)
-	root_scroll.add_child(root_box)
+	root_center.add_child(root_box)
 	_apply_root_layout()
 
 	battle_cutscene = BATTLE_CUTSCENE_SCENE.instantiate()
@@ -201,13 +211,14 @@ func _on_window_size_changed() -> void:
 
 func _layout_signature(viewport_size: Vector2) -> String:
 	var portrait := viewport_size.y > viewport_size.x
-	return "%s|%s|%s|%s|%s|%s|%s" % [
+	return "%s|%s|%s|%s|%s|%s|%s|%s" % [
 		"portrait" if portrait else "landscape",
 		"mobile" if portrait and viewport_size.x <= 600.0 else "wide",
 		"phone" if portrait and viewport_size.x <= 900.0 else "non_phone",
 		"compact860" if viewport_size.x < 860.0 else "wide860",
 		"compact1080" if viewport_size.x < 1080.0 else "wide1080",
 		"compact1400" if viewport_size.x < 1400.0 else "wide1400",
+		"desktop" if viewport_size.x < 1600.0 else "wide_desktop",
 		"short" if viewport_size.y <= 760.0 else "tall",
 	]
 
@@ -289,6 +300,7 @@ func _restore_scroll_after_layout(scroll_ratio: float) -> void:
 func _apply_root_layout() -> void:
 	if root_box == null:
 		return
+	_configure_content_scale()
 	var viewport_size := _layout_viewport_size()
 	if root_scroll != null:
 		var outer_margin := 4.0 if viewport_size.x <= 600.0 else 8.0
@@ -296,6 +308,8 @@ func _apply_root_layout() -> void:
 		root_scroll.offset_top = outer_margin
 		root_scroll.offset_right = -outer_margin
 		root_scroll.offset_bottom = -outer_margin
+		if root_center != null:
+			root_center.custom_minimum_size = Vector2(maxf(300.0, viewport_size.x - outer_margin * 2.0), 0.0)
 	ui.apply_root_layout(root_box, viewport_size)
 
 
@@ -1329,10 +1343,11 @@ func _make_run_summary_panel() -> Control:
 	act_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	act_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(act_label)
-	var resource_row: BoxContainer = HBoxContainer.new()
-	resource_row.add_theme_constant_override("separation", 6)
-	resource_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var resource_row: BoxContainer
 	if compact:
+		resource_row = HBoxContainer.new()
+		resource_row.add_theme_constant_override("separation", 6)
+		resource_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(resource_row)
 	else:
 		resource_row = row
@@ -1990,7 +2005,7 @@ func _is_compact_layout() -> bool:
 	return _is_compact_layout_for()
 
 func _is_main_menu_compact_layout() -> bool:
-	return _is_compact_layout_for(1400.0)
+	return _is_compact_layout_for(1700.0)
 
 func _is_phone_portrait_layout() -> bool:
 	var viewport_size: Vector2 = _layout_viewport_size()
@@ -2006,7 +2021,7 @@ func _is_compact_layout_for(width_breakpoint: float = 860.0, height_breakpoint: 
 		return true
 	return height_breakpoint > 0.0 and viewport_size.y < height_breakpoint
 
-func _layout_viewport_size() -> Vector2:
+func _physical_viewport_size() -> Vector2:
 	if has_meta("layout_viewport_override"):
 		var layout_override: Variant = get_meta("layout_viewport_override")
 		if layout_override is Vector2i:
@@ -2022,14 +2037,38 @@ func _layout_viewport_size() -> Vector2:
 			if override_width > 0 and override_height > 0:
 				return Vector2(override_width, override_height)
 	var window_size: Vector2i = DisplayServer.window_get_size()
-	if DisplayServer.get_name() != "headless" and window_size.x > 0 and window_size.y > 0:
+	if window_size.x > 0 and window_size.y > 0:
 		return Vector2(window_size.x, window_size.y)
 	var viewport_size := get_viewport_rect().size
 	if viewport_size.x > 0.0 and viewport_size.y > 0.0:
 		return viewport_size
-	if window_size.x > 0 and window_size.y > 0:
-		return Vector2(window_size.x, window_size.y)
-	return Vector2(1920, 1080)
+	return BASE_VIEWPORT_SIZE
+
+func _native_canvas_scale_for_physical_size(physical_size: Vector2) -> float:
+	if physical_size.x <= 0.0 or physical_size.y <= 0.0:
+		return 1.0
+	return minf(physical_size.x / BASE_VIEWPORT_SIZE.x, physical_size.y / BASE_VIEWPORT_SIZE.y)
+
+func _content_scale_factor_for_physical_size(physical_size: Vector2) -> float:
+	var native_scale := _native_canvas_scale_for_physical_size(physical_size)
+	if native_scale <= 0.0:
+		return 1.0
+	return _render_scale_for_physical_size(physical_size) / native_scale
+
+func _render_scale_for_physical_size(physical_size: Vector2) -> float:
+	return clampf(_native_canvas_scale_for_physical_size(physical_size), 1.0, MAX_AUTO_UI_SCALE)
+
+func _layout_size_for_physical_size(physical_size: Vector2) -> Vector2:
+	return physical_size / _render_scale_for_physical_size(physical_size)
+
+func _layout_viewport_size() -> Vector2:
+	return _layout_size_for_physical_size(_physical_viewport_size())
+
+func _configure_content_scale() -> void:
+	var game_window := get_window()
+	if game_window == null:
+		return
+	game_window.content_scale_factor = _content_scale_factor_for_physical_size(_physical_viewport_size())
 
 func _apply_window_mode() -> void:
 	if DisplayServer.get_name() == "headless" or bool(get_meta("disable_window_mode_changes", false)):

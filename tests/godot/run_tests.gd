@@ -31,6 +31,8 @@ func _run_all_tests() -> void:
 	if failures.is_empty():
 		print("PASS %d assertions" % total)
 		_restore_profile()
+		await process_frame
+		await process_frame
 		quit(0)
 		return
 		
@@ -38,6 +40,8 @@ func _run_all_tests() -> void:
 	for failure in failures:
 		printerr("- %s" % failure)
 	_restore_profile()
+	await process_frame
+	await process_frame
 	quit(1)
 
 func _isolate_profile() -> void:

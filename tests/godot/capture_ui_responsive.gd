@@ -21,6 +21,7 @@ const VIEWPORTS := [
 ]
 
 var output_dir := "user://ui_captures_responsive"
+var capture_failed := false
 
 func _init() -> void:
 	call_deferred("_run_capture")
@@ -38,6 +39,9 @@ func _run_capture() -> void:
 		var viewport_name := String(args[single_index + 1])
 		var viewport_size := Vector2i(int(args[single_index + 2]), int(args[single_index + 3]))
 		await _capture_suite_for_viewport(viewport_name, viewport_size)
+		if capture_failed:
+			quit(1)
+			return
 		print("Responsive UI captures saved to %s" % global_dir)
 		quit(0)
 		return
@@ -101,6 +105,10 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
 
+	if not _validate_wide_root_layout(main, viewport_size, "main_menu"):
+		capture_failed = true
+		quit(1)
+		return
 	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[0]])
 
 	main._start_new_run()
@@ -121,9 +129,30 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	if initial_layout_size != viewport_size:
 		var battle_state_preserved: bool = await _exercise_battle_runtime_resize(main, initial_layout_size, viewport_size)
 		if not battle_state_preserved:
+			capture_failed = true
+			quit(1)
+			return
+	if viewport_size.y > viewport_size.x and viewport_size.x <= 900 and main.battle_screen != null:
+		var hand_before := _hand_slot_signature(main.battle_screen.player.get("hand", []))
+		var hand_count_before := (main.battle_screen.player.get("hand", []) as Array).size()
+		main.battle_screen._on_hand_card_pressed(0)
+		await _wait_for_capture_frame()
+		await _wait_for_capture_frame()
+		var hand_after := _hand_slot_signature(main.battle_screen.player.get("hand", []))
+		if hand_count_before != (main.battle_screen.player.get("hand", []) as Array).size() or hand_before != hand_after:
+			printerr("First touch changed hand contents or visual slots before confirmation @ %s." % viewport_name)
+			capture_failed = true
 			quit(1)
 			return
 	await _wait_for_capture_frame()
+	if not _validate_wide_root_layout(main, viewport_size, "battle"):
+		capture_failed = true
+		quit(1)
+		return
+	if not _validate_landscape_battle_actions(main, viewport_size):
+		capture_failed = true
+		quit(1)
+		return
 	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[3]])
 	if viewport_size.x <= 600:
 		main.root_scroll.scroll_vertical = 1000000
@@ -190,6 +219,7 @@ func _capture(file_name: String) -> void:
 		var texture := root.get_viewport().get_texture()
 		if texture == null:
 			printerr("Viewport texture is unavailable for %s. Run this capture script without --headless." % file_name)
+			capture_failed = true
 			quit(1)
 			return
 		image = texture.get_image()
@@ -197,17 +227,54 @@ func _capture(file_name: String) -> void:
 			break
 	if image == null:
 		printerr("Viewport image is unavailable for %s. Run this capture script without --headless." % file_name)
+		capture_failed = true
 		quit(1)
 		return
 	if not _image_has_content(image):
 		printerr("Viewport image has no rendered UI content for %s." % file_name)
+		capture_failed = true
 		quit(1)
 		return
 	var path := "%s/%s.png" % [output_dir, file_name]
 	var err := image.save_png(path)
 	if err != OK:
 		printerr("Failed to save %s: %s" % [path, error_string(err)])
+		capture_failed = true
 		quit(1)
+
+func _validate_wide_root_layout(main: Node, viewport_size: Vector2i, screen_name: String) -> bool:
+	if viewport_size.x < 1600:
+		return true
+	var root_box := main.root_box as Control
+	if root_box == null:
+		printerr("Root content is unavailable for %s @ %s." % [screen_name, str(viewport_size)])
+		return false
+	var render_scale: float = main._render_scale_for_physical_size(Vector2(viewport_size))
+	var rendered_position := root_box.global_position * render_scale
+	var rendered_size := root_box.size * render_scale
+	var left_gutter := rendered_position.x
+	var right_gutter := float(viewport_size.x) - (rendered_position.x + rendered_size.x)
+	if rendered_size.x < float(viewport_size.x) * 0.88:
+		printerr("Wide root uses too little width for %s @ %s: %.1f." % [screen_name, str(viewport_size), rendered_size.x])
+		return false
+	if absf(left_gutter - right_gutter) > 24.0:
+		printerr("Wide root is not centered for %s @ %s: left %.1f, right %.1f." % [screen_name, str(viewport_size), left_gutter, right_gutter])
+		return false
+	return true
+
+func _validate_landscape_battle_actions(main: Node, viewport_size: Vector2i) -> bool:
+	if viewport_size.y > viewport_size.x or viewport_size.x < 1280:
+		return true
+	if main.battle_screen == null or main.battle_screen.end_turn_button == null:
+		printerr("Battle action controls are unavailable @ %s." % str(viewport_size))
+		return false
+	var end_turn_button := main.battle_screen.end_turn_button as Control
+	var render_scale: float = main._render_scale_for_physical_size(Vector2(viewport_size))
+	var rendered_bottom := (end_turn_button.global_position.y + end_turn_button.size.y) * render_scale
+	if rendered_bottom > float(viewport_size.y) - 4.0:
+		printerr("End turn action is below the first screen @ %s: bottom %.1f." % [str(viewport_size), rendered_bottom])
+		return false
+	return true
 
 func _wait_for_window_size(viewport_size: Vector2i) -> void:
 	for i in range(16):
@@ -282,6 +349,13 @@ func _card_ids(cards: Array) -> Array[String]:
 		var card: Dictionary = card_data
 		ids.append(String(card.get("id", card.get("name", ""))))
 	return ids
+
+func _hand_slot_signature(cards: Array) -> String:
+	var parts: Array[String] = []
+	for card_data in cards:
+		var card: Dictionary = card_data
+		parts.append("%s:%d" % [String(card.get("id", "")), int(card.get("_hand_slot", -1))])
+	return "|".join(parts)
 
 func _seed_battle_preview_units(main: Node) -> void:
 	if main.battle_screen == null:

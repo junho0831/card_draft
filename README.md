@@ -18,9 +18,13 @@
   - 언데드: 사망·소환 중심, `죽음의 계약`으로 가장 약한 아군을 영웅 피해와 해골로 전환
   - 세력 필살기는 마나 없이 전투당 1회 사용하며 전투 저장에도 사용 여부를 기록
 - 전투 조작감
-  - 손패 카드는 고정 슬롯 기반으로 배치되어 카드를 사용해도 남은 카드가 매번 한쪽으로 밀리지 않음
-  - 카드 hover 시 확대, 회전 복원, 보드 프리뷰, 간단 툴팁을 함께 표시
-  - 공격/소환/처치/연계 순간에는 플로팅 텍스트, 화면 흔들림, 직접 제작한 효과음을 사용
+	- 손패 카드는 고정 슬롯 기반으로 배치되어 카드를 사용해도 남은 카드가 매번 한쪽으로 밀리지 않음
+	- 카드 hover 시 확대, 회전 복원, 보드 프리뷰, 간단 툴팁을 함께 표시
+	- `900px` 이하 세로 화면은 가로 레일을 사용하며 첫 탭으로 중앙 선택·확대, 두 번째 탭으로 카드 사용
+	- 공격/소환/처치/연계 순간에는 플로팅 텍스트, 화면 흔들림, 직접 제작한 효과음을 사용
+- 짧은 전투 도전
+	- 전투마다 `필살기 사용`, `2연계`, `영웅 피해 없이 승리` 중 하나만 표시
+	- 달성 후 승리하면 일반 전투 10G, 보스 전투 15G를 추가로 획득
 - 빌드 체감
   - 전투 중 같은 활성 빌드 태그 카드를 이어 쓰면 연계 카운터가 표시되고 추가 효과가 발동
   - 보상 화면은 `바로 활성`, `연계 카드 확보`, `활성까지 N`, `활성 후 효과`를 표시
@@ -71,6 +75,7 @@ res://src/core/Main.tscn
 - 공통 UI 스타일: `res://src/ui/styles/ui_styles.gd`
 - 전투 UI 스타일: `res://src/ui/styles/battle_styles.gd`
 - 전투 충격/승리 FX: `res://src/ui/effects/battle_fx_layer.gd`
+- 전투 도전 로직: `res://src/battle/battle_objective_service.gd`
 - 공통 Godot 테마: `res://assets/ui/main_theme.tres`
 - 오디오 매니저: `res://src/services/audio_manager.gd`
 - 런 저장/진행 상태: `res://src/services/run_state.gd`
@@ -84,7 +89,7 @@ res://src/core/Main.tscn
 
 ## 효과음
 
-전투/버튼 효과음은 Godot 합성식으로 직접 생성한 44.1kHz 16-bit mono WAV 파일을 사용한다. 카드 마찰음, 가죽 착지음, 금속 타격음, 저역 충격을 역할별로 나누어 전자음처럼 들리지 않게 구성한다.
+전투/버튼 효과음은 Godot 합성식으로 직접 생성한 44.1kHz 16-bit mono WAV 파일을 사용한다. 모든 플레이어는 리미터가 있는 `SFX` 버스를 사용하며, 강타·필살기·승리음은 클릭·hover보다 높은 재생 우선순위를 가진다.
 
 ```bash
 godot4 --headless --path . -s res://tools/generate_game_sfx.gd
@@ -95,7 +100,6 @@ godot4 --headless --path . -s res://tools/generate_game_sfx.gd
 - `click`, `hover`, `draw`, `play`, `summon`, `spell`
 - `hit`, `counter`, `impact_heavy`, `finisher`, `combo`, `heal`
 - `reward`, `victory`, `victory_burst`, `defeat`
-- `power_human`, `power_elf`, `power_undead`
 - `power_human`, `power_elf`, `power_undead`
 
 `AudioManager`는 `res://assets/audio/{name}.wav`가 있으면 우선 사용하고, 파일이 없으면 같은 합성식으로 만든 fallback 스트림을 사용한다. WAV는 Godot import 상태에 의존하지 않도록 런타임에서 직접 PCM을 읽어 `AudioStreamWAV`로 캐시한다.
@@ -117,7 +121,7 @@ godot4 --headless -s res://tests/godot/run_tests.gd
 
 UI를 바꾼 경우에만 반응형 캡처를 따로 확인한다.
 
-반응형 기준은 `1920x1080`, `1280x720`, `1024x768`, `800x1280`, 모바일 웹 `390x844`다. 모바일 전투는 필드와 손패 카드 크기를 줄이지 않고 가로 스와이프로 탐색한다.
+반응형 기준은 `1920x1080`, `1280x720`, `1024x768`, `800x1280`, 모바일 웹 `390x844`다. `Canvas Items + Expand`는 최대 1.2배까지만 자동 확대해 큰 화면의 추가 공간을 남기고, 작은 화면은 기존 논리 픽셀을 유지한다. `900px` 이하 세로 전투는 카드 크기를 줄이는 대신 가로 레일, 중앙 스냅, 첫 탭 선택 확대를 사용한다.
 
 ```bash
 godot4 --path . -s res://tests/godot/capture_ui_responsive.gd

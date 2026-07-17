@@ -2,16 +2,18 @@ extends Node
 class_name AudioManager
 
 const SAMPLE_RATE := 44100
+const SFX_BUS_NAME := &"SFX"
 
 var players: Array[AudioStreamPlayer] = []
 var max_players := 12
-var current_player_idx := 0
 
 var streams := {}
 var custom_streams := {}
 var sound_volume_db := {}
 var sound_pitch_jitter := {}
 var rng := RandomNumberGenerator.new()
+var last_sound_at_msec := {}
+var duck_until_msec := 0
 
 func _init() -> void:
 	name = "AudioManager"
@@ -19,8 +21,10 @@ func _init() -> void:
 	_generate_all_sounds()
 
 func _ready() -> void:
+	_ensure_sfx_bus()
 	for i in range(max_players):
 		var p := AudioStreamPlayer.new()
+		p.bus = SFX_BUS_NAME
 		add_child(p)
 		players.append(p)
 	_load_custom_sounds()
@@ -34,6 +38,7 @@ func _exit_tree() -> void:
 	players.clear()
 	custom_streams.clear()
 	streams.clear()
+	last_sound_at_msec.clear()
 
 func play_sound(sound_name: String) -> void:
 	if _is_headless_runtime():
@@ -42,15 +47,83 @@ func play_sound(sound_name: String) -> void:
 		return
 	if players.is_empty():
 		return
-	
-	var p := players[current_player_idx]
-	current_player_idx = (current_player_idx + 1) % max_players
-	p.volume_db = float(sound_volume_db.get(sound_name, -3.5))
+	var now_msec := Time.get_ticks_msec()
+	var priority := _sound_priority(sound_name)
+	var minimum_gap := 45 if priority <= 1 else 0
+	if minimum_gap > 0 and now_msec - int(last_sound_at_msec.get(sound_name, -1000)) < minimum_gap:
+		return
+	var p := _claim_player(priority)
+	if p == null:
+		return
+	var duck_db := -11.0 if now_msec < duck_until_msec and priority <= 1 else 0.0
+	p.volume_db = float(sound_volume_db.get(sound_name, -3.5)) + duck_db
 	var jitter := float(sound_pitch_jitter.get(sound_name, 0.0))
 	p.pitch_scale = 1.0 + rng.randf_range(-jitter, jitter)
-
+	p.set_meta("sfx_priority", priority)
+	p.set_meta("sfx_started_msec", now_msec)
 	p.stream = custom_streams.get(sound_name, streams[sound_name])
 	p.play()
+	last_sound_at_msec[sound_name] = now_msec
+	var duck_duration := _duck_duration_msec(sound_name)
+	if duck_duration > 0:
+		duck_until_msec = maxi(duck_until_msec, now_msec + duck_duration)
+
+func _ensure_sfx_bus() -> void:
+	var bus_index := AudioServer.get_bus_index(SFX_BUS_NAME)
+	if bus_index < 0:
+		AudioServer.add_bus()
+		bus_index = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(bus_index, SFX_BUS_NAME)
+		AudioServer.set_bus_send(bus_index, &"Master")
+	var has_limiter := false
+	for effect_index in range(AudioServer.get_bus_effect_count(bus_index)):
+		if AudioServer.get_bus_effect(bus_index, effect_index) is AudioEffectLimiter:
+			has_limiter = true
+			break
+	if not has_limiter:
+		AudioServer.add_bus_effect(bus_index, AudioEffectLimiter.new())
+
+func _claim_player(priority: int) -> AudioStreamPlayer:
+	for player in players:
+		if not player.playing:
+			return player
+	var candidate: AudioStreamPlayer = null
+	var candidate_priority := 999
+	var candidate_started := 0x7FFFFFFF
+	for player in players:
+		var player_priority := int(player.get_meta("sfx_priority", 0))
+		var player_started := int(player.get_meta("sfx_started_msec", 0))
+		if player_priority < candidate_priority or (player_priority == candidate_priority and player_started < candidate_started):
+			candidate = player
+			candidate_priority = player_priority
+			candidate_started = player_started
+	if candidate == null or candidate_priority > priority:
+		return null
+	candidate.stop()
+	return candidate
+
+func _sound_priority(sound_name: String) -> int:
+	if sound_name in ["victory_burst", "finisher"]:
+		return 5
+	if sound_name in ["impact_heavy", "power_human", "power_elf", "power_undead"]:
+		return 4
+	if sound_name in ["combo", "counter", "hit", "summon", "spell", "reward", "victory", "defeat"]:
+		return 3
+	if sound_name in ["play", "draw", "heal"]:
+		return 2
+	return 0 if sound_name == "hover" else 1
+
+func _duck_duration_msec(sound_name: String) -> int:
+	match sound_name:
+		"victory_burst":
+			return 2600
+		"finisher":
+			return 900
+		"impact_heavy":
+			return 420
+		"power_human", "power_elf", "power_undead":
+			return 780
+	return 0
 
 func _is_headless_runtime() -> bool:
 	return DisplayServer.get_name() == "headless"

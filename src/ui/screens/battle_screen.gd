@@ -7,14 +7,16 @@ const HAND_SLOT_PREFERENCE = [1, 3, 5, 7, 9, 0, 2, 4, 6, 8]
 const START_HAND = 5
 const STARTING_MAX_MANA = 1
 const TURN_TIME_SECONDS = 35.0
-const BATTLE_MAX_CONTENT_WIDTH = 1560.0
+const BATTLE_MAX_CONTENT_WIDTH = 1780.0
 const BATTLE_STYLES = preload("res://src/ui/styles/battle_styles.gd")
 const BATTLE_FX_LAYER = preload("res://src/ui/effects/battle_fx_layer.gd")
+const BATTLE_OBJECTIVE_SERVICE = preload("res://src/battle/battle_objective_service.gd")
 
 var main
 var root_box: VBoxContainer
 var status_label: Label
 var battle_guidance_label: Label
+var battle_objective_label: Label
 var battle_focus_label: Label
 var opponent_info: Label
 var opponent_gauge_info: Label
@@ -71,6 +73,8 @@ var player_field_signature: String = ""
 var opponent_field_signature: String = ""
 var deck_render_signature: String = ""
 var battle_fx_layer: Control
+var battle_objectives = BATTLE_OBJECTIVE_SERVICE.new()
+var selected_hand_slot: int = -1
 
 func _show_hover_popup(node: Control, title_text: String, description_text: String, accent_color: Color) -> void:
 	if _should_skip_timed_battle_fx():
@@ -212,6 +216,7 @@ func _store_battle_snapshot() -> void:
 		"opponent": _serialize_side(opponent),
 		"log_text": "" if log_label == null else log_label.text,
 		"turn_timer_left": 0.0 if turn_timer == null or turn_timer.is_stopped() else turn_timer.time_left,
+		"battle_objective": Dictionary(battle_state.get("battle_objective", {})).duplicate(true),
 		"battle_state_flags": {
 			"cards_played_this_turn": int(battle_state.get("cards_played_this_turn", 0)),
 			"combo_tag": String(battle_state.get("combo_tag", "")),
@@ -246,6 +251,9 @@ func _restore_battle_snapshot(snapshot: Dictionary) -> void:
 	battle_state["summon_build_started"] = bool(flags.get("summon_build_started", false))
 	battle_state["boss_turn_count"] = int(flags.get("boss_turn_count", 0))
 	battle_state["race_power_used"] = bool(flags.get("race_power_used", false))
+	var restored_objective: Dictionary = snapshot.get("battle_objective", {})
+	if not restored_objective.is_empty():
+		battle_state["battle_objective"] = restored_objective.duplicate(true)
 	_build_battle_ui()
 	if log_label != null:
 		log_label.text = String(snapshot.get("log_text", ""))
@@ -596,6 +604,12 @@ func _make_battle_guidance_panel(compact: bool) -> PanelContainer:
 	battle_guidance_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	battle_guidance_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if mobile else TextServer.AUTOWRAP_OFF
 	row.add_child(battle_guidance_label)
+	battle_objective_label = main._make_label("", 10 if tight else (11 if compact else 12), Color(1.0, 0.84, 0.42, 1.0))
+	battle_objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if not mobile else HORIZONTAL_ALIGNMENT_LEFT
+	battle_objective_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	battle_objective_label.clip_text = true
+	battle_objective_label.custom_minimum_size = Vector2(0 if mobile else (190 if tight else 230), 0)
+	row.add_child(battle_objective_label)
 	return panel
 
 func _should_show_battle_tutorial() -> bool:
@@ -657,44 +671,31 @@ func _make_battle_tutorial_panel(compact: bool) -> PanelContainer:
 	var wide_tight = _is_wide_tight_battle_layout()
 	var mobile = _is_mobile_battle_layout()
 	var tutorial_content := _battle_tutorial_content()
-	var panel = _make_battle_surface(Color(0.06, 0.075, 0.1, 0.98), Color(0.42, 0.62, 0.88, 0.82), 1, 10, 7 if mobile or wide_tight else 12)
+	var panel = _make_battle_surface(Color(0.055, 0.072, 0.098, 0.98), Color(0.42, 0.62, 0.88, 0.82), 1, 8, 5 if tight else 7)
 	panel.visible = _should_show_battle_tutorial() and not wide_tight
-	var box = VBoxContainer.new()
-	box.add_theme_constant_override("separation", 3 if wide_tight else 6)
-	panel.add_child(box)
-	var title_row = HBoxContainer.new()
-	title_row.add_theme_constant_override("separation", 8)
-	box.add_child(title_row)
-	var title_text := "전투 가이드" if mobile else String(tutorial_content.get("title", "전투 가이드"))
-	var title: Label = main._make_label(title_text, 11 if tight else (14 if compact else 15), Color(0.92, 0.98, 1.0, 1.0))
+	panel.custom_minimum_size = Vector2(0, 42 if mobile else (32 if tight else 40))
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6 if tight else 9)
+	panel.add_child(row)
+	var title: Label = main._make_label("가이드 %d/3" % min(_battle_tutorial_stage() + 1, 3), 10 if tight else 11, Color(0.7, 0.84, 1.0, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_row.add_child(title)
-	var stage_badge: Label = main._make_label("%d/3" % min(_battle_tutorial_stage() + 1, 3), 10 if tight else 11, Color(0.7, 0.84, 1.0, 1.0))
-	stage_badge.custom_minimum_size = Vector2(34, 0)
-	stage_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_row.add_child(stage_badge)
+	title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title.custom_minimum_size = Vector2(68 if tight else 78, 0)
+	row.add_child(title)
+	var hint: Label = main._make_label(String(tutorial_content.get("compact", "밝은 카드와 추천 행동만 따라가세요.")), 10 if tight else (11 if compact else 12), Color(0.9, 0.94, 0.98, 1.0))
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	hint.autowrap_mode = TextServer.AUTOWRAP_OFF
+	hint.clip_text = true
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(hint)
 	var dismiss = Button.new()
 	dismiss.text = "확인"
 	dismiss.focus_mode = Control.FOCUS_NONE
-	dismiss.custom_minimum_size = Vector2(72 if mobile else (64 if wide_tight else (74 if tight else 88)), 44 if mobile else (24 if wide_tight else (28 if tight else 30)))
+	dismiss.custom_minimum_size = Vector2(64 if mobile or tight else 76, 38 if mobile else (26 if tight else 30))
 	_style_battle_button(dismiss, Color(0.08, 0.12, 0.18, 0.96), Color(0.34, 0.52, 0.76, 1.0), false)
-	dismiss.add_theme_font_size_override("font_size", 9 if wide_tight else (10 if tight else 11))
+	dismiss.add_theme_font_size_override("font_size", 10 if tight else 11)
 	dismiss.pressed.connect(Callable(self, "_dismiss_battle_tutorial"))
-	title_row.add_child(dismiss)
-	if mobile or wide_tight:
-		var compact_hint: Label = main._make_label(String(tutorial_content.get("compact", "밝은 카드/유닛만 보고, 더 할 게 없으면 턴 종료.")), 12 if mobile else 9, Color(0.84, 0.9, 0.98, 1.0))
-		compact_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		box.add_child(compact_hint)
-	else:
-		var lines: Array = tutorial_content.get("lines", [])
-		var line_colors := [
-			Color(0.84, 0.9, 0.98, 1.0),
-			Color(1.0, 0.88, 0.6, 1.0),
-			Color(0.82, 0.92, 0.84, 1.0),
-		]
-		for idx in range(lines.size()):
-			box.add_child(main._make_label(String(lines[idx]), 10 if tight else 12, line_colors[min(idx, line_colors.size() - 1)]))
+	row.add_child(dismiss)
 	return panel
 
 func _is_fast_ai_enabled() -> bool:
@@ -708,7 +709,8 @@ func _is_compact_layout() -> bool:
 
 func _is_tight_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	return viewport_size.x <= 1024.0 or viewport_size.y <= 760.0
+	var desktop_fit := viewport_size.x >= 1180.0 and viewport_size.y <= 900.0
+	return viewport_size.x <= 1024.0 or viewport_size.y <= 760.0 or desktop_fit
 
 func _is_portrait_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
@@ -718,9 +720,13 @@ func _is_mobile_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
 	return viewport_size.x <= 600.0 and viewport_size.y > viewport_size.x
 
+func _uses_touch_hand_selection() -> bool:
+	var viewport_size: Vector2 = main._layout_viewport_size()
+	return viewport_size.y > viewport_size.x and viewport_size.x <= 900.0
+
 func _is_wide_tight_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	return viewport_size.x >= 1100.0 and viewport_size.y <= 760.0
+	return viewport_size.x >= 1100.0 and viewport_size.y <= 900.0
 
 func _make_battle_content_root(tight: bool) -> VBoxContainer:
 	var viewport_size: Vector2 = main._layout_viewport_size()
@@ -753,9 +759,16 @@ func _battle_reward_choices() -> Array[String]:
 func _apply_battle_victory_rewards() -> Dictionary:
 	var bonus_relic = {}
 	var gold_reward = randi_range(15, 25)
+	var objective: Dictionary = battle_state.get("battle_objective", {})
+	var objective_bonus := 0
 	if battle_tier in ["elite", "boss"]:
 		bonus_relic = main.relic_service.random_relic(main.current_run.get("relic_ids", []))
 		gold_reward = randi_range(30, 50) if battle_tier == "elite" else 50
+	if battle_objectives.resolve_victory(objective) and not bool(objective.get("reward_claimed", false)):
+		objective_bonus = int(objective.get("reward_gold", 0))
+		objective["reward_claimed"] = true
+		gold_reward += objective_bonus
+		_add_log("전투 도전 보상: %s +%dG" % [String(objective.get("title", "도전")), objective_bonus])
 	if battle_tier == "boss":
 		main.current_run["max_hp"] = int(main.current_run.get("max_hp", 0)) + 5
 		main.current_run["hp"] = min(int(main.current_run.get("max_hp", 0)), int(player.health) + 5)
@@ -770,6 +783,8 @@ func _apply_battle_victory_rewards() -> Dictionary:
 		"bonus_relic": bonus_relic,
 		"battle_tier": battle_tier,
 		"gold_reward": gold_reward,
+		"objective_bonus": objective_bonus,
+		"objective_title": String(objective.get("title", "")),
 	}
 
 func _finish_player_defeat() -> void:
@@ -788,6 +803,7 @@ func _finish_player_victory(victory_type: String) -> void:
 func _reset_battle_state() -> void:
 	current_player = "player"
 	selected_attacker = -1
+	selected_hand_slot = -1
 	game_over = false
 	battle_finished = false
 	input_locked = false
@@ -813,7 +829,34 @@ func _reset_battle_state() -> void:
 		"summon_build_started": false,
 		"boss_turn_count": 0,
 		"race_power_used": false,
+		"battle_objective": _create_battle_objective(),
 	}
+
+func _create_battle_objective() -> Dictionary:
+	var node_index := int(main.current_run.get("current_node_index", 0))
+	var seed_value := int(main.current_run.get("seed", 0)) + node_index * 31
+	var enemy: Dictionary = main.current_run.get("active_enemy", {})
+	seed_value += String(enemy.get("id", enemy.get("name", "enemy"))).hash()
+	var first_battle := int(main.current_run.get("act", 1)) == 1 and node_index == 0
+	return battle_objectives.create_objective(seed_value, battle_tier, first_battle)
+
+func _record_objective_event(event_name: String, amount: int = 1) -> void:
+	var objective: Dictionary = battle_state.get("battle_objective", {})
+	if objective.is_empty():
+		return
+	var newly_completed := battle_objectives.record_event(objective, event_name, amount)
+	battle_state["battle_objective"] = objective
+	if not newly_completed:
+		return
+	var reward_gold := int(objective.get("reward_gold", 0))
+	_add_log("전투 도전 달성: %s (+%dG 예약)" % [String(objective.get("title", "도전")), reward_gold])
+	if not _should_skip_timed_battle_fx():
+		_spawn_center_banner("도전 달성 · +%dG" % reward_gold, Color(0.42, 1.0, 0.62, 1.0), 32, 0.72)
+
+func _record_player_hero_damage(old_health: int) -> void:
+	var damage_taken := maxi(0, old_health - int(player.get("health", old_health)))
+	if damage_taken > 0:
+		_record_objective_event("hero_damage", damage_taken)
 
 func _prepare_battle(tier: String) -> void:
 	var enemy: Dictionary = main.enemy_service.pick_enemy(int(main.current_run.get("act", 1)), tier)
@@ -975,6 +1018,7 @@ func _on_race_power_pressed() -> void:
 		_:
 			_resolve_human_race_power()
 	input_locked = false
+	_record_objective_event("race_power")
 	_apply_damage_juice(old_player_hp, old_opponent_hp)
 	_refresh_ui()
 	_play_race_power_feedback()
@@ -1077,6 +1121,7 @@ func _resolve_card_combo(card: Dictionary) -> void:
 		next_streak = int(battle_state.get("combo_streak", 0)) + 1
 	battle_state["combo_tag"] = next_tag
 	battle_state["combo_streak"] = next_streak
+	_record_objective_event("combo", next_streak)
 	if next_streak < 2:
 		return
 	_trigger_combo_bonus(next_tag, next_streak)
@@ -1183,6 +1228,16 @@ func _make_top_status_bar(compact: bool) -> PanelContainer:
 	actions.alignment = BoxContainer.ALIGNMENT_END
 	actions.add_theme_constant_override("separation", 6 if tight else 8)
 	row.add_child(actions)
+	if not compact and not mobile:
+		detail_toggle_button = Button.new()
+		detail_toggle_button.text = "정보"
+		detail_toggle_button.focus_mode = Control.FOCUS_NONE
+		detail_toggle_button.custom_minimum_size = Vector2(44 if tight else 54, 24 if tight else 28)
+		detail_toggle_button.set_meta("header_toggle", true)
+		_style_battle_button(detail_toggle_button, Color(0.07, 0.09, 0.12, 0.92), Color(0.24, 0.42, 0.62, 0.9), false)
+		detail_toggle_button.add_theme_font_size_override("font_size", 10 if tight else 11)
+		detail_toggle_button.pressed.connect(Callable(self, "_toggle_battle_details"))
+		actions.add_child(detail_toggle_button)
 	actions.add_child(_make_exit_button("메뉴", "_show_main_menu", Color(0.08, 0.12, 0.18, 0.96), tight, compact, mobile))
 	if not mobile:
 		actions.add_child(_make_exit_button("포기", "_abandon_run", Color(0.28, 0.1, 0.1, 0.96), tight, compact))
@@ -2018,6 +2073,9 @@ func _build_battle_ui() -> void:
 	var wide_tight = _is_wide_tight_battle_layout()
 	var portrait = _is_portrait_battle_layout()
 	var mobile = _is_mobile_battle_layout()
+	var touch_hand = _uses_touch_hand_selection()
+	var layout_size: Vector2 = main._layout_viewport_size()
+	var roomy_wide = wide_tight and layout_size.x >= 1450.0
 	battle_fx_layer = BATTLE_FX_LAYER.new()
 	main.modal_layer.add_child(battle_fx_layer)
 	root_box.add_theme_constant_override("separation", 5 if tight else 8)
@@ -2025,6 +2083,7 @@ func _build_battle_ui() -> void:
 	player_info = null
 	player_gauge_info = null
 	battle_focus_label = null
+	battle_objective_label = null
 	hero_attack_button = null
 	race_power_button = null
 	recommended_action_button = null
@@ -2057,8 +2116,8 @@ func _build_battle_ui() -> void:
 	deck_list_label = null
 	log_label = null
 	hand_scroll = null
-	var field_height = 158 if mobile else (122 if wide_tight else (128 if tight and portrait else (146 if tight else (168 if not compact else 148))))
-	var hand_height = 244 if mobile else (160 if wide_tight else (176 if tight and portrait else (154 if tight else (220 if not compact else 214))))
+	var field_height = 158 if mobile else ((142 if roomy_wide else 112) if wide_tight else (128 if tight and portrait else (146 if tight else (168 if not compact else 148))))
+	var hand_height = 244 if mobile else (218 if touch_hand else ((174 if roomy_wide else 146) if wide_tight else (176 if tight and portrait else (154 if tight else (220 if not compact else 214)))))
 	var battle_root = _make_battle_content_root(tight)
 
 	battle_root.add_child(_make_top_status_bar(compact))
@@ -2147,8 +2206,9 @@ func _build_battle_ui() -> void:
 	bottom_row.add_theme_constant_override("separation", 8 if tight else 10)
 	center_column.add_child(bottom_row)
 	var bottom_action_panel = _make_battle_action_panel(compact)
-	bottom_action_panel.custom_minimum_size = Vector2(220 if not compact else 0, 0)
+	bottom_action_panel.custom_minimum_size = Vector2(420 if wide_tight else (220 if not compact else 0), 0)
 	bottom_action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_END
+	bottom_action_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER if wide_tight else Control.SIZE_FILL
 	if compact:
 		bottom_row.add_child(bottom_action_panel)
 
@@ -2165,17 +2225,17 @@ func _build_battle_ui() -> void:
 	hand_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hand_title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	hand_header.add_child(hand_title)
-	var hand_hint_text := "좌우로 밀고 밝은 카드 사용" if mobile else "밝은 카드를 사용하세요"
+	var hand_hint_text := "한 번 눌러 확대 · 다시 눌러 사용" if touch_hand else "밝은 카드를 사용하세요"
 	var hand_hint: Label = main._make_label(hand_hint_text, 10 if tight else (11 if compact else 12), Color(0.76, 0.82, 0.9, 1.0))
 	hand_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hand_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hand_header.add_child(hand_hint)
 	hand_box = Control.new()
 	hand_box.custom_minimum_size = Vector2(0, hand_height)
-	hand_box.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if mobile else Control.SIZE_EXPAND_FILL
+	hand_box.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if touch_hand else Control.SIZE_EXPAND_FILL
 	hand_box.mouse_filter = Control.MOUSE_FILTER_PASS
 	hand_box.resized.connect(Callable(self, "_layout_hand_cards"))
-	if mobile:
+	if touch_hand:
 		hand_scroll = ScrollContainer.new()
 		hand_scroll.custom_minimum_size = Vector2(0, hand_height)
 		hand_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2190,7 +2250,8 @@ func _build_battle_ui() -> void:
 	if not compact:
 		bottom_row.add_child(bottom_action_panel)
 
-	battle_root.add_child(_make_detail_toggle_row(compact))
+	if compact:
+		battle_root.add_child(_make_detail_toggle_row(compact))
 	detail_panel = _make_battle_detail_panel(compact)
 	battle_root.add_child(detail_panel)
 
@@ -2231,6 +2292,7 @@ func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
 
 
 func _apply_delayed_status(side: Dictionary) -> void:
+	var old_player_health := int(player.get("health", 0))
 	var curses = int(side.get("curses", 0))
 	if curses > 0:
 		side["health"] = int(side.get("health", 0)) - curses
@@ -2241,6 +2303,8 @@ func _apply_delayed_status(side: Dictionary) -> void:
 		side["health"] = min(int(side.get("max_health", side.get("health", 0))), int(side.get("health", 0)) + ritual_stacks)
 		side["ritual_stacks"] = 0
 		_add_log("%s 의식 발동: 영웅 체력 %d 회복" % [String(side.get("name", "대상")), ritual_stacks])
+	if side == player:
+		_record_player_hero_damage(old_player_health)
 
 
 func _show_turn_banner(text: String, is_player: bool) -> void:
@@ -2379,6 +2443,13 @@ func _on_hand_card_pressed(index: int) -> void:
 	if index < 0 or index >= player.hand.size():
 		return
 	var card: Dictionary = player.hand[index]
+	var hand_slot := int(card.get("_hand_slot", index))
+	if _uses_touch_hand_selection() and selected_hand_slot != hand_slot:
+		selected_hand_slot = hand_slot
+		_render_hand()
+		hand_render_signature = _hand_signature()
+		_play_sfx("hover")
+		return
 	var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "player")
 	if not _can_play_card(player, card, "player"):
 		if cost > int(player.mana):
@@ -2388,6 +2459,7 @@ func _on_hand_card_pressed(index: int) -> void:
 		else:
 			_add_log("장착할 아군 유닛이 없습니다.")
 		return
+	selected_hand_slot = -1
 	var card_type = String(card.get("type", ""))
 	var old_field_size: int = player.field.size()
 	player.mana -= cost
@@ -3151,6 +3223,8 @@ func _on_end_turn_pressed() -> void:
 		return
 	_play_sfx("click")
 	input_locked = true
+	selected_hand_slot = -1
+	_clear_card_board_preview()
 	_discard_hand(player)
 	current_player = "opponent"
 	selected_attacker = -1
@@ -3276,7 +3350,9 @@ func _run_ai_play_cards() -> void:
 				_refresh_ui()
 				await _show_opponent_played_card_fx(card)
 
+				var old_player_health := int(player.get("health", 0))
 				main.battle_effects.play_card(opponent, player, card, _battle_effect_context())
+				_record_player_hero_damage(old_player_health)
 				_refresh_ui()
 				_check_game_over()
 				played = true
@@ -3315,7 +3391,9 @@ func _run_ai_hero_attack(index: int) -> void:
 		await _play_hero_cutscene(unit, player.name, damage, opponent, index, true)
 	else:
 		_play_hero_attack_feedback(opponent, index, true, damage)
+	var old_player_health := int(player.get("health", 0))
 	player.health -= damage
+	_record_player_hero_damage(old_player_health)
 	if damage > 0:
 		main.relic_service.on_hero_hp_lost(main.current_run, battle_state, player, damage)
 	unit.can_attack = false
@@ -3370,6 +3448,8 @@ func _play_battle_victory_sequence(reward: Dictionary) -> void:
 	if target != null and is_instance_valid(target):
 		_spawn_target_glow(target, Color(1.0, 0.82, 0.28, 1.0), 0.92)
 		_spawn_floating_text(target, title, Color(1.0, 0.88, 0.38, 1.0), 62, 1.25, Vector2(0, -8))
+		if int(reward.get("objective_bonus", 0)) > 0:
+			_spawn_floating_text(target, "도전 +%dG" % int(reward.get("objective_bonus", 0)), Color(0.42, 1.0, 0.62, 1.0), 30, 0.9, Vector2(0, 46))
 	_spawn_center_banner(title, Color(1.0, 0.9, 0.48, 1.0), 56, 1.18)
 	_shake_screen(22.0 if battle_tier == "boss" else 17.0, 0.38)
 	var full_sequence := _is_battle_cutscene_enabled() or battle_tier == "boss"
@@ -3665,6 +3745,7 @@ func _render_hand() -> void:
 		var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "player")
 		var playable: bool = not _is_player_input_locked() and _can_play_card(player, card, "player")
 		var is_recommended = i == recommended_index
+		var is_touch_selected := _uses_touch_hand_selection() and hand_slot == selected_hand_slot
 		var frame = Button.new()
 		frame.text = ""
 		frame.focus_mode = Control.FOCUS_NONE
@@ -3672,8 +3753,9 @@ func _render_hand() -> void:
 		var frame_size = Vector2(164, 226) if mobile else (Vector2(140, 192) if tight and portrait else (Vector2(150, 160) if wide_tight else (Vector2(132, 170) if tight else (Vector2(184, 212) if not compact else Vector2(156, 186)))))
 		var content_size = Vector2(frame_size.x - 12.0, frame_size.y - 12.0)
 		frame.custom_minimum_size = frame_size
-		var hand_border = Color(0.46, 0.72, 1.0, 1.0) if is_recommended else (accent.lightened(0.12) if playable else accent.darkened(0.08))
-		frame.add_theme_stylebox_override("normal", _make_hand_card_style(Color(0.055, 0.075, 0.11, 1.0) if is_recommended else Color(0.05, 0.058, 0.072, 1.0), hand_border, 3 if is_recommended else (2 if playable else 1)))
+		var hand_border = Color(1.0, 0.82, 0.34, 1.0) if is_touch_selected else (Color(0.46, 0.72, 1.0, 1.0) if is_recommended else (accent.lightened(0.12) if playable else accent.darkened(0.08)))
+		var hand_bg = Color(0.09, 0.075, 0.035, 1.0) if is_touch_selected else (Color(0.055, 0.075, 0.11, 1.0) if is_recommended else Color(0.05, 0.058, 0.072, 1.0))
+		frame.add_theme_stylebox_override("normal", _make_hand_card_style(hand_bg, hand_border, 4 if is_touch_selected else (3 if is_recommended else (2 if playable else 1))))
 		frame.add_theme_stylebox_override("hover", _make_hand_card_style(Color(0.07, 0.082, 0.105, 1.0), accent.lightened(0.22), 3))
 		frame.add_theme_stylebox_override("pressed", _make_hand_card_style(Color(0.035, 0.042, 0.055, 1.0), accent, 2))
 		frame.add_theme_color_override("font_color", Color(1, 1, 1, 0))
@@ -3771,7 +3853,7 @@ func _render_hand() -> void:
 		)
 		action_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_box.add_child(action_panel)
-		var action_text = "지금 사용 가능" if playable else _unplayable_card_hint(card, cost)
+		var action_text = ("다시 눌러 사용" if is_touch_selected else "지금 사용 가능") if playable else _unplayable_card_hint(card, cost)
 		var action_label: Label = main._make_label(action_text, 12 if mobile else (11 if tight and portrait else (10 if tight else (11 if not compact else 9))), Color(0.86, 1.0, 0.92, 1.0) if playable else Color(0.58, 0.62, 0.68, 1.0))
 		action_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		action_label.clip_text = true
@@ -3836,6 +3918,8 @@ func _render_hand() -> void:
 			draw_tween.tween_property(frame, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			draw_tween.parallel().tween_property(frame, "modulate:a", 1.0, 0.2)
 	_layout_hand_cards()
+	if _uses_touch_hand_selection() and selected_hand_slot >= 0:
+		call_deferred("_restore_touch_hand_selection")
 
 func _hand_signature() -> String:
 	_ensure_hand_visual_slots()
@@ -3853,6 +3937,7 @@ func _hand_signature() -> String:
 			"1" if i == recommended_index else "0",
 		])
 	parts.append("sel:%d" % selected_attacker)
+	parts.append("hand_sel:%d" % selected_hand_slot)
 	parts.append("turn:%s" % current_player)
 	parts.append("lock:%s" % ("1" if _is_player_input_locked() else "0"))
 	return "|".join(parts)
@@ -3884,14 +3969,16 @@ func _layout_hand_cards() -> void:
 	var tight := _is_tight_battle_layout()
 	var portrait := _is_portrait_battle_layout()
 	var wide_tight := _is_wide_tight_battle_layout()
-	var mobile := _is_mobile_battle_layout()
 	var first_card: Control = hand_box.get_child(0) as Control
 	if first_card == null:
 		return
 	var card_size: Vector2 = first_card.custom_minimum_size
-	if mobile:
-		var gap := 12.0
-		var edge_margin := 10.0
+	if _uses_touch_hand_selection():
+		var gap: float = 8.0
+		var visible_width: float = float(main._layout_viewport_size().x) - 36.0
+		if hand_scroll != null and is_instance_valid(hand_scroll) and hand_scroll.size.x > 1.0:
+			visible_width = hand_scroll.size.x
+		var edge_margin: float = maxf(20.0, (visible_width - card_size.x) * 0.5)
 		var max_rank := 0
 		for idx in range(count):
 			var card: Control = hand_box.get_child(idx) as Control
@@ -3902,22 +3989,20 @@ func _layout_hand_cards() -> void:
 			if slot_rank < 0:
 				slot_rank = slot_index
 			max_rank = maxi(max_rank, slot_rank)
-			var target_pos := Vector2(edge_margin + float(slot_rank) * (card_size.x + gap), 8.0)
+			var is_selected := slot_index == selected_hand_slot
+			var target_pos := Vector2(edge_margin + float(slot_rank) * (card_size.x + gap), 2.0 if is_selected else 12.0)
 			card.position = target_pos
 			card.rotation_degrees = 0.0
-			card.scale = Vector2.ONE
+			card.scale = Vector2(1.06, 1.06) if is_selected else Vector2.ONE
 			card.pivot_offset = Vector2(card.custom_minimum_size.x / 2.0, card.custom_minimum_size.y)
-			card.z_index = slot_rank
+			card.z_index = 100 + slot_rank if is_selected else slot_rank
 			card.modulate.a = 1.0
 			card.set_meta("base_position", target_pos)
 			card.set_meta("base_rotation", 0.0)
-			card.set_meta("base_scale", Vector2.ONE)
+			card.set_meta("base_scale", card.scale)
 			card.set_meta("base_z_index", card.z_index)
-		var visible_width: float = float(main._layout_viewport_size().x) - 36.0
-		if hand_scroll != null and is_instance_valid(hand_scroll) and hand_scroll.size.x > 1.0:
-			visible_width = hand_scroll.size.x
-		var track_width := edge_margin * 2.0 + float(max_rank + 1) * card_size.x + float(max_rank) * gap
-		hand_box.custom_minimum_size = Vector2(max(visible_width, track_width), card_size.y + 24.0)
+		var track_width: float = edge_margin * 2.0 + float(max_rank + 1) * card_size.x + float(max_rank) * gap
+		hand_box.custom_minimum_size = Vector2(maxf(visible_width, track_width), card_size.y + 30.0)
 		last_hand_layout_width = hand_box.custom_minimum_size.x
 		return
 	var available_width: float = hand_box.size.x
@@ -3955,6 +4040,39 @@ func _layout_hand_cards() -> void:
 		card.set_meta("base_rotation", angle)
 		card.set_meta("base_scale", Vector2.ONE)
 		card.set_meta("base_z_index", card.z_index)
+
+
+func _restore_touch_hand_selection() -> void:
+	if not _uses_touch_hand_selection() or selected_hand_slot < 0 or hand_box == null or not is_instance_valid(hand_box):
+		return
+	var selected_card: Dictionary = {}
+	for card_data in player.hand:
+		var card: Dictionary = card_data
+		if int(card.get("_hand_slot", -1)) == selected_hand_slot:
+			selected_card = card
+			break
+	if selected_card.is_empty():
+		selected_hand_slot = -1
+		_clear_card_board_preview()
+		return
+	var playable := not _is_player_input_locked() and _can_play_card(player, selected_card, "player")
+	_show_card_board_preview(selected_card, playable)
+	_center_selected_hand_card()
+
+
+func _center_selected_hand_card() -> void:
+	if hand_scroll == null or not is_instance_valid(hand_scroll) or hand_scroll.size.x <= 1.0:
+		return
+	for child in hand_box.get_children():
+		var card := child as Control
+		if card == null or int(card.get_meta("hand_slot", -1)) != selected_hand_slot:
+			continue
+		var desired := int(round(card.position.x + card.custom_minimum_size.x * 0.5 - hand_scroll.size.x * 0.5))
+		var max_scroll := maxi(0, int(ceil(hand_box.custom_minimum_size.x - hand_scroll.size.x)))
+		var target_scroll := clampi(desired, 0, max_scroll)
+		var tween := hand_scroll.create_tween()
+		tween.tween_property(hand_scroll, "scroll_horizontal", target_scroll, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		return
 
 
 func _render_battle_deck() -> void:
@@ -3998,6 +4116,8 @@ func _refresh_status_labels() -> void:
 		player_gauge_info.text = _format_player_victory_gauge()
 	if battle_guidance_label != null and is_instance_valid(battle_guidance_label):
 		var new_guidance = _current_battle_guidance_text()
+		if _is_mobile_battle_layout():
+			new_guidance = new_guidance.replace(" | ", "\n")
 		if battle_guidance_label.text != new_guidance:
 			battle_guidance_label.text = new_guidance
 			var parent_panel = battle_guidance_label.get_parent().get_parent() as PanelContainer
@@ -4005,12 +4125,24 @@ func _refresh_status_labels() -> void:
 				var flash_tween: Tween = main.create_tween()
 				flash_tween.tween_property(parent_panel, "modulate", Color(2.0, 2.0, 2.0, 1.0), 0.12)
 				flash_tween.tween_property(parent_panel, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.22)
+	if battle_objective_label != null and is_instance_valid(battle_objective_label):
+		var objective: Dictionary = battle_state.get("battle_objective", {})
+		battle_objective_label.text = battle_objectives.status_text(objective)
+		var objective_color := Color(1.0, 0.84, 0.42, 1.0)
+		if bool(objective.get("completed", false)):
+			objective_color = Color(0.42, 1.0, 0.62, 1.0)
+		elif bool(objective.get("failed", false)):
+			objective_color = Color(0.58, 0.62, 0.68, 1.0)
+		battle_objective_label.add_theme_color_override("font_color", objective_color)
 	if battle_focus_label != null and is_instance_valid(battle_focus_label):
 		battle_focus_label.text = _current_battle_focus_text()
 
 func _refresh_action_buttons() -> void:
 	if detail_toggle_button != null and is_instance_valid(detail_toggle_button):
-		detail_toggle_button.text = "상세 닫기" if battle_detail_visible else "상세 정보"
+		if bool(detail_toggle_button.get_meta("header_toggle", false)):
+			detail_toggle_button.text = "닫기" if battle_detail_visible else "정보"
+		else:
+			detail_toggle_button.text = "상세 닫기" if battle_detail_visible else "상세 정보"
 	if race_power_button != null and is_instance_valid(race_power_button):
 		var race_meta: Dictionary = main._current_race_meta()
 		var race_color: Color = race_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
