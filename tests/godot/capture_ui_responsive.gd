@@ -364,9 +364,15 @@ func _seed_battle_preview_units(main: Node) -> void:
 	var enemy_unit: Dictionary = main.cards_by_id.get("skeleton_soldier", main.cards_by_id.get("thief", main.cards_by_id.get("militia", {}))).duplicate(true)
 	if player_unit.is_empty() or enemy_unit.is_empty():
 		return
+	player_unit["attack"] = int(player_unit.get("attack", 0)) + 1
 	player_unit["can_attack"] = true
+	player_unit["ember_blade_damage"] = 1
+	player_unit["equipment_names"] = ["잿불 검"]
 	enemy_unit["can_attack"] = false
 	main.battle_screen.player["field"] = [player_unit]
 	main.battle_screen.opponent["field"] = [enemy_unit]
+	main.battle_screen.battle_state["combo_tag"] = "fire"
+	main.battle_screen.battle_state["combo_streak"] = 2
+	main.battle_screen.battle_state["combo_finisher_used"] = false
 	main.battle_screen.selected_attacker = 0
 	main.battle_screen._refresh_ui()

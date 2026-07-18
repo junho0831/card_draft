@@ -3,6 +3,8 @@ class_name ProfileStore
 
 const LOCAL_DEBUG_GOLD := 999999999999999999
 const LOCAL_DEBUG_CARD_COPIES := 3
+const DEFAULT_UI_SCALE_MODE := "auto"
+const VALID_UI_SCALE_MODES := ["auto", "large", "small"]
 
 func load_or_create(path: String, card_defs: Array) -> Dictionary:
 	var profile := {}
@@ -49,6 +51,7 @@ func make_default_profile(card_defs: Array) -> Dictionary:
 			"fast_ai": true,
 			"fullscreen": true,
 			"fullscreen_setting_initialized": true,
+			"ui_scale_mode": DEFAULT_UI_SCALE_MODE,
 		},
 	}
 
@@ -93,6 +96,10 @@ func normalize(profile: Dictionary, card_defs: Array) -> Dictionary:
 	if not bool(profile["settings"].get("fullscreen_setting_initialized", false)):
 		profile["settings"]["fullscreen"] = true
 		profile["settings"]["fullscreen_setting_initialized"] = true
+	var ui_scale_mode := String(profile["settings"].get("ui_scale_mode", DEFAULT_UI_SCALE_MODE))
+	if not VALID_UI_SCALE_MODES.has(ui_scale_mode):
+		ui_scale_mode = DEFAULT_UI_SCALE_MODE
+	profile["settings"]["ui_scale_mode"] = ui_scale_mode
 
 	var index := 0
 	for card in card_defs:

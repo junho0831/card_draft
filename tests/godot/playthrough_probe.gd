@@ -7,6 +7,7 @@ var report: Array[String] = []
 var boss_steps := 0
 var max_battle_steps := 0
 var headless := false
+var probe_failed := false
 
 func _init() -> void:
 	call_deferred("_run")
@@ -36,15 +37,26 @@ func _run() -> void:
 	main._start_new_run()
 	await _wait_for_frame()
 	_note(main, "start_run")
-	await _capture("02_map_start")
+	await _capture("02_race_selection")
+	if String(main.active_screen) == "race_selection":
+		main._init_run("human")
+		await _wait_for_frame()
+		await _wait_for_frame()
+	_note(main, "race_selected:human")
+	await _capture("03_map_start")
+	if String(main.active_screen) != "map":
+		_note(main, "race_selection_failed")
+		probe_failed = true
 	
 	var safety := 0
+	var completed_run := false
 	while safety < 40:
 		safety += 1
 		var screen := String(main.active_screen)
 		if screen == "run_result":
 			_note(main, "run_result")
 			await _capture("99_run_result")
+			completed_run = true
 			break
 		match screen:
 			"map":
@@ -69,10 +81,14 @@ func _run() -> void:
 				await _wait_for_frame()
 			_:
 				_note(main, "unexpected_screen:%s" % screen)
+				probe_failed = true
 				break
 	
 	if safety >= 40:
 		_note(main, "safety_stop")
+		probe_failed = true
+	if not completed_run:
+		probe_failed = true
 	_note_fun_metrics(main)
 	
 	for line in report:
@@ -81,12 +97,13 @@ func _run() -> void:
 	root.remove_child(main)
 	main.queue_free()
 	await _wait_for_frame()
-	quit(0)
+	quit(1 if probe_failed else 0)
 
 func _play_battle(main: Node, safety: int) -> void:
 	var battle = main.battle_screen
 	if battle == null:
 		_note(main, "battle_missing")
+		probe_failed = true
 		return
 	_note(main, "battle_start hp=%d enemy=%s enemy_hp=%d hand=%d" % [
 		int(battle.player.get("health", 0)),
@@ -143,6 +160,7 @@ func _play_battle(main: Node, safety: int) -> void:
 		int(main.current_run.get("hp", 0)),
 	])
 	if String(main.active_screen) == "battle":
+		probe_failed = true
 		_note(main, "battle_stalled current_player=%s input_locked=%s enemy_hp=%d player_hp=%d hand=%d pfield=%d efield=%d" % [
 			String(battle.current_player),
 			str(battle.input_locked),
@@ -203,7 +221,6 @@ func _note(main: Node, text: String) -> void:
 		(main.current_run.get("relic_ids", []) as Array).size(),
 	]
 	report.append(line)
-	print(line)
 
 func _note_fun_metrics(main: Node) -> void:
 	var scores: Dictionary = main._current_build_scores()

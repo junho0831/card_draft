@@ -118,7 +118,7 @@ func build(body: VBoxContainer, is_win: bool, play_audio: bool = true) -> void:
 	main._add_menu_button(actions, "새로운 런", "_start_new_run", Color(0.55, 0.36, 0.1, 1.0))
 
 func _is_run_result_compact_layout() -> bool:
-	return main._is_compact_layout_for(1180.0, 900.0)
+	return main._is_compact_layout_for(1180.0, 800.0)
 
 func _start_result_victory_fx(result_fx: Control, color: Color, anchor: Control) -> void:
 	if main.active_screen != "run_result":

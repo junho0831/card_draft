@@ -567,5 +567,89 @@
         "attr": "대지",
         "art": 0,
         "art_id": "stone_golem"
+    },
+    {
+        "id": "ember_blade",
+        "name": "잿불 검",
+        "type": "equipment",
+        "race": "인간",
+        "attr": "화염",
+        "cost": 2,
+        "art": 4,
+        "art_id": "flame_swordsman",
+        "text": "가장 앞의 아군 공격력 +1. 그 유닛이 공격할 때 적 영웅에게 추가 피해 1",
+        "build_tags": [
+            "fire"
+        ]
+    },
+    {
+        "id": "wind_quiver",
+        "name": "바람깃 화살통",
+        "type": "equipment",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 1,
+        "art": 5,
+        "art_id": "forest_archer",
+        "text": "가장 앞의 아군 공격력 +1. 그 유닛이 공격할 때 카드 1장 드로우",
+        "build_tags": [
+            "draw"
+        ]
+    },
+    {
+        "id": "bone_armor",
+        "name": "뼈 갑옷",
+        "type": "equipment",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 1,
+        "art": 6,
+        "art_id": "grave_knight",
+        "text": "가장 앞의 아군 체력 +3. 그 유닛이 사망하면 적 영웅에게 피해 2",
+        "build_tags": [
+            "death"
+        ]
+    },
+    {
+        "id": "royal_standard",
+        "name": "왕가의 군기",
+        "type": "equipment",
+        "race": "인간",
+        "attr": "빛",
+        "cost": 2,
+        "art": 6,
+        "art_id": "captain_order",
+        "text": "내 모든 유닛 공격력과 체력 +1",
+        "build_tags": [
+            "buff"
+        ]
+    },
+    {
+        "id": "blood_blade",
+        "name": "피의 칼날",
+        "type": "equipment",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 1,
+        "art": 0,
+        "art_id": "vampiric_strike",
+        "text": "가장 앞의 아군 공격력 +2, 내 영웅 피해 2. 그 유닛이 공격할 때 영웅 체력 1 회복",
+        "build_tags": [
+            "low_hp"
+        ]
+    },
+    {
+        "id": "war_horn",
+        "name": "돌격의 뿔피리",
+        "type": "equipment",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 1,
+        "art": 7,
+        "art_id": "mercenary",
+        "text": "가장 앞의 아군 공격력 +1. 빈 슬롯에 즉시 공격 가능한 1/1 지원병 소환",
+        "build_tags": [
+            "summon"
+        ]
     }
 ]

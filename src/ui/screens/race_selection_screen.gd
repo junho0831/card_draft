@@ -3,8 +3,10 @@ class_name RaceSelectionScreen
 
 var main: Node
 var selected_race_id := "human"
+var hovered_race_id := ""
 var race_panels := {}
 var race_buttons := {}
+var race_hit_targets := {}
 var start_button: Button
 var selection_summary: Label
 var fixed_footer: PanelContainer
@@ -48,13 +50,13 @@ func build(body: VBoxContainer) -> void:
 		fixed_footer = footer
 		footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 		footer.offset_left = 8
-		footer.offset_top = -122
+		footer.offset_top = -148
 		footer.offset_right = -8
 		footer.offset_bottom = -8
 		footer.mouse_filter = Control.MOUSE_FILTER_STOP
 		main.modal_layer.add_child(footer)
 		var footer_spacer := Control.new()
-		footer_spacer.custom_minimum_size = Vector2(0, 132)
+		footer_spacer.custom_minimum_size = Vector2(0, 158)
 		body.add_child(footer_spacer)
 	else:
 		body.add_child(footer)
@@ -74,14 +76,15 @@ func build(body: VBoxContainer) -> void:
 	footer_box.add_child(actions)
 	var back_button := Button.new()
 	back_button.text = "메인 메뉴"
-	back_button.custom_minimum_size = Vector2(104 if mobile_portrait else 150, 42 if short else 48)
+	back_button.custom_minimum_size = Vector2(104 if mobile_portrait else 150, 64 if mobile_portrait else (58 if short else 66))
 	back_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mobile_portrait else Control.SIZE_FILL
 	main.ui.style_button(back_button, Color(0.12, 0.15, 0.2, 1.0))
+	back_button.add_theme_font_size_override("font_size", 16 if mobile_portrait else 17)
 	back_button.pressed.connect(Callable(main, "_show_main_menu"))
 	actions.add_child(back_button)
 
 	start_button = Button.new()
-	start_button.custom_minimum_size = Vector2(0 if mobile_portrait else 280, 48 if mobile_portrait else (44 if short else 54))
+	start_button.custom_minimum_size = Vector2(0 if mobile_portrait else 320, 64 if mobile_portrait else (58 if short else 66))
 	start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	start_button.pressed.connect(Callable(self, "_confirm_selection"))
 	actions.add_child(start_button)
@@ -163,12 +166,59 @@ func _make_race_card(race_id: String, compact: bool, phone: bool, short: bool) -
 
 	var select_button := Button.new()
 	select_button.text = "%s 선택" % String(meta.get("name", race_id))
-	select_button.custom_minimum_size = Vector2(0, 38 if short else (44 if compact else 48))
+	select_button.custom_minimum_size = Vector2(0, 56 if short else (64 if compact else 68))
 	select_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	select_button.set_meta("selection_font_size", 17 if compact else 19)
 	select_button.pressed.connect(Callable(self, "_select_race").bind(race_id))
 	box.add_child(select_button)
 	race_buttons[race_id] = select_button
+
+	var card_hit_target := Button.new()
+	card_hit_target.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	card_hit_target.focus_mode = Control.FOCUS_NONE
+	card_hit_target.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	card_hit_target.tooltip_text = "%s 선택" % String(meta.get("name", race_id))
+	card_hit_target.z_index = 20
+	var empty_style := StyleBoxEmpty.new()
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		card_hit_target.add_theme_stylebox_override(state, empty_style)
+	card_hit_target.pressed.connect(Callable(self, "_select_race").bind(race_id))
+	card_hit_target.mouse_entered.connect(Callable(self, "_set_race_hovered").bind(race_id, true))
+	card_hit_target.mouse_exited.connect(Callable(self, "_set_race_hovered").bind(race_id, false))
+	frame.add_child(card_hit_target)
+	race_hit_targets[race_id] = card_hit_target
 	return frame
+
+func _set_race_hovered(race_id: String, hovered: bool) -> void:
+	var previous_race_id := hovered_race_id
+	if hovered:
+		hovered_race_id = race_id
+	elif hovered_race_id == race_id:
+		hovered_race_id = ""
+	if not previous_race_id.is_empty() and previous_race_id != hovered_race_id:
+		_apply_race_panel_style(previous_race_id)
+	_apply_race_panel_style(race_id)
+
+func _apply_race_panel_style(race_id: String) -> void:
+	var meta: Dictionary = main._race_meta().get(race_id, {})
+	var accent: Color = meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
+	var selected: bool = race_id == selected_race_id
+	var hovered: bool = race_id == hovered_race_id
+	var panel: PanelContainer = race_panels.get(race_id)
+	if panel == null:
+		return
+	var panel_margin := 8 if bool(panel.get_meta("short_layout", false)) else 12
+	var style: StyleBoxFlat = main.ui.make_style_box(
+		Color(0.055, 0.07, 0.09, 1.0).lerp(accent, 0.1 if selected else (0.065 if hovered else 0.02)),
+		accent if selected else (accent.darkened(0.2) if hovered else accent.darkened(0.48)),
+		3 if selected else (2 if hovered else 1),
+		8
+	)
+	style.content_margin_left = panel_margin
+	style.content_margin_top = panel_margin
+	style.content_margin_right = panel_margin
+	style.content_margin_bottom = panel_margin
+	panel.add_theme_stylebox_override("panel", style)
 
 func _select_race(race_id: String) -> void:
 	selected_race_id = main._normalize_race_id(race_id)
@@ -182,20 +232,7 @@ func _refresh_selection() -> void:
 		var meta: Dictionary = main._race_meta().get(race_id, {})
 		var accent: Color = meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
 		var selected: bool = race_id == selected_race_id
-		var panel: PanelContainer = race_panels.get(race_id)
-		if panel != null:
-			var panel_margin := 8 if bool(panel.get_meta("short_layout", false)) else 12
-			var style: StyleBoxFlat = main.ui.make_style_box(
-				Color(0.055, 0.07, 0.09, 1.0).lerp(accent, 0.1 if selected else 0.02),
-				accent if selected else accent.darkened(0.48),
-				3 if selected else 1,
-				8
-			)
-			style.content_margin_left = panel_margin
-			style.content_margin_top = panel_margin
-			style.content_margin_right = panel_margin
-			style.content_margin_bottom = panel_margin
-			panel.add_theme_stylebox_override("panel", style)
+		_apply_race_panel_style(race_id)
 		var button: Button = race_buttons.get(race_id)
 		if button != null:
 			button.text = "선택됨" if selected else "%s 선택" % String(meta.get("name", race_id))
@@ -203,6 +240,7 @@ func _refresh_selection() -> void:
 				main.ui.style_primary_button(button, accent.darkened(0.42))
 			else:
 				main.ui.style_button(button, Color(0.12, 0.15, 0.2, 1.0))
+			button.add_theme_font_size_override("font_size", int(button.get_meta("selection_font_size", 17)))
 
 	var selected_meta: Dictionary = main._race_meta().get(selected_race_id, {})
 	var selected_accent: Color = selected_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
@@ -215,6 +253,7 @@ func _refresh_selection() -> void:
 	if start_button != null:
 		start_button.text = String(selected_meta.get("start_text", "인간으로 시작"))
 		main.ui.style_primary_button(start_button, selected_accent.darkened(0.38))
+		start_button.add_theme_font_size_override("font_size", 18)
 
 func _confirm_selection() -> void:
 	if main.audio_manager != null:

@@ -34,7 +34,7 @@ const AudioManagerScript := preload("res://src/services/audio_manager.gd")
 const CARD_ART_COLS := 4
 const CARD_ART_ROWS := 3
 const BASE_VIEWPORT_SIZE := Vector2(1280.0, 720.0)
-const MAX_AUTO_UI_SCALE := 1.2
+const MAX_AUTO_UI_SCALE := 1.3
 
 var card_db
 var deck_service
@@ -111,6 +111,7 @@ func _ready() -> void:
 	player_profile = profile_store.load_or_create(PROFILE_PATH, card_defs)
 	player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
 	_save_profile()
+	_apply_root_layout()
 	_apply_window_mode()
 	current_run = run_store.load_or_empty(RUN_PATH)
 	_show_main_menu()
@@ -211,7 +212,7 @@ func _on_window_size_changed() -> void:
 
 func _layout_signature(viewport_size: Vector2) -> String:
 	var portrait := viewport_size.y > viewport_size.x
-	return "%s|%s|%s|%s|%s|%s|%s|%s" % [
+	return "%s|%s|%s|%s|%s|%s|%s|%s|%s" % [
 		"portrait" if portrait else "landscape",
 		"mobile" if portrait and viewport_size.x <= 600.0 else "wide",
 		"phone" if portrait and viewport_size.x <= 900.0 else "non_phone",
@@ -220,6 +221,7 @@ func _layout_signature(viewport_size: Vector2) -> String:
 		"compact1400" if viewport_size.x < 1400.0 else "wide1400",
 		"desktop" if viewport_size.x < 1600.0 else "wide_desktop",
 		"short" if viewport_size.y <= 760.0 else "tall",
+		_ui_scale_mode(),
 	]
 
 func _schedule_layout_rebuild() -> void:
@@ -1309,6 +1311,17 @@ func _on_fullscreen_toggled(enabled: bool) -> void:
 	_save_profile()
 	_apply_window_mode()
 
+func _on_ui_scale_mode_selected(mode: String) -> void:
+	var normalized_mode := mode if ["auto", "large", "small"].has(mode) else "auto"
+	if _ui_scale_mode() == normalized_mode:
+		return
+	player_profile["settings"]["ui_scale_mode"] = normalized_mode
+	_save_profile()
+	_apply_root_layout()
+	last_layout_signature = _layout_signature(_layout_viewport_size())
+	pending_layout_signature = last_layout_signature
+	call_deferred("_rebuild_active_screen_for_layout")
+
 func _reset_profile() -> void:
 	player_profile = profile_store.make_default_profile(card_defs)
 	player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
@@ -1493,6 +1506,18 @@ func _card_effect_summary(card: Dictionary) -> String:
 		match card_id:
 			"training_sword":
 				return "앞 아군 공격 +2"
+			"ember_blade":
+				return "앞 아군 공격 +1 · 공격 후 영웅 피해 1"
+			"wind_quiver":
+				return "앞 아군 공격 +1 · 공격 후 1드로우"
+			"bone_armor":
+				return "앞 아군 체력 +3 · 사망 시 영웅 피해 2"
+			"royal_standard":
+				return "모든 아군 +1/+1"
+			"blood_blade":
+				return "앞 아군 공격 +2 · 공격 후 회복 1"
+			"war_horn":
+				return "앞 아군 공격 +1 · 즉시 공격 1/1 소환"
 		return "아군 장비 강화"
 	var parts: Array[String] = []
 	match card_id:
@@ -2055,8 +2080,24 @@ func _content_scale_factor_for_physical_size(physical_size: Vector2) -> float:
 		return 1.0
 	return _render_scale_for_physical_size(physical_size) / native_scale
 
+func _ui_scale_mode() -> String:
+	var mode := String(player_profile.get("settings", {}).get("ui_scale_mode", "auto"))
+	return mode if ["auto", "large", "small"].has(mode) else "auto"
+
+func _ui_scale_multiplier() -> float:
+	match _ui_scale_mode():
+		"large":
+			return 1.1
+		"small":
+			return 0.9
+	return 1.0
+
 func _render_scale_for_physical_size(physical_size: Vector2) -> float:
-	return clampf(_native_canvas_scale_for_physical_size(physical_size), 1.0, MAX_AUTO_UI_SCALE)
+	var native_scale := _native_canvas_scale_for_physical_size(physical_size)
+	if native_scale < 1.0:
+		return 1.0
+	var automatic_scale := clampf(native_scale, 1.0, MAX_AUTO_UI_SCALE)
+	return clampf(automatic_scale * _ui_scale_multiplier(), 0.9, MAX_AUTO_UI_SCALE * 1.1)
 
 func _layout_size_for_physical_size(physical_size: Vector2) -> Vector2:
 	return physical_size / _render_scale_for_physical_size(physical_size)

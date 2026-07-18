@@ -8,7 +8,7 @@
 - Act 1개: 국경지대
 - 기본 런 길이: 5개 노드
   - `battle -> event/shop -> battle -> rest/shop -> boss`
-- 스타터 4종 + 런 카드 풀 34장
+- 스타터 4종 + 런 카드 풀 40장
 - 유물 15개, 이벤트 5개
 - 전투 규칙: 영웅 체력 0 승패, 마나 1부터 시작, 턴마다 +1, 필드 5칸
 - 빌드 태그: 화염, 드로우, 사망, 버프, 저체력, 소환
@@ -27,6 +27,8 @@
 	- 달성 후 승리하면 일반 전투 10G, 보스 전투 15G를 추가로 획득
 - 빌드 체감
   - 전투 중 같은 활성 빌드 태그 카드를 이어 쓰면 연계 카운터가 표시되고 추가 효과가 발동
+  - 한 전투의 첫 3연계는 빌드별 피니시로 강화되며 저장 후 이어하기에도 사용 여부가 유지됨
+  - 화염·드로우·사망·버프·저체력·소환 빌드마다 플레이 방식을 바꾸는 대표 장비 1장이 있음
   - 보상 화면은 `바로 활성`, `연계 카드 확보`, `활성까지 N`, `활성 후 효과`를 표시
   - 주요 유물은 빌드 앵커 역할을 하며 전투 중 발동 텍스트와 플로팅 피드백을 제공
 - 보스 패턴
@@ -76,6 +78,7 @@ res://src/core/Main.tscn
 - 전투 UI 스타일: `res://src/ui/styles/battle_styles.gd`
 - 전투 충격/승리 FX: `res://src/ui/effects/battle_fx_layer.gd`
 - 전투 도전 로직: `res://src/battle/battle_objective_service.gd`
+- 3연계 피니시 로직: `res://src/battle/battle_combo_finisher.gd`
 - 공통 Godot 테마: `res://assets/ui/main_theme.tres`
 - 오디오 매니저: `res://src/services/audio_manager.gd`
 - 런 저장/진행 상태: `res://src/services/run_state.gd`
@@ -121,7 +124,7 @@ godot4 --headless -s res://tests/godot/run_tests.gd
 
 UI를 바꾼 경우에만 반응형 캡처를 따로 확인한다.
 
-반응형 기준은 `1920x1080`, `1280x720`, `1024x768`, `800x1280`, 모바일 웹 `390x844`다. `Canvas Items + Expand`는 최대 1.2배까지만 자동 확대해 큰 화면의 추가 공간을 남기고, 작은 화면은 기존 논리 픽셀을 유지한다. `900px` 이하 세로 전투는 카드 크기를 줄이는 대신 가로 레일, 중앙 스냅, 첫 탭 선택 확대를 사용한다.
+반응형 기준은 `1920x1080`, `1280x720`, `1024x768`, `800x1280`, 모바일 웹 `390x844`다. `Canvas Items + Expand`는 최대 1.3배까지 자동 확대해 Full HD에서 조작 UI가 작아 보이지 않게 하면서 추가 전장 공간도 남긴다. 설정의 `UI 크기`에서 1280px 이상 큰 화면 표시를 `자동`, `크게`, `작게`로 보정할 수 있고, 작은 화면은 터치 가독성을 위해 기존 논리 픽셀을 유지한다. `900px` 이하 세로 전투는 카드 크기를 줄이는 대신 가로 레일, 중앙 스냅, 첫 탭 선택 확대를 사용한다.
 
 ```bash
 godot4 --path . -s res://tests/godot/capture_ui_responsive.gd

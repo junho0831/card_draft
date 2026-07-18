@@ -54,6 +54,8 @@ func _build_upgraded_card(id: String) -> Dictionary:
 	if String(card.get("type", "")) == "unit":
 		card["attack"] = int(card.get("attack", 0)) + 1
 		card["health"] = int(card.get("health", 0)) + 1
+	elif String(card.get("type", "")) == "equipment":
+		card["cost"] = max(0, int(card.get("cost", 0)) - 1)
 	elif base_id == "captain_order":
 		card["text"] = "내 모든 유닛 공격력 +2"
 	elif base_id == "elven_insight":

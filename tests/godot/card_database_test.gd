@@ -13,6 +13,7 @@ func run() -> Dictionary:
 	_assert_true(card_db.load_cards(CARD_DATA_PATH), "card database loads sample cards")
 	if _failures.is_empty():
 		_test_build_tags_loaded(card_db)
+		_test_signature_equipment_cards(card_db)
 		_test_card_art_ids_have_files(card_db)
 		_test_build_upgraded_unit(card_db)
 		_test_build_upgraded_spells(card_db)
@@ -28,6 +29,27 @@ func run() -> Dictionary:
 func _test_build_tags_loaded(card_db) -> void:
 	var card: Dictionary = card_db.get_card("fireball")
 	_assert_true((card.get("build_tags", []) as Array).has("fire"), "fireball has fire build tag")
+
+func _test_signature_equipment_cards(card_db) -> void:
+	var expected_tags := {
+		"ember_blade": "fire",
+		"wind_quiver": "draw",
+		"bone_armor": "death",
+		"royal_standard": "buff",
+		"blood_blade": "low_hp",
+		"war_horn": "summon",
+	}
+	var equipment_count := 0
+	for card_data in card_db.card_defs:
+		var card: Dictionary = card_data
+		if String(card.get("type", "")) == "equipment":
+			equipment_count += 1
+	_assert_eq(equipment_count, 7, "card pool contains the generic and six signature equipment cards")
+	for card_id in expected_tags:
+		var card: Dictionary = card_db.get_card(String(card_id))
+		_assert_eq(String(card.get("type", "")), "equipment", "%s is equipment" % card_id)
+		_assert_true((card.get("build_tags", []) as Array).has(String(expected_tags[card_id])), "%s keeps its build tag" % card_id)
+	_assert_eq(int(card_db.get_card("ember_blade_plus").get("cost", -1)), 1, "equipment upgrade reduces its cost")
 
 func _test_card_art_ids_have_files(card_db) -> void:
 	for card in card_db.card_defs:

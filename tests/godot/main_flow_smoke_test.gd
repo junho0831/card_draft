@@ -54,15 +54,23 @@ func _test_boots_to_main_menu(main: Node) -> void:
 	_assert_true(sfx_bus >= 0 and AudioServer.get_bus_effect_count(sfx_bus) > 0, "SFX bus includes a limiter")
 
 func _test_content_scaling(main: Node) -> void:
+	var original_scale_mode := String(main.player_profile["settings"].get("ui_scale_mode", "auto"))
+	main.player_profile["settings"]["ui_scale_mode"] = "auto"
 	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/mode", "")), "canvas_items", "project uses Canvas Items stretch mode")
 	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/aspect", "")), "expand", "project uses Expand stretch aspect")
 	_assert_eq(main._layout_size_for_physical_size(Vector2(390, 844)), Vector2(390, 844), "phone layout keeps native logical pixels")
 	_assert_eq(main._layout_size_for_physical_size(Vector2(800, 1280)), Vector2(800, 1280), "tablet layout keeps native logical pixels")
 	var full_hd_layout: Vector2 = main._layout_size_for_physical_size(Vector2(1920, 1080))
-	_assert_true(is_equal_approx(full_hd_layout.x, 1600.0) and is_equal_approx(full_hd_layout.y, 900.0), "full HD caps automatic UI scale at 1.2")
-	_assert_true(is_equal_approx(main._content_scale_factor_for_physical_size(Vector2(1920, 1080)), 0.8), "full HD applies the capped Canvas Items factor")
+	_assert_true(is_equal_approx(full_hd_layout.x, 1476.9231) and is_equal_approx(full_hd_layout.y, 830.7692), "full HD caps automatic UI scale at 1.3")
+	_assert_true(is_equal_approx(main._content_scale_factor_for_physical_size(Vector2(1920, 1080)), 0.8666667), "full HD applies the capped Canvas Items factor")
 	var ultrawide_layout: Vector2 = main._layout_size_for_physical_size(Vector2(2560, 1080))
-	_assert_true(is_equal_approx(ultrawide_layout.x, 2133.3333) and is_equal_approx(ultrawide_layout.y, 900.0), "ultrawide keeps extra horizontal layout space")
+	_assert_true(is_equal_approx(ultrawide_layout.x, 1969.2308) and is_equal_approx(ultrawide_layout.y, 830.7692), "ultrawide keeps extra horizontal layout space")
+	main.player_profile["settings"]["ui_scale_mode"] = "large"
+	_assert_true(is_equal_approx(main._render_scale_for_physical_size(Vector2(1920, 1080)), 1.43), "large mode increases desktop UI scale")
+	_assert_eq(main._layout_size_for_physical_size(Vector2(390, 844)), Vector2(390, 844), "large mode does not shrink phone layout")
+	main.player_profile["settings"]["ui_scale_mode"] = "small"
+	_assert_true(is_equal_approx(main._render_scale_for_physical_size(Vector2(1920, 1080)), 1.17), "small mode reduces desktop UI scale")
+	main.player_profile["settings"]["ui_scale_mode"] = original_scale_mode
 
 func _test_battle_objective_service() -> void:
 	var service = BattleObjectiveServiceScript.new()
@@ -81,6 +89,11 @@ func _test_run_start_and_battle_entry(main: Node) -> void:
 	_assert_eq(String(main.active_screen), "race_selection", "start_new_run opens race selection")
 	_assert_eq(main.current_run, run_before_selection, "race selection preserves the current run until confirmation")
 	_assert_true(main.active_screen_controller != null, "race selection controller is retained")
+	_assert_eq(main.active_screen_controller.race_hit_targets.size(), 3, "race selection exposes a full-card hit target for every race")
+	var elf_hit_target: Button = main.active_screen_controller.race_hit_targets.get("elf")
+	elf_hit_target.pressed.emit()
+	_assert_eq(String(main.pending_race_selection_id), "elf", "clicking the elf card surface selects the elf race")
+	main.active_screen_controller._select_race("human")
 	_test_race_starters(main)
 	main._init_run("human")
 	_assert_eq(String(main.active_screen), "map", "confirming race opens map")
@@ -381,6 +394,10 @@ func _test_continue_run_routes(main: Node) -> void:
 		"turn_timer_left": 12.0,
 		"battle_state_flags": {
 			"cards_played_this_turn": 1,
+			"combo_tag": "fire",
+			"combo_streak": 3,
+			"combo_finisher_used": true,
+			"combo_finisher_tag": "fire",
 			"mana_crystal_bonus": false,
 			"first_card_discount_available": false,
 			"necromancer_ring_used": false,
@@ -396,6 +413,8 @@ func _test_continue_run_routes(main: Node) -> void:
 	_assert_eq(int(main.battle_screen.player.get("health", 0)), 37, "battle snapshot restores player health")
 	_assert_eq(String(main.battle_screen.log_label.text), "복원 테스트", "battle snapshot restores log text")
 	_assert_true(bool(main.battle_screen.battle_state.get("race_power_used", false)), "battle snapshot restores race power usage")
+	_assert_true(bool(main.battle_screen.battle_state.get("combo_finisher_used", false)), "battle snapshot restores combo finisher usage")
+	_assert_eq(String(main.battle_screen.battle_state.get("combo_finisher_tag", "")), "fire", "battle snapshot restores combo finisher tag")
 
 func _test_reward_claim_advances_node(main: Node) -> void:
 	var acts: Array[Dictionary] = main.run_generator.load_acts()

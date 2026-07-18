@@ -10,7 +10,7 @@ func _is_tight_shop_layout() -> bool:
 	return not _is_shop_compact_layout() and main._layout_viewport_size().y <= 760.0
 
 func _is_shop_compact_layout() -> bool:
-	return main._is_compact_layout_for(1360.0, 900.0)
+	return main._is_compact_layout_for(1360.0, 800.0)
 
 func build(body: VBoxContainer) -> void:
 	var shop_state: Dictionary = main.current_run.get("pending_shop", {})

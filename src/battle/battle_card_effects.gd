@@ -35,7 +35,7 @@ func play_card(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: 
 		"spell":
 			_resolve_spell(owner, enemy, card, context)
 		"equipment":
-			_resolve_equipment(owner, card, context)
+			_resolve_equipment(owner, enemy, card, context)
 
 func on_unit_died(dead_unit: Dictionary, owner: Dictionary, enemy: Dictionary, context: Dictionary) -> void:
 	var log: Callable = context.get("log", Callable())
@@ -55,6 +55,11 @@ func on_unit_died(dead_unit: Dictionary, owner: Dictionary, enemy: Dictionary, c
 			relic_service.on_hero_hp_lost(context.get("run_data", {}), context, owner, 2)
 		if log.is_valid():
 			log.call("광전사 사망 효과: %s 영웅에게 피해 2" % owner.name)
+	var equipment_death_damage := int(dead_unit.get("bone_armor_death_damage", 0))
+	if equipment_death_damage > 0:
+		enemy["health"] = int(enemy.get("health", 0)) - equipment_death_damage
+		if log.is_valid():
+			log.call("뼈 갑옷 파열: %s 영웅에게 피해 %d" % [enemy.name, equipment_death_damage])
 	if int(owner.get("corpse_explosion_stacks", 0)) > 0:
 		var damage := 2 * int(owner.corpse_explosion_stacks)
 		var cleanup: Callable = context.get("cleanup_dead_units", Callable())
@@ -284,13 +289,104 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 			if log.is_valid():
 				log.call("%s: 회복 물약, 영웅 체력 5 회복" % owner.name)
 
-func _resolve_equipment(owner: Dictionary, card: Dictionary, context: Dictionary) -> void:
+func _resolve_equipment(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: Dictionary) -> void:
 	var log: Callable = context.get("log", Callable())
 	if owner.field.is_empty():
 		return
-	owner.field[0].attack += 2
+	var target: Dictionary = owner.field[0]
+	var card_id := _base_card_id(String(card.get("id", "")))
+	var result_text := "공격력 +2"
+	match card_id:
+		"ember_blade":
+			target["attack"] = int(target.get("attack", 0)) + 1
+			target["ember_blade_damage"] = int(target.get("ember_blade_damage", 0)) + 1
+			result_text = "공격력 +1 / 공격 후 적 영웅 피해 1"
+		"wind_quiver":
+			target["attack"] = int(target.get("attack", 0)) + 1
+			target["wind_quiver_draw"] = int(target.get("wind_quiver_draw", 0)) + 1
+			result_text = "공격력 +1 / 공격 후 드로우 1"
+		"bone_armor":
+			target["health"] = int(target.get("health", 0)) + 3
+			target["max_health"] = int(target.get("max_health", 0)) + 3
+			target["bone_armor_death_damage"] = int(target.get("bone_armor_death_damage", 0)) + 2
+			result_text = "체력 +3 / 사망 시 적 영웅 피해 2"
+		"royal_standard":
+			for unit in owner.field:
+				unit["attack"] = int(unit.get("attack", 0)) + 1
+				unit["health"] = int(unit.get("health", 0)) + 1
+				unit["max_health"] = int(unit.get("max_health", 0)) + 1
+			result_text = "모든 아군 +1/+1"
+		"blood_blade":
+			target["attack"] = int(target.get("attack", 0)) + 2
+			target["blood_blade_heal"] = int(target.get("blood_blade_heal", 0)) + 1
+			owner["health"] = int(owner.get("health", 0)) - 2
+			var relic_service = context.get("relic_service")
+			if relic_service != null:
+				relic_service.on_hero_hp_lost(context.get("run_data", {}), context, owner, 2)
+			result_text = "공격력 +2 / 내 영웅 피해 2 / 공격 후 회복 1"
+		"war_horn":
+			target["attack"] = int(target.get("attack", 0)) + 1
+			var summoned := _summon_war_horn_token(owner, context)
+			result_text = "공격력 +1%s" % (" / 즉시 공격 지원병 소환" if summoned else "")
+		_:
+			target["attack"] = int(target.get("attack", 0)) + 2
+	_add_equipment_name(target, String(card.get("name", "장비")))
 	if log.is_valid():
-		log.call("%s: %s 장착, %s 공격력 +2" % [owner.name, card.name, owner.field[0].name])
+		log.call("%s: %s 장착, %s %s" % [owner.name, card.name, target.name, result_text])
+
+func on_unit_attacked(attacker: Dictionary, owner: Dictionary, enemy: Dictionary, context: Dictionary) -> Dictionary:
+	var result := {"hero_damage": 0, "draw": 0, "heal": 0}
+	var log: Callable = context.get("log", Callable())
+	var hero_damage := int(attacker.get("ember_blade_damage", 0))
+	if hero_damage > 0:
+		enemy["health"] = int(enemy.get("health", 0)) - hero_damage
+		result["hero_damage"] = hero_damage
+		if log.is_valid():
+			log.call("잿불 검: %s 영웅 추가 피해 %d" % [enemy.name, hero_damage])
+	var draw_amount := int(attacker.get("wind_quiver_draw", 0))
+	var draw_cards: Callable = context.get("draw_cards", Callable())
+	if draw_amount > 0 and draw_cards.is_valid():
+		draw_cards.call(owner, draw_amount)
+		result["draw"] = draw_amount
+		if log.is_valid():
+			log.call("바람깃 화살통: 카드 %d장 드로우" % draw_amount)
+	var heal_amount := int(attacker.get("blood_blade_heal", 0))
+	if heal_amount > 0:
+		var old_health := int(owner.get("health", 0))
+		owner["health"] = min(int(owner.get("max_health", old_health)), old_health + heal_amount)
+		result["heal"] = int(owner.get("health", 0)) - old_health
+		if int(result["heal"]) > 0 and log.is_valid():
+			log.call("피의 칼날: 영웅 체력 %d 회복" % int(result["heal"]))
+	return result
+
+func _add_equipment_name(unit: Dictionary, equipment_name: String) -> void:
+	var names: Array = unit.get("equipment_names", [])
+	names.append(equipment_name)
+	unit["equipment_names"] = names
+
+func _summon_war_horn_token(owner: Dictionary, context: Dictionary) -> bool:
+	if owner.field.size() >= 5:
+		return false
+	var token := {
+		"id": "war_horn_token",
+		"name": "징집 지원병",
+		"race": "중립",
+		"attr": "대지",
+		"attack": 1,
+		"health": 1,
+		"max_health": 1,
+		"art": 0,
+		"art_id": "militia",
+		"can_attack": true,
+	}
+	var relic_service = context.get("relic_service")
+	if relic_service != null:
+		relic_service.on_unit_summoned(context.get("run_data", {}), token, context)
+	owner.field.append(token)
+	var on_unit_summoned: Callable = context.get("on_unit_summoned", Callable())
+	if on_unit_summoned.is_valid():
+		on_unit_summoned.call(owner, token)
+	return true
 
 func _deal_frontline_damage(owner: Dictionary, enemy: Dictionary, source: Dictionary, base_damage: int, context: Dictionary, source_name: String) -> void:
 	var log: Callable = context.get("log", Callable())

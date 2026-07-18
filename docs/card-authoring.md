@@ -181,11 +181,19 @@ assets/card_art/season1_sample_sheet.png
 - `fireball`: 가장 앞의 적 유닛 또는 영웅에게 피해 4.
 - `healing_potion`: 내 영웅 체력 5 회복.
 - `training_sword`: 가장 앞의 아군 유닛 공격력 +2.
+- `ember_blade`: 가장 앞의 아군 공격력 +1, 공격 후 적 영웅 피해 1.
+- `wind_quiver`: 가장 앞의 아군 공격력 +1, 공격 후 카드 1장 드로우.
+- `bone_armor`: 가장 앞의 아군 체력 +3, 사망 시 적 영웅 피해 2.
+- `royal_standard`: 모든 아군 +1/+1.
+- `blood_blade`: 내 영웅 체력 2 지불, 가장 앞의 아군 공격력 +2, 공격 후 체력 1 회복.
+- `war_horn`: 가장 앞의 아군 공격력 +1, 즉시 공격 가능한 1/1 지원병 소환.
 - `grave_knight`: 사망 시 영웅 체력 2 회복.
 - `call_of_dead`: 해골 병사 2장 소환.
 - `corpse_explosion`: 아군 하나를 처치하고 모든 적에게 피해 2.
 
 새 효과 카드를 만들 때는 카드 JSON을 추가한 뒤 `battle_card_effects.gd`에 카드 ID 분기를 추가한다.
+
+공격 후 유지 효과는 유닛 딕셔너리에 상태값과 `equipment_names`를 남기고 `on_unit_attacked()`에서 처리한다. 사망 반응은 `on_unit_died()`를 사용한다. 장비 카드는 휴식 강화 시 비용이 1 감소한다.
 
 ## 밸런스 기준
 
