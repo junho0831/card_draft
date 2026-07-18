@@ -2,6 +2,9 @@ extends RefCounted
 class_name UiFactory
 
 const UI_STYLES = preload("res://src/ui/styles/ui_styles.gd")
+const CARD_RACE_STYLES = preload("res://src/ui/styles/card_race_styles.gd")
+const UI_TOKENS = preload("res://src/ui/styles/ui_tokens.gd")
+const CARD_VIEW = preload("res://src/ui/components/card_view.gd")
 
 var card_art_sheet: Texture2D
 var card_art_cols := 4
@@ -263,36 +266,7 @@ func make_large_action_button(title: String, subtitle: String, icon_text: String
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.text = "%s  %s\n%s" % [icon_text, title, subtitle]
-	button.add_theme_font_size_override("font_size", 16 if compact else 18)
-	
-	var accent := Color(0.46, 0.7, 1.0, 1.0).lerp(base_color.lightened(0.36), 0.3)
-	var style_normal := make_action_button_style(base_color.darkened(0.06), accent, true, 5)
-	style_normal.content_margin_left = 20
-	style_normal.content_margin_top = 12
-	style_normal.content_margin_right = 16
-	style_normal.content_margin_bottom = 12
-	
-	var style_hover = style_normal.duplicate()
-	style_hover.bg_color = style_normal.bg_color.lightened(0.07)
-	style_hover.border_color = accent.lightened(0.14)
-	
-	var style_pressed = style_normal.duplicate()
-	style_pressed.bg_color = style_normal.bg_color.darkened(0.1)
-	style_pressed.shadow_size = 1
-	style_pressed.shadow_offset = Vector2(0, 1)
-	
-	var style_disabled = style_normal.duplicate()
-	style_disabled.bg_color = Color(base_color.r, base_color.g, base_color.b, 0.38)
-	style_disabled.border_color = Color(accent.r, accent.g, accent.b, 0.28)
-	
-	button.add_theme_stylebox_override("normal", style_normal)
-	button.add_theme_stylebox_override("hover", style_hover)
-	button.add_theme_stylebox_override("pressed", style_pressed)
-	button.add_theme_stylebox_override("disabled", style_disabled)
-	button.add_theme_color_override("font_color", THEME_TEXT)
-	button.add_theme_color_override("font_disabled_color", Color(0.5, 0.52, 0.56, 1.0))
-	button.add_theme_color_override("font_outline_color", Color(0.01, 0.012, 0.014, 1.0))
-	button.add_theme_constant_override("outline_size", 0)
+	UI_STYLES.apply_role_button(button, "primary", base_color.lightened(0.34), base_color.darkened(0.06), 16 if compact else 18)
 	_apply_hover_feedback(button)
 	return button
 
@@ -372,6 +346,61 @@ func race_color(race: String) -> Color:
 
 func card_race_color(card: Dictionary) -> Color:
 	return race_color(String(card.get("race", "")))
+
+func card_race_visual_meta(card: Dictionary) -> Dictionary:
+	return CARD_RACE_STYLES.visual_meta(String(card.get("race", "중립")))
+
+func card_race_display_name(card: Dictionary) -> String:
+	var race := String(card.get("race", "중립"))
+	return String(CARD_RACE_STYLES.visual_meta(race).get("display_name", race))
+
+func card_view_metrics(mode: String, compact: bool = false, tight: bool = false) -> Dictionary:
+	return CARD_VIEW.metrics(mode, compact, tight)
+
+func make_card_name_band(main: Node, card: Dictionary, mode: String, compact: bool = false, tight: bool = false, suffix: String = "") -> PanelContainer:
+	return CARD_VIEW.make_name_band(main, card, mode, compact, tight, suffix)
+
+func make_card_header(main: Node, card: Dictionary, mode: String, compact: bool = false, tight: bool = false, cost: int = -1, suffix: String = "", status_badge: Control = null) -> HBoxContainer:
+	return CARD_VIEW.make_header(main, card, mode, compact, tight, cost, suffix, status_badge)
+
+func make_card_identity_label(main: Node, card: Dictionary, mode: String, compact: bool = false, tight: bool = false, include_lineage: bool = false, include_stats: bool = false) -> Label:
+	return CARD_VIEW.make_identity_label(main, card, mode, compact, tight, include_lineage, include_stats)
+
+func make_card_art(main: Node, card: Dictionary, size: Vector2, dimmed: bool = false) -> TextureRect:
+	return CARD_VIEW.make_art(main, card, size, dimmed)
+
+func make_card_rules_block(main: Node, card: Dictionary, summary_text: String, detail_text: String, mode: String, compact: bool = false, tight: bool = false, minimum_height: float = 0.0) -> PanelContainer:
+	return CARD_VIEW.make_rules_block(main, card, summary_text, detail_text, mode, compact, tight, minimum_height)
+
+func make_card_face(main: Node, card: Dictionary, mode: String, options: Dictionary = {}) -> VBoxContainer:
+	return CARD_VIEW.make_face(main, card, mode, options)
+
+func card_state_accent(card: Dictionary, state: String) -> Color:
+	return UI_TOKENS.card_state_accent(state, card_race_color(card))
+
+func card_state_border_width(state: String) -> int:
+	return UI_TOKENS.card_state_border_width(state)
+
+func make_race_card_style(
+	card: Dictionary,
+	state_tint: Color = Color(0.0, 0.0, 0.0, 0.0),
+	border_width: int = 2,
+	margin: int = 7,
+	emphasis: float = 0.0,
+	accent_override: Color = Color(0.0, 0.0, 0.0, 0.0)
+) -> StyleBoxFlat:
+	return CARD_RACE_STYLES.make_frame_style(String(card.get("race", "중립")), state_tint, border_width, margin, emphasis, accent_override)
+
+func make_race_band_style(card: Dictionary, margin: int = 3) -> StyleBoxFlat:
+	return CARD_RACE_STYLES.make_band_style(String(card.get("race", "중립")), margin)
+
+func make_race_rules_style(card: Dictionary, margin: int = 6) -> StyleBoxFlat:
+	return CARD_RACE_STYLES.make_rules_style(String(card.get("race", "중립")), margin)
+
+func make_race_card_panel(card: Dictionary, margins: int = 10, border_width: int = 2, emphasis: float = 0.0) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", make_race_card_style(card, Color(0.0, 0.0, 0.0, 0.0), border_width, margins, emphasis))
+	return panel
 
 func relic_visual_meta(relic: Dictionary) -> Dictionary:
 	var tags: Array = relic.get("build_tags", [])
@@ -464,11 +493,15 @@ func style_flat_button(button: Button, base_color: Color, accent_color: Color = 
 	_apply_hover_feedback(button)
 
 func style_button(button: Button, base_color: Color) -> void:
-	UI_STYLES.apply_button(button, base_color)
+	UI_STYLES.apply_role_button(button, "secondary", base_color.lightened(0.34), base_color, 16)
 	_apply_hover_feedback(button)
 
 func style_primary_button(button: Button, base_color: Color = Color(0.16, 0.34, 0.66, 1.0)) -> void:
-	UI_STYLES.apply_primary_button(button, base_color)
+	UI_STYLES.apply_role_button(button, "primary", base_color.lightened(0.34), base_color, UI_TOKENS.FONT_ACTION)
+	_apply_hover_feedback(button)
+
+func style_role_button(button: Button, role: String, accent_color: Color = Color(0.42, 0.68, 1.0, 1.0), base_color: Color = Color(0.0, 0.0, 0.0, 0.0), font_size: int = -1) -> void:
+	UI_STYLES.apply_role_button(button, role, accent_color, base_color, font_size)
 	_apply_hover_feedback(button)
 
 func make_card_frame() -> PanelContainer:

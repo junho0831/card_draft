@@ -50,21 +50,42 @@ static func make_battle_surface(bg_color: Color, accent_color: Color, border_wid
 	panel.add_theme_stylebox_override("panel", style)
 	return panel
 
-static func apply_battle_button(button: Button, bg_color: Color, accent_color: Color, active: bool = false) -> void:
+static func make_action_dock_style(accent_color: Color, margin: int = 8) -> StyleBoxFlat:
+	var style := make_modern_style(Color(0.02, 0.027, 0.038, 0.98), BATTLE_BORDER.lerp(accent_color, 0.42), 1, 5, margin)
+	style.border_width_top = 3
+	style.border_width_bottom = 1
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.58)
+	style.shadow_size = 9
+	style.shadow_offset = Vector2(0, 4)
+	return style
+
+static func apply_battle_button(button: Button, bg_color: Color, accent_color: Color, active: bool = false, role: String = "action") -> void:
 	var base := _battle_button_base(bg_color)
 	var accent := _battle_button_accent(accent_color)
-	var normal := make_modern_style(base, accent, 1, 7, 7)
-	normal.border_width_left = 3 if active else 1
-	normal.content_margin_left = 12 if active else 10
-	normal.content_margin_right = 10
-	normal.shadow_size = 5 if active else 2
+	var normal := make_modern_style(base, accent, 1, 4, 7)
+	normal.border_width_left = 4 if role == "power" else (2 if active else 1)
+	normal.border_width_right = 4 if role == "turn" else (2 if active else 1)
+	normal.border_width_top = 1
+	normal.border_width_bottom = 4 if role == "primary" or role == "power" else 3
+	normal.content_margin_left = 13 if role == "power" else 11
+	normal.content_margin_top = 8
+	normal.content_margin_right = 13 if role == "turn" else 11
+	normal.content_margin_bottom = 10
+	normal.shadow_color = Color(0.0, 0.0, 0.0, 0.58)
+	normal.shadow_size = 8 if active else 5
+	normal.shadow_offset = Vector2(0, 3)
 	var hover: StyleBoxFlat = normal.duplicate()
-	hover.bg_color = base.lightened(0.08)
-	hover.border_color = accent.lightened(0.12)
+	hover.bg_color = base.lightened(0.1)
+	hover.border_color = accent.lightened(0.18)
+	hover.shadow_size = normal.shadow_size + 2
 	var pressed: StyleBoxFlat = normal.duplicate()
-	pressed.bg_color = base.darkened(0.1)
-	pressed.shadow_size = 1
-	pressed.shadow_offset = Vector2(0, 1)
+	pressed.bg_color = base.darkened(0.14)
+	pressed.border_width_top = 3
+	pressed.border_width_bottom = 1
+	pressed.content_margin_top = 11
+	pressed.content_margin_bottom = 7
+	pressed.shadow_size = 0
+	pressed.shadow_offset = Vector2.ZERO
 	var disabled: StyleBoxFlat = normal.duplicate()
 	disabled.bg_color = Color(base.r, base.g, base.b, 0.48)
 	disabled.border_color = Color(accent.r, accent.g, accent.b, 0.26)

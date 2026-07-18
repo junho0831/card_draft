@@ -69,7 +69,10 @@ func _make_option_row(label_text: String, button_text: String, callback: Callabl
 	var button := Button.new()
 	button.text = button_text
 	button.custom_minimum_size = Vector2(96, 40)
-	main.ui.style_button(button, Color(0.32, 0.18, 0.18, 1.0))
+	if button_text == "제거":
+		main.ui.style_role_button(button, "danger", Color(0.9, 0.3, 0.28, 1.0), Color(0.24, 0.07, 0.08, 1.0), 15)
+	else:
+		main.ui.style_role_button(button, "primary", Color(0.46, 0.7, 1.0, 1.0), Color(0.1, 0.24, 0.48, 1.0), 15)
 	button.pressed.connect(callback)
 	row.add_child(button)
 	return row

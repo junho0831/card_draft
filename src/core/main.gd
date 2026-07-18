@@ -417,7 +417,7 @@ func _race_meta() -> Dictionary:
 			"description": "병사를 빠르게 전개하고 전열 전체를 성장시키는 가장 직관적인 세력입니다.",
 			"color": Color(0.78, 0.58, 0.24, 1.0),
 			"relic_id": "knight_banner",
-			"representative_card_id": "bone_soldier",
+			"representative_card_id": "militia",
 			"representative_card_names": ["민병대", "초보 검병", "화염구"],
 			"power_name": "왕국의 집결",
 			"power_text": "근위대를 소환하고 모든 아군 공격력을 1 올립니다.",
@@ -434,7 +434,7 @@ func _race_meta() -> Dictionary:
 			"description": "손패와 마나를 순환시켜 한 턴에 여러 카드를 이어 쓰는 세력입니다.",
 			"color": Color(0.22, 0.68, 0.54, 1.0),
 			"relic_id": "world_tree_leaf",
-			"representative_card_id": "flame_swordsman",
+			"representative_card_id": "forest_archer",
 			"representative_card_names": ["숲의 궁수", "엘프의 통찰", "의식의 묘목"],
 			"power_name": "바람의 순환",
 			"power_text": "카드 2장을 뽑고 이번 턴에 사용할 마나를 2 얻습니다.",
@@ -451,7 +451,7 @@ func _race_meta() -> Dictionary:
 			"description": "약한 아군의 죽음을 영웅 피해와 새로운 해골 전열로 바꾸는 세력입니다.",
 			"color": Color(0.62, 0.38, 0.82, 1.0),
 			"relic_id": "necromancer_ring",
-			"representative_card_id": "knight_spearman",
+			"representative_card_id": "bone_soldier",
 			"representative_card_names": ["해골 병사", "어둠의 거래", "망자의 부름"],
 			"power_name": "죽음의 계약",
 			"power_text": "가장 약한 아군을 희생해 적 영웅에게 피해 3을 주고 해골을 소환합니다.",
@@ -1940,11 +1940,10 @@ func _roll_card_reward_choices(count: int, high_cost_only: bool = false) -> Arra
 			focused_pool = _reward_card_pool("", high_cost_only, race_name)
 		_append_random_reward_choice(ids, focused_pool)
 	if ids.size() < count:
-		var affinity_pool := _reward_card_pool("", high_cost_only, race_name)
-		for neutral_id in _reward_card_pool("", high_cost_only, "중립"):
-			if not affinity_pool.has(neutral_id):
-				affinity_pool.append(neutral_id)
-		_append_random_reward_choice(ids, affinity_pool)
+		var common_pool := _reward_card_pool("", high_cost_only, "중립")
+		if common_pool.is_empty():
+			common_pool = _reward_card_pool("", high_cost_only, race_name)
+		_append_random_reward_choice(ids, common_pool)
 	var pool: Array[String] = _reward_card_pool("", high_cost_only)
 	while ids.size() < count:
 		var before_size := ids.size()
@@ -2169,7 +2168,9 @@ func _add_escape_action_button(parent: Node, text: String, callback_method: Stri
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(0 if phone else (96 if compact else 108), 48 if phone else (34 if compact else 36))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if phone else Control.SIZE_FILL
-	ui.style_button(button, color)
+	var role := "danger" if callback_method == "_abandon_run" else "secondary"
+	var accent := Color(0.9, 0.3, 0.28, 1.0) if role == "danger" else color.lightened(0.34)
+	ui.style_role_button(button, role, accent, color, 13 if phone else (12 if compact else 13))
 	button.add_theme_font_size_override("font_size", 13 if phone else (12 if compact else 13))
 	button.pressed.connect(Callable(self, callback_method))
 	parent.add_child(button)

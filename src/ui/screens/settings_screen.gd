@@ -51,7 +51,8 @@ func build(body: VBoxContainer) -> void:
 	scale_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	scale_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(scale_hint)
-	main._add_menu_button(box, "로컬 프로필 초기화", "_reset_profile", Color(0.35, 0.16, 0.16, 1.0))
+	var reset_button: Button = main._add_menu_button(box, "로컬 프로필 초기화", "_reset_profile", Color(0.35, 0.16, 0.16, 1.0))
+	main.ui.style_role_button(reset_button, "danger", Color(0.9, 0.3, 0.28, 1.0), Color(0.24, 0.07, 0.08, 1.0))
 	main._add_menu_button(box, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
 
 func _on_ui_scale_selected(index: int) -> void:

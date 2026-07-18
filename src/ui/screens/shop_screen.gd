@@ -164,24 +164,22 @@ func _make_service_button(title: String, detail: String, color: Color, compact: 
 
 func _make_shop_card_product(card: Dictionary, shop_state: Dictionary, compact: bool) -> Control:
 	var tight: bool = _is_tight_shop_layout()
-	var frame: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.07, 0.065, 1.0), Color(0.68, 0.48, 0.16, 1.0), 2, 8, 10)
+	var frame: PanelContainer = main.ui.make_race_card_panel(card, 10, 2, 0.08)
 	frame.custom_minimum_size = Vector2(160 if tight else (154 if compact else 182), 0)
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var inner := VBoxContainer.new()
 	inner.add_theme_constant_override("separation", 4 if tight else 5)
 	frame.add_child(inner)
-	var type_label: Label = main._make_label("%s / %s" % [main.deck_service.type_name(String(card.get("type", ""))), String(card.get("attr", ""))], 11 if tight else 12, Color(1.0, 0.88, 0.55, 1.0))
-	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	inner.add_child(type_label)
-	inner.add_child(main._make_card_art_rect(card, Vector2(142, 82) if tight else (Vector2(132, 84) if compact else Vector2(154, 94))))
-	var name_label: Label = main._make_label(String(card.get("name", "")), 13 if tight else (14 if compact else 15), Color(0.98, 0.98, 0.96, 1.0))
-	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	inner.add_child(name_label)
+	inner.add_child(main.ui.make_card_face(main, card, "shop", {
+		"compact": compact,
+		"tight": tight,
+		"art_size": Vector2(142, 82) if tight else (Vector2(132, 84) if compact else Vector2(154, 94)),
+		"include_stats": true,
+		"summary_text": main._card_effect_summary(card),
+		"show_detail": false,
+		"rules_min_height": 30.0,
+	}))
 	inner.add_child(main.ui.make_chip("골드 %d" % main.shop_run_service.SHOP_CARD_COST, Color(0.38, 0.26, 0.08, 1.0), Color(1.0, 0.86, 0.46, 1.0), 12))
-	var text_label: Label = main._make_label(String(card.get("text", "")), 11 if compact else 12, Color(0.82, 0.88, 0.95, 1.0))
-	text_label.custom_minimum_size = Vector2(0, 28 if tight else 30)
-	text_label.clip_text = true
-	inner.add_child(text_label)
 	var tag_text: String = main._format_card_tag_text(card)
 	if not tag_text.is_empty():
 		var tag_label: Label = main._make_label(tag_text, 10 if tight else 11, Color(1.0, 0.82, 0.56, 1.0))
@@ -190,7 +188,7 @@ func _make_shop_card_product(card: Dictionary, shop_state: Dictionary, compact: 
 	var button := Button.new()
 	button.text = "구매 ▶"
 	button.custom_minimum_size = Vector2(120, 36)
-	main.ui.style_button(button, Color(0.38, 0.3, 0.14, 1.0))
+	main.ui.style_role_button(button, "primary", Color(0.96, 0.74, 0.3, 1.0), Color(0.24, 0.18, 0.07, 1.0), 14)
 	button.disabled = int(main.current_run.get("gold", 0)) < main.shop_run_service.SHOP_CARD_COST or (shop_state.get("purchased_cards", []) as Array).has(String(card.get("id", "")))
 	button.pressed.connect(Callable(self, "_buy_shop_card").bind(String(card.get("id", ""))))
 	inner.add_child(button)

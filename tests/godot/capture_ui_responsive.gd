@@ -109,17 +109,17 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 		capture_failed = true
 		quit(1)
 		return
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[0]])
+	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[0]], "main_menu")
 
 	main._start_new_run()
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[1]])
+	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[1]], "race_selection")
 
 	main._init_run("human")
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[2]])
+	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[2]], "map")
 
 	main._enter_current_node()
 	await _wait_for_capture_frame()
@@ -153,12 +153,12 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 		capture_failed = true
 		quit(1)
 		return
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[3]])
+	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[3]], "battle")
 	if viewport_size.x <= 600:
 		main.root_scroll.scroll_vertical = 1000000
 		await _wait_for_capture_frame()
 		await _wait_for_capture_frame()
-		await _capture("%s_04b_battle_hand" % viewport_name)
+		await _capture_screen(main, "%s_04b_battle_hand" % viewport_name, "battle")
 		main.root_scroll.scroll_vertical = 0
 		await _wait_for_capture_frame()
 
@@ -170,7 +170,7 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	main._show_card_reward()
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[4]])
+	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[4]], "reward")
 
 	main.current_run["pending_shop"] = main.shop_run_service.generate_shop_state({
 		"roll_card_choices": Callable(main, "_roll_card_choices"),
@@ -180,14 +180,14 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	main._show_shop()
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[5]])
+	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[5]], "shop")
 
 	main.current_run["pending_event"] = main.event_service.roll_event()
 	main.current_run["pending_card_reward"] = {}
 	main._show_event()
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[6]])
+	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[6]], "event")
 
 	main.current_run["pending_card_reward"] = {}
 	main.current_run["pending_event"] = {}
@@ -195,7 +195,7 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	main._show_rest()
 	for i in range(10):
 		await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[7]])
+	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[7]], "rest")
 
 	main.current_run["pending_card_reward"] = {}
 	main.current_run["pending_shop"] = {}
@@ -204,11 +204,24 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	main._show_run_result(true)
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
-	await _capture("%s_%s" % [viewport_name, CAPTURE_NAMES[8]])
+	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[8]], "run_result")
 
 	root.remove_child(main)
 	main.queue_free()
 	await _wait_for_capture_frame()
+
+func _capture_screen(main: Node, file_name: String, expected_screen: String) -> void:
+	if String(main.active_screen) != expected_screen:
+		printerr("Expected %s before %s, got %s." % [expected_screen, file_name, String(main.active_screen)])
+		capture_failed = true
+		quit(1)
+		return
+	await create_timer(0.08).timeout
+	for i in range(3):
+		await _wait_for_capture_frame()
+	RenderingServer.force_draw(false, 0.0)
+	await _wait_for_capture_frame()
+	await _capture(file_name)
 
 func _capture(file_name: String) -> void:
 	var image: Image = null

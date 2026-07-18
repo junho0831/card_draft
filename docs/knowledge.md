@@ -1,279 +1,98 @@
 # Card Draft 개발 메모
 
-## 현재 방향
+현재 코드 구조와 유지보수 규칙을 빠르게 찾기 위한 문서다. 날짜별 작업 기록은 Git 이력으로 관리한다.
 
-이 프로젝트는 `AI 매칭형 TCG MVP`에서 `싱글플레이 로그라이크 덱빌딩 RPG`로 방향을 바꿨다.
+## 프로젝트 구조
 
-현재 메인 흐름은 다음과 같다.
-
-1. 런 시작
-2. 5노드 Act 맵 진행
-3. 전투
-4. 카드 보상
-5. 이벤트 / 상점 / 휴식
-6. 보스
-7. 런 종료
+```text
+src/core/       앱 조립과 런 화면 전환
+src/services/   저장, 데이터, 오디오, 런 서비스
+src/battle/     카드 효과, 연계 피니시, 전투 도전
+src/ui/screens/ 화면별 UI
+src/ui/styles/  공통 토큰, 버튼, 전투·종족 스타일
+src/ui/components/ 재사용 카드 컴포넌트
+src/ui/effects/ 전투 시각 효과
+data/           카드, 유물, 적, 이벤트, Act JSON
+assets/         카드 아트, UI 테마, WAV 효과음
+tests/godot/    기본 회귀와 선택형 화면 검증
+```
 
 ## 핵심 파일
 
-- `res://src/core/main.gd`
-  - 앱 허브, 서비스 조립, 공용 UI 진입점
-- `res://src/core/run_flow_coordinator.gd`
-  - 런 흐름, 화면 전환, 이어하기 라우팅
-- `res://src/services/run_state.gd`
-  - 로컬 런 저장/로드, 노드 진행 상태
-- `res://src/services/run_generator.gd`
-  - Act 로드와 시작 덱 생성
-- `res://src/battle/battle_card_effects.gd`
-  - 카드별 전투 효과 처리
-- `res://src/services/relic_service.gd`
-  - 유물 로드와 전투 훅 처리
-- `res://src/services/event_service.gd`
-  - 이벤트 로드와 랜덤 선택
-- `res://src/services/enemy_service.gd`
-  - 일반 적/엘리트/보스 데이터 로드
-- `res://src/services/audio_manager.gd`
-  - 효과음 재생, 직접 제작 WAV 로드, 코드 생성 fallback 스트림 관리
-- `res://src/ui/screens/battle_screen.gd`
-  - 전투 UI, 전투 상태, 전투 스냅샷 복원
-- `res://src/ui/ui_factory.gd`
-  - 공통 화면 패널, 칩, 안내 배너, 카드/유물 표시 helper
-- `res://src/ui/styles/ui_styles.gd`
-  - 공통 UI 버튼/패널/카드 텍스트 스타일
-- `res://src/ui/styles/battle_styles.gd`
-  - 전투 화면 전용 카드/필드/버튼 스타일
-- `res://assets/ui/main_theme.tres`
-  - 코드에서 개별 스타일을 지정하지 않은 컨트롤의 중립적인 기본 테마
-- `res://tools/generate_game_sfx.gd`
-  - `AudioManager` 합성식을 이용한 효과음 WAV 재생성 스크립트
-- `res://docs/ui-card-draft-guide.md`
-  - 8개 핵심 화면의 역할, 정보 우선순위, 플레이어 유도 기준
-- `res://docs/game-design.md`
-  - 현재 코드 기준의 게임 기획 기준 문서
+- `src/core/main.gd`: 앱 허브와 공통 화면 셸
+- `src/core/run_flow_coordinator.gd`: 새 런, 이어하기, 화면 라우팅
+- `src/services/run_state.gd`: 런 저장과 복원
+- `src/services/run_generator.gd`: Act와 세력별 시작 덱
+- `src/battle/battle_card_effects.gd`: 카드 효과
+- `src/battle/battle_combo_finisher.gd`: 빌드 3연계 피니시
+- `src/battle/battle_objective_service.gd`: 전투당 도전
+- `src/services/relic_service.gd`: 유물 데이터와 전투 훅
+- `src/services/audio_manager.gd`: WAV 로드, fallback 합성, 재생 우선순위
+- `src/ui/screens/battle_screen.gd`: 전투 상태 연결과 표시
+- `src/ui/ui_factory.gd`: 공통 UI 생성 진입점
+- `src/ui/styles/ui_tokens.gd`: 간격, 크기, 상태색
+- `src/ui/styles/card_race_styles.gd`: 세력·공용 카드 스킨
+- `src/ui/components/card_view.gd`: 공통 카드 표면
+- `src/ui/effects/battle_fx_layer.gd`: 공격과 승리 효과
 
-## 데이터 파일
+## 데이터와 저장
 
-- `res://data/cards.json`
-- `res://data/relics.json`
-- `res://data/events.json`
-- `res://data/enemies.json`
-- `res://data/acts.json`
-- `res://assets/audio/*.wav`
-  - 직접 제작 44.1kHz 16-bit mono 효과음
+- 원본 데이터: `data/cards.json`, `relics.json`, `events.json`, `enemies.json`, `acts.json`
+- 런 저장: `user://run_state.json`
+- 설정·메타·컬렉션: `user://meta_profile.json`
+- 효과음: `assets/audio/*.wav`
 
-## 저장 파일
+카드·유물 JSON schema는 저장 호환성을 위해 임의로 변경하지 않는다. 내부 `중립` 값은 유지하고 UI에서만 `공용`으로 변환한다.
 
-- `user://meta_profile.json`
-  - 메타 강화, 설정, 카드 보관함용 로컬 프로필
-- `user://run_state.json`
-  - 진행 중 런 상태
+## 런타임 규칙
 
-## 구현 메모
+- 런은 세력 선택 후 5노드 Act를 진행한다.
+- 구버전 저장에 `race_id`가 없으면 인간으로 복원한다.
+- 전투는 `battle_snapshot`으로 손패, 필드, 덱, 버림 더미, 턴, 연계, 필살기 상태를 복원한다.
+- 카드 제거·강화 같은 하위 화면은 `pending_subscreen`으로 복원한다.
+- 세력별 시작 덱은 세력 카드 9장과 공용 카드 1장이다.
+- `build_tags`는 `fire`, `draw`, `death`, `buff`, `low_hp`, `summon`만 사용한다.
+- 빌드 점수 5부터 활성화하며 첫 3연계 피니시는 전투당 한 번이다.
+- 승리 조건은 적 영웅 체력 0 하나다.
 
-- 전투 UI는 `battle_screen.gd`로 분리되어 있고 `main.gd`는 직접 전투 로직을 들고 있지 않는다.
-- 런 흐름은 `run_flow_coordinator.gd`가 담당한다.
-- 이어하기는 단순 `active_enemy` 재진입이 아니라 `battle_snapshot` 기준으로 전투 상태를 복원한다.
-- 카드 제거/카드 강화 같은 서브플로우도 `pending_subscreen`을 런 상태에 저장해 재시작 후 복원한다.
-- 전투는 `discard_pile`, 덱 재셔플, 손패 제한 10장, 턴 종료 시 패 버리기까지 포함한다.
-- 새 런은 `race_selection_screen.gd`에서 인간·엘프·언데드 중 하나를 고른 뒤 생성한다. 구버전 저장에 `race_id`가 없으면 인간으로 복원한다.
-- 인간 스타터 덱은 `민병대 x3 / 초보 검병 x3 / 작은 불꽃 x2 / 화염구 x1 / 응급 치료 x1`이다.
-- 인간은 소환·버프, 엘프는 드로우·소환, 언데드는 사망·소환 빌드가 시작부터 활성화된다.
-- `starter: true`인 중립 기본 카드는 보상/상점 풀에서 제외하고, 세력 덱에 들어간 일반 런 카드는 이후 보상에서 다시 등장할 수 있다.
-- `build_tags`는 카드/유물 데이터에 저장한다. 유효 태그는 `fire`, `draw`, `death`, `buff`, `low_hp`, `summon`이다.
-- 빌드 점수 5 이상이면 해당 빌드가 활성화되고, 전투 효과가 실제로 적용된다.
-- 활성 빌드 태그 카드를 한 턴에 연속으로 사용하면 연계 카운터가 올라가고 태그별 추가 효과가 발동한다.
-- 첫 3연계는 `battle_combo_finisher.gd`에서 빌드별 피니시를 전투당 1회 처리한다. `combo_finisher_used`와 `combo_finisher_tag`는 전투 스냅샷에 저장한다.
-- 빌드별 대표 장비 6장은 `battle_card_effects.gd`의 장착/공격 후/사망 훅으로 처리하며, 장착 이름은 필드 유닛 데이터에 남겨 UI 배지와 툴팁에서 보여준다.
-- 카드 보상은 `세력+최고 빌드`, `같은 세력 또는 중립`, `전체 풀` 순서로 한 자리씩 우선 배정한다.
-- 보상 카드는 `바로 활성`, `연계 카드 확보`, `활성까지 N`, `활성 후 효과`처럼 빌드 완성도 기준의 이유를 표시한다.
-- 전투 승리 조건은 `적 영웅 체력 0` 하나로 고정한다. 저주/의식 스택은 당장 카드 효과 상태값으로만 남긴다.
-- UI는 초보자 유도를 우선한다.
-  - `다음 행동` 배너로 현재 해야 할 일을 표시한다.
-  - 주요 버튼은 `style_primary_button()`으로 강조한다.
-  - 전투에서는 사용 가능한 카드, 공격 가능한 유닛, 선택된 유닛, 공격 대상을 서로 다르게 표시한다.
-  - 불가능한 손패/노드/버튼은 어둡게 표시한다.
-- 유물은 전투 훅 기반으로 적용한다.
-- 대표 유물은 빌드 앵커 역할을 가진다. 예: 불타는 심장은 화염 2번째 주문을 강화하고, 기사단 깃발은 1체력 소환 유닛을 +1/+1로 키운다.
-- 보스는 전투 상단에 한 줄 패턴을 예고하고 턴 시작 훅에서 작은 기믹을 발동한다.
-  - 국경 수호자: 선봉 공격 +1
-  - 언데드 왕: 3턴마다 해골 지원
-  - 강령술사 군주: 저주 +1
-- 보스/엘리트는 카드 보상 외에 유물 보상이 붙을 수 있다.
-- 상점은 런 내 카드/유물/제거/회복 전용이다.
-- 메타 진행은 현재 `영혼석`, `시작 체력`, `시작 골드`, `두 번째 기회`까지만 로컬로 반영한다.
-- 서버/API/랭크/카드팩 구매 흐름은 제거했고, 런 코어는 로컬 Godot 기준으로 동작한다.
-- 현재 기본 Act는 `battle -> event/shop -> battle -> rest/shop -> boss` 5노드 구조다.
-- 엘리트는 기본 런에서 제외하고, 후속 도전 모드 후보로 둔다.
-- 전투 안내는 플레이어 추천 행동과 다음 적 행동을 짧은 문장으로 보여준다.
-- 화면 셸은 석재/양피지/룬 프레임을 사용하지 않는 흑연색 그라데이션을 공통 배경으로 사용한다. 카드 아트가 판타지 정체성을 담당하고, 조작 UI는 대칭 8px 이하 모서리, 얇은 중립 테두리, 파란 주요 행동색으로 정리한다.
-- 카드 UI는 이름, 비용, 종족/속성, 핵심 효과, 보조 설명, 상태 바를 카드 안에서 분리하고 종족별 색은 테두리 우선순위로 유지한다.
-- 손패는 현재 `Control` 기반 수동 배치다. 카드마다 `_hand_slot` 런타임 값을 부여해 카드를 사용해도 남은 카드가 매번 재정렬되지 않게 하고, 첫 5장은 교차 슬롯에 넓게 배치한다. 위치/회전/scale/`z_index`는 슬롯 기준으로 계산한다.
-- 카드 hover 시 확대, 회전 복원, 보드 프리뷰, 간단 툴팁을 함께 보여준다.
-- `900px` 이하 세로 화면은 카드 레일을 사용한다. 첫 탭은 슬롯을 유지한 채 중앙 선택·확대하고 두 번째 탭에서 실제 사용한다.
-- 전투마다 `필살기`, `2연계`, `무피해` 중 하나의 선택 도전을 표시하고, 승리 시 달성 보너스를 골드에 합산한다. 로직은 `BattleObjectiveService`에 분리한다.
-- 효과음은 `assets/audio/*.wav`를 우선 사용한다. `tools/generate_game_sfx.gd`가 `AudioManager`와 같은 합성식으로 파일을 만들며, 파일이 없을 때도 같은 런타임 생성 스트림을 사용한다.
-- 효과음 재질 기준은 `draw=카드 마찰`, `play=가죽 슬랩+테이블`, `summon=포털+착지`, `hit/counter=무기/방패 금속`, `impact_heavy=이중 저역 충격+금속 균열`, `finisher=다중 저역 충격`이다.
-- 세력 필살기는 `power_human=북+금속`, `power_elf=상승음+바람`, `power_undead=저역 충격+어두운 잔향`을 별도 WAV와 런타임 fallback으로 사용한다.
-- 효과음은 자동 생성되는 `SFX` 버스와 리미터를 통과한다. 승리·피니셔·강타·필살기는 UI 사운드보다 높은 우선순위를 가지며 강한 소리 재생 중 click/hover는 덕킹한다.
-- 전투 도파민 포인트는 `연계`, `처치`, `강타`, `승리 + 골드` 순간에 집중한다.
-- Godot CLI가 셸 PATH에 없으면 현재 개발 머신에서는 `/opt/homebrew/bin/godot` 경로를 사용했다.
+## UI 규칙
 
-## 2026-07-16 작업 기록
+- 카드 정보 순서는 `비용/이름 -> 아트 -> 타입/세력 -> 핵심 효과`다.
+- `CardView`의 `hand`, `field`, `reward`, `shop`, `collection` 모드를 사용하고 화면별 카드 구조를 다시 만들지 않는다.
+- 카드 상태 우선순위는 `타겟/선택 -> 추천 -> 사용 가능 -> 세력색`이다.
+- 버튼 역할은 `primary`, `secondary`, `danger`, `power`로 제한한다.
+- 손패 카드는 `_hand_slot`을 유지해 사용 후 남은 카드 위치가 갑자기 바뀌지 않게 한다.
+- 세로 화면 손패는 첫 탭 선택·확대, 두 번째 탭 사용 방식의 가로 레일을 사용한다.
+- 창 크기나 방향이 바뀌면 전투 상태를 유지한 채 표시 노드만 다시 만든다.
 
-- 세력 선택 화면을 모듈로 추가하고 인간·엘프·언데드 시작 덱/유물을 실제 새 런 흐름에 연결했다.
-- 런 저장에 `race_id`, 전투 스냅샷에 `race_power_used`를 추가했으며 누락된 값은 인간/미사용으로 복원한다.
-- 전투당 1회 즉시 발동하는 `왕국의 집결`, `바람의 순환`, `죽음의 계약`을 추가했다.
-- 세력 필살기는 카드·연계 카운터와 분리하고 소환·사망·유물 훅은 기존 처리 경로를 재사용한다.
-- 보상 3장을 세력과 현재 빌드에 맞춰 계층적으로 뽑고, 같은 세력 카드에 `세력 연계` 배지를 표시한다.
-- 세력 필살기 전용 합성 효과음 3종과 반응형 세력 선택 캡처를 추가했다.
-- 공격/승리 FX를 `src/ui/effects/battle_fx_layer.gd`로 분리하고, 강타용 `impact_heavy`와 북·금관·상승음을 합친 `victory_burst` WAV를 추가했다.
-- 승리 직후 보상 화면으로 즉시 넘어가지 않고 전장 피니시를 약 1초 보여준 뒤 이동한다.
+## 오디오와 효과
 
-## 2026-07-17 작업 기록
+- `tools/generate_game_sfx.gd`가 44.1kHz 16-bit mono WAV를 생성한다.
+- 파일이 없으면 `AudioManager`가 같은 계열의 fallback 스트림을 만든다.
+- 모든 효과음은 리미터가 있는 `SFX` 버스로 출력한다.
+- 승리·피니시·강타·필살기는 UI 소리보다 우선하며 재생 중 click/hover를 낮춘다.
+- 강한 화면 효과는 연계, 처치, 강타, 승리에 집중한다.
 
-- 첫 3전투 가이드를 전장을 밀지 않는 한 줄 안내 바로 압축했다.
-- `800x1280`, `390x844` 손패를 중앙 스냅 가능한 가로 레일로 통일하고 첫 탭 선택/두 번째 탭 사용을 적용했다.
-- 선택 전후 카드 ID와 `_hand_slot`이 바뀌지 않는 검사를 반응형 캡처 절차에 추가했다.
-- `BattleObjectiveService`를 추가해 전투당 한 가지 짧은 도전, 진행 표시, 스냅샷 복원, 승리 골드 보너스를 처리한다.
-- `AudioManager`에 SFX 버스 리미터, 6단계 재생 우선순위, 강한 연출 중 UI 사운드 덕킹을 추가했다.
+## 검증
 
-## 2026-06-10 작업 기록
+기본 개발 루프는 하나만 실행한다.
 
-- `battle_screen.gd`
-  - `main.gd` 참조 불일치 수정
-  - 컷신/리릭 컨텍스트 키 정리
-  - `_refresh_ui()` 및 턴 타이머 생성 보강
-  - 전투 중 카드 사용/AI 턴/피로 피해 경계 버그 수정
-  - `battle_snapshot` 저장/복원 추가
-- `run_flow_coordinator.gd` 추가
-  - 새 런 시작, 이어하기, 맵/이벤트/상점/휴식/전투 라우팅 분리
-- `main.gd`
-  - 화면 전환 일부를 coordinator로 위임
-  - 서브 화면 콜백 target 지정 가능하도록 `_add_menu_button`, `_show_message` 확장
-- `run_state.gd`
-  - `battle_snapshot`, `pending_subscreen`, `pending_message` 저장 필드 추가
-- 이어하기 개선
-  - 전투 중 손패/필드/턴/로그/타이머 복원
-  - 카드 제거/강화 서브화면 복원
-  - 이벤트 결과 확인 모달 복원
-- `card_database.gd`
-  - 저장된 `*_plus` 카드 ID를 재시작 후 다시 합성해 덱 복원 가능하게 수정
-- 테스트 추가
-  - `tests/godot/run_tests.gd` headless 테스트 러너 추가
-  - `tests/godot/run_state_test.gd` 추가
-  - `tests/godot/card_database_test.gd` 추가
-  - `tests/godot/event_run_service_test.gd` 추가
-  - `tests/godot/shop_run_service_test.gd` 추가
-- 서비스 분리
-  - `src/services/event_run_service.gd` 추가
-  - `src/services/shop_run_service.gd` 추가
-  - `event_screen.gd`, `shop_screen.gd`는 UI + 결과 라우팅 중심으로 단순화
+```bash
+/opt/homebrew/bin/godot --headless -s res://tests/godot/run_tests.gd
+```
 
-## 2026-06-12 작업 기록
+UI를 변경한 경우에만 다음을 추가한다.
 
-- 빌드 중심 v2 반영
-  - 카드/유물 데이터에 `build_tags` 추가
-  - 화염/드로우/사망/버프/저체력/소환 활성 효과를 전투에 연결
-  - 카드 보상이 현재 최고 빌드 태그를 1장 우선 제시하도록 변경
-  - 저주/의식 특수 승리 조건 제거, 승리 조건을 `적 영웅 체력 0`으로 고정
-- 초보자 유도 UI 추가
-  - `ui_factory.gd`에 `make_guidance_banner()`, `style_primary_button()` 추가
-  - 메인 메뉴에서 새 런/이어하기 버튼을 주요 행동으로 강조
-  - 맵 화면에서 현재 진입 가능한 노드만 크게 밝게 표시
-  - 보상 화면에서 현재 빌드 추천 카드와 선택 버튼 강조
-  - 전투 화면에서 현재 행동 안내, 사용 가능 카드, 공격 가능 유닛, 공격 대상, 영웅 공격 버튼 강조
+```bash
+/opt/homebrew/bin/godot --path . -s res://tests/godot/capture_ui_responsive.gd
+/opt/homebrew/bin/godot --path . -s res://tests/godot/validate_ui_captures.gd
+```
 
-## 2026-07-13 작업 기록
+런 흐름을 변경한 경우에만 `playthrough_probe.gd`를 사용한다.
 
-- 짧은 런과 빌드 체감 강화
-  - 기본 Act 흐름을 5노드 짧은 런으로 유지하고, 보스/방어형 적 전투가 과도하게 늘어지지 않도록 적 HP와 덱 구성을 조정
-  - 시작 유물이 항상 부여되도록 기본 시작 유물을 `knight_banner`로 설정
-  - 유물 발동 콜백을 전투 화면에 연결해 로그, 플로팅 텍스트, 빌드 트리거 수치로 확인 가능하게 변경
-- 빌드별 콤보 카운터와 보상 이유 강화
-  - 전투 중 빌드 칩에 현재 연계 태그와 연계 수를 표시
-  - 추천 카드 선택 로직이 빌드 활성 직전 카드와 현재 연계 태그 카드를 더 우선하도록 조정
-  - 보상 화면에 `바로 활성`, `연계 카드 확보`, `활성까지 N`, `활성 후 효과`를 추가
-- 대표 유물 앵커 효과 강화
-  - `burning_heart`, `world_tree_leaf`, `knight_banner`, `necromancer_ring`, `blood_chalice`, `war_drum`의 체감 효과와 설명을 강화
-- 보스 한 줄 기믹 추가
-  - 국경 수호자, 언데드 왕, 강령술사 군주가 각각 짧은 패턴을 가지고 전투 상단/로그/피드백에 표시됨
-- 검증 상태
-  - `run_tests.gd`: `PASS 273 assertions`
-  - `playthrough_probe.gd`: 승리, `boss_steps=45`, `max_battle_steps=45`
-  - `capture_ui_responsive.gd` + `validate_ui_captures.gd`: 반응형 캡처 검증 통과
+## 남은 구조 과제
 
-## 2026-07-13 추가 작업 기록
-
-- UI 스타일 모듈화
-	- 공통 스타일은 `src/ui/styles/ui_styles.gd`, 전투 스타일은 `src/ui/styles/battle_styles.gd`로 분리
-	- 기존 fantasy texture 중심 버튼/패널 의존을 줄이고 스타일 코드를 공통/전투 모듈로 분리
-- 손패 안정화
-  - 손패 카드에 `_hand_slot`을 부여해 카드 사용 후 남은 카드 위치가 한쪽으로 밀리지 않도록 변경
-  - 새로 뽑은 카드는 중앙 우선 슬롯 순서로 빈자리에 들어가며, 기존 카드는 슬롯을 유지
-- 효과음 직접 제작
-	- 현재는 `tools/generate_game_sfx.gd`로 `click`, `hover`, `draw`, `play`, `summon`, `spell`, `hit`, `counter`, `finisher`, `combo`, `heal`, `reward`, `victory`, `defeat` WAV 생성
-  - `AudioManager`에 커스텀 사운드 캐시와 WAV 직접 로더 추가
-- 검증 상태
-  - `run_tests.gd`: `PASS 273 assertions`
-  - `capture_ui_responsive.gd` + `validate_ui_captures.gd`: 반응형 캡처 검증 통과
-
-## 2026-07-16 추가 작업 기록
-
-- 전체 화면 현대화
-  - 석재 전장 배경과 룬 버튼 장식을 실제 렌더 경로에서 제거
-  - 공통 패널과 버튼을 흑연색 표면, 얇은 테두리, 대칭 모서리로 통일
-  - 1280x720 메인 메뉴를 2열 구조로 바꾸고 실제 카드 아트를 첫 화면에 확대 표시
-  - 맵은 가로 화면에서 경로 보드를 첫 화면에 유지하고, 전투는 중복 영웅/전장 헤더를 압축해 손패와 턴 조작을 함께 표시
-- 시각 원칙
-  - 판타지 감성은 카드 일러스트, 종족색, 전투 효과에 집중
-  - 메뉴와 조작 UI에는 고전 MMORPG식 석재, 금장, 룬 프레임을 사용하지 않음
-- 모바일 웹 레이아웃
-  - 기본 창 크기를 1280x720으로 조정하고 390x844 모바일 캡처를 정식 검증 대상에 추가
-  - 모바일 런 요약과 메뉴를 압축해 맵과 보상 콘텐츠가 첫 화면 가까이 보이도록 변경
-  - 전투 필드는 기본 3칸을 크게 노출하고 4칸 이상은 가로 스와이프, 손패는 큰 카드 가로 스와이프 레일로 구성
-- 모바일 주요 행동 버튼은 최소 48px 높이를 유지
-  - 실행 중 창 크기나 화면 방향이 바뀌면 0.2초 디바운스 후 현재 화면을 새 반응형 구간으로 자동 재배치
-  - 전투 재배치 시 손패/필드/선택/타이머/로그 등 플레이 상태는 유지하고 화면 노드만 다시 생성
-- 전투 타격 및 승리 피니시
-  - 공격 시 이동 궤적, 대상 스쿼시, 충격 링, 방사형 파편, 전체 화면 플래시를 함께 재생
-  - 피해 4 이상은 `impact_heavy`를 사용하고 피해 숫자를 더 크게 표시
-  - 승리 시 금색 방사선과 세력색 파편을 재생한 뒤 `전투 승리`, `보상 +골드` 순으로 화면 전환
-
-## 2026-07-18 추가 작업 기록
-
-- 빌드별 대표 장비
-  - 화염 `잿불 검`, 드로우 `바람깃 화살통`, 사망 `뼈 갑옷`, 버프 `왕가의 군기`, 저체력 `피의 칼날`, 소환 `돌격의 뿔피리` 추가
-  - 장비가 공격 후 드로우·추가 피해·회복 또는 사망·소환 훅을 만들도록 카드 효과를 확장
-  - 장비 hover 시 적용될 필드 카드와 추가 소환 슬롯을 보드 위에 미리 표시
-- 전투당 1회 3연계 피니시
-  - 활성 빌드의 같은 태그 카드 3연계 시 빌드별 강한 결과를 한 번 발동
-  - 사용 상태를 전투 스냅샷에 저장해 이어하기 후 중복 발동을 방지
-  - 연계 칩에 다음 카드의 피니시 준비 상태와 완료 상태를 표시
-- 구조
-  - 피니시 규칙은 `src/battle/battle_combo_finisher.gd`에 분리하고 `battle_screen.gd`는 상태 연결과 연출만 담당
-  - 선택 검증인 `playthrough_probe.gd`가 세력 선택을 거쳐 실제 5노드 런을 완주하며, 예상하지 못한 화면이나 전투 정체는 실패 코드로 반환
-- 반응형 화면 비율
-	- Full HD 자동 확대 상한을 1.3배로 올리고, 필드/손패 카드 크기를 1280 가로·Full HD·800 세로 구간별 함수로 통일
-	- 390px 모바일 카드 크기와 가로 스와이프 방식은 유지해 작은 화면의 터치 가독성을 보존
-	- 상점과 결과 화면은 논리 높이 800px 아래에서만 세로 압축 구조로 전환해 Full HD에서 다열 핵심 콘텐츠를 첫 화면에 유지
-	- 설정에 `UI 크기: 자동/크게/작게`를 추가하고 PC/웹에서만 자동 배율을 보정
-	- 전투 본문은 논리 폭 1320px로 중앙 제한하고, 행동 도크는 420px 고정 폭으로 유지
-	- 빈 필드 슬롯은 다음 소환 위치만 강조하고 배치된 유닛은 고정 슬롯 안에서 1.06배 크게 표시
-
-## 현재 시스템 한계 및 개선 과제 (TODO)
-
-- **맵 구조 확장**
-  - 현재는 레이어별 선택지를 고른 뒤 다음 인덱스로 진행한다.
-  - 장기적으로는 여러 갈래 경로가 이어지는 트리형 맵 데이터와 경로 선택 UI가 필요하다.
-- **상태 효과 확장**
-  - 저주/의식 스택은 카드 효과 상태값으로 존재하지만, 아직 승리 조건이나 큰 전략 축으로 쓰이지 않는다.
-  - 별도 상태 효과 규칙과 UI 설명을 정리할 필요가 있다.
-- **밸런스와 폴리싱**
-  - 카드/유물/이벤트 보상 수치, 적 덱 난이도, 골드 경제를 조정해야 한다.
-  - 사운드, 파티클, 전투 애니메이션, 카드 연출은 이전보다 강화됐지만 아직 드래그 연출과 카드 사용 타깃팅 감각이 부족하다.
-- **손패 레이아웃 고도화**
-  - 현재는 데스크톱 고정 슬롯/hover 확대와 세로 화면 가로 레일/탭 확대가 적용되어 있다.
-  - 다음 단계는 드래그 재배치와 드래그 중 타깃 프리뷰다.
-- **전투 화면 모듈화**
-  - `battle_screen.gd`에 UI 생성, 전투 진행, 추천 판단이 함께 남아 있다.
-  - 새 기능은 서비스/효과 모듈에 우선 분리하고 기존 코드는 동작 단위로 점진적으로 이동해야 한다.
+- 손패 드래그와 드래그 중 타깃 프리뷰
+- `battle_screen.gd`의 UI 생성·전투 진행·추천 판단 분리
+- 카드, 유물, 보스, 골드 경제 반복 조정
+- 실제 웹 빌드와 다양한 모바일 브라우저 검증

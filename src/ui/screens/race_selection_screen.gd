@@ -159,7 +159,7 @@ func _make_race_card(race_id: String, compact: bool, phone: bool, short: bool) -
 	relic_row.add_child(relic_label)
 	relic_row.add_child(main.ui.make_relic_badge(relic, compact))
 
-	var cards_label: Label = main._make_label("대표 카드 · %s" % " · ".join(meta.get("representative_card_names", [])), 11 if compact else 12, Color(0.78, 0.84, 0.92, 1.0))
+	var cards_label: Label = main._make_label("대표 카드 · %s\n시작 덱 · 세력 9장 + 공용 1장" % " · ".join(meta.get("representative_card_names", [])), 11 if compact else 12, Color(0.78, 0.84, 0.92, 1.0))
 	cards_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	cards_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(cards_label)

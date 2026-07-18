@@ -115,6 +115,20 @@ func _test_race_starters(main: Node) -> void:
 	for race_id in main._valid_race_ids():
 		var deck: Array[String] = main.run_generator.starter_deck(race_id)
 		_assert_eq(deck.size(), 10, "%s starter deck has 10 cards" % race_id)
+		var expected_race := String(main._race_meta().get(race_id, {}).get("data_race", ""))
+		var common_count := 0
+		var starter_matches_pool := true
+		for card_id in deck:
+			var card_race := String(main.card_db.get_card(card_id).get("race", ""))
+			if card_race == "중립":
+				common_count += 1
+			elif card_race != expected_race:
+				starter_matches_pool = false
+				break
+		_assert_true(starter_matches_pool, "%s starter cards use faction or common cards" % race_id)
+		_assert_eq(common_count, 1, "%s starter deck includes one common card" % race_id)
+		var representative_id := String(main._race_meta().get(race_id, {}).get("representative_card_id", ""))
+		_assert_eq(String(main.card_db.get_card(representative_id).get("race", "")), expected_race, "%s selection art matches its faction" % race_id)
 		var run_data: Dictionary = main.run_store.create_new_run(main.run_generator.load_acts(), deck, 26, 85, race_id)
 		(run_data.get("relic_ids", []) as Array).append(main.run_generator.get_starting_relic(race_id))
 		main.current_run = run_data
@@ -453,7 +467,8 @@ func _test_race_reward_affinity(main: Node) -> void:
 		_assert_true(main._card_build_tags(focused_card).has(main._primary_build_tag(main._current_build_scores())), "first reward card matches primary build")
 	if choices.size() >= 2:
 		var affinity_card: Dictionary = main.card_db.get_card(choices[1])
-		_assert_true(String(affinity_card.get("race", "")) in ["엘프", "중립"], "second reward card matches race or neutral pool")
+		_assert_eq(String(affinity_card.get("race", "")), "중립", "second reward card is a common option")
+		_assert_eq(main.ui.card_race_display_name(affinity_card), "공용", "neutral data is presented as common to players")
 	main.current_run = original_run
 
 func _test_boss_victory_finishes_run_without_reward_stop(main: Node) -> void:

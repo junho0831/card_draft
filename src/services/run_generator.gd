@@ -19,7 +19,7 @@ func load_acts() -> Array[Dictionary]:
 func starter_deck(race_id: String = "") -> Array[String]:
 	if race_id == "elf":
 		return [
-			"elf_ranger", "elf_ranger", "elf_ranger",
+			"elf_ranger", "elf_ranger", "mercenary",
 			"forest_archer", "forest_archer", "forest_archer",
 			"elven_insight",
 			"ritual_sapling",
@@ -28,7 +28,7 @@ func starter_deck(race_id: String = "") -> Array[String]:
 		]
 	if race_id == "undead":
 		return [
-			"bone_soldier", "bone_soldier", "bone_soldier",
+			"bone_soldier", "bone_soldier", "thief",
 			"grave_knight", "grave_knight",
 			"bone_oracle",
 			"dark_bargain",
@@ -40,7 +40,7 @@ func starter_deck(race_id: String = "") -> Array[String]:
 	# Default (Human or empty)
 	return [
 		"militia", "militia", "militia",
-		"trainee_swordsman", "trainee_swordsman", "trainee_swordsman",
+		"trainee_swordsman", "trainee_swordsman", "training_sword",
 		"small_flame", "small_flame",
 		"fireball",
 		"first_aid",

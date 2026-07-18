@@ -1310,7 +1310,9 @@ func _make_exit_button(text: String, callback_method: String, color: Color, tigh
 	button.text = text
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(54 if mobile else (44 if tight else (54 if compact else 62)), 44 if mobile else (24 if tight else 28))
-	_style_battle_button(button, color, Color(0.34, 0.42, 0.52, 0.9), false)
+	var role := "danger" if callback_method == "_abandon_run" else "action"
+	var accent := Color(0.9, 0.28, 0.26, 1.0) if role == "danger" else Color(0.34, 0.42, 0.52, 0.9)
+	_style_battle_button(button, color, accent, false, role)
 	button.add_theme_font_size_override("font_size", 10 if tight else 11)
 	button.pressed.connect(Callable(main, callback_method))
 	return button
@@ -1655,7 +1657,10 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	var mobile = _is_mobile_battle_layout()
 	var vertical_stack = compact and not wide_tight
 	var phone_stack = tight and portrait and vertical_stack
-	var panel = _make_battle_surface(Color(0.035, 0.045, 0.058, 0.92), Color(0.18, 0.32, 0.46, 0.7), 1, 10, 4 if phone_stack else (6 if wide_tight else 10))
+	var race_meta: Dictionary = main._current_race_meta()
+	var race_color: Color = race_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", BATTLE_STYLES.make_action_dock_style(race_color, 4 if phone_stack else (6 if wide_tight else 10)))
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box: BoxContainer = HBoxContainer.new() if wide_tight else VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4 if phone_stack else (6 if tight else 8))
@@ -1672,8 +1677,6 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 		var action_hint_chip: PanelContainer = _make_battle_badge("추천 진행 -> 필요시 직접 선택 -> 턴 종료", Color(0.08, 0.1, 0.13, 0.92), Color(0.25, 0.48, 0.72, 1.0), 10 if tight else 11)
 		box.add_child(action_hint_chip)
 
-	var race_meta: Dictionary = main._current_race_meta()
-	var race_color: Color = race_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
 	race_power_button = Button.new()
 	race_power_button.text = _race_power_button_text()
 	race_power_button.tooltip_text = "전투당 1회 · %s" % String(race_meta.get("power_text", ""))
@@ -1681,7 +1684,7 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	race_power_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if vertical_stack:
 		race_power_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if phone_stack else Control.SIZE_SHRINK_CENTER
-	_style_battle_button(race_power_button, race_color.darkened(0.56), race_color, true)
+	_style_battle_button(race_power_button, race_color.darkened(0.56), race_color, true, "power")
 	race_power_button.add_theme_font_size_override("font_size", 12 if mobile else (11 if tight else 14))
 	race_power_button.pressed.connect(Callable(self, "_on_race_power_pressed"))
 	box.add_child(race_power_button)
@@ -1692,7 +1695,7 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	recommended_action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if vertical_stack:
 		recommended_action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if phone_stack else Control.SIZE_SHRINK_CENTER
-	_style_battle_button(recommended_action_button, Color(0.07, 0.16, 0.32, 0.98), Color(0.42, 0.68, 1.0, 1.0), true)
+	_style_battle_button(recommended_action_button, Color(0.07, 0.16, 0.32, 0.98), Color(0.42, 0.68, 1.0, 1.0), true, "primary")
 	recommended_action_button.add_theme_font_size_override("font_size", 14 if mobile else (12 if phone_stack else (13 if tight else 18)))
 	recommended_action_button.pressed.connect(Callable(self, "_on_recommended_action_pressed"))
 	box.add_child(recommended_action_button)
@@ -1703,7 +1706,7 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	end_turn_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if vertical_stack:
 		end_turn_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if phone_stack else Control.SIZE_SHRINK_CENTER
-	_style_battle_button(end_turn_button, Color(0.08, 0.1, 0.13, 0.92), Color(0.24, 0.34, 0.44, 0.9), false)
+	_style_battle_button(end_turn_button, Color(0.08, 0.1, 0.13, 0.92), Color(0.24, 0.34, 0.44, 0.9), false, "turn")
 	end_turn_button.add_theme_font_size_override("font_size", 13 if mobile else (11 if tight else 14))
 	end_turn_button.pressed.connect(Callable(self, "_on_end_turn_pressed"))
 	box.add_child(end_turn_button)
@@ -1944,8 +1947,8 @@ func _build_stat_chip_tags() -> Array[Dictionary]:
 func _card_accent_color(card: Dictionary) -> Color:
 	return main.ui.card_race_color(card)
 
-func _make_hand_card_style(bg_color: Color, border_color: Color, border_width: int = 2) -> StyleBoxFlat:
-	return BATTLE_STYLES.make_hand_card_style(bg_color, border_color, border_width)
+func _make_race_card_style(card: Dictionary, bg_color: Color, border_color: Color, border_width: int = 2, margin: int = 7, emphasis: float = 0.0) -> StyleBoxFlat:
+	return main.ui.make_race_card_style(card, bg_color, border_width, margin, emphasis, border_color)
 
 func _make_modern_style(bg_color: Color, border_color: Color, border_width: int = 1, radius: int = 8, margin: int = 10) -> StyleBoxFlat:
 	return BATTLE_STYLES.make_modern_style(bg_color, border_color, border_width, radius, margin)
@@ -1953,8 +1956,8 @@ func _make_modern_style(bg_color: Color, border_color: Color, border_width: int 
 func _make_battle_surface(bg_color: Color, accent_color: Color, border_width: int = 1, radius: int = 8, margin: int = 10) -> PanelContainer:
 	return BATTLE_STYLES.make_battle_surface(bg_color, accent_color, border_width, radius, margin)
 
-func _style_battle_button(button: Button, bg_color: Color, accent_color: Color, active: bool = false) -> void:
-	BATTLE_STYLES.apply_battle_button(button, bg_color, accent_color, active)
+func _style_battle_button(button: Button, bg_color: Color, accent_color: Color, active: bool = false, role: String = "action") -> void:
+	BATTLE_STYLES.apply_battle_button(button, bg_color, accent_color, active, role)
 
 func _make_battle_badge(text: String, bg_color: Color, accent_color: Color, font_size: int = 11) -> PanelContainer:
 	var panel = _make_battle_surface(bg_color, accent_color, 1, 6, 5)
@@ -3371,7 +3374,7 @@ func _show_opponent_played_card_fx(card: Dictionary) -> void:
 	popup.scale = Vector2(0.6, 0.6)
 	popup.pivot_offset = frame_size / 2.0
 
-	var style = _make_modern_style(Color(0.055, 0.065, 0.078, 0.98), _card_accent_color(card), 2, 8, 12)
+	var style = main.ui.make_race_card_style(card, Color(0.055, 0.065, 0.078, 0.98), 3, 12, 0.14)
 	style.content_margin_left = 12
 	style.content_margin_top = 12
 	style.content_margin_right = 12
@@ -3385,36 +3388,11 @@ func _show_opponent_played_card_fx(card: Dictionary) -> void:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	popup.add_child(box)
 
-	var header = HBoxContainer.new()
-	header.add_theme_constant_override("separation", 6)
-	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(header)
-
 	var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "opponent")
-	var cost_badge: PanelContainer = main.ui.make_cost_badge("%d" % cost, true)
-	cost_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(cost_badge)
-
-	var name_band: PanelContainer = main.ui.make_surface_panel(_card_accent_color(card).darkened(0.28), _card_accent_color(card).lightened(0.12), 1, 5, 3)
-	name_band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(name_band)
-
-	var name_label: Label = main._make_label(String(card.get("name", "")), 13, Color(1.0, 0.96, 0.82, 1.0))
-	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	name_band.add_child(name_label)
-
-	var art_size = Vector2(176, 110)
-	var art_rect: TextureRect = main._make_card_art_rect(card, art_size)
-	art_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(art_rect)
-
-	var effect_label: Label = main._make_label(main._card_detail_text(card), 11, Color(0.85, 0.9, 0.96, 1.0))
-	effect_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	effect_label.custom_minimum_size = Vector2(0, 48)
-	effect_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(effect_label)
+	box.add_child(main.ui.make_card_header(main, card, "reward", true, false, cost))
+	box.add_child(main.ui.make_card_art(main, card, Vector2(176, 110)))
+	box.add_child(main.ui.make_card_identity_label(main, card, "reward", true, false, false, true))
+	box.add_child(main.ui.make_card_rules_block(main, card, main._card_detail_text(card), "", "reward", true, false, 42.0))
 
 	var banner: PanelContainer = main.ui.make_chip("적 카드 사용!", Color(0.42, 0.12, 0.12, 1.0), Color(1.0, 0.82, 0.82, 1.0), 10)
 	banner.position = Vector2((frame_size.x - banner.custom_minimum_size.x) / 2.0, -18)
@@ -3743,27 +3721,27 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 			return
 		_hide_hover_popup()
 	)
-	var slot_border = race_border
-	var slot_border_width = 2
+	var card_state := "default"
 	var slot_bg = Color(0.025, 0.03, 0.04, 0.94)
 
 	if is_player_field and index == selected_attacker:
-		slot_border = Color(0.34, 0.72, 1.0, 1.0) # Bright Blue selected glow
-		slot_border_width = 3
+		card_state = "selected"
 		slot_bg = Color(0.04, 0.08, 0.14, 0.98)
 	elif is_player_field and bool(unit.get("can_attack", false)) and not _is_player_input_locked():
-		slot_border = Color(0.2, 0.82, 0.56, 1.0) # Bright Green playable glow
-		slot_border_width = 3
+		card_state = "playable"
 		slot_bg = Color(0.02, 0.07, 0.05, 0.96)
 	elif not is_player_field and selected_attacker != -1 and not _is_player_input_locked():
-		slot_border = Color(1.0, 0.32, 0.26, 1.0) # Bright Red target glow
-		slot_border_width = 3
+		card_state = "target"
 		slot_bg = Color(0.08, 0.03, 0.03, 0.96)
+	elif is_player_field and is_disabled:
+		card_state = "disabled"
+	var slot_border: Color = main.ui.card_state_accent(unit, card_state)
+	var slot_border_width: int = main.ui.card_state_border_width(card_state)
 
-	var normal_style = _make_field_slot_style(slot_bg, slot_border, slot_border_width)
-	var hover_style = _make_field_slot_style(slot_bg.lightened(0.08) if not is_disabled else slot_bg, slot_border, slot_border_width + 1)
-	var pressed_style = _make_field_slot_style(slot_bg.darkened(0.12), slot_border, slot_border_width)
-	var disabled_style = _make_field_slot_style(slot_bg, slot_border.darkened(0.3) if is_disabled and is_player_field else slot_border, slot_border_width)
+	var normal_style = _make_race_card_style(unit, slot_bg, slot_border, slot_border_width, 5, 0.1 if not is_disabled else 0.0)
+	var hover_style = _make_race_card_style(unit, slot_bg.lightened(0.08) if not is_disabled else slot_bg, slot_border.lightened(0.12), slot_border_width + 1, 5, 0.18)
+	var pressed_style = _make_race_card_style(unit, slot_bg.darkened(0.12), slot_border, slot_border_width, 5, 0.04)
+	var disabled_style = _make_race_card_style(unit, slot_bg, slot_border.darkened(0.3) if is_disabled and is_player_field else slot_border, slot_border_width, 5, 0.0)
 
 	frame.add_theme_stylebox_override("normal", normal_style)
 	frame.add_theme_stylebox_override("hover", hover_style)
@@ -3776,12 +3754,7 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	frame.add_child(slot)
 
 	# 1. Name band at the top of the card
-	var name_band: PanelContainer = _make_battle_surface(race_border.darkened(0.42), race_border.lightened(0.08), 1, 5, 3)
-	slot.add_child(name_band)
-	var name_label: Label = main._make_label(String(unit.get("name", "")), 10 if tight and portrait else (11 if tight else (12 if compact else 13)), Color(1.0, 0.96, 0.82, 1.0))
-	name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	name_label.clip_text = true
-	name_band.add_child(name_label)
+	slot.add_child(main.ui.make_card_name_band(main, unit, "field", compact or portrait, tight))
 
 	# 2. Art container that holds the card illustration, overlaying stat badges at bottom corners
 	var art_container = Control.new()
@@ -3873,11 +3846,13 @@ func _render_hand() -> void:
 		var frame_size := _battle_hand_card_size()
 		var content_size = Vector2(frame_size.x - 12.0, frame_size.y - 12.0)
 		frame.custom_minimum_size = frame_size
-		var hand_border = Color(1.0, 0.82, 0.34, 1.0) if is_touch_selected else (Color(0.46, 0.72, 1.0, 1.0) if is_recommended else (accent.lightened(0.12) if playable else accent.darkened(0.08)))
+		var card_state := "selected" if is_touch_selected else ("recommended" if is_recommended else ("playable" if playable else "disabled"))
+		var hand_border: Color = main.ui.card_state_accent(card, card_state)
+		var hand_border_width: int = main.ui.card_state_border_width(card_state)
 		var hand_bg = Color(0.09, 0.075, 0.035, 1.0) if is_touch_selected else (Color(0.055, 0.075, 0.11, 1.0) if is_recommended else Color(0.05, 0.058, 0.072, 1.0))
-		frame.add_theme_stylebox_override("normal", _make_hand_card_style(hand_bg, hand_border, 4 if is_touch_selected else (3 if is_recommended else (2 if playable else 1))))
-		frame.add_theme_stylebox_override("hover", _make_hand_card_style(Color(0.07, 0.082, 0.105, 1.0), accent.lightened(0.22), 3))
-		frame.add_theme_stylebox_override("pressed", _make_hand_card_style(Color(0.035, 0.042, 0.055, 1.0), accent, 2))
+		frame.add_theme_stylebox_override("normal", _make_race_card_style(card, hand_bg, hand_border, hand_border_width, 7, 0.18 if is_touch_selected or is_recommended else (0.08 if playable else 0.0)))
+		frame.add_theme_stylebox_override("hover", _make_race_card_style(card, Color(0.07, 0.082, 0.105, 1.0), accent.lightened(0.22), 3, 7, 0.2))
+		frame.add_theme_stylebox_override("pressed", _make_race_card_style(card, Color(0.035, 0.042, 0.055, 1.0), accent, 2, 7, 0.04))
 		frame.add_theme_color_override("font_color", Color(1, 1, 1, 0))
 		frame.pressed.connect(Callable(self, "_on_hand_card_pressed").bind(i))
 		frame.set_meta("hand_slot", hand_slot)
@@ -3891,67 +3866,20 @@ func _render_hand() -> void:
 		card_box.add_theme_constant_override("separation", 3 if tight else 5)
 		card_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		frame.add_child(card_box)
-		var header_row = HBoxContainer.new()
-		header_row.add_theme_constant_override("separation", 4)
-		header_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card_box.add_child(header_row)
-		var cost_badge: PanelContainer = main.ui.make_cost_badge("%d" % cost, true)
-		cost_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		header_row.add_child(cost_badge)
+		var status_badge: Control = null
 		if is_recommended:
-			var recommend_badge: PanelContainer = main.ui.make_chip("추천", Color(0.42, 0.28, 0.06, 1.0), Color(1.0, 0.94, 0.62, 1.0), 8 if tight else 10)
-			recommend_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			header_row.add_child(recommend_badge)
+			status_badge = main.ui.make_chip("추천", Color(0.42, 0.28, 0.06, 1.0), Color(1.0, 0.94, 0.62, 1.0), 8 if tight else 10)
 		elif playable:
-			var playable_badge: PanelContainer = main.ui.make_chip("지금 가능", Color(0.08, 0.28, 0.18, 1.0), Color(0.76, 1.0, 0.88, 1.0), 8 if tight else 10)
-			playable_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			header_row.add_child(playable_badge)
-		var name_band: PanelContainer = main.ui.make_surface_panel(accent.darkened(0.28), accent.lightened(0.12), 1, 5, 3)
-		name_band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		header_row.add_child(name_band)
-		var name_label: Label = main._make_label(String(card.get("name", "")), 12 if mobile else (10 if tight else (15 if not compact else 12)), Color(1.0, 0.96, 0.82, 1.0))
-		name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		main.ui.style_card_title(name_label, tight)
-		name_band.add_child(name_label)
-		var subtype_label: Label = main._make_label("%s · %s" % [String(card.get("race", "")), String(card.get("attr", ""))], 8 if tight else 10, Color(0.96, 0.89, 0.7, 1.0))
-		subtype_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		subtype_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-		subtype_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		subtype_label.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.03, 1.0))
-		subtype_label.add_theme_constant_override("outline_size", 2)
+			status_badge = main.ui.make_chip("지금 가능", Color(0.08, 0.28, 0.18, 1.0), Color(0.76, 1.0, 0.88, 1.0), 8 if tight else 10)
+		card_box.add_child(main.ui.make_card_header(main, card, "hand", compact, tight, cost, "", status_badge))
 		if not wide_tight:
-			card_box.add_child(subtype_label)
+			card_box.add_child(main.ui.make_card_identity_label(main, card, "hand", compact, tight, true, false))
 		var art_size = Vector2(content_size.x - 4.0, 86) if mobile else (Vector2(content_size.x - 4.0, 72 if tight and portrait else (44 if wide_tight else 56)) if tight else (Vector2(164, 88) if not compact else Vector2(140, 68)))
-		var art_rect: TextureRect = main._make_card_art_rect(card, art_size)
-		art_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card_box.add_child(art_rect)
+		card_box.add_child(main.ui.make_card_art(main, card, art_size))
 		var preview_text = _card_result_preview(card)
-		var preview_chip: PanelContainer = main.ui.make_surface_panel(Color(0.19, 0.15, 0.1, 0.96), Color(0.74, 0.6, 0.34, 1.0), 1, 6, 6 if tight else 8)
-		preview_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card_box.add_child(preview_chip)
-		var preview_box := VBoxContainer.new()
-		preview_box.add_theme_constant_override("separation", 2)
-		preview_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		preview_chip.add_child(preview_box)
-		var preview_label: Label = main._make_label(preview_text, 11 if mobile else (10 if tight and portrait else (9 if tight else (12 if not compact else 10))), Color(0.98, 0.95, 0.86, 1.0))
-		preview_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		preview_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		main.ui.style_card_rules(preview_label, tight, false)
-		preview_box.add_child(preview_label)
 		var rules_text := String(card.get("text", "")).strip_edges()
-		if not wide_tight and not rules_text.is_empty() and rules_text != preview_text:
-			var rules_label: Label = main._make_label(rules_text, 9 if mobile else (8 if tight else 9), Color(0.9, 0.87, 0.8, 0.82))
-			rules_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-			rules_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			rules_label.custom_minimum_size = Vector2(0, 22 if tight else 24)
-			rules_label.clip_text = true
-			rules_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			main.ui.style_card_rules(rules_label, true, true)
-			preview_box.add_child(rules_label)
+		var visible_rules := "" if wide_tight else rules_text
+		card_box.add_child(main.ui.make_card_rules_block(main, card, preview_text, visible_rules, "hand", compact, tight, 22.0 if tight else 24.0))
 		if String(card.get("type", "")) == "unit":
 			var card_stat_row = HBoxContainer.new()
 			card_stat_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -4277,18 +4205,18 @@ func _refresh_action_buttons() -> void:
 		else:
 			race_power_button.tooltip_text = "전투당 1회 · %s" % String(race_meta.get("power_text", ""))
 		if can_use_power:
-			_style_battle_button(race_power_button, race_color.darkened(0.56), race_color, true)
+			_style_battle_button(race_power_button, race_color.darkened(0.56), race_color, true, "power")
 		else:
-			_style_battle_button(race_power_button, Color(0.07, 0.08, 0.1, 0.84), Color(0.24, 0.28, 0.34, 0.8), false)
+			_style_battle_button(race_power_button, Color(0.07, 0.08, 0.1, 0.84), Color(0.24, 0.28, 0.34, 0.8), false, "power")
 	var only_end_turn = _only_end_turn_remains()
 	if recommended_action_button != null:
 		recommended_action_button.disabled = _is_player_input_locked()
 		recommended_action_button.text = _recommended_action_text()
 		var highlighted = not _is_player_input_locked() and not only_end_turn
 		if only_end_turn:
-			_style_battle_button(recommended_action_button, Color(0.08, 0.1, 0.13, 0.82), Color(0.28, 0.34, 0.42, 0.8), false)
+			_style_battle_button(recommended_action_button, Color(0.08, 0.1, 0.13, 0.82), Color(0.28, 0.34, 0.42, 0.8), false, "primary")
 		else:
-			_style_battle_button(recommended_action_button, Color(0.12, 0.085, 0.035, 0.98), Color(0.94, 0.72, 0.28, 1.0), highlighted)
+			_style_battle_button(recommended_action_button, Color(0.12, 0.085, 0.035, 0.98), Color(0.94, 0.72, 0.28, 1.0), highlighted, "primary")
 	if hero_attack_button != null:
 		var can_attack_hero: bool = not _is_player_input_locked() and selected_attacker != -1
 		hero_attack_button.disabled = not can_attack_hero
@@ -4309,10 +4237,10 @@ func _refresh_action_buttons() -> void:
 		end_turn_button.disabled = _is_player_input_locked()
 		if _player_has_available_action():
 			end_turn_button.text = "턴 넘기기"
-			_style_battle_button(end_turn_button, Color(0.08, 0.1, 0.13, 0.92), Color(0.24, 0.34, 0.44, 0.9), false)
+			_style_battle_button(end_turn_button, Color(0.08, 0.1, 0.13, 0.92), Color(0.24, 0.34, 0.44, 0.9), false, "turn")
 		else:
 			end_turn_button.text = "턴 넘기기"
-			_style_battle_button(end_turn_button, Color(0.08, 0.16, 0.24, 0.96), Color(0.22, 0.62, 0.95, 1.0), true)
+			_style_battle_button(end_turn_button, Color(0.08, 0.16, 0.24, 0.96), Color(0.22, 0.62, 0.95, 1.0), true, "turn")
 
 func _refresh_ui() -> void:
 	_hide_hover_popup()

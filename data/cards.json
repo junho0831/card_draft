@@ -3,7 +3,7 @@
         "id": "militia",
         "name": "민병대",
         "type": "unit",
-        "race": "중립",
+        "race": "인간",
         "attr": "대지",
         "cost": 1,
         "attack": 1,
@@ -20,7 +20,7 @@
         "id": "trainee_swordsman",
         "name": "초보 검병",
         "type": "unit",
-        "race": "중립",
+        "race": "인간",
         "attr": "대지",
         "cost": 2,
         "attack": 2,
@@ -37,11 +37,11 @@
         "id": "small_flame",
         "name": "작은 불꽃",
         "type": "spell",
-        "race": "중립",
+        "race": "인간",
         "attr": "화염",
         "cost": 1,
         "art": 2,
-        "art_id": "small_flame",
+        "art_id": "training_sword",
         "text": "가장 앞의 적에게 피해 2. 처치하면 카드 1장 드로우",
         "starter": true,
         "build_tags": [
@@ -52,11 +52,11 @@
         "id": "first_aid",
         "name": "응급 치료",
         "type": "spell",
-        "race": "중립",
+        "race": "인간",
         "attr": "빛",
         "cost": 1,
         "art": 3,
-        "art_id": "first_aid",
+        "art_id": "small_flame",
         "text": "내 영웅 체력 3 회복. 가장 앞의 아군 체력 +1",
         "starter": true,
         "build_tags": [
@@ -73,7 +73,7 @@
         "attack": 2,
         "health": 2,
         "art": 4,
-        "art_id": "flame_swordsman",
+        "art_id": "militia",
         "text": "효과 없음",
         "build_tags": [
             "fire",
@@ -90,7 +90,7 @@
         "attack": 2,
         "health": 4,
         "art": 5,
-        "art_id": "shield_guard",
+        "art_id": "trainee_swordsman",
         "text": "효과 없음",
         "build_tags": [
             "buff"
@@ -104,7 +104,7 @@
         "attr": "빛",
         "cost": 3,
         "art": 6,
-        "art_id": "captain_order",
+        "art_id": "small_flame",
         "text": "내 모든 유닛 공격력 +1",
         "build_tags": [
             "buff"
@@ -120,7 +120,7 @@
         "attack": 1,
         "health": 3,
         "art": 7,
-        "art_id": "knight_spearman",
+        "art_id": "militia",
         "text": "소환 시 가장 앞의 아군 유닛 공격력 +1",
         "build_tags": [
             "buff",
@@ -135,7 +135,7 @@
         "attr": "빛",
         "cost": 1,
         "art": 8,
-        "art_id": "royal_support",
+        "art_id": "small_flame",
         "text": "카드 1장 드로우. 내 필드에 인간 유닛이 있으면 가장 앞의 아군 체력 +1",
         "build_tags": [
             "draw",
@@ -152,7 +152,7 @@
         "attack": 1,
         "health": 1,
         "art": 9,
-        "art_id": "elf_ranger",
+        "art_id": "first_aid",
         "text": "효과 없음",
         "build_tags": [
             "summon"
@@ -168,7 +168,7 @@
         "attack": 1,
         "health": 2,
         "art": 10,
-        "art_id": "forest_archer",
+        "art_id": "dark_bargain",
         "text": "소환 시 카드 1장 드로우",
         "build_tags": [
             "draw",
@@ -197,7 +197,7 @@
         "attr": "대지",
         "cost": 2,
         "art": 0,
-        "art_id": "nature_blessing",
+        "art_id": "shield_guard",
         "text": "아군 유닛 하나 체력 +3",
         "build_tags": [
             "buff"
@@ -211,7 +211,7 @@
         "attr": "바람",
         "cost": 1,
         "art": 1,
-        "art_id": "gale_shot",
+        "art_id": "dark_bargain",
         "text": "가장 앞의 적에게 피해 1. 이번 턴에 카드를 3장 이상 사용했다면 피해 4",
         "build_tags": [
             "draw"
@@ -227,7 +227,7 @@
         "attack": 1,
         "health": 1,
         "art": 2,
-        "art_id": "bone_soldier",
+        "art_id": "corpse_explosion",
         "text": "사망 시 적 영웅에게 피해 1",
         "build_tags": [
             "death",
@@ -244,7 +244,7 @@
         "attack": 4,
         "health": 3,
         "art": 3,
-        "art_id": "grave_knight",
+        "art_id": "fireball",
         "text": "사망 시 내 영웅 체력 2 회복",
         "build_tags": [
             "death",
@@ -259,7 +259,7 @@
         "attr": "암흑",
         "cost": 2,
         "art": 4,
-        "art_id": "dark_bargain",
+        "art_id": "funeral_fog",
         "text": "내 영웅 체력 2 잃음. 카드 2장 드로우",
         "build_tags": [
             "death",
@@ -275,7 +275,7 @@
         "attr": "암흑",
         "cost": 2,
         "art": 5,
-        "art_id": "call_of_dead",
+        "art_id": "funeral_fog",
         "text": "해골 병사 2장을 소환",
         "build_tags": [
             "death",
@@ -290,7 +290,7 @@
         "attr": "화염",
         "cost": 2,
         "art": 6,
-        "art_id": "corpse_explosion",
+        "art_id": "training_sword",
         "text": "아군 유닛 하나를 처치하고 모든 적에게 피해 2",
         "build_tags": [
             "fire",
@@ -301,11 +301,11 @@
         "id": "fireball",
         "name": "화염구",
         "type": "spell",
-        "race": "중립",
+        "race": "인간",
         "attr": "화염",
         "cost": 3,
         "art": 7,
-        "art_id": "fireball",
+        "art_id": "training_sword",
         "text": "가장 앞의 적 또는 적 영웅에게 피해 4",
         "build_tags": [
             "fire"
@@ -319,7 +319,7 @@
         "attr": "물",
         "cost": 2,
         "art": 8,
-        "art_id": "healing_potion",
+        "art_id": "forest_archer",
         "text": "내 영웅 체력 5 회복",
         "build_tags": [
             "low_hp"
@@ -333,7 +333,7 @@
         "attr": "빛",
         "cost": 2,
         "art": 9,
-        "art_id": "training_sword",
+        "art_id": "trainee_swordsman",
         "text": "가장 앞의 아군 유닛 공격력 +2",
         "build_tags": [
             "buff"
@@ -349,7 +349,7 @@
         "attack": 2,
         "health": 2,
         "art": 10,
-        "art_id": "mercenary",
+        "art_id": "militia",
         "text": "효과 없음",
         "build_tags": [
             "summon"
@@ -380,7 +380,7 @@
         "attr": "암흑",
         "cost": 1,
         "art": 3,
-        "art_id": "death_mark",
+        "art_id": "fireball",
         "text": "적 영웅에게 저주 1스택을 부여",
         "build_tags": [
             "death"
@@ -394,7 +394,7 @@
         "attr": "암흑",
         "cost": 3,
         "art": 5,
-        "art_id": "plague_spread",
+        "art_id": "funeral_fog",
         "text": "모든 적 유닛에게 피해 1. 적 영웅에게 저주 2스택을 부여",
         "build_tags": [
             "death"
@@ -408,7 +408,7 @@
         "attr": "대지",
         "cost": 1,
         "art": 9,
-        "art_id": "world_tree_ritual",
+        "art_id": "forest_archer",
         "text": "나의 의식 스택을 1만큼 증가시킴",
         "build_tags": [
             "draw"
@@ -438,7 +438,7 @@
         "attack": 1,
         "health": 3,
         "art": 4,
-        "art_id": "bone_oracle",
+        "art_id": "funeral_fog",
         "text": "소환 시 적 영웅에게 저주 1스택을 부여",
         "build_tags": [
             "death",
@@ -484,7 +484,7 @@
         "attack": 1,
         "health": 3,
         "art": 9,
-        "art_id": "ritual_sapling",
+        "art_id": "forest_archer",
         "text": "소환 시 의식 스택을 1만큼 증가시킴",
         "build_tags": [
             "draw",
@@ -514,7 +514,7 @@
         "attr": "빛",
         "cost": 2,
         "art": 0,
-        "art_id": "ancient_oath",
+        "art_id": "shield_guard",
         "text": "의식 스택을 2만큼 증가시킴. 카드 1장 드로우",
         "build_tags": [
             "draw"
@@ -566,7 +566,7 @@
         "race": "정령",
         "attr": "대지",
         "art": 0,
-        "art_id": "stone_golem"
+        "art_id": "trainee_swordsman"
     },
     {
         "id": "ember_blade",
@@ -576,7 +576,7 @@
         "attr": "화염",
         "cost": 2,
         "art": 4,
-        "art_id": "flame_swordsman",
+        "art_id": "militia",
         "text": "가장 앞의 아군 공격력 +1. 그 유닛이 공격할 때 적 영웅에게 추가 피해 1",
         "build_tags": [
             "fire"
@@ -590,7 +590,7 @@
         "attr": "바람",
         "cost": 1,
         "art": 5,
-        "art_id": "forest_archer",
+        "art_id": "elven_insight",
         "text": "가장 앞의 아군 공격력 +1. 그 유닛이 공격할 때 카드 1장 드로우",
         "build_tags": [
             "draw"
@@ -604,7 +604,7 @@
         "attr": "암흑",
         "cost": 1,
         "art": 6,
-        "art_id": "grave_knight",
+        "art_id": "corpse_explosion",
         "text": "가장 앞의 아군 체력 +3. 그 유닛이 사망하면 적 영웅에게 피해 2",
         "build_tags": [
             "death"
@@ -618,7 +618,7 @@
         "attr": "빛",
         "cost": 2,
         "art": 6,
-        "art_id": "captain_order",
+        "art_id": "small_flame",
         "text": "내 모든 유닛 공격력과 체력 +1",
         "build_tags": [
             "buff"
@@ -632,7 +632,7 @@
         "attr": "암흑",
         "cost": 1,
         "art": 0,
-        "art_id": "vampiric_strike",
+        "art_id": "fireball",
         "text": "가장 앞의 아군 공격력 +2, 내 영웅 피해 2. 그 유닛이 공격할 때 영웅 체력 1 회복",
         "build_tags": [
             "low_hp"
@@ -646,7 +646,7 @@
         "attr": "바람",
         "cost": 1,
         "art": 7,
-        "art_id": "mercenary",
+        "art_id": "first_aid",
         "text": "가장 앞의 아군 공격력 +1. 빈 슬롯에 즉시 공격 가능한 1/1 지원병 소환",
         "build_tags": [
             "summon"

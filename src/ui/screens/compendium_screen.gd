@@ -14,7 +14,7 @@ func build(body: VBoxContainer) -> void:
 	panel.add_child(box)
 	box.add_child(main._make_label("현재 카드 %d종 / 유물 %d개" % [main.card_defs.size(), main.relic_service.relics.size()], 16, Color(0.92, 0.94, 0.98, 1.0)))
 	for card in main.card_defs:
-		box.add_child(main._make_label("%s [%s/%s] 비용 %d" % [String(card.get("name", "")), String(card.get("race", "")), String(card.get("attr", "")), int(card.get("cost", 0))], 14, Color(0.84, 0.88, 0.95, 1.0)))
+		box.add_child(main._make_label("%s [%s/%s] 비용 %d" % [String(card.get("name", "")), main.ui.card_race_display_name(card), String(card.get("attr", "")), int(card.get("cost", 0))], 14, Color(0.84, 0.88, 0.95, 1.0)))
 	box.add_child(HSeparator.new())
 	for relic in main.relic_service.relics:
 		var relic_row := HBoxContainer.new()
