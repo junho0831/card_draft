@@ -14,6 +14,7 @@ const BATTLE_STYLES = preload("res://src/ui/styles/battle_styles.gd")
 const BATTLE_FX_LAYER = preload("res://src/ui/effects/battle_fx_layer.gd")
 const BATTLE_OBJECTIVE_SERVICE = preload("res://src/battle/battle_objective_service.gd")
 const BATTLE_COMBO_FINISHER = preload("res://src/battle/battle_combo_finisher.gd")
+const BATTLE_MOMENTUM_SERVICE = preload("res://src/battle/battle_momentum_service.gd")
 
 var main
 var root_box: VBoxContainer
@@ -78,6 +79,7 @@ var deck_render_signature: String = ""
 var battle_fx_layer: Control
 var battle_objectives = BATTLE_OBJECTIVE_SERVICE.new()
 var combo_finisher = BATTLE_COMBO_FINISHER.new()
+var battle_momentum = BATTLE_MOMENTUM_SERVICE.new()
 var selected_hand_slot: int = -1
 
 func _show_hover_popup(node: Control, title_text: String, description_text: String, accent_color: Color) -> void:
@@ -234,6 +236,9 @@ func _store_battle_snapshot() -> void:
 			"summon_build_started": bool(battle_state.get("summon_build_started", false)),
 			"boss_turn_count": int(battle_state.get("boss_turn_count", 0)),
 			"race_power_used": bool(battle_state.get("race_power_used", false)),
+			"breakthrough_mana_claimed": bool(battle_state.get("breakthrough_mana_claimed", false)),
+			"breakthrough_count": int(battle_state.get("breakthrough_count", 0)),
+			"breakthrough_damage": int(battle_state.get("breakthrough_damage", 0)),
 		},
 	}
 	_save_run()
@@ -259,6 +264,9 @@ func _restore_battle_snapshot(snapshot: Dictionary) -> void:
 	battle_state["summon_build_started"] = bool(flags.get("summon_build_started", false))
 	battle_state["boss_turn_count"] = int(flags.get("boss_turn_count", 0))
 	battle_state["race_power_used"] = bool(flags.get("race_power_used", false))
+	battle_state["breakthrough_mana_claimed"] = bool(flags.get("breakthrough_mana_claimed", false))
+	battle_state["breakthrough_count"] = int(flags.get("breakthrough_count", 0))
+	battle_state["breakthrough_damage"] = int(flags.get("breakthrough_damage", 0))
 	var restored_objective: Dictionary = snapshot.get("battle_objective", {})
 	if not restored_objective.is_empty():
 		battle_state["battle_objective"] = restored_objective.duplicate(true)
@@ -337,8 +345,24 @@ func _format_player_victory_gauge() -> String:
 	var combo_text := _combo_status_text()
 	if not combo_text.is_empty():
 		parts.append(combo_text)
+	parts.append("돌파 준비" if not bool(battle_state.get("breakthrough_mana_claimed", false)) else "돌파 지속")
 	parts.append(_format_side_resources(player))
 	return " | ".join(parts)
+
+
+func _attack_payoff_text(attacker: Dictionary, target_index: int) -> String:
+	if target_index < 0 or target_index >= opponent.field.size():
+		return "전장 정리"
+	var prediction := _predict_unit_attack(attacker, opponent.field[target_index], player, opponent)
+	if not bool(prediction.get("lethal", false)):
+		return "유리한 교환"
+	var overflow := int(prediction.get("overflow", 0))
+	if overflow > 0:
+		return "처치 · 영웅 돌파 %d" % overflow
+	if int(prediction.get("mana_gain", 0)) > 0:
+		return "처치 · 마나 +1"
+	return "처치 후 영웅 압박"
+
 
 func _recommended_action_state() -> Dictionary:
 	if _is_player_input_locked():
@@ -356,7 +380,7 @@ func _recommended_action_state() -> Dictionary:
 				"guidance": "추천 진행 또는 턴 종료를 누르세요.",
 			}
 		var selected_target = _recommended_attack_target_index(selected)
-		if int(opponent.get("health", 0)) <= _predict_hero_attack_damage(selected, player, false):
+		if not _enemy_vanguard_blocks_hero() and int(opponent.get("health", 0)) <= _predict_hero_attack_damage(selected, player, false):
 			return {
 				"kind": "hero_attack_selected",
 				"text": "%s 영웅 공격" % String(selected.get("name", "유닛")),
@@ -366,7 +390,7 @@ func _recommended_action_state() -> Dictionary:
 			return {
 				"kind": "unit_attack_selected",
 				"text": "%s 유닛 공격" % String(selected.get("name", "유닛")),
-				"guidance": "1. 공격 대상 선택  2. 적 유닛 정리 또는 영웅 압박",
+				"guidance": "1. 공격 대상 선택  2. %s" % _attack_payoff_text(selected, selected_target),
 				"target_index": selected_target,
 			}
 		return {
@@ -383,7 +407,7 @@ func _recommended_action_state() -> Dictionary:
 	if ready_attacker_index != -1 and ready_attacker_index < player.field.size():
 		var ready_attacker: Dictionary = player.field[ready_attacker_index]
 		var ready_target = _recommended_attack_target_index(ready_attacker)
-		if int(opponent.get("health", 0)) <= _predict_hero_attack_damage(ready_attacker, player, false):
+		if not _enemy_vanguard_blocks_hero() and int(opponent.get("health", 0)) <= _predict_hero_attack_damage(ready_attacker, player, false):
 			return {
 				"kind": "hero_attack_direct",
 				"text": "%s 공격" % String(ready_attacker.get("name", "유닛")),
@@ -394,7 +418,7 @@ func _recommended_action_state() -> Dictionary:
 			return {
 				"kind": "unit_attack_direct",
 				"text": "%s 공격" % String(ready_attacker.get("name", "유닛")),
-				"guidance": "1. 공격 가능한 내 유닛으로 전장 정리  2. 유리한 교환부터 진행",
+				"guidance": "1. 공격 가능한 내 유닛으로 전장 정리  2. %s" % _attack_payoff_text(ready_attacker, ready_target),
 				"attacker_index": ready_attacker_index,
 				"target_index": ready_target,
 			}
@@ -547,9 +571,13 @@ func _current_battle_focus_text() -> String:
 		var attacker: Dictionary = player.field[selected_attacker]
 		if opponent.field.is_empty():
 			return "이번 턴 플랜: %s 누르고 적 영웅 치기 -> 끝" % String(attacker.get("name", "유닛"))
+		if _enemy_vanguard_blocks_hero():
+			return "이번 턴 플랜: %s로 선봉 돌파 -> 마나를 돌려받아 추가 전개" % String(attacker.get("name", "유닛"))
 		return "이번 턴 플랜: %s로 앞 적부터 치기 -> 더 할 것 확인" % String(attacker.get("name", "유닛"))
 	if _is_player_input_locked():
 		return boss_pattern if not boss_pattern.is_empty() else "이번 턴 플랜: 지금은 기다리면 됩니다."
+	if _enemy_vanguard_blocks_hero():
+		return "이번 턴 플랜: 적 선봉 처치 -> 첫 처치 마나 +1 -> 남은 피해는 영웅 돌파"
 	for unit in player.field:
 		if bool(Dictionary(unit).get("can_attack", false)):
 			return "이번 턴 플랜: 공격 가능한 내 유닛 먼저 누르기 -> 필요하면 카드 쓰기"
@@ -872,6 +900,9 @@ func _reset_battle_state() -> void:
 		"summon_build_started": false,
 		"boss_turn_count": 0,
 		"race_power_used": false,
+		"breakthrough_mana_claimed": false,
+		"breakthrough_count": 0,
+		"breakthrough_damage": 0,
 		"battle_objective": _create_battle_objective(),
 	}
 
@@ -932,6 +963,20 @@ func _new_side(display_name: String, deck: Array, hp: int, max_hp: int) -> Dicti
 		"curses": 0,
 		"ritual_stacks": 0,
 	}
+
+
+func _deploy_enemy_vanguard(enemy: Dictionary) -> Dictionary:
+	var deck_ids: Array = enemy.get("deck_ids", [])
+	return battle_momentum.deploy_vanguard(opponent, deck_ids, Callable(main.card_db, "get_card"))
+
+
+func _enemy_vanguard_blocks_hero() -> bool:
+	for unit_variant in opponent.get("field", []):
+		var unit: Dictionary = unit_variant
+		if bool(unit.get("is_vanguard", false)) and int(unit.get("health", 0)) > 0:
+			return true
+	return false
+
 
 func _is_build_active(tag: String) -> bool:
 	return (battle_state.get("active_build_tags", []) as Array).has(tag)
@@ -1819,6 +1864,9 @@ func _recommended_ready_attacker_index() -> int:
 	return best_index
 
 func _recommended_attack_target_index(attacker: Dictionary) -> int:
+	for i in range(opponent.field.size()):
+		if bool(Dictionary(opponent.field[i]).get("is_vanguard", false)):
+			return i
 	var best_lethal_index = -1
 	var best_lethal_attack = -1
 	var best_fallback_index = -1
@@ -2339,6 +2387,7 @@ func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
 		unit.can_attack = true
 	_draw_cards(side, max(0, START_HAND - (side.get("hand", []) as Array).size()))
 	if is_player_turn:
+		battle_momentum.reset_player_turn(battle_state)
 		battle_state["cards_played_this_turn"] = 0
 		battle_state["combo_tag"] = ""
 		battle_state["combo_streak"] = 0
@@ -2558,6 +2607,7 @@ func _battle_effect_context() -> Dictionary:
 		"log": Callable(self, "_add_log"),
 		"cleanup_dead_units": Callable(self, "_cleanup_dead_units"),
 		"calculate_damage": Callable(self, "_calculate_damage"),
+		"resolve_breakthrough": Callable(self, "_resolve_breakthrough_damage"),
 		"on_unit_summoned": Callable(self, "_apply_build_on_unit_summoned"),
 		"relic_trigger": Callable(self, "_on_relic_trigger"),
 		"relic_service": main.relic_service,
@@ -2582,6 +2632,42 @@ func _calculate_damage(card_or_unit: Dictionary, is_spell: bool, owner_state: Di
 		if relic_ids.has("burning_heart") and int(battle_state.get("cards_played_this_turn", 0)) >= 2:
 			damage += 1
 	return damage
+
+
+func _resolve_breakthrough_damage(
+	owner_state: Dictionary,
+	enemy_state: Dictionary,
+	damage: int,
+	target_health: int,
+	target_index: int = 0
+) -> Dictionary:
+	var result: Dictionary = battle_momentum.resolve(
+		owner_state,
+		enemy_state,
+		damage,
+		target_health,
+		battle_state,
+		owner_state == player
+	)
+	if not bool(result.get("lethal", false)):
+		return result
+
+	var overflow := int(result.get("overflow", 0))
+	var mana_gain := int(result.get("mana_gain", 0))
+	if overflow > 0:
+		_add_log("돌파: 적 유닛 처치 후 영웅 피해 %d" % overflow)
+		_show_damage_number(_hero_target_for_player(false), overflow)
+		_play_attack_impact_fx(_field_slot_for(opponent, target_index), _hero_target_for_player(false), overflow, false)
+		_play_effect_hit_feedback(_hero_target_for_player(false), "돌파 %d!" % overflow, Color(1.0, 0.48, 0.18, 1.0))
+	if mana_gain > 0:
+		_add_log("기세: 이번 턴 첫 처치로 마나 +1")
+		_play_effect_hit_feedback(_hero_target_for_player(true), "기세 · 마나 +1", Color(0.38, 0.86, 1.0, 1.0))
+	if overflow > 0 or mana_gain > 0:
+		_play_sfx("impact_heavy" if overflow >= 2 else "combo")
+		if overflow >= 2:
+			_shake_screen(10.0, 0.2)
+	return result
+
 
 func _play_card_resolution_feedback(card: Dictionary, card_type: String, summoned_index: int, old_player_hp: int, old_opponent_hp: int) -> void:
 	if _should_skip_timed_battle_fx():
@@ -2664,13 +2750,22 @@ func _predict_unit_attack(attacker: Dictionary, defender: Dictionary, attacker_s
 		return {}
 	var attack_damage = _calculate_damage(attacker, false, attacker_side, int(attacker.get("attack", 0)))
 	var counter_damage = _calculate_damage(defender, false, defender_side, int(defender.get("attack", 0)))
-	var lethal = int(defender.get("health", 0)) - attack_damage <= 0
+	var defender_health := int(defender.get("health", 0))
+	var lethal = defender_health - attack_damage <= 0
+	var momentum_preview: Dictionary = battle_momentum.preview(
+		attack_damage,
+		defender_health,
+		battle_state,
+		attacker_side == player and defender_side == opponent
+	)
 	if lethal:
 		counter_damage = 0
 	return {
 		"damage": attack_damage,
 		"counter": counter_damage,
 		"lethal": lethal,
+		"overflow": int(momentum_preview.get("overflow", 0)),
+		"mana_gain": int(momentum_preview.get("mana_gain", 0)),
 	}
 
 func _predict_hero_attack_damage(attacker: Dictionary, attacker_side: Dictionary, target_is_player: bool) -> int:
@@ -2686,12 +2781,28 @@ func _attack_prediction_text(prediction: Dictionary) -> String:
 		return ""
 	var parts: Array[String] = []
 	if bool(prediction.get("lethal", false)):
-		parts.append("처치 가능")
+		parts.append("처치")
+		var overflow := int(prediction.get("overflow", 0))
+		if overflow > 0:
+			parts.append("돌파 %d" % overflow)
+		elif int(prediction.get("mana_gain", 0)) > 0:
+			parts.append("마나 +1")
 	else:
 		parts.append("피해 %d" % int(prediction.get("damage", 0)))
 	if int(prediction.get("counter", 0)) > 0:
 		parts.append("반격 %d" % int(prediction.get("counter", 0)))
 	return " · ".join(parts)
+
+
+func _frontline_damage_prediction_text(damage: int) -> String:
+	if opponent.field.is_empty():
+		return "영웅 피해 %d" % damage
+	var target_health := int(Dictionary(opponent.field[0]).get("health", 0))
+	var prediction: Dictionary = battle_momentum.preview(damage, target_health, battle_state, true)
+	prediction["damage"] = damage
+	prediction["counter"] = 0
+	return _attack_prediction_text(prediction)
+
 
 func _card_heal_preview(card: Dictionary) -> int:
 	var card_id = _base_card_id(String(card.get("id", "")))
@@ -2733,7 +2844,7 @@ func _card_result_preview(card: Dictionary) -> String:
 		parts.append("소환 %d/%d" % [int(card.get("attack", 0)), int(card.get("health", 0))])
 		match card_id:
 			"militia":
-				parts.append("앞 적 피해 1")
+				parts.append(_frontline_damage_prediction_text(1))
 			"trainee_swordsman":
 				parts.append("체력 +1")
 			"forest_archer":
@@ -2758,7 +2869,7 @@ func _card_result_preview(card: Dictionary) -> String:
 		elif card_id == "plague_spread":
 			parts.append("전체 피해 %d" % damage)
 		else:
-			parts.append("앞 적 피해 %d" % damage)
+			parts.append(_frontline_damage_prediction_text(damage))
 	var heal = _card_heal_preview(card)
 	if heal > 0:
 		parts.append("영웅 회복 %d" % heal)
@@ -2873,6 +2984,10 @@ func _on_opponent_unit_pressed(index: int) -> void:
 func _attack_opponent_hero() -> void:
 	if input_locked or game_over or current_player != "player" or selected_attacker == -1:
 		return
+	if _enemy_vanguard_blocks_hero():
+		_add_log("적 선봉이 영웅을 보호합니다. 선봉부터 처치하세요.")
+		_play_effect_hit_feedback(_field_slot_for(opponent, 0), "선봉 방어", Color(1.0, 0.48, 0.24, 1.0))
+		return
 	await _execute_player_hero_attack(selected_attacker)
 	selected_attacker = -1
 	_check_game_over()
@@ -2882,6 +2997,9 @@ func _attack_opponent_hero() -> void:
 
 func _execute_player_hero_attack(attacker_index: int) -> void:
 	if attacker_index < 0 or attacker_index >= player.field.size():
+		return
+	if _enemy_vanguard_blocks_hero():
+		_add_log("적 선봉이 영웅 공격을 막았습니다.")
 		return
 	var attacker: Dictionary = player.field[attacker_index]
 	var damage = _calculate_damage(attacker, false, player, int(attacker.attack))
@@ -2915,9 +3033,12 @@ func _execute_player_unit_attack(attacker_index: int, defender_index: int) -> vo
 func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_index: int, defender_index: int) -> void:
 	var attacker: Dictionary = attacker_side.field[attacker_index]
 	var defender: Dictionary = defender_side.field[defender_index]
+	var attacker_target := _field_slot_for(attacker_side, attacker_index)
+	var defender_target := _field_slot_for(defender_side, defender_index)
 	var attack_damage = _calculate_damage(attacker, false, attacker_side, int(attacker.attack))
 	var defense_damage = _calculate_damage(defender, false, defender_side, int(defender.attack))
-	var defender_lethal = int(defender.health) - attack_damage <= 0
+	var defender_health_before := int(defender.health)
+	var defender_lethal = defender_health_before - attack_damage <= 0
 
 	if defender_lethal:
 		defense_damage = 0
@@ -2933,25 +3054,34 @@ func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_inde
 
 	defender.health -= attack_damage
 	attacker.health -= defense_damage
+	var breakthrough_result: Dictionary = {}
+	if defender_lethal:
+		breakthrough_result = _resolve_breakthrough_damage(attacker_side, defender_side, attack_damage, defender_health_before, defender_index)
 	if attack_damage >= 3 or defense_damage >= 3:
 		_shake_screen(10.0, 0.2)
 	attacker.can_attack = false
 	_apply_equipment_attack_triggers(attacker, attacker_side, defender_side)
 	if defender_lethal:
-		_play_defeat_feedback(_field_slot_for(defender_side, defender_index), Color(1.0, 0.82, 0.24, 1.0))
+		_play_defeat_feedback(defender_target, Color(1.0, 0.82, 0.24, 1.0))
 	if attacker_lethal:
-		_play_defeat_feedback(_field_slot_for(attacker_side, attacker_index), Color(1.0, 0.42, 0.34, 1.0))
+		_play_defeat_feedback(attacker_target, Color(1.0, 0.42, 0.34, 1.0))
 	_cleanup_dead_units(attacker_side, defender_side)
 	if defense_damage > 0:
 		_add_log("%s 반격: %d 피해" % [defender.name, defense_damage])
 	var summary = "%s -> %s: %d 피해" % [attacker.name, defender.name, attack_damage]
 	if defender_lethal:
 		summary += " / 처치"
-		_play_effect_hit_feedback(_field_slot_for(defender_side, defender_index), "유리한 교환", Color(1.0, 0.86, 0.34, 1.0))
-		_trigger_hype_moment(_field_slot_for(defender_side, defender_index), "처치!", Color(1.0, 0.86, 0.34, 1.0), "finisher", 12.0, 42, false)
+		var overflow := int(breakthrough_result.get("overflow", 0))
+		var mana_gain := int(breakthrough_result.get("mana_gain", 0))
+		if overflow > 0:
+			summary += " / 돌파 %d" % overflow
+		if mana_gain > 0:
+			summary += " / 마나 +1"
+		_play_effect_hit_feedback(defender_target, "유리한 교환", Color(1.0, 0.86, 0.34, 1.0))
+		_trigger_hype_moment(defender_target, "처치!", Color(1.0, 0.86, 0.34, 1.0), "finisher", 12.0, 42, false)
 	elif attack_damage >= 4:
-		_play_effect_hit_feedback(_field_slot_for(defender_side, defender_index), "강한 압박", Color(1.0, 0.58, 0.24, 1.0))
-		_trigger_hype_moment(_field_slot_for(defender_side, defender_index), "강타 %d" % attack_damage, Color(1.0, 0.58, 0.24, 1.0), "finisher", 8.0, 34, false)
+		_play_effect_hit_feedback(defender_target, "강한 압박", Color(1.0, 0.58, 0.24, 1.0))
+		_trigger_hype_moment(defender_target, "강타 %d" % attack_damage, Color(1.0, 0.58, 0.24, 1.0), "finisher", 8.0, 34, false)
 	_add_log(summary)
 	input_locked = false
 	_store_battle_snapshot()
@@ -3167,8 +3297,7 @@ func _show_card_board_preview(card: Dictionary, playable: bool) -> void:
 		if card_id == "militia" and not opponent.field.is_empty():
 			var target := _field_slot_for(opponent, 0)
 			var damage := 1
-			var hp := int(Dictionary(opponent.field[0]).get("health", 0))
-			_add_card_preview_marker(target, "처치 가능" if damage >= hp else "피해 %d" % damage, Color(1.0, 0.34, 0.24, 1.0), Vector2(0, 24))
+			_add_card_preview_marker(target, _frontline_damage_prediction_text(damage), Color(1.0, 0.34, 0.24, 1.0), Vector2(0, 24))
 		elif card_id == "stone_golem":
 			_add_card_preview_marker(_hero_target_for_player(true), "회복 2", Color(0.34, 1.0, 0.68, 1.0))
 		elif card_id == "forest_archer":
@@ -3213,11 +3342,7 @@ func _show_card_board_preview(card: Dictionary, playable: bool) -> void:
 				_add_card_preview_marker(_field_slot_for(player, 0), "희생", Color(0.76, 0.5, 1.0, 1.0))
 		else:
 			var target := _front_opponent_target()
-			var text := "피해 %d" % damage
-			if not opponent.field.is_empty() and damage >= int(Dictionary(opponent.field[0]).get("health", 0)):
-				text = "처치 가능"
-			elif opponent.field.is_empty():
-				text = "영웅 피해 %d" % damage
+			var text := _frontline_damage_prediction_text(damage)
 			_add_card_preview_marker(target, text, Color(1.0, 0.34, 0.24, 1.0))
 	var heal := _card_heal_preview(card)
 	if heal > 0:
@@ -3765,11 +3890,17 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	var art: TextureRect = main._make_card_art_rect(unit, art_size)
 	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	art_container.add_child(art)
+	var is_vanguard := bool(unit.get("is_vanguard", false))
+	if is_vanguard:
+		var vanguard_badge: PanelContainer = _make_battle_badge("선봉", Color(0.2, 0.065, 0.04, 0.96), Color(1.0, 0.52, 0.22, 1.0), 8)
+		vanguard_badge.position = Vector2(4, 4)
+		vanguard_badge.tooltip_text = "영웅 공격을 막습니다. 처치하면 첫 1회 마나 +1, 넘친 피해는 영웅에게 전달됩니다."
+		art_container.add_child(vanguard_badge)
 	var equipment_names: Array = unit.get("equipment_names", [])
 	if not equipment_names.is_empty():
 		var equipment_text := "장비" if equipment_names.size() == 1 else "장비 %d" % equipment_names.size()
 		var equipment_badge: PanelContainer = _make_battle_badge(equipment_text, Color(0.14, 0.1, 0.035, 0.96), Color(1.0, 0.76, 0.28, 1.0), 8)
-		equipment_badge.position = Vector2(4, 4)
+		equipment_badge.position = Vector2(4, 30 if is_vanguard else 4)
 		equipment_badge.tooltip_text = ", ".join(equipment_names)
 		art_container.add_child(equipment_badge)
 
@@ -3988,17 +4119,19 @@ func _hand_signature() -> String:
 	parts.append("hand_sel:%d" % selected_hand_slot)
 	parts.append("turn:%s" % current_player)
 	parts.append("lock:%s" % ("1" if _is_player_input_locked() else "0"))
+	parts.append("breakthrough:%s" % ("1" if bool(battle_state.get("breakthrough_mana_claimed", false)) else "0"))
 	return "|".join(parts)
 
 func _field_signature(side: Dictionary, is_player_field: bool) -> String:
 	var parts: Array[String] = []
 	for unit_data in side.get("field", []):
 		var unit: Dictionary = unit_data
-		parts.append("%s:%d:%d:%s" % [
+		parts.append("%s:%d:%d:%s:%s" % [
 			String(unit.get("id", "")),
 			int(unit.get("attack", 0)),
 			int(unit.get("health", 0)),
 			("1" if bool(unit.get("can_attack", false)) else "0") + ":" + ",".join(unit.get("equipment_names", [])),
+			"1" if bool(unit.get("is_vanguard", false)) else "0",
 		])
 	parts.append("sel:%d" % selected_attacker)
 	parts.append("lock:%s" % ("1" if _is_player_input_locked() else "0"))
@@ -4218,20 +4351,24 @@ func _refresh_action_buttons() -> void:
 		else:
 			_style_battle_button(recommended_action_button, Color(0.12, 0.085, 0.035, 0.98), Color(0.94, 0.72, 0.28, 1.0), highlighted, "primary")
 	if hero_attack_button != null:
-		var can_attack_hero: bool = not _is_player_input_locked() and selected_attacker != -1
+		var vanguard_blocking := _enemy_vanguard_blocks_hero()
+		var can_attack_hero: bool = not _is_player_input_locked() and selected_attacker != -1 and not vanguard_blocking
 		hero_attack_button.disabled = not can_attack_hero
 		hero_attack_button.text = ""
-		hero_attack_button.tooltip_text = "선택한 유닛으로 적 영웅 공격" if can_attack_hero else "먼저 공격할 내 유닛을 선택하세요"
+		if vanguard_blocking:
+			hero_attack_button.tooltip_text = "적 선봉을 처치해야 영웅을 공격할 수 있습니다."
+		else:
+			hero_attack_button.tooltip_text = "선택한 유닛으로 적 영웅 공격" if can_attack_hero else "먼저 공격할 내 유닛을 선택하세요"
 		if can_attack_hero:
 			_style_battle_button(hero_attack_button, Color(0.09, 0.06, 0.08, 0.96), Color(0.72, 0.22, 0.18, 1.0), false)
 		else:
 			_style_battle_button(hero_attack_button, Color(0.045, 0.06, 0.078, 0.92), Color(0.72, 0.18, 0.16, 1.0), false)
 		if opponent_hero_target_badge_label != null and is_instance_valid(opponent_hero_target_badge_label):
-			opponent_hero_target_badge_label.text = "영웅 공격 대상"
+			opponent_hero_target_badge_label.text = "선봉 방어" if vanguard_blocking else "영웅 공격 대상"
 			if can_attack_hero:
 				opponent_hero_target_badge_label.text = "영웅 피해 %d" % _predict_hero_attack_damage(_selected_player_attacker(), player, false)
 		if opponent_hero_target_badge != null and is_instance_valid(opponent_hero_target_badge):
-			var badge_accent = Color(1.0, 0.32, 0.26, 1.0) if can_attack_hero else Color(0.72, 0.18, 0.16, 1.0)
+			var badge_accent = Color(1.0, 0.52, 0.22, 1.0) if vanguard_blocking else (Color(1.0, 0.32, 0.26, 1.0) if can_attack_hero else Color(0.72, 0.18, 0.16, 1.0))
 			opponent_hero_target_badge.add_theme_stylebox_override("panel", _make_modern_style(Color(0.08, 0.1, 0.13, 0.92), badge_accent, 1, 6, 5))
 	if end_turn_button != null:
 		end_turn_button.disabled = _is_player_input_locked()
@@ -4306,16 +4443,21 @@ func start_battle() -> void:
 	battle_tier = String(enemy.get("tier", "normal"))
 	player = _new_side(main._current_race_hero_name(), main.card_db.build_deck_from_ids(main.current_run.get("deck_ids", [])), int(main.current_run.get("hp", 50)), int(main.current_run.get("max_hp", 50)))
 	opponent = _new_side(String(enemy.get("name", "적")), main.card_db.build_deck_from_ids(enemy.get("deck_ids", [])), int(enemy.get("base_hp", 20)), int(enemy.get("base_hp", 20)))
+	var enemy_vanguard := _deploy_enemy_vanguard(enemy)
 	_draw_cards(player, START_HAND)
-	_draw_cards(opponent, START_HAND)
+	_draw_cards(opponent, mini(START_HAND, opponent.deck.size()))
 	_reset_battle_state()
 	_build_battle_ui()
 	main.relic_service.on_battle_start(main.current_run, player, battle_state)
 	_spawn_build_token()
 	player.health = int(main.current_run.get("hp", player.health))
 	_add_log("%s 전투 시작. 적 영웅 체력을 0으로 만드세요." % _node_type_name(String(main.run_store.current_node(main.current_run).get("type", "battle"))))
+	if not enemy_vanguard.is_empty():
+		_add_log("적 선봉 %s 등장: 첫 처치 마나 +1, 남은 피해는 영웅에게 돌파" % String(enemy_vanguard.get("name", "유닛")))
 	_init_status_trackers()
 	_refresh_ui()
+	if not enemy_vanguard.is_empty() and not _should_skip_timed_battle_fx():
+		_play_slot_pop_feedback(_field_slot_for(opponent, 0), "선봉 등장", Color(1.0, 0.42, 0.28, 1.0))
 	_store_battle_snapshot()
 	await _show_turn_banner("전투 시작!", true)
 	await _start_turn(player, true)
@@ -4335,13 +4477,40 @@ func _add_log(message: String) -> void:
 func _shake_screen(intensity: float, duration: float) -> void:
 	if main.root_scroll == null or not is_instance_valid(main.root_scroll):
 		return
+	var root_offsets := Vector4(
+		main.root_scroll.offset_left,
+		main.root_scroll.offset_top,
+		main.root_scroll.offset_right,
+		main.root_scroll.offset_bottom
+	)
+	var modal_offsets := Vector4(
+		main.modal_layer.offset_left,
+		main.modal_layer.offset_top,
+		main.modal_layer.offset_right,
+		main.modal_layer.offset_bottom
+	)
+	var apply_offset := Callable(self, "_apply_screen_shake_offset").bind(root_offsets, modal_offsets)
 	var tween = main.create_tween()
-	var original_pos = main.root_scroll.position
-	for i in range(int(duration * 20)):
-		tween.tween_property(main.root_scroll, "position", original_pos + Vector2(randf_range(-intensity, intensity), randf_range(-intensity, intensity)), 0.05)
-		tween.parallel().tween_property(main.modal_layer, "position", Vector2(randf_range(-intensity, intensity), randf_range(-intensity, intensity)), 0.05)
-	tween.tween_property(main.root_scroll, "position", original_pos, 0.05)
-	tween.parallel().tween_property(main.modal_layer, "position", Vector2.ZERO, 0.05)
+	var current_offset := Vector2.ZERO
+	# Moving both anchored edges keeps impact shake from resizing the viewport.
+	for i in range(maxi(1, int(duration * 20.0))):
+		var next_offset := Vector2(randf_range(-intensity, intensity), randf_range(-intensity, intensity))
+		tween.tween_method(apply_offset, current_offset, next_offset, 0.05)
+		current_offset = next_offset
+	tween.tween_method(apply_offset, current_offset, Vector2.ZERO, 0.05)
+
+
+func _apply_screen_shake_offset(offset: Vector2, root_offsets: Vector4, modal_offsets: Vector4) -> void:
+	if main.root_scroll != null and is_instance_valid(main.root_scroll):
+		main.root_scroll.offset_left = root_offsets.x + offset.x
+		main.root_scroll.offset_top = root_offsets.y + offset.y
+		main.root_scroll.offset_right = root_offsets.z + offset.x
+		main.root_scroll.offset_bottom = root_offsets.w + offset.y
+	if main.modal_layer != null and is_instance_valid(main.modal_layer):
+		main.modal_layer.offset_left = modal_offsets.x + offset.x
+		main.modal_layer.offset_top = modal_offsets.y + offset.y
+		main.modal_layer.offset_right = modal_offsets.z + offset.x
+		main.modal_layer.offset_bottom = modal_offsets.w + offset.y
 
 
 func _play_sfx(sfx_name: String) -> void:

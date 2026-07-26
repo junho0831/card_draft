@@ -6,6 +6,9 @@ var output_dir := "user://playthrough_probe"
 var report: Array[String] = []
 var boss_steps := 0
 var max_battle_steps := 0
+var vanguards_seen := 0
+var breakthroughs_triggered := 0
+var breakthrough_damage := 0
 var headless := false
 var probe_failed := false
 
@@ -24,7 +27,6 @@ func _run() -> void:
 	main.set_meta("disable_window_mode_changes", true)
 	main.set_meta("layout_viewport_override", Vector2i(1280, 720))
 	main.set_meta("disable_timed_battle_fx", true)
-	main.set_meta("disable_battle_ui_rerender", true)
 	root.add_child(main)
 	await _wait_for_frame()
 	await _wait_for_frame()
@@ -111,6 +113,10 @@ func _play_battle(main: Node, safety: int) -> void:
 		int(battle.opponent.get("health", 0)),
 		(battle.player.get("hand", []) as Array).size(),
 	])
+	for unit_variant in battle.opponent.get("field", []):
+		if bool(Dictionary(unit_variant).get("is_vanguard", false)):
+			vanguards_seen += 1
+			break
 	await _capture("%02d_battle_start" % safety)
 	var steps := 0
 	var wait_ticks := 0
@@ -154,6 +160,8 @@ func _play_battle(main: Node, safety: int) -> void:
 	var node_type := String(main.run_store.current_node(main.current_run).get("type", ""))
 	if node_type == "boss":
 		boss_steps += steps
+	breakthroughs_triggered += int(battle.battle_state.get("breakthrough_count", 0))
+	breakthrough_damage += int(battle.battle_state.get("breakthrough_damage", 0))
 	_note(main, "battle_end screen=%s steps=%d run_hp=%d" % [
 		String(main.active_screen),
 		steps,
@@ -230,11 +238,14 @@ func _note_fun_metrics(main: Node) -> void:
 	if main.battle_screen != null:
 		trigger_count = int(main.battle_screen.battle_state.get("build_trigger_count", 0))
 		relic_trigger_count = int(main.battle_screen.battle_state.get("relic_trigger_count", 0))
-	report.append("fun_metrics active_builds=%s build_scores=%s build_triggers=%d relic_triggers=%d boss_steps=%d max_battle_steps=%d relics=%d result=%s" % [
+	report.append("fun_metrics active_builds=%s build_scores=%s build_triggers=%d relic_triggers=%d vanguards=%d breakthroughs=%d breakthrough_damage=%d boss_steps=%d max_battle_steps=%d relics=%d result=%s" % [
 		str(active),
 		str(scores),
 		trigger_count,
 		relic_trigger_count,
+		vanguards_seen,
+		breakthroughs_triggered,
+		breakthrough_damage,
 		boss_steps,
 		max_battle_steps,
 		(main.current_run.get("relic_ids", []) as Array).size(),
@@ -244,6 +255,10 @@ func _note_fun_metrics(main: Node) -> void:
 		report.append("fun_warning:no_active_build")
 	if trigger_count <= 0:
 		report.append("fun_warning:no_build_trigger_seen")
+	if vanguards_seen <= 0:
+		report.append("fun_warning:no_enemy_vanguard_seen")
+	if breakthroughs_triggered <= 0:
+		report.append("fun_warning:no_breakthrough_triggered")
 
 func _capture(file_name: String) -> void:
 	if headless:

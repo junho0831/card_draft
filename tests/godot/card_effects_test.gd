@@ -2,11 +2,14 @@ extends RefCounted
 
 const BattleCardEffectsScript := preload("res://src/battle/battle_card_effects.gd")
 const BattleComboFinisherScript := preload("res://src/battle/battle_combo_finisher.gd")
+const BattleMomentumServiceScript := preload("res://src/battle/battle_momentum_service.gd")
 
 var _failures: Array[String] = []
 var _count := 0
 var _effects = BattleCardEffectsScript.new()
 var _combo_finisher = BattleComboFinisherScript.new()
+var _momentum = BattleMomentumServiceScript.new()
+var _momentum_state: Dictionary = {}
 
 func run() -> Dictionary:
 	_failures.clear()
@@ -16,6 +19,8 @@ func run() -> Dictionary:
 	_test_first_aid_heals_and_buffs_front_ally()
 	_test_signature_equipment_effects()
 	_test_combo_finishers()
+	_test_vanguard_and_breakthrough()
+	_test_spell_breakthrough_integration()
 	return {
 		"count": _count,
 		"failures": _failures,
@@ -169,11 +174,74 @@ func _test_combo_finishers() -> void:
 	_assert_eq(owner.field.size(), 2, "summon finisher fills two slots")
 	_assert_eq(bool(owner.field[0].can_attack) and bool(owner.field[1].can_attack), true, "summon finisher tokens attack immediately")
 
+
+func _test_vanguard_and_breakthrough() -> void:
+	var enemy := _side("enemy")
+	var vanguard: Dictionary = _momentum.deploy_vanguard(
+		enemy,
+		["test_spell", "test_vanguard"],
+		Callable(self, "_test_card_lookup")
+	)
+	_assert_eq(String(vanguard.get("id", "")), "test_vanguard", "first unit in the enemy plan becomes the vanguard")
+	_assert_eq(enemy.field.size(), 1, "vanguard starts on the enemy field")
+	_assert_eq(bool(enemy.field[0].get("is_vanguard", false)), true, "vanguard blocks direct hero attacks")
+
+	var owner := _side("player")
+	var state: Dictionary = {}
+	var preview: Dictionary = _momentum.preview(4, 1, state, true)
+	_assert_eq([int(preview.get("overflow", 0)), int(preview.get("mana_gain", 0))], [3, 1], "lethal preview exposes overflow and first-kill mana")
+	var result: Dictionary = _momentum.resolve(owner, enemy, 4, 1, state, true)
+	_assert_eq(int(enemy.health), 17, "overflow damage reaches the enemy hero")
+	_assert_eq(int(owner.mana), 1, "first kill of the turn refunds one mana")
+	_assert_eq(int(result.get("overflow", 0)), 3, "breakthrough result reports hero damage")
+	_momentum.resolve(owner, enemy, 2, 2, state, true)
+	_assert_eq(int(owner.mana), 1, "later kills in the same turn do not refund more mana")
+	_momentum.reset_player_turn(state)
+	_momentum.resolve(owner, enemy, 1, 1, state, true)
+	_assert_eq(int(owner.mana), 2, "a new player turn refreshes the first-kill mana reward")
+
+
+func _test_spell_breakthrough_integration() -> void:
+	var owner := _side("player")
+	var enemy := _side("enemy")
+	owner.deck.append({"id": "drawn", "name": "드로우 카드", "type": "spell"})
+	enemy.field.append(_unit("target", "표적", 1, 1))
+	_momentum_state = {}
+	_effects.play_card(owner, enemy, {
+		"id": "small_flame",
+		"name": "작은 불꽃",
+		"type": "spell",
+	}, _context_with_breakthrough())
+	_assert_eq(enemy.field.size(), 0, "spell breakthrough still cleans up the defeated unit")
+	_assert_eq(int(enemy.health), 19, "spell overflow reaches the enemy hero")
+	_assert_eq(int(owner.mana), 1, "spell kill also grants first-kill mana")
+	_assert_eq(owner.hand.size(), 1, "small flame keeps its kill draw after breakthrough")
+
+
+func _test_card_lookup(card_id: String) -> Dictionary:
+	if card_id == "test_spell":
+		return {"id": card_id, "name": "시험 주문", "type": "spell"}
+	if card_id == "test_vanguard":
+		return {
+			"id": card_id,
+			"name": "시험 선봉",
+			"type": "unit",
+			"race": "인간",
+			"attr": "대지",
+			"attack": 1,
+			"health": 2,
+			"art": 0,
+		}
+	return {}
+
+
 func _side(display_name: String) -> Dictionary:
 	return {
 		"name": display_name,
 		"health": 20,
 		"max_health": 20,
+		"mana": 0,
+		"max_mana": 0,
 		"field": [],
 		"hand": [],
 		"deck": [],
@@ -208,6 +276,16 @@ func _context() -> Dictionary:
 		"calculate_damage": Callable(self, "_calculate_damage"),
 		"max_health": 20,
 	}
+
+
+func _context_with_breakthrough() -> Dictionary:
+	var context := _context()
+	context["resolve_breakthrough"] = Callable(self, "_resolve_test_breakthrough")
+	return context
+
+
+func _resolve_test_breakthrough(owner: Dictionary, enemy: Dictionary, damage: int, target_health: int) -> Dictionary:
+	return _momentum.resolve(owner, enemy, damage, target_health, _momentum_state, true)
 
 func _draw_cards(side: Dictionary, amount: int) -> void:
 	for i in range(amount):

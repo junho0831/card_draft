@@ -127,9 +127,11 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 				if log.is_valid():
 					log.call("%s: 흡혈의 일격! %s 영웅에게 피해 %d" % [owner.name, enemy.name, damage])
 			else:
+				var target_health := int(enemy.field[0].get("health", 0))
 				enemy.field[0].health -= damage
 				if log.is_valid():
 					log.call("%s: 흡혈의 일격! %s에게 피해 %d" % [owner.name, enemy.field[0].name, damage])
+				_resolve_breakthrough(owner, enemy, damage, target_health, context)
 				if cleanup.is_valid():
 					cleanup.call(owner, enemy)
 			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 2)
@@ -162,9 +164,11 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 				if log.is_valid():
 					log.call("장례 안개! %s 영웅에게 피해 2" % enemy.name)
 			else:
+				var target_health := int(enemy.field[0].get("health", 0))
 				enemy.field[0].health -= 2
 				if log.is_valid():
 					log.call("장례 안개! %s에게 피해 2" % enemy.field[0].name)
+				_resolve_breakthrough(owner, enemy, 2, target_health, context)
 				if cleanup.is_valid():
 					cleanup.call(owner, enemy)
 			_add_curse(enemy, 1, log, "장례 안개")
@@ -267,7 +271,8 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 				if log.is_valid():
 					log.call("%s: %s로 %s 영웅에게 피해 %d" % [owner.name, card.name, enemy.name, damage])
 			else:
-				var target_was_killed := int(enemy.field[0].get("health", 0)) - damage <= 0
+				var target_health := int(enemy.field[0].get("health", 0))
+				var target_was_killed := target_health - damage <= 0
 				enemy.field[0].health -= damage
 				if log.is_valid():
 					log.call("%s: %s로 %s에게 피해 %d" % [owner.name, card.name, enemy.field[0].name, damage])
@@ -275,6 +280,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 					draw_cards.call(owner, 1)
 					if log.is_valid():
 						log.call("작은 불꽃 처치 보너스: 카드 1장 드로우")
+				_resolve_breakthrough(owner, enemy, damage, target_health, context)
 				if cleanup.is_valid():
 					cleanup.call(owner, enemy)
 		"first_aid":
@@ -400,11 +406,27 @@ func _deal_frontline_damage(owner: Dictionary, enemy: Dictionary, source: Dictio
 		if log.is_valid():
 			log.call("%s: %s 영웅에게 피해 %d" % [source_name, enemy.name, damage])
 		return
+	var target_health := int(enemy.field[0].get("health", 0))
 	enemy.field[0].health -= damage
 	if log.is_valid():
 		log.call("%s: %s에게 피해 %d" % [source_name, enemy.field[0].name, damage])
+	_resolve_breakthrough(owner, enemy, damage, target_health, context)
 	if cleanup.is_valid():
 		cleanup.call(owner, enemy)
+
+
+func _resolve_breakthrough(
+	owner: Dictionary,
+	enemy: Dictionary,
+	damage: int,
+	target_health: int,
+	context: Dictionary
+) -> Dictionary:
+	var callback: Callable = context.get("resolve_breakthrough", Callable())
+	if not callback.is_valid():
+		return {}
+	var result = callback.call(owner, enemy, damage, target_health)
+	return result if typeof(result) == TYPE_DICTIONARY else {}
 
 func _add_curse(enemy: Dictionary, amount: int, log: Callable, source: String) -> void:
 	enemy["curses"] = int(enemy.get("curses", 0)) + amount
