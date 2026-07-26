@@ -58,6 +58,7 @@ func _test_content_scaling(main: Node) -> void:
 	main.player_profile["settings"]["ui_scale_mode"] = "auto"
 	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/mode", "")), "canvas_items", "project uses Canvas Items stretch mode")
 	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/aspect", "")), "expand", "project uses Expand stretch aspect")
+	_assert_eq(int(ProjectSettings.get_setting("display/window/handheld/orientation", -1)), DisplayServer.SCREEN_SENSOR_LANDSCAPE, "mobile app stays in sensor landscape orientation")
 	_assert_eq(main._layout_size_for_physical_size(Vector2(390, 844)), Vector2(390, 844), "phone layout keeps native logical pixels")
 	_assert_eq(main._layout_size_for_physical_size(Vector2(800, 1280)), Vector2(800, 1280), "tablet layout keeps native logical pixels")
 	var full_hd_layout: Vector2 = main._layout_size_for_physical_size(Vector2(1920, 1080))
@@ -147,6 +148,7 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	_assert_true(battle.race_power_button != null, "battle shows the race power button")
 	_assert_true(battle.end_turn_button != null, "battle keeps end turn button visible")
 	_assert_true(battle.battle_fx_layer != null, "battle mounts the combat fx layer")
+	_assert_true(battle.battle_fx_layer.has_method("fly_card") and battle.battle_fx_layer.has_method("finish_card"), "battle fx layer provides card flight actions")
 	_assert_true(not Dictionary(battle.battle_state.get("battle_objective", {})).is_empty(), "battle creates one optional objective")
 	_assert_true(battle.battle_objective_label != null, "battle displays objective progress beside guidance")
 	battle._dismiss_battle_tutorial()
@@ -200,6 +202,17 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	battle.battle_state["cards_played_this_turn"] = 0
 	var recommended: Dictionary = battle._recommended_action_state()
 	_assert_eq(String(recommended.get("kind", "")), "unit_attack_direct", "recommended action prioritizes attack over another card play")
+
+	battle.opponent["field"] = []
+	battle.selected_attacker = 0
+	battle._refresh_action_buttons()
+	var direct_attack: Dictionary = battle._recommended_action_state()
+	_assert_eq(String(direct_attack.get("kind", "")), "hero_attack_selected", "selected attacker exposes direct hero attack")
+	_assert_true(String(direct_attack.get("guidance", "")).contains("적 영웅") and String(direct_attack.get("guidance", "")).contains("클릭"), "direct attack guidance explains the second click")
+	_assert_true(not bool(battle.hero_attack_button.disabled), "enemy hero target becomes clickable after selecting an attacker")
+	_assert_true(String(battle.opponent_hero_target_badge_label.text).contains("2.") and String(battle.opponent_hero_target_badge_label.text).contains("영웅"), "enemy hero badge marks the second attack step")
+	battle.selected_attacker = -1
+	battle._refresh_action_buttons()
 
 func _test_race_powers(main: Node) -> void:
 	var battle = main.battle_screen

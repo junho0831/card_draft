@@ -25,6 +25,95 @@ func play_attack(attacker: Control, defender: Control, damage: int, counter: boo
 	if strong:
 		_spawn_frame_pulse(color, 0.38)
 
+func fly_card(
+	card_visual: Control,
+	source: Control,
+	target: Control,
+	action_kind: String,
+	accent: Color,
+	quick: bool = false
+):
+	if card_visual == null or source == null or target == null:
+		_free_if_valid(card_visual)
+		return null
+	if not is_instance_valid(source) or not is_instance_valid(target):
+		_free_if_valid(card_visual)
+		return null
+
+	add_child(card_visual)
+	card_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_visual.z_index = 240
+	var source_center := _control_center(source)
+	var target_center := _control_center(target)
+	var lift_center := source_center + Vector2(0, -18.0)
+	var delta := target_center - lift_center
+	var curve_height := maxf(72.0, absf(delta.y) * 0.24)
+	var curve_center := (lift_center + target_center) * 0.5 + Vector2(delta.x * 0.08, -curve_height)
+	var direction := -1.0 if delta.x < 0.0 else 1.0
+	var start_scale := Vector2(0.92, 0.92)
+	var end_scale := Vector2(0.72, 0.72)
+	var end_rotation := 0.0
+	match action_kind:
+		"spell":
+			end_scale = Vector2(0.82, 0.82)
+			end_rotation = -7.0 * direction
+		"equipment":
+			end_scale = Vector2(0.68, 0.68)
+			end_rotation = 9.0 * direction
+
+	card_visual.position = source_center - card_visual.size * 0.5
+	card_visual.pivot_offset = card_visual.size * 0.5
+	card_visual.scale = start_scale * 0.94
+	card_visual.rotation_degrees = -4.0 * direction
+	card_visual.modulate.a = 0.92
+
+	var lift_duration := 0.045 if quick else 0.1
+	var travel_duration := 0.14 if quick else (0.34 if action_kind == "spell" else 0.29)
+	var lift := card_visual.create_tween()
+	lift.set_parallel(true)
+	lift.tween_property(card_visual, "position", lift_center - card_visual.size * 0.5, lift_duration).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	lift.tween_property(card_visual, "scale", start_scale * 1.08, lift_duration).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	lift.tween_property(card_visual, "modulate:a", 1.0, lift_duration)
+	await lift.finished
+
+	_spawn_card_arc_trail(lift_center, curve_center, target_center, accent, travel_duration)
+	var travel := card_visual.create_tween()
+	travel.set_parallel(true)
+	travel.tween_method(
+		Callable(self, "_set_card_curve_progress").bind(card_visual, lift_center, curve_center, target_center),
+		0.0,
+		1.0,
+		travel_duration
+	).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
+	travel.tween_property(card_visual, "scale", end_scale, travel_duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	travel.tween_property(card_visual, "rotation_degrees", end_rotation, travel_duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	await travel.finished
+	return card_visual
+
+func finish_card(card_visual: Control, action_kind: String, accent: Color, quick: bool = false) -> void:
+	if card_visual == null or not is_instance_valid(card_visual):
+		return
+	var center := card_visual.position + card_visual.size * 0.5
+	var impact_color := accent.lightened(0.18)
+	_spawn_ring(center, impact_color, 42.0 if action_kind == "unit" else 58.0, 0.24 if quick else 0.34)
+	_spawn_sparks(center, impact_color, 7 if quick else (16 if action_kind == "spell" else 11), 0.25 if quick else 0.42)
+	if action_kind == "spell":
+		_spawn_screen_flash(impact_color, 0.08 if quick else 0.14, 0.16 if quick else 0.24)
+		_spawn_radial_burst(center, impact_color, 8 if quick else 14, not quick)
+
+	var finish_duration := 0.07 if quick else 0.14
+	var final_scale := card_visual.scale * (Vector2(1.28, 1.28) if action_kind == "spell" else Vector2(0.72, 0.72))
+	if action_kind == "equipment":
+		final_scale = card_visual.scale * Vector2(0.34, 0.34)
+	var finish := card_visual.create_tween()
+	finish.set_parallel(true)
+	finish.tween_property(card_visual, "scale", final_scale, finish_duration).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+	finish.tween_property(card_visual, "modulate:a", 0.0, finish_duration)
+	if action_kind == "spell":
+		finish.tween_property(card_visual, "rotation_degrees", card_visual.rotation_degrees + 12.0, finish_duration)
+	await finish.finished
+	_free_if_valid(card_visual)
+
 func play_victory(accent: Color, grand: bool = true, anchor: Control = null) -> void:
 	var viewport := _viewport_size()
 	var center := _control_center(anchor) if anchor != null and is_instance_valid(anchor) else Vector2(viewport.x * 0.5, viewport.y * 0.46)
@@ -51,6 +140,38 @@ func _viewport_size() -> Vector2:
 func _control_center(control: Control) -> Vector2:
 	var canvas_center := control.get_global_transform_with_canvas() * (control.size * 0.5)
 	return get_global_transform_with_canvas().affine_inverse() * canvas_center
+
+func _set_card_curve_progress(
+	progress: float,
+	card_visual: Control,
+	start: Vector2,
+	curve: Vector2,
+	finish: Vector2
+) -> void:
+	if card_visual == null or not is_instance_valid(card_visual):
+		return
+	var center := _quadratic_point(start, curve, finish, progress)
+	card_visual.position = center - card_visual.size * 0.5
+
+func _quadratic_point(start: Vector2, curve: Vector2, finish: Vector2, progress: float) -> Vector2:
+	var inverse := 1.0 - progress
+	return start * inverse * inverse + curve * 2.0 * inverse * progress + finish * progress * progress
+
+func _spawn_card_arc_trail(start: Vector2, curve: Vector2, finish: Vector2, color: Color, duration: float) -> void:
+	var trail := Line2D.new()
+	trail.width = 7.0
+	trail.default_color = Color(color.r, color.g, color.b, 0.58)
+	trail.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	trail.end_cap_mode = Line2D.LINE_CAP_ROUND
+	trail.z_index = 230
+	for point_index in range(13):
+		var progress := float(point_index) / 12.0
+		trail.add_point(_quadratic_point(start, curve, finish, progress))
+	add_child(trail)
+	var tween := trail.create_tween()
+	tween.tween_property(trail, "width", 1.0, duration).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+	tween.parallel().tween_property(trail, "modulate:a", 0.0, duration).set_delay(duration * 0.32)
+	tween.tween_callback(Callable(self, "_free_if_valid").bind(trail))
 
 func _spawn_screen_flash(color: Color, alpha: float, duration: float) -> void:
 	var flash := ColorRect.new()

@@ -384,7 +384,7 @@ func _recommended_action_state() -> Dictionary:
 			return {
 				"kind": "hero_attack_selected",
 				"text": "%s 영웅 공격" % String(selected.get("name", "유닛")),
-				"guidance": "1. 적 영웅 선택  2. 바로 마무리",
+				"guidance": "2. 위 적 영웅을 클릭하면 바로 승리",
 			}
 		if selected_target != -1:
 			return {
@@ -396,7 +396,7 @@ func _recommended_action_state() -> Dictionary:
 		return {
 			"kind": "hero_attack_selected",
 			"text": "%s 영웅 공격" % String(selected.get("name", "유닛")),
-			"guidance": "1. 공격 대상 선택  2. 적 영웅 압박",
+			"guidance": "2. 위 적 영웅을 클릭해 직접 공격",
 		}
 
 	var race_power_state := _recommended_race_power_state()
@@ -411,7 +411,7 @@ func _recommended_action_state() -> Dictionary:
 			return {
 				"kind": "hero_attack_direct",
 				"text": "%s 공격" % String(ready_attacker.get("name", "유닛")),
-				"guidance": "1. 공격 가능한 내 유닛으로 적 영웅 압박  2. 바로 마무리",
+				"guidance": "1. 공격 가능한 내 유닛 클릭  2. 위 적 영웅 클릭",
 				"attacker_index": ready_attacker_index,
 			}
 		if ready_target != -1:
@@ -425,7 +425,7 @@ func _recommended_action_state() -> Dictionary:
 		return {
 			"kind": "hero_attack_direct",
 			"text": "%s 공격" % String(ready_attacker.get("name", "유닛")),
-			"guidance": "1. 공격 가능한 내 유닛으로 적 영웅 압박  2. 전투를 빠르게 끝내세요",
+			"guidance": "1. 공격 가능한 내 유닛 클릭  2. 위 적 영웅 클릭",
 			"attacker_index": ready_attacker_index,
 		}
 
@@ -570,7 +570,7 @@ func _current_battle_focus_text() -> String:
 	if selected_attacker != -1 and selected_attacker < player.field.size():
 		var attacker: Dictionary = player.field[selected_attacker]
 		if opponent.field.is_empty():
-			return "이번 턴 플랜: %s 누르고 적 영웅 치기 -> 끝" % String(attacker.get("name", "유닛"))
+			return "2단계: 위 적 영웅 영역 클릭 -> %s 직접 공격" % String(attacker.get("name", "유닛"))
 		if _enemy_vanguard_blocks_hero():
 			return "이번 턴 플랜: %s로 선봉 돌파 -> 마나를 돌려받아 추가 전개" % String(attacker.get("name", "유닛"))
 		return "이번 턴 플랜: %s로 앞 적부터 치기 -> 더 할 것 확인" % String(attacker.get("name", "유닛"))
@@ -580,7 +580,7 @@ func _current_battle_focus_text() -> String:
 		return "이번 턴 플랜: 적 선봉 처치 -> 첫 처치 마나 +1 -> 남은 피해는 영웅 돌파"
 	for unit in player.field:
 		if bool(Dictionary(unit).get("can_attack", false)):
-			return "이번 턴 플랜: 공격 가능한 내 유닛 먼저 누르기 -> 필요하면 카드 쓰기"
+			return "1단계: 공격 가능한 내 유닛 클릭 -> 2단계: 적 카드 또는 적 영웅 클릭"
 	var recommended_card = _recommended_hand_card()
 	if not recommended_card.is_empty():
 		var impact: String = main._choice_impact_text(recommended_card)
@@ -668,11 +668,11 @@ func _battle_tutorial_content() -> Dictionary:
 		0:
 			return {
 				"title": "첫 전투: 추천 진행부터 누르세요",
-				"compact": "밝은 카드와 큰 추천 버튼만 보고 시작하면 됩니다.",
+				"compact": "공격은 내 유닛을 먼저 누르고, 적 카드나 적 영웅을 누릅니다.",
 				"lines": [
-					"1. 큰 추천 버튼 누르기  2. 밝은 카드나 공격 가능한 유닛 누르기  3. 더 없으면 턴 종료",
+					"직접 공격: 1. 공격 가능한 내 유닛 클릭  2. 화면 위 적 영웅 영역 클릭",
+					"유닛 공격: 1. 공격 가능한 내 유닛 클릭  2. 공격할 적 카드 클릭",
 					"초반에는 카드 전체를 다 읽지 않아도 됩니다. 추천 진행과 밝은 카드만 따라가도 충분합니다.",
-					"보상 화면에서는 '이 카드 고르면' 줄만 보고 골라도 첫 런에는 충분합니다.",
 				],
 			}
 		1:
@@ -680,7 +680,7 @@ func _battle_tutorial_content() -> Dictionary:
 				"title": "두 번째 전투: 공격 순서를 익히세요",
 				"compact": "카드 쓴 뒤엔 공격 가능한 유닛을 먼저 보세요.",
 				"lines": [
-					"카드를 쓴 뒤 공격 가능한 유닛이 생기면, 카드 추가 사용보다 공격을 먼저 처리하는 편이 좋습니다.",
+					"카드를 쓴 뒤 공격 가능한 유닛을 먼저 클릭하세요. 그다음 적 카드 또는 적 영웅을 클릭하면 공격합니다.",
 					"영웅을 바로 치기보다 앞 적을 정리하면 다음 턴 피해를 줄일 수 있습니다.",
 					"'지금 할 일' 문구와 추천 버튼 텍스트는 같은 다음 행동을 가리킵니다.",
 				],
@@ -1511,12 +1511,9 @@ func _make_hero_target(side: Dictionary, hero_art: int, enemy_target: bool, comp
 		player_hero_target = node
 		player_hero_target_hp_label = hp
 
-	var badge_text = "공격 가능" if enemy_target and selected_attacker != -1 else ("영웅 공격" if enemy_target else "내 영웅")
+	var badge_text = _hero_attack_target_badge_text() if enemy_target else "내 영웅"
 	var badge_accent = accent
 	if enemy_target and selected_attacker != -1 and not _is_player_input_locked():
-		var attacker = _selected_player_attacker()
-		var damage = _predict_hero_attack_damage(attacker, player, false)
-		badge_text = "영웅 피해 %d" % damage
 		badge_accent = Color(1.0, 0.32, 0.26, 1.0)
 	var badge = _make_battle_badge(badge_text, Color(0.08, 0.1, 0.13, 0.92), badge_accent, 9 if tight else 10)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1525,6 +1522,14 @@ func _make_hero_target(side: Dictionary, hero_art: int, enemy_target: bool, comp
 		opponent_hero_target_badge = badge
 		opponent_hero_target_badge_label = badge.get_meta("text_label") as Label
 	return node
+
+func _hero_attack_target_badge_text() -> String:
+	if _enemy_vanguard_blocks_hero():
+		return "선봉 먼저" if _is_tight_battle_layout() else "직접 공격 잠김 · 선봉 먼저"
+	if selected_attacker != -1 and not _is_player_input_locked():
+		var damage := _predict_hero_attack_damage(_selected_player_attacker(), player, false)
+		return "2. 영웅 클릭 · 피해 %d" % damage if _is_tight_battle_layout() else "2. 적 영웅 클릭 · 직접 피해 %d" % damage
+	return "내 유닛 먼저" if _is_tight_battle_layout() else "1. 공격할 내 유닛 먼저 선택"
 
 func _make_board_lane_header(title_text: String, subtitle_text: String, compact: bool, enemy_lane: bool) -> PanelContainer:
 	var tight = _is_tight_battle_layout()
@@ -2572,8 +2577,28 @@ func _on_hand_card_pressed(index: int) -> void:
 			_add_log("장착할 아군 유닛이 없습니다.")
 		return
 	selected_hand_slot = -1
-	var card_type = String(card.get("type", ""))
+	_clear_card_board_preview()
+	_hide_hover_popup()
+	var card_type := String(card.get("type", ""))
 	var old_field_size: int = player.field.size()
+	var source := _hand_card_control(hand_slot)
+	var target := _card_action_target(card, true)
+	var accent := _card_accent_color(card)
+	var flying_card: Control = null
+	input_locked = true
+	_refresh_ui()
+	if not _should_skip_timed_battle_fx() and battle_fx_layer != null and is_instance_valid(battle_fx_layer) and source != null and target != null:
+		var flight_visual := _make_card_action_visual(card, cost, source.size)
+		source.modulate = Color(source.modulate.r, source.modulate.g, source.modulate.b, 0.14)
+		_play_sfx("play")
+		flying_card = await battle_fx_layer.fly_card(
+			flight_visual,
+			source,
+			target,
+			card_type,
+			accent,
+			not _is_battle_cutscene_enabled()
+		)
 	player.mana -= cost
 	player.hand.remove_at(index)
 	_play_sfx(_card_play_sfx(card_type))
@@ -2593,12 +2618,97 @@ func _on_hand_card_pressed(index: int) -> void:
 	var growth: Dictionary = main._build_delta_summary(card)
 	if bool(growth.get("will_activate", false)):
 		_add_log("핵심 시너지 점화: %s" % String(growth.get("headline", "")))
+	_refresh_ui()
+	if hand_box != null and is_instance_valid(hand_box) and not bool(main.get_meta("disable_battle_ui_rerender", false)):
+		_render_hand()
+		hand_render_signature = _hand_signature()
+	if not _should_skip_timed_battle_fx():
+		await main.get_tree().process_frame
+	_play_card_resolution_feedback(card, card_type, summoned_index, old_p_hp, old_o_hp)
+	if flying_card != null and is_instance_valid(flying_card) and battle_fx_layer != null and is_instance_valid(battle_fx_layer):
+		await battle_fx_layer.finish_card(flying_card, card_type, accent, not _is_battle_cutscene_enabled())
 	_apply_damage_juice(old_p_hp, old_o_hp)
+	input_locked = false
 	_check_game_over()
 	_refresh_ui()
-	_play_card_resolution_feedback(card, card_type, summoned_index, old_p_hp, old_o_hp)
 	_store_battle_snapshot()
 	_check_no_actions_loss()
+
+
+func _hand_card_control(hand_slot: int) -> Control:
+	if hand_box == null or not is_instance_valid(hand_box):
+		return null
+	for child in hand_box.get_children():
+		var control := child as Control
+		if control != null and int(control.get_meta("hand_slot", -1)) == hand_slot:
+			return control
+	return null
+
+
+func _card_action_target(card: Dictionary, player_card: bool) -> Control:
+	var owner_side: Dictionary = player if player_card else opponent
+	var owner_hero := _hero_target_for_player(player_card)
+	var enemy_hero := _hero_target_for_player(not player_card)
+	var card_type := String(card.get("type", ""))
+	if card_type == "unit":
+		var summon_slot := _card_action_field_slot(player_card, owner_side.field.size())
+		return summon_slot if summon_slot != null else owner_hero
+	if card_type == "equipment":
+		var equipment_target := _card_action_field_slot(player_card, 0)
+		return equipment_target if equipment_target != null else owner_hero
+
+	var card_id := _base_card_id(String(card.get("id", "")))
+	if card_id == "call_of_dead":
+		var token_slot := _card_action_field_slot(player_card, owner_side.field.size())
+		return token_slot if token_slot != null else owner_hero
+	if card_id in ["battlecry", "captain_order", "royal_support", "nature_blessing"]:
+		var ally_target := _card_action_field_slot(player_card, 0)
+		return ally_target if ally_target != null else owner_hero
+	if card_id in ["small_flame", "fireball", "gale_shot", "vampiric_strike", "funeral_fog", "corpse_explosion", "plague_spread"]:
+		var enemy_target := _card_action_field_slot(not player_card, 0)
+		return enemy_target if enemy_target != null else enemy_hero
+	if card_id in ["death_mark", "soul_shackle"]:
+		return enemy_hero
+	return owner_hero
+
+
+func _card_action_field_slot(player_side: bool, index: int) -> Control:
+	var slots: Array[Control] = player_field_slots if player_side else opponent_field_slots
+	if index < 0 or index >= slots.size():
+		return null
+	var slot: Control = slots[index]
+	return slot if slot != null and is_instance_valid(slot) else null
+
+
+func _make_card_action_visual(card: Dictionary, cost: int, requested_size: Vector2) -> PanelContainer:
+	var frame_size := requested_size
+	if frame_size.x < 80.0 or frame_size.y < 100.0:
+		frame_size = _battle_hand_card_size()
+	var visual := PanelContainer.new()
+	visual.custom_minimum_size = frame_size
+	visual.size = frame_size
+	visual.clip_contents = true
+	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	visual.add_theme_stylebox_override("panel", main.ui.make_race_card_style(card, Color(0.045, 0.055, 0.07, 1.0), 4, 6, 0.24))
+
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = frame_size - Vector2(12, 12)
+	box.add_theme_constant_override("separation", 4)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	visual.add_child(box)
+	box.add_child(main.ui.make_card_header(main, card, "hand", true, true, cost))
+	var art_height := maxf(54.0, frame_size.y - 78.0)
+	box.add_child(main.ui.make_card_art(main, card, Vector2(maxf(64.0, frame_size.x - 16.0), art_height)))
+	var result_label: Label = main._make_label(_card_result_preview(card), 11 if frame_size.x < 170.0 else 12, Color(1.0, 0.94, 0.76, 1.0))
+	result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	result_label.clip_text = true
+	result_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	result_label.add_theme_color_override("font_outline_color", Color(0.01, 0.01, 0.015, 1.0))
+	result_label.add_theme_constant_override("outline_size", 3)
+	box.add_child(result_label)
+	visual.size = frame_size
+	return visual
 
 
 func _battle_effect_context() -> Dictionary:
@@ -2963,9 +3073,22 @@ func _on_player_unit_pressed(index: int) -> void:
 		_add_log("이 유닛은 이번 턴 공격할 수 없습니다.")
 		return
 	selected_attacker = index
-	_add_log("%s 공격 대상 선택 중" % player.field[index].name)
+	_add_log("%s 선택: 적 카드 또는 적 영웅을 클릭하세요." % player.field[index].name)
 	_refresh_ui()
+	_show_direct_attack_target_hint()
 	_store_battle_snapshot()
+
+
+func _show_direct_attack_target_hint() -> void:
+	if opponent_hero_target == null or not is_instance_valid(opponent_hero_target):
+		return
+	if _enemy_vanguard_blocks_hero():
+		var vanguard_target := _field_slot_for(opponent, 0)
+		_show_slot_overlay_text(vanguard_target, "2. 선봉 먼저", Color(1.0, 0.52, 0.22, 1.0))
+		_spawn_target_glow(vanguard_target, Color(1.0, 0.52, 0.22, 1.0), 0.42)
+		return
+	_show_slot_overlay_text(opponent_hero_target, "2. 적 영웅 클릭", Color(1.0, 0.34, 0.26, 1.0))
+	_spawn_target_glow(opponent_hero_target, Color(1.0, 0.34, 0.26, 1.0), 0.42)
 
 
 func _on_opponent_unit_pressed(index: int) -> void:
@@ -3480,62 +3603,27 @@ func _run_ai_turn() -> void:
 	_refresh_ui()
 	_store_battle_snapshot()
 
-func _show_opponent_played_card_fx(card: Dictionary) -> void:
+func _show_opponent_played_card_fx(card: Dictionary):
 	if _should_skip_timed_battle_fx():
-		return
-
-	if main.audio_manager != null:
-		main.audio_manager.play_sound(_card_play_sfx(String(card.get("type", ""))))
-
-	var popup = PanelContainer.new()
-	var frame_size = Vector2(200, 260)
-	popup.custom_minimum_size = frame_size
-	popup.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	popup.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-
-	var viewport_size: Vector2 = main.get_viewport_rect().size
-	popup.position = (viewport_size - frame_size) / 2.0
-	popup.modulate.a = 0.0
-	popup.scale = Vector2(0.6, 0.6)
-	popup.pivot_offset = frame_size / 2.0
-
-	var style = main.ui.make_race_card_style(card, Color(0.055, 0.065, 0.078, 0.98), 3, 12, 0.14)
-	style.content_margin_left = 12
-	style.content_margin_top = 12
-	style.content_margin_right = 12
-	style.content_margin_bottom = 12
-	popup.add_theme_stylebox_override("panel", style)
-
-	main.add_child(popup)
-
-	var box = VBoxContainer.new()
-	box.add_theme_constant_override("separation", 6)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	popup.add_child(box)
-
+		return null
+	if battle_fx_layer == null or not is_instance_valid(battle_fx_layer):
+		return null
+	var source := _hero_target_for_player(false)
+	var target := _card_action_target(card, false)
+	if source == null or target == null:
+		return null
 	var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "opponent")
-	box.add_child(main.ui.make_card_header(main, card, "reward", true, false, cost))
-	box.add_child(main.ui.make_card_art(main, card, Vector2(176, 110)))
-	box.add_child(main.ui.make_card_identity_label(main, card, "reward", true, false, false, true))
-	box.add_child(main.ui.make_card_rules_block(main, card, main._card_detail_text(card), "", "reward", true, false, 42.0))
-
-	var banner: PanelContainer = main.ui.make_chip("적 카드 사용!", Color(0.42, 0.12, 0.12, 1.0), Color(1.0, 0.82, 0.82, 1.0), 10)
-	banner.position = Vector2((frame_size.x - banner.custom_minimum_size.x) / 2.0, -18)
-	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	popup.add_child(banner)
-
-	var tween: Tween = main.create_tween()
-	tween.tween_property(popup, "modulate:a", 1.0, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(popup, "scale", Vector2(1.0, 1.0), 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-
-	await main.get_tree().create_timer(0.85).timeout
-
-	var fade_tween: Tween = main.create_tween()
-	fade_tween.tween_property(popup, "modulate:a", 0.0, 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	fade_tween.parallel().tween_property(popup, "scale", Vector2(0.8, 0.8), 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	fade_tween.tween_callback(Callable(self, "_queue_free_if_valid").bind(popup))
-
-	await fade_tween.finished
+	var frame_size := _battle_hand_card_size() * 0.9
+	var visual := _make_card_action_visual(card, cost, frame_size)
+	_play_sfx("play")
+	return await battle_fx_layer.fly_card(
+		visual,
+		source,
+		target,
+		String(card.get("type", "")),
+		_card_accent_color(card),
+		_is_fast_ai_enabled() or not _is_battle_cutscene_enabled()
+	)
 
 func _run_ai_play_cards() -> void:
 	var played = true
@@ -3550,14 +3638,21 @@ func _run_ai_play_cards() -> void:
 				if String(card.get("type", "")) != "unit":
 					opponent.discard_pile.append(card)
 
-				# Show card play presentation for AI
 				_refresh_ui()
-				await _show_opponent_played_card_fx(card)
+				var flying_card: Control = await _show_opponent_played_card_fx(card)
 
 				var old_player_health := int(player.get("health", 0))
 				main.battle_effects.play_card(opponent, player, card, _battle_effect_context())
 				_record_player_hero_damage(old_player_health)
 				_refresh_ui()
+				_play_sfx(_card_play_sfx(String(card.get("type", ""))))
+				if flying_card != null and is_instance_valid(flying_card) and battle_fx_layer != null and is_instance_valid(battle_fx_layer):
+					await battle_fx_layer.finish_card(
+						flying_card,
+						String(card.get("type", "")),
+						_card_accent_color(card),
+						_is_fast_ai_enabled() or not _is_battle_cutscene_enabled()
+					)
 				_check_game_over()
 				played = true
 				if game_over:
@@ -3923,7 +4018,7 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 			prediction_badge.position = Vector2((art_size.x - prediction_badge.custom_minimum_size.x) / 2.0, 4)
 			art_container.add_child(prediction_badge)
 	if is_player_field and index == selected_attacker:
-		var selected_badge: PanelContainer = _make_battle_badge("선택됨", Color(0.03, 0.12, 0.2, 0.96), Color(0.34, 0.72, 1.0, 1.0), 9)
+		var selected_badge: PanelContainer = _make_battle_badge("1. 공격자", Color(0.03, 0.12, 0.2, 0.96), Color(0.34, 0.72, 1.0, 1.0), 9)
 		selected_badge.position = Vector2(max(4.0, art_size.x - selected_badge.custom_minimum_size.x - 4.0), 4)
 		art_container.add_child(selected_badge)
 	elif is_player_field and bool(unit.get("can_attack", false)) and not _is_player_input_locked():
@@ -3931,7 +4026,7 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 		ready_badge.position = Vector2(max(4.0, art_size.x - ready_badge.custom_minimum_size.x - 4.0), 4)
 		art_container.add_child(ready_badge)
 	elif not is_player_field and selected_attacker != -1 and not _is_player_input_locked():
-		var target_badge: PanelContainer = _make_battle_badge("여기 공격", Color(0.18, 0.05, 0.05, 0.96), Color(1.0, 0.34, 0.24, 1.0), 9)
+		var target_badge: PanelContainer = _make_battle_badge("2. 유닛 공격", Color(0.18, 0.05, 0.05, 0.96), Color(1.0, 0.34, 0.24, 1.0), 9)
 		target_badge.position = Vector2(max(4.0, art_size.x - target_badge.custom_minimum_size.x - 4.0), 4)
 		art_container.add_child(target_badge)
 
@@ -4358,18 +4453,16 @@ func _refresh_action_buttons() -> void:
 		if vanguard_blocking:
 			hero_attack_button.tooltip_text = "적 선봉을 처치해야 영웅을 공격할 수 있습니다."
 		else:
-			hero_attack_button.tooltip_text = "선택한 유닛으로 적 영웅 공격" if can_attack_hero else "먼저 공격할 내 유닛을 선택하세요"
+			hero_attack_button.tooltip_text = "2단계: 이 적 영웅 영역을 클릭해 직접 공격" if can_attack_hero else "1단계: 공격 가능한 내 유닛을 먼저 클릭하세요"
 		if can_attack_hero:
-			_style_battle_button(hero_attack_button, Color(0.09, 0.06, 0.08, 0.96), Color(0.72, 0.22, 0.18, 1.0), false)
+			_style_battle_button(hero_attack_button, Color(0.13, 0.04, 0.045, 0.98), Color(1.0, 0.32, 0.26, 1.0), true)
 		else:
 			_style_battle_button(hero_attack_button, Color(0.045, 0.06, 0.078, 0.92), Color(0.72, 0.18, 0.16, 1.0), false)
 		if opponent_hero_target_badge_label != null and is_instance_valid(opponent_hero_target_badge_label):
-			opponent_hero_target_badge_label.text = "선봉 방어" if vanguard_blocking else "영웅 공격 대상"
-			if can_attack_hero:
-				opponent_hero_target_badge_label.text = "영웅 피해 %d" % _predict_hero_attack_damage(_selected_player_attacker(), player, false)
+			opponent_hero_target_badge_label.text = _hero_attack_target_badge_text()
 		if opponent_hero_target_badge != null and is_instance_valid(opponent_hero_target_badge):
 			var badge_accent = Color(1.0, 0.52, 0.22, 1.0) if vanguard_blocking else (Color(1.0, 0.32, 0.26, 1.0) if can_attack_hero else Color(0.72, 0.18, 0.16, 1.0))
-			opponent_hero_target_badge.add_theme_stylebox_override("panel", _make_modern_style(Color(0.08, 0.1, 0.13, 0.92), badge_accent, 1, 6, 5))
+			opponent_hero_target_badge.add_theme_stylebox_override("panel", _make_modern_style(Color(0.13, 0.045, 0.05, 0.96) if can_attack_hero else Color(0.08, 0.1, 0.13, 0.92), badge_accent, 2 if can_attack_hero else 1, 6, 5))
 	if end_turn_button != null:
 		end_turn_button.disabled = _is_player_input_locked()
 		if _player_has_available_action():
