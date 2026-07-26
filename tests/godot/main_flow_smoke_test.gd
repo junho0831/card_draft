@@ -145,6 +145,7 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	_assert_true(battle.tutorial_panel != null, "battle tutorial panel exists")
 	_assert_true(bool(battle.tutorial_panel.visible), "battle tutorial starts visible on first battle")
 	_assert_true(battle.recommended_action_button != null, "battle recommends a primary action button")
+	_assert_eq(String(battle._battle_guidance_mode()), "auto", "first battle keeps one-button automatic guidance")
 	_assert_true(battle.race_power_button != null, "battle shows the race power button")
 	_assert_true(battle.end_turn_button != null, "battle keeps end turn button visible")
 	_assert_true(battle.battle_fx_layer != null, "battle mounts the combat fx layer")
@@ -208,11 +209,42 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	battle._refresh_action_buttons()
 	var direct_attack: Dictionary = battle._recommended_action_state()
 	_assert_eq(String(direct_attack.get("kind", "")), "hero_attack_selected", "selected attacker exposes direct hero attack")
-	_assert_true(String(direct_attack.get("guidance", "")).contains("적 영웅") and String(direct_attack.get("guidance", "")).contains("클릭"), "direct attack guidance explains the second click")
+	_assert_true(String(direct_attack.get("guidance", "")).contains("큰 버튼") and String(direct_attack.get("guidance", "")).contains("피해"), "direct attack guidance points to the single primary action and its result")
 	_assert_true(not bool(battle.hero_attack_button.disabled), "enemy hero target becomes clickable after selecting an attacker")
-	_assert_true(String(battle.opponent_hero_target_badge_label.text).contains("2.") and String(battle.opponent_hero_target_badge_label.text).contains("영웅"), "enemy hero badge marks the second attack step")
+	_assert_true(String(battle.opponent_hero_target_badge_label.text).contains("클릭") and String(battle.opponent_hero_target_badge_label.text).contains("피해"), "enemy hero badge names the click result")
+	_assert_true(String(battle.recommended_action_button.text).begins_with("다음 행동"), "primary action button is explicitly labeled as the next action")
+	battle.opponent["health"] = 1
+	battle._refresh_action_buttons()
+	var lethal_attack: Dictionary = battle._recommended_action_state()
+	_assert_eq(String(lethal_attack.get("outcome", "")), "victory", "lethal hero attack exposes a victory outcome")
+	_assert_true(String(battle.recommended_action_button.text).contains("승리"), "lethal primary action states that it wins")
+	_assert_true(String(battle.opponent_hero_target_badge_label.text).contains("승리"), "lethal enemy hero target states that clicking wins")
 	battle.selected_attacker = -1
 	battle._refresh_action_buttons()
+
+	var original_node_index := int(main.current_run.get("current_node_index", 0))
+	main.current_run["current_node_index"] = 2
+	battle.opponent["health"] = 10
+	battle._refresh_ui()
+	_assert_eq(String(battle._battle_guidance_mode()), "guided", "second battle changes recommendation to guided manual targeting")
+	_assert_true(String(battle.recommended_action_button.text).begins_with("1단계"), "guided recommendation names the attacker-selection step")
+	var guided_enemy_health := int(battle.opponent.get("health", 0))
+	battle._on_recommended_action_pressed()
+	_assert_eq(int(battle.selected_attacker), 0, "guided recommendation selects only the suggested attacker")
+	_assert_eq(int(battle.opponent.get("health", 0)), guided_enemy_health, "guided recommendation does not execute the final attack")
+	_assert_true(String(battle.recommended_action_button.text).begins_with("2단계"), "guided recommendation advances to direct target selection")
+	_assert_true(bool(battle.battle_focus_panel.visible), "guided attack displays the source-to-target route strip")
+
+	battle.selected_attacker = -1
+	main.current_run["current_node_index"] = 4
+	battle._refresh_ui()
+	_assert_eq(String(battle._battle_guidance_mode()), "hint", "boss battle reduces recommendation to a positional hint")
+	_assert_true(String(battle.recommended_action_button.text).begins_with("힌트 위치 보기"), "boss recommendation is labeled as a hint")
+	battle._on_recommended_action_pressed()
+	_assert_eq(int(battle.selected_attacker), -1, "hint mode does not select or execute an attacker")
+	_assert_eq(int(battle.opponent.get("health", 0)), guided_enemy_health, "hint mode leaves combat state unchanged")
+	main.current_run["current_node_index"] = original_node_index
+	battle._refresh_ui()
 
 func _test_race_powers(main: Node) -> void:
 	var battle = main.battle_screen

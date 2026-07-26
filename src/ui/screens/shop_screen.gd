@@ -2,6 +2,7 @@ extends RefCounted
 class_name ShopScreen
 
 var main: Node
+var screen_action_dock: PanelContainer = null
 
 func _init(_main: Node) -> void:
 	main = _main
@@ -15,7 +16,11 @@ func _is_shop_compact_layout() -> bool:
 func build(body: VBoxContainer) -> void:
 	var shop_state: Dictionary = main.current_run.get("pending_shop", {})
 	var compact: bool = _is_shop_compact_layout()
-	body.add_child(main._make_run_summary_panel())
+	var phone_portrait: bool = main._is_phone_portrait_layout()
+	var viewport_size: Vector2 = main._layout_viewport_size()
+	var action_dock_layout: bool = phone_portrait or (viewport_size.x > viewport_size.y and viewport_size.y <= 800.0)
+	if not action_dock_layout:
+		body.add_child(main._make_run_summary_panel())
 	body.add_child(main.ui.make_guidance_banner("다음 행동", "골드로 카드를 강화하거나 덱을 정리하세요", Color(0.2, 0.18, 0.12, 1.0), compact))
 	body.add_child(_make_shop_status_strip(compact))
 
@@ -24,7 +29,8 @@ func build(body: VBoxContainer) -> void:
 	hub.add_theme_constant_override("separation", 10)
 	body.add_child(hub)
 
-	hub.add_child(_make_shop_summary_panel(compact))
+	if not action_dock_layout:
+		hub.add_child(_make_shop_summary_panel(compact))
 
 	var products_panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 14)
 	products_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -61,7 +67,57 @@ func build(body: VBoxContainer) -> void:
 	if not relic.is_empty():
 		product_row.add_child(_make_shop_relic_product(relic, shop_state, compact))
 
-	hub.add_child(_make_shop_service_panel(shop_state, compact))
+	if action_dock_layout:
+		_mount_shop_action_dock(body, shop_state)
+	else:
+		hub.add_child(_make_shop_service_panel(shop_state, compact))
+
+func _mount_shop_action_dock(body: VBoxContainer, shop_state: Dictionary) -> void:
+	var dock: Dictionary = main.ui.mount_screen_action_dock(
+		main,
+		body,
+		"상점 행동 · 상품을 고르거나 진행",
+		"구매는 상품 카드에서, 정비와 나가기는 여기서 바로 실행합니다.",
+		Color(0.78, 0.55, 0.2, 1.0),
+		126
+	)
+	screen_action_dock = dock.get("panel") as PanelContainer
+	var actions: BoxContainer = dock.get("actions") as BoxContainer
+	var recommended_card := _recommended_shop_card(shop_state)
+	if not recommended_card.is_empty():
+		var buy_button: Button = main.ui.make_dock_action_button("추천 카드 구매 ▶", "%s · 골드 %d" % [String(recommended_card.get("name", "카드")), main.shop_run_service.SHOP_CARD_COST], Color(0.48, 0.32, 0.1, 1.0), true, 224)
+		buy_button.disabled = int(main.current_run.get("gold", 0)) < main.shop_run_service.SHOP_CARD_COST
+		buy_button.pressed.connect(Callable(self, "_buy_shop_card").bind(String(recommended_card.get("id", ""))))
+		actions.add_child(buy_button)
+	var leave_button: Button = main.ui.make_dock_action_button("상점 나가기 ▶", "다음 노드로 이동", Color(0.18, 0.42, 0.66, 1.0), true, 188)
+	leave_button.pressed.connect(Callable(self, "_leave_shop"))
+	actions.add_child(leave_button)
+
+	var heal_button: Button = main.ui.make_dock_action_button("체력 회복", "골드 %d · 체력 +20" % main.shop_run_service.SHOP_HEAL_COST, Color(0.18, 0.42, 0.24, 1.0), false, 180)
+	heal_button.disabled = int(main.current_run.get("gold", 0)) < main.shop_run_service.SHOP_HEAL_COST or int(main.current_run.get("hp", 0)) >= int(main.current_run.get("max_hp", 50))
+	heal_button.pressed.connect(Callable(self, "_buy_shop_heal"))
+	actions.add_child(heal_button)
+
+	var remove_cost := _shop_remove_cost()
+	var remove_button: Button = main.ui.make_dock_action_button("카드 제거", "골드 %d · 덱 압축" % remove_cost, Color(0.42, 0.2, 0.18, 1.0), false, 180)
+	remove_button.disabled = int(main.current_run.get("gold", 0)) < remove_cost or (main.current_run.get("deck_ids", []) as Array).is_empty()
+	remove_button.pressed.connect(Callable(self, "_begin_shop_remove"))
+	actions.add_child(remove_button)
+
+	var deck_button: Button = main.ui.make_dock_action_button("덱 확인", "카드와 빌드 보기", Color(0.16, 0.28, 0.44, 1.0), false, 166)
+	deck_button.pressed.connect(Callable(main, "_show_collection"))
+	actions.add_child(deck_button)
+
+func _recommended_shop_card(shop_state: Dictionary) -> Dictionary:
+	var purchased_cards: Array = shop_state.get("purchased_cards", [])
+	for card_id_variant in shop_state.get("cards", []):
+		var card_id := String(card_id_variant)
+		if purchased_cards.has(card_id):
+			continue
+		var card: Dictionary = main.card_db.get_card(card_id)
+		if not card.is_empty():
+			return card
+	return {}
 
 func _make_shop_status_strip(compact: bool) -> PanelContainer:
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 0.98), Color(0.22, 0.18, 0.12, 1.0), 1, 12, 12)

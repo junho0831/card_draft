@@ -2,6 +2,7 @@ extends RefCounted
 class_name RewardScreen
 
 var main: Node
+var screen_action_dock: PanelContainer = null
 
 func _init(_main: Node) -> void:
 	main = _main
@@ -16,14 +17,20 @@ func build(body: VBoxContainer) -> void:
 	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
 	var compact: bool = _is_reward_compact_layout()
 	var tight: bool = _is_tight_reward_layout()
-	body.add_child(main._make_run_summary_panel())
+	var phone_portrait: bool = main._is_phone_portrait_layout()
+	var viewport_size: Vector2 = main._layout_viewport_size()
+	var action_dock_layout: bool = phone_portrait or (viewport_size.x > viewport_size.y and viewport_size.y <= 800.0)
+	if not phone_portrait:
+		body.add_child(main._make_run_summary_panel())
 	body.add_child(main.ui.make_guidance_banner("다음 행동", "추천 카드 1장만 보고 바로 고르거나 건너뛰세요", Color(0.24, 0.2, 0.12, 1.0), compact))
 	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hub.add_theme_constant_override("separation", 8 if tight else 10)
 	body.add_child(hub)
 
-	hub.add_child(_make_build_panel(compact))
+	var build_panel := _make_build_panel(compact)
+	if not phone_portrait:
+		hub.add_child(build_panel)
 
 	var card_panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 14)
 	card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -47,7 +54,48 @@ func build(body: VBoxContainer) -> void:
 			continue
 		row.add_child(_make_reward_choice(main.cards_by_id[String(card_id)]))
 
+	if phone_portrait:
+		hub.add_child(build_panel)
 	hub.add_child(_make_reward_side_panel(reward, compact))
+	if action_dock_layout:
+		_mount_reward_action_dock(body, reward)
+
+func _mount_reward_action_dock(body: VBoxContainer, reward: Dictionary) -> void:
+	var card: Dictionary = _recommended_reward_card(reward)
+	if card.is_empty():
+		return
+	var reason: String = _reward_choice_reason(card, true)
+	var impact: String = main._choice_impact_text(card)
+	var dock: Dictionary = main.ui.mount_screen_action_dock(
+		main,
+		body,
+		"빠른 선택 · %s" % String(card.get("name", "추천 카드")),
+		"%s · %s · 골드 +%d" % [reason, impact, int(reward.get("gold_reward", 0))],
+		Color(0.42, 0.68, 1.0, 1.0),
+		126
+	)
+	screen_action_dock = dock.get("panel") as PanelContainer
+	var actions: BoxContainer = dock.get("actions") as BoxContainer
+	var claim_button: Button = main.ui.make_dock_action_button("추천 카드 추가 ▶", String(card.get("name", "카드")), Color(0.18, 0.42, 0.72, 1.0), true, 224)
+	claim_button.pressed.connect(Callable(self, "_claim_card_reward").bind(String(card.get("id", ""))))
+	actions.add_child(claim_button)
+	var skip_button: Button = main.ui.make_dock_action_button("건너뛰기", "덱을 얇게 유지", Color(0.18, 0.22, 0.28, 1.0), false, 144)
+	skip_button.pressed.connect(Callable(self, "_skip_card_reward"))
+	actions.add_child(skip_button)
+
+func _recommended_reward_card(reward: Dictionary) -> Dictionary:
+	var fallback: Dictionary = {}
+	var primary_tag: String = main._primary_build_tag(main._current_build_scores())
+	for card_id_variant in reward.get("choices", []):
+		var card_id := String(card_id_variant)
+		if not main.cards_by_id.has(card_id):
+			continue
+		var card: Dictionary = main.cards_by_id[card_id]
+		if fallback.is_empty():
+			fallback = card
+		if main._card_matches_build_tag(card, primary_tag):
+			return card
+	return fallback
 
 func _make_build_panel(compact: bool) -> PanelContainer:
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.08, 0.09, 0.11, 0.96), Color(0.16, 0.18, 0.23, 1.0), 1, 12, 14)
@@ -173,6 +221,7 @@ func _reward_growth_summary(card: Dictionary) -> Dictionary:
 func _make_reward_choice(card: Dictionary) -> Control:
 	var compact: bool = _is_reward_compact_layout()
 	var tight: bool = _is_tight_reward_layout()
+	var phone_portrait: bool = main._is_phone_portrait_layout()
 	var primary_tag: String = main._primary_build_tag(main._current_build_scores())
 	var matches_primary: bool = main._card_matches_build_tag(card, primary_tag)
 	var matches_race: bool = main._card_matches_current_race(card)
@@ -187,32 +236,36 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var frame_accent := Color(0.44, 0.7, 1.0, 1.0) if matches_primary else race_color if matches_race else Color(0.0, 0.0, 0.0, 0.0)
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override("panel", main.ui.make_race_card_style(card, frame_tint, 3 if matches_primary or matches_race else 2, 10, 0.16 if matches_primary else (0.1 if matches_race else 0.03), frame_accent))
-	frame.custom_minimum_size = Vector2(188 if tight else (160 if compact else 188), 0)
+	frame.custom_minimum_size = Vector2(0 if phone_portrait else (188 if tight else (160 if compact else 188)), 0)
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 3 if tight else 4)
 	frame.add_child(box)
 
-	if matches_primary:
-		var recommend: PanelContainer = main.ui.make_chip("추천", Color(0.1, 0.28, 0.56, 1.0), Color(0.82, 0.92, 1.0, 1.0), 12)
-		box.add_child(recommend)
-	if matches_race:
-		var race_badge: PanelContainer = main.ui.make_chip("%s 세력 연계" % String(race_meta.get("name", "현재")), race_color.darkened(0.58), race_color.lightened(0.3), 11 if tight else 12)
-		box.add_child(race_badge)
-	elif is_common:
-		var common_badge: PanelContainer = main.ui.make_chip("◆ 공용 · 모든 세력 사용", Color(0.09, 0.12, 0.16, 1.0), Color(0.82, 0.9, 0.98, 1.0), 11 if tight else 12)
-		box.add_child(common_badge)
-	var reason_badge: PanelContainer = main.ui.make_chip(reason_text, Color(0.12, 0.18, 0.24, 1.0) if not matches_primary else Color(0.1, 0.2, 0.36, 1.0), Color(0.9, 0.96, 1.0, 1.0), 11 if tight else 12)
-	box.add_child(reason_badge)
-	var impact_badge: PanelContainer = main.ui.make_chip(
-		impact_text,
-		Color(0.18, 0.13, 0.24, 1.0) if impact_text.contains("활성") else Color(0.1, 0.15, 0.2, 1.0),
-		Color(1.0, 0.84, 0.58, 1.0) if impact_text.contains("활성") else Color(0.82, 0.92, 1.0, 1.0),
-		10 if tight else 11
-	)
-	box.add_child(impact_badge)
+	if phone_portrait:
+		var quick_reason := "%s%s · %s" % ["추천 · " if matches_primary else "", reason_text, impact_text]
+		box.add_child(main.ui.make_chip(quick_reason, Color(0.1, 0.2, 0.36, 1.0) if matches_primary else Color(0.1, 0.15, 0.2, 1.0), Color(0.9, 0.96, 1.0, 1.0), 11))
+	else:
+		if matches_primary:
+			var recommend: PanelContainer = main.ui.make_chip("추천", Color(0.1, 0.28, 0.56, 1.0), Color(0.82, 0.92, 1.0, 1.0), 12)
+			box.add_child(recommend)
+		if matches_race:
+			var race_badge: PanelContainer = main.ui.make_chip("%s 세력 연계" % String(race_meta.get("name", "현재")), race_color.darkened(0.58), race_color.lightened(0.3), 11 if tight else 12)
+			box.add_child(race_badge)
+		elif is_common:
+			var common_badge: PanelContainer = main.ui.make_chip("◆ 공용 · 모든 세력 사용", Color(0.09, 0.12, 0.16, 1.0), Color(0.82, 0.9, 0.98, 1.0), 11 if tight else 12)
+			box.add_child(common_badge)
+		var reason_badge: PanelContainer = main.ui.make_chip(reason_text, Color(0.12, 0.18, 0.24, 1.0) if not matches_primary else Color(0.1, 0.2, 0.36, 1.0), Color(0.9, 0.96, 1.0, 1.0), 11 if tight else 12)
+		box.add_child(reason_badge)
+		var impact_badge: PanelContainer = main.ui.make_chip(
+			impact_text,
+			Color(0.18, 0.13, 0.24, 1.0) if impact_text.contains("활성") else Color(0.1, 0.15, 0.2, 1.0),
+			Color(1.0, 0.84, 0.58, 1.0) if impact_text.contains("활성") else Color(0.82, 0.92, 1.0, 1.0),
+			10 if tight else 11
+		)
+		box.add_child(impact_badge)
 	var growth_headline := String(growth.get("headline", ""))
-	if not growth_headline.is_empty():
+	if not phone_portrait and not growth_headline.is_empty():
 		var growth_chip: PanelContainer = main.ui.make_chip(
 			"%s  |  %s" % [growth_headline, main._choice_playstyle_text(card)],
 			Color(0.12, 0.22, 0.18, 1.0) if bool(growth.get("will_activate", false)) else Color(0.12, 0.14, 0.22, 1.0),
@@ -221,31 +274,31 @@ func _make_reward_choice(card: Dictionary) -> Control:
 		)
 		box.add_child(growth_chip)
 	box.add_child(main.ui.make_card_header(main, card, "reward", compact, tight, int(card.get("cost", 0))))
-	box.add_child(main.ui.make_card_art(main, card, Vector2(176, 108) if tight else (Vector2(142, 86) if compact else Vector2(176, 106))))
+	box.add_child(main.ui.make_card_art(main, card, Vector2(250, 112) if phone_portrait else (Vector2(176, 108) if tight else (Vector2(142, 86) if compact else Vector2(176, 106)))))
 	box.add_child(main.ui.make_card_identity_label(main, card, "reward", compact, tight, false, true))
 	var tag_text: String = main._format_card_tag_text(card)
-	if not tag_text.is_empty():
+	if not phone_portrait and not tag_text.is_empty():
 		var tag_label: Label = main._make_label(tag_text, 10 if tight else 11, Color(1.0, 0.82, 0.56, 1.0))
 		tag_label.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.02, 1.0))
 		tag_label.add_theme_constant_override("outline_size", 2)
 		box.add_child(tag_label)
 	var growth_detail := String(growth.get("detail", ""))
-	if not growth_detail.is_empty():
+	if not phone_portrait and not growth_detail.is_empty():
 		var growth_label: Label = main._make_label(growth_detail, 10 if tight else 11, Color(0.74, 0.92, 0.82, 1.0) if bool(growth.get("will_activate", false)) else Color(0.78, 0.84, 0.92, 1.0))
 		growth_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(growth_label)
-	if not growth_plain_text.is_empty():
+	if not phone_portrait and not growth_plain_text.is_empty():
 		var plain_label: Label = main._make_label(growth_plain_text, 10 if tight else 11, Color(0.9, 0.94, 0.98, 1.0))
 		plain_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(plain_label)
 	var tag := String(growth.get("primary_tag", ""))
-	if not tag.is_empty():
+	if not phone_portrait and not tag.is_empty():
 		var effect_label: Label = main._make_label(main._build_activation_effect_text(tag), 10 if tight else 11, Color(1.0, 0.84, 0.62, 1.0))
 		effect_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		main.ui.style_card_rules(effect_label, true, false)
 		box.add_child(effect_label)
-	box.add_child(main.ui.make_card_rules_block(main, card, main._card_effect_summary(card), String(card.get("text", "")), "reward", compact, tight, 34.0 if tight else 24.0))
+	box.add_child(main.ui.make_card_rules_block(main, card, main._card_effect_summary(card), "" if phone_portrait else String(card.get("text", "")), "reward", compact, tight, 34.0 if tight else 24.0))
 	var button := Button.new()
 	button.text = "덱에 추가 ▶" if matches_primary else "선택"
 	button.focus_mode = Control.FOCUS_NONE

@@ -79,6 +79,21 @@ func _check_current_screen(main: Node, viewport_size: Vector2i, screen_name: Str
 		_assert_true(controller != null and controller.fixed_footer != null, "race selection keeps a fixed mobile start bar @ %s" % str(viewport_size))
 		if controller != null and controller.fixed_footer != null:
 			_assert_true(controller.fixed_footer.get_parent() == main.modal_layer, "race selection mobile start bar stays outside scrolling content @ %s" % str(viewport_size))
+			_assert_true(bool(controller.fixed_footer.get_meta("screen_action_dock", false)), "race selection uses the shared screen action dock @ %s" % str(viewport_size))
+	if screen_name in ["map", "reward", "shop", "event", "rest", "run_result"] and viewport_size.y > viewport_size.x and viewport_size.x <= 900:
+		var controller = main.active_screen_controller
+		var dock: PanelContainer = controller.get("screen_action_dock") if controller != null else null
+		_assert_true(dock != null, "%s exposes a fixed portrait action dock @ %s" % [screen_name, str(viewport_size)])
+		if dock != null:
+			_assert_true(dock.get_parent() == main.modal_layer, "%s portrait action dock stays outside scrolling content @ %s" % [screen_name, str(viewport_size)])
+			_assert_true(bool(dock.get_meta("screen_action_dock", false)), "%s uses the shared screen action dock @ %s" % [screen_name, str(viewport_size)])
+	if screen_name in ["reward", "shop", "rest", "run_result"] and viewport_size.x > viewport_size.y and viewport_size.y <= 800:
+		var controller = main.active_screen_controller
+		var dock: PanelContainer = controller.get("screen_action_dock") if controller != null else null
+		_assert_true(dock != null, "%s exposes a fixed short-window action dock @ %s" % [screen_name, str(viewport_size)])
+		if dock != null:
+			_assert_true(dock.get_parent() == main.modal_layer, "%s short-window action dock stays outside scrolling content @ %s" % [screen_name, str(viewport_size)])
+			_assert_true(bool(dock.get_meta("screen_action_dock", false)), "%s short-window layout uses the shared screen action dock @ %s" % [screen_name, str(viewport_size)])
 	_assert_true(main.root_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "%s root horizontal scroll disabled @ %s" % [screen_name, str(viewport_size)])
 	_assert_true(main.root_box.custom_minimum_size.x <= viewport_width + 1.0, "%s root width fits viewport @ %s" % [screen_name, str(viewport_size)])
 	_assert_true(main.root_box.get_combined_minimum_size().x <= viewport_width + 1.0, "%s content minimum width fits viewport @ %s: %.1f > %.1f" % [screen_name, str(viewport_size), main.root_box.get_combined_minimum_size().x, viewport_width])
@@ -96,6 +111,8 @@ func _check_current_screen(main: Node, viewport_size: Vector2i, screen_name: Str
 
 	for scroll_node in _collect_scroll_containers(main):
 		var scroll := scroll_node as ScrollContainer
+		if bool(scroll.get_meta("allow_horizontal_scroll", false)):
+			continue
 		_assert_true(scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "%s scroll container keeps horizontal scroll disabled @ %s" % [screen_name, str(viewport_size)])
 
 func _collect_scroll_containers(root: Node) -> Array:

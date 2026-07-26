@@ -151,7 +151,7 @@ func _play_battle(main: Node, safety: int) -> void:
 			(battle.player.get("field", []) as Array).size(),
 			(battle.opponent.get("field", []) as Array).size(),
 		])
-		battle._on_recommended_action_pressed()
+		await battle._execute_recommended_action(action)
 		await _wait_frames(4 if headless else 28)
 		if steps == 3:
 			await _capture("%02d_battle_mid" % safety)

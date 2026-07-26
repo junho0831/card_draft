@@ -7,6 +7,7 @@ var map_canvas: Control
 var nodes_data: Array
 var current_index: int
 var hover_popup: PanelContainer = null
+var screen_action_dock: PanelContainer = null
 
 func _init(_main: Node) -> void:
 	main = _main
@@ -15,11 +16,13 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	nodes_data = act_data.get("nodes", [])
 	current_index = int(main.current_run.get("current_node_index", 0))
 
-	body.add_child(main._make_run_summary_panel())
 	var compact: bool = _is_map_compact_layout()
 	var phone: bool = main._is_mobile_phone_layout()
 	var viewport_size: Vector2 = main._layout_viewport_size()
 	var portrait_flow: bool = viewport_size.y > viewport_size.x
+	var phone_portrait: bool = main._is_phone_portrait_layout()
+	if not phone_portrait:
+		body.add_child(main._make_run_summary_panel())
 	body.add_child(main.ui.make_guidance_banner("다음 행동", _map_primary_guidance_text(), Color(0.2, 0.24, 0.18, 1.0), compact))
 
 	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
@@ -30,14 +33,16 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 
 	if portrait_flow:
 		hub.add_child(_make_map_panel(compact))
-		hub.add_child(_make_objective_panel(compact, act_data))
+		hub.add_child(_make_objective_panel(compact, act_data, not phone_portrait))
 		hub.add_child(_make_legend_panel(compact))
 	else:
 		hub.add_child(_make_legend_panel(compact))
 		hub.add_child(_make_map_panel(compact))
-		hub.add_child(_make_objective_panel(compact, act_data))
+		hub.add_child(_make_objective_panel(compact, act_data, true))
 
 	body.add_child(_make_build_direction_panel(compact))
+	if phone_portrait:
+		_mount_map_action_dock(body)
 
 func _is_map_compact_layout() -> bool:
 	return main._is_compact_layout_for(1080.0)
@@ -150,7 +155,7 @@ func _make_legend_row(node_type: String, compact: bool) -> Control:
 	row.add_child(label)
 	return row
 
-func _make_objective_panel(compact: bool, act_data: Dictionary) -> PanelContainer:
+func _make_objective_panel(compact: bool, act_data: Dictionary, include_actions: bool = true) -> PanelContainer:
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.08, 0.09, 0.11, 0.96), Color(0.22, 0.19, 0.11, 1.0), 1, 12, 14)
 	panel.custom_minimum_size = Vector2(0 if compact else 235, 0)
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -176,38 +181,34 @@ func _make_objective_panel(compact: bool, act_data: Dictionary) -> PanelContaine
 	box.add_child(desc)
 
 	box.add_child(HSeparator.new())
-	var current_layer: Variant = nodes_data[current_index]
-	if typeof(current_layer) == TYPE_ARRAY and (current_layer as Array).size() > 1:
-		box.add_child(_make_panel_title("경로 선택", compact))
-		var recommended_path_index := _recommended_path_index(current_layer as Array)
-		var route_tip: Label = main._make_label("헷갈리면 큰 추천 버튼만 누르세요. 바로 다음 화면으로 이어집니다.", 13 if compact else 14, Color(0.82, 0.88, 0.96, 1.0))
-		route_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		box.add_child(route_tip)
-		var recommended_type := String((current_layer as Array)[recommended_path_index])
-		var recommended_button: Button = main._add_menu_button(box, "이거 누르기 ▶ %s" % main._node_type_name(recommended_type), "", Color(0.62, 0.4, 0.1, 1.0))
-		recommended_button.pressed.connect(func():
-			main._enter_current_node(recommended_path_index)
-		)
-		main.ui.style_primary_button(recommended_button)
-		for path_idx in range((current_layer as Array).size()):
-			var ptype := String((current_layer as Array)[path_idx])
-			var button_text := "%s 진입 ▶" % main._node_type_name(ptype)
-			if path_idx == recommended_path_index:
-				button_text = "%s  추천" % button_text
-			var btn: Button = main._add_menu_button(box, button_text, "", Color(0.55, 0.36, 0.1, 1.0))
-			btn.pressed.connect(func():
-				main._enter_current_node(path_idx)
-			)
+	if include_actions:
+		var current_layer: Variant = nodes_data[current_index]
+		if typeof(current_layer) == TYPE_ARRAY and (current_layer as Array).size() > 1:
+			box.add_child(_make_panel_title("경로 선택", compact))
+			var recommended_path_index := _recommended_path_index(current_layer as Array)
+			var route_tip: Label = main._make_label("헷갈리면 큰 추천 버튼만 누르세요. 바로 다음 화면으로 이어집니다.", 13 if compact else 14, Color(0.82, 0.88, 0.96, 1.0))
+			route_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			box.add_child(route_tip)
+			var recommended_type := String((current_layer as Array)[recommended_path_index])
+			var recommended_button: Button = main._add_menu_button(box, "이거 누르기 ▶ %s" % main._node_type_name(recommended_type), "", Color(0.62, 0.4, 0.1, 1.0))
+			recommended_button.pressed.connect(Callable(main, "_enter_current_node").bind(recommended_path_index))
+			main.ui.style_primary_button(recommended_button)
+			for path_idx in range((current_layer as Array).size()):
+				if path_idx == recommended_path_index:
+					continue
+				var ptype := String((current_layer as Array)[path_idx])
+				var btn: Button = main._add_menu_button(box, "%s 진입 ▶" % main._node_type_name(ptype), "", Color(0.55, 0.36, 0.1, 1.0))
+				btn.pressed.connect(Callable(main, "_enter_current_node").bind(path_idx))
+		else:
+			var single_button_label := "이거 누르기 ▶ %s" % main._node_type_name(current_type)
+			var enter_button: Button = main._add_menu_button(box, single_button_label, "", Color(0.55, 0.36, 0.1, 1.0))
+			enter_button.pressed.connect(Callable(main, "_enter_current_node").bind(0))
+			main.ui.style_primary_button(enter_button)
+			var quick_tip: Label = main._make_label("지금은 이 버튼 하나만 누르면 됩니다.", 13 if compact else 14, Color(0.82, 0.88, 0.96, 1.0))
+			quick_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			box.add_child(quick_tip)
 	else:
-		var single_button_label := "이거 누르기 ▶ %s" % main._node_type_name(current_type)
-		var enter_button: Button = main._add_menu_button(box, single_button_label, "", Color(0.55, 0.36, 0.1, 1.0))
-		enter_button.pressed.connect(func():
-			main._enter_current_node(0)
-		)
-		main.ui.style_primary_button(enter_button)
-		var quick_tip: Label = main._make_label("지금은 이 버튼 하나만 누르면 됩니다.", 13 if compact else 14, Color(0.82, 0.88, 0.96, 1.0))
-		quick_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		box.add_child(quick_tip)
+		box.add_child(main.ui.make_chip("진입 버튼은 화면 아래에 고정되어 있습니다.", Color(0.08, 0.16, 0.28, 1.0), Color(0.76, 0.9, 1.0, 1.0), 12))
 
 	box.add_child(HSeparator.new())
 	box.add_child(_make_panel_title("예상 보상", compact))
@@ -218,6 +219,44 @@ func _make_objective_panel(compact: bool, act_data: Dictionary) -> PanelContaine
 	box.add_child(risk_chip)
 
 	return panel
+
+func _mount_map_action_dock(body: VBoxContainer) -> void:
+	var current_layer: Variant = nodes_data[current_index]
+	var current_type := _current_node_type()
+	var dock: Dictionary = main.ui.mount_screen_action_dock(
+		main,
+		body,
+		"지금 할 일 · 다음 장소로 진입",
+		"버튼을 누르면 %s 화면으로 바로 이동합니다." % main._node_type_name(current_type),
+		_node_color(current_type),
+		126
+	)
+	screen_action_dock = dock.get("panel") as PanelContainer
+	var actions: BoxContainer = dock.get("actions") as BoxContainer
+	var path_indices: Array[int] = [0]
+	var recommended_path_index := 0
+	if typeof(current_layer) == TYPE_ARRAY:
+		var paths: Array = current_layer as Array
+		recommended_path_index = _recommended_path_index(paths)
+		path_indices.clear()
+		path_indices.append(recommended_path_index)
+		for path_idx in range(paths.size()):
+			if path_idx != recommended_path_index:
+				path_indices.append(path_idx)
+	for path_index in path_indices:
+		var path_type := current_type
+		if typeof(current_layer) == TYPE_ARRAY:
+			path_type = String((current_layer as Array)[path_index])
+		var recommended := path_index == recommended_path_index
+		var button: Button = main.ui.make_dock_action_button(
+			("추천 · " if recommended else "") + "%s 진입 ▶" % main._node_type_name(path_type),
+			_node_reward_text(path_type),
+			_node_color(path_type),
+			recommended,
+			230
+		)
+		button.pressed.connect(Callable(main, "_enter_current_node").bind(path_index))
+		actions.add_child(button)
 
 func _make_build_direction_panel(compact: bool) -> PanelContainer:
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.08, 0.09, 0.11, 0.96), Color(0.18, 0.21, 0.26, 1.0), 1, 12, 14)

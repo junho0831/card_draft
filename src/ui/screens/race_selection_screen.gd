@@ -10,6 +10,7 @@ var race_hit_targets := {}
 var start_button: Button
 var selection_summary: Label
 var fixed_footer: PanelContainer
+var dock_title_label: Label
 
 func _init(_main: Node) -> void:
 	main = _main
@@ -38,42 +39,43 @@ func build(body: VBoxContainer) -> void:
 	for race_id in main._valid_race_ids():
 		comparison.add_child(_make_race_card(race_id, compact, phone, short))
 
-	var footer: PanelContainer = main.ui.make_surface_panel(
-		Color(0.045, 0.055, 0.07, 0.98),
-		Color(0.2, 0.32, 0.46, 1.0),
-		1,
-		8,
-		10
-	)
-	footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var actions: BoxContainer
 	if mobile_portrait:
-		fixed_footer = footer
-		footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		footer.offset_left = 8
-		footer.offset_top = -148
-		footer.offset_right = -8
-		footer.offset_bottom = -8
-		footer.mouse_filter = Control.MOUSE_FILTER_STOP
-		main.modal_layer.add_child(footer)
-		var footer_spacer := Control.new()
-		footer_spacer.custom_minimum_size = Vector2(0, 158)
-		body.add_child(footer_spacer)
+		var dock: Dictionary = main.ui.mount_screen_action_dock(
+			main,
+			body,
+			"2. 선택한 세력으로 시작",
+			"",
+			Color(0.42, 0.68, 1.0, 1.0),
+			126
+		)
+		fixed_footer = dock.get("panel") as PanelContainer
+		dock_title_label = dock.get("title_label") as Label
+		selection_summary = dock.get("detail_label") as Label
+		actions = dock.get("actions") as BoxContainer
 	else:
+		var footer: PanelContainer = main.ui.make_surface_panel(
+			Color(0.045, 0.055, 0.07, 0.98),
+			Color(0.2, 0.32, 0.46, 1.0),
+			1,
+			8,
+			10
+		)
+		footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		body.add_child(footer)
-	var footer_box := VBoxContainer.new()
-	footer_box.add_theme_constant_override("separation", 8)
-	footer.add_child(footer_box)
+		var footer_box := VBoxContainer.new()
+		footer_box.add_theme_constant_override("separation", 8)
+		footer.add_child(footer_box)
+		selection_summary = main._make_label("", 13 if compact else 15, Color(0.88, 0.92, 0.98, 1.0))
+		selection_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		selection_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		footer_box.add_child(selection_summary)
+		actions = main.ui.make_action_bar(false, 8)
+		footer_box.add_child(actions)
 
-	selection_summary = main._make_label("", 13 if compact else 15, Color(0.88, 0.92, 0.98, 1.0))
-	selection_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	selection_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	footer_box.add_child(selection_summary)
-
-	var actions: BoxContainer = HBoxContainer.new() if mobile_portrait else main.ui.make_action_bar(false, 8)
 	actions.alignment = BoxContainer.ALIGNMENT_CENTER
 	actions.add_theme_constant_override("separation", 8)
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mobile_portrait else Control.SIZE_SHRINK_CENTER
-	footer_box.add_child(actions)
 	var back_button := Button.new()
 	back_button.text = "메인 메뉴"
 	back_button.custom_minimum_size = Vector2(104 if mobile_portrait else 150, 64 if mobile_portrait else (58 if short else 66))
@@ -165,7 +167,7 @@ func _make_race_card(race_id: String, compact: bool, phone: bool, short: bool) -
 	box.add_child(cards_label)
 
 	var select_button := Button.new()
-	select_button.text = "%s 선택" % String(meta.get("name", race_id))
+	select_button.text = "1. %s 선택" % String(meta.get("name", race_id))
 	select_button.custom_minimum_size = Vector2(0, 56 if short else (64 if compact else 68))
 	select_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	select_button.set_meta("selection_font_size", 17 if compact else 19)
@@ -235,7 +237,7 @@ func _refresh_selection() -> void:
 		_apply_race_panel_style(race_id)
 		var button: Button = race_buttons.get(race_id)
 		if button != null:
-			button.text = "선택됨" if selected else "%s 선택" % String(meta.get("name", race_id))
+			button.text = "1. 선택됨 · %s" % String(meta.get("name", race_id)) if selected else "1. %s 선택" % String(meta.get("name", race_id))
 			if selected:
 				main.ui.style_primary_button(button, accent.darkened(0.42))
 			else:
@@ -245,13 +247,23 @@ func _refresh_selection() -> void:
 	var selected_meta: Dictionary = main._race_meta().get(selected_race_id, {})
 	var selected_accent: Color = selected_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
 	if selection_summary != null:
-		selection_summary.text = "%s · %s · 전투마다 %s 1회" % [
+		selection_summary.text = "1. 선택 완료 · %s · %s · %s 1회" % [
 			String(selected_meta.get("name", "인간")),
 			String(selected_meta.get("builds", "소환 · 버프")),
 			String(selected_meta.get("power_name", "필살기")),
 		]
+	if dock_title_label != null:
+		dock_title_label.text = "2. %s" % String(selected_meta.get("start_text", "인간으로 시작"))
+		dock_title_label.add_theme_color_override("font_color", selected_accent.lightened(0.28))
+	if fixed_footer != null:
+		var dock_style: StyleBoxFlat = main.ui.make_style_box(Color(0.025, 0.034, 0.048, 0.99), selected_accent.darkened(0.12), 2, 8)
+		dock_style.content_margin_left = 8
+		dock_style.content_margin_top = 8
+		dock_style.content_margin_right = 8
+		dock_style.content_margin_bottom = 8
+		fixed_footer.add_theme_stylebox_override("panel", dock_style)
 	if start_button != null:
-		start_button.text = String(selected_meta.get("start_text", "인간으로 시작"))
+		start_button.text = "2. %s" % String(selected_meta.get("start_text", "인간으로 시작"))
 		main.ui.style_primary_button(start_button, selected_accent.darkened(0.38))
 		start_button.add_theme_font_size_override("font_size", 18)
 

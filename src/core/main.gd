@@ -910,8 +910,9 @@ func _make_main_menu_content(compact: bool) -> Control:
 		relic_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var guide_button := _small_hub_button_config(quick_row, "가이드", "_show_ui_guide", "🗺", 0, 48, 11)
 		guide_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var hero_objective: PanelContainer = ui.make_objective_panel("다음 행동", _main_menu_next_action_text().replace("다음 행동: ", ""), compact)
-	hero_text_box.add_child(hero_objective)
+	if not phone_portrait:
+		var hero_objective: PanelContainer = ui.make_objective_panel("다음 행동", _main_menu_next_action_text().replace("다음 행동: ", ""), compact)
+		hero_text_box.add_child(hero_objective)
 	if not phone_portrait:
 		var hero_summary_panel: PanelContainer = ui.make_surface_panel(Color(0.08, 0.1, 0.12, 0.98), Color(0.22, 0.2, 0.12, 1.0), 1, 10, 12)
 		hero_text_box.add_child(hero_summary_panel)

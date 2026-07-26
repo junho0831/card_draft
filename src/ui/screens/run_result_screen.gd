@@ -4,6 +4,7 @@ class_name RunResultScreen
 const BATTLE_FX_LAYER = preload("res://src/ui/effects/battle_fx_layer.gd")
 
 var main: Node
+var screen_action_dock: PanelContainer = null
 
 func _init(_main: Node) -> void:
 	main = _main
@@ -15,6 +16,9 @@ func build(body: VBoxContainer, is_win: bool, play_audio: bool = true) -> void:
 	if play_audio and main.audio_manager != null and not suppress_victory_audio:
 		main.audio_manager.play_sound("victory_burst" if is_win else "defeat")
 	var compact: bool = _is_run_result_compact_layout()
+	var phone_portrait: bool = main._is_phone_portrait_layout()
+	var viewport_size: Vector2 = main._layout_viewport_size()
+	var action_dock_layout: bool = phone_portrait or (viewport_size.x > viewport_size.y and viewport_size.y <= 800.0)
 	var scores: Dictionary = main._current_build_scores()
 	var primary_tag: String = main._primary_build_tag(scores)
 	var tag_meta: Dictionary = main._build_tag_meta().get(primary_tag, {})
@@ -110,12 +114,33 @@ func build(body: VBoxContainer, is_win: bool, play_audio: bool = true) -> void:
 	for tag in main._valid_build_tags():
 		var meta: Dictionary = main._build_tag_meta().get(tag, {})
 		build_chip_row.add_child(main.ui.make_chip("%s %d" % [String(meta.get("icon", "")), int(scores.get(tag, 0))], Color(0.14, 0.16, 0.2, 1.0), Color(0.88, 0.92, 0.98, 1.0), 12 if compact else 13))
-	box.add_child(HSeparator.new())
-	box.add_child(main._make_label("다음 행동", 16 if compact else 18, Color(1.0, 0.88, 0.55, 1.0)))
-	var actions: BoxContainer = main.ui.make_action_bar(compact, 10)
-	box.add_child(actions)
-	main._add_menu_button(actions, "메인 메뉴", "_return_to_main_after_run", Color(0.22, 0.24, 0.28, 1.0))
-	main._add_menu_button(actions, "새로운 런", "_start_new_run", Color(0.55, 0.36, 0.1, 1.0))
+	if action_dock_layout:
+		_mount_result_action_dock(body, is_win)
+	else:
+		box.add_child(HSeparator.new())
+		box.add_child(main._make_label("다음 행동", 16 if compact else 18, Color(1.0, 0.88, 0.55, 1.0)))
+		var actions: BoxContainer = main.ui.make_action_bar(compact, 10)
+		box.add_child(actions)
+		main._add_menu_button(actions, "메인 메뉴", "_return_to_main_after_run", Color(0.22, 0.24, 0.28, 1.0))
+		main._add_menu_button(actions, "새로운 런", "_start_new_run", Color(0.55, 0.36, 0.1, 1.0))
+
+func _mount_result_action_dock(body: VBoxContainer, is_win: bool) -> void:
+	var dock: Dictionary = main.ui.mount_screen_action_dock(
+		main,
+		body,
+		"런 %s · 다음 행동" % ("클리어" if is_win else "종료"),
+		"영혼석 +%d · 바로 새 세력을 선택하거나 메뉴로 돌아갈 수 있습니다." % int(main.current_run.get("earned_soul_stones", 0)),
+		Color(0.78, 0.56, 0.22, 1.0) if is_win else Color(0.62, 0.26, 0.24, 1.0),
+		126
+	)
+	screen_action_dock = dock.get("panel") as PanelContainer
+	var actions: BoxContainer = dock.get("actions") as BoxContainer
+	var new_run_button: Button = main.ui.make_dock_action_button("새로운 런 ▶", "세력부터 다시 선택", Color(0.56, 0.38, 0.12, 1.0), true, 202)
+	new_run_button.pressed.connect(Callable(main, "_start_new_run"))
+	actions.add_child(new_run_button)
+	var menu_button: Button = main.ui.make_dock_action_button("메인 메뉴", "결과 저장 후 이동", Color(0.2, 0.24, 0.3, 1.0), false, 166)
+	menu_button.pressed.connect(Callable(main, "_return_to_main_after_run"))
+	actions.add_child(menu_button)
 
 func _is_run_result_compact_layout() -> bool:
 	return main._is_compact_layout_for(1180.0, 800.0)

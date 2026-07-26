@@ -210,6 +210,70 @@ func make_action_bar(compact: bool, separation: int = 10) -> BoxContainer:
 	bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	return bar
 
+func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, detail: String, accent: Color, dock_height: int = 126) -> Dictionary:
+	var dock := make_surface_panel(Color(0.025, 0.034, 0.048, 0.99), accent.darkened(0.12), 2, 8, 8)
+	dock.set_meta("screen_action_dock", true)
+	dock.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	dock.offset_left = 6
+	dock.offset_top = -float(dock_height + 6)
+	dock.offset_right = -6
+	dock.offset_bottom = -6
+	dock.mouse_filter = Control.MOUSE_FILTER_STOP
+	main.modal_layer.add_child(dock)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	dock.add_child(box)
+	var title_label := make_label(title, 12, accent.lightened(0.28))
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	box.add_child(title_label)
+	var detail_label := make_label(detail, 12, THEME_TEXT)
+	detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(detail_label)
+
+	var action_scroll := ScrollContainer.new()
+	action_scroll.set_meta("allow_horizontal_scroll", true)
+	action_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	action_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	action_scroll.custom_minimum_size = Vector2(0, 62)
+	action_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(action_scroll)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	action_scroll.add_child(actions)
+
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, dock_height + 8)
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(spacer)
+	return {
+		"panel": dock,
+		"title_label": title_label,
+		"detail_label": detail_label,
+		"actions": actions,
+		"scroll": action_scroll,
+	}
+
+func make_dock_action_button(title: String, detail: String, accent: Color, primary: bool = false, minimum_width: int = 166) -> Button:
+	var button := Button.new()
+	button.text = title if detail.is_empty() else "%s\n%s" % [title, detail]
+	button.custom_minimum_size = Vector2(minimum_width, 56)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.focus_mode = Control.FOCUS_NONE
+	style_role_button(
+		button,
+		"primary" if primary else "secondary",
+		accent.lightened(0.2),
+		accent.darkened(0.4),
+		13
+	)
+	_apply_hover_feedback(button)
+	return button
+
 func make_info_row(compact: bool, separation: int = 8, min_height: int = 0) -> BoxContainer:
 	var row := make_responsive_box(compact, separation)
 	row.custom_minimum_size = Vector2(0, min_height)
