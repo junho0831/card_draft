@@ -150,6 +150,7 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	_assert_true(battle.end_turn_button != null, "battle keeps end turn button visible")
 	_assert_true(battle.battle_fx_layer != null, "battle mounts the combat fx layer")
 	_assert_true(battle.battle_fx_layer.has_method("fly_card") and battle.battle_fx_layer.has_method("finish_card"), "battle fx layer provides card flight actions")
+	_assert_true(FileAccess.file_exists("res://assets/fx/impact_heavy_v1.png"), "battle ships the generated additive impact texture")
 	_assert_true(not Dictionary(battle.battle_state.get("battle_objective", {})).is_empty(), "battle creates one optional objective")
 	_assert_true(battle.battle_objective_label != null, "battle displays objective progress beside guidance")
 	battle._dismiss_battle_tutorial()

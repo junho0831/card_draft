@@ -3507,20 +3507,31 @@ func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control
 	if counter:
 		lunge_offset *= 0.72
 	attacker_node.pivot_offset = attacker_node.size * 0.5
-	var lunge = attacker_node.create_tween()
-	lunge.tween_property(attacker_node, "position", start_pos + lunge_offset, 0.1).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	lunge.parallel().tween_property(attacker_node, "scale", Vector2(1.15, 1.15), 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	lunge.parallel().tween_property(attacker_node, "rotation", start_rotation + deg_to_rad(-3.5 if attacker_is_player else 3.5), 0.1)
-	lunge.tween_property(attacker_node, "position", start_pos, 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-	lunge.parallel().tween_property(attacker_node, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	lunge.parallel().tween_property(attacker_node, "rotation", start_rotation, 0.16)
-	await lunge.finished
+	var approach = attacker_node.create_tween()
+	approach.set_parallel(true)
+	approach.tween_property(attacker_node, "position", start_pos + lunge_offset, 0.085 if not counter else 0.07).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	approach.tween_property(attacker_node, "scale", Vector2(1.17, 1.17) if not counter else Vector2(1.1, 1.1), 0.085).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	approach.tween_property(attacker_node, "rotation", start_rotation + deg_to_rad(-4.5 if attacker_is_player else 4.5), 0.085)
+	await approach.finished
+
 	_show_damage_number(defender_node, damage, counter)
 	_play_attack_impact_fx(attacker_node, defender_node, damage, counter)
 	_play_sfx(_attack_impact_sfx(damage, counter))
 	_spawn_impact_slash(defender_node, counter)
 	_flash_target(defender_node, Color(1.0, 0.66, 0.18, 1.0) if counter else Color(1.0, 0.28, 0.22, 1.0), 0.24)
-	await _shake_target(defender_node, 12.0 if damage < 3 else 18.0)
+	_shake_target(defender_node, 12.0 if damage < 3 else 18.0)
+	var hit_stop := 0.035 if counter else (0.07 if damage >= 4 else 0.045)
+	await main.get_tree().create_timer(hit_stop).timeout
+
+	var recoil_direction: Vector2 = -lunge_offset.normalized()
+	var recoil_position: Vector2 = Vector2(start_pos) + recoil_direction * (10.0 if damage >= 4 else 6.0)
+	var recoil = attacker_node.create_tween()
+	recoil.tween_property(attacker_node, "position", recoil_position, 0.055).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	recoil.parallel().tween_property(attacker_node, "scale", Vector2(0.94, 0.94), 0.055)
+	recoil.tween_property(attacker_node, "position", start_pos, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	recoil.parallel().tween_property(attacker_node, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	recoil.parallel().tween_property(attacker_node, "rotation", start_rotation, 0.15)
+	await recoil.finished
 
 func _attack_impact_sfx(damage: int, counter: bool) -> String:
 	if counter:
@@ -3553,6 +3564,8 @@ func _show_damage_number(target: Control, damage: int, counter: bool = false) ->
 	_spawn_floating_text(target, "-%d" % damage, color, font_size, lifetime, Vector2.ZERO)
 	if damage >= 4 and not counter:
 		_shake_screen(12.0, 0.2)
+	elif not counter:
+		_shake_screen(3.5 + float(damage), 0.09)
 
 func _show_outcome_text(target: Control, text: String, color: Color) -> void:
 	if target == null or not is_instance_valid(target):

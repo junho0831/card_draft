@@ -1,13 +1,18 @@
 extends Control
 class_name BattleFxLayer
 
+const HEAVY_IMPACT_TEXTURE_PATH := "res://assets/fx/impact_heavy_v1.png"
+
 var rng := RandomNumberGenerator.new()
+var heavy_impact_texture: Texture2D
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 70
 	rng.randomize()
+	if ResourceLoader.exists(HEAVY_IMPACT_TEXTURE_PATH):
+		heavy_impact_texture = ResourceLoader.load(HEAVY_IMPACT_TEXTURE_PATH, "Texture2D") as Texture2D
 
 func play_attack(attacker: Control, defender: Control, damage: int, counter: bool = false) -> void:
 	if defender == null or not is_instance_valid(defender):
@@ -19,11 +24,41 @@ func play_attack(attacker: Control, defender: Control, damage: int, counter: boo
 	_spawn_screen_flash(color, 0.18 if strong else 0.09, 0.24 if strong else 0.16)
 	_spawn_travel_streak(source, center, color, strong)
 	_spawn_impact_core(center, color, strong)
+	_spawn_impact_texture(center, strong, counter)
 	_spawn_ring(center, color, 48.0 if strong else 34.0, 0.36 if strong else 0.28)
 	_spawn_radial_burst(center, color, 18 if strong else 11, strong)
 	_spawn_sparks(center, color, 16 if strong else 8, 0.48 if strong else 0.34)
 	if strong:
 		_spawn_frame_pulse(color, 0.38)
+
+func _spawn_impact_texture(center: Vector2, strong: bool, counter: bool) -> void:
+	if heavy_impact_texture == null:
+		return
+	var impact := TextureRect.new()
+	impact.texture = heavy_impact_texture
+	impact.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	impact.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var texture_size := 250.0 if strong else 170.0
+	impact.size = Vector2(texture_size, texture_size)
+	impact.position = center - impact.size * 0.5
+	impact.pivot_offset = impact.size * 0.5
+	impact.rotation = deg_to_rad(rng.randf_range(-14.0, 14.0) + (82.0 if counter else 0.0))
+	impact.scale = Vector2(0.18, 0.18)
+	impact.modulate = Color(1.0, 0.82 if counter else 1.0, 0.64 if counter else 1.0, 0.0)
+	impact.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	impact.z_index = 260
+	var additive := CanvasItemMaterial.new()
+	additive.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	impact.material = additive
+	add_child(impact)
+
+	var tween := impact.create_tween()
+	tween.tween_property(impact, "modulate:a", 0.96, 0.025)
+	tween.parallel().tween_property(impact, "scale", Vector2.ONE, 0.075 if strong else 0.06).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	tween.tween_interval(0.025 if strong else 0.01)
+	tween.tween_property(impact, "scale", Vector2(1.34, 1.34), 0.2 if strong else 0.15).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(impact, "modulate:a", 0.0, 0.18 if strong else 0.13).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+	tween.tween_callback(Callable(self, "_free_if_valid").bind(impact))
 
 func fly_card(
 	card_visual: Control,
