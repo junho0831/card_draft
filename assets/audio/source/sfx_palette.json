@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "runtime_dir": "res://assets/audio",
+  "source_dir": "res://assets/audio/source",
+  "format": {
+    "container": "wav",
+    "channels": 1,
+    "sample_rate": 44100,
+    "bit_depth": 16,
+    "peak_dbfs_max": -1.0
+  },
+  "palettes": {
+    "human": {
+      "feel": "metal, shield, leather, command",
+      "avoid": "long drums, boomy sub tails",
+      "runtime_keys": ["summon_human", "hit_human", "equipment_human", "power_human"]
+    },
+    "elf": {
+      "feel": "wind, bow string, leaves, shimmer",
+      "avoid": "heavy impacts, muddy lows",
+      "runtime_keys": ["summon_elf", "hit_elf", "equipment_elf", "power_elf"]
+    },
+    "undead": {
+      "feel": "bone crack, dry scrape, ghost breath",
+      "avoid": "long horror drones, pulsing bass",
+      "runtime_keys": ["summon_undead", "hit_undead", "equipment_undead", "power_undead"]
+    },
+    "common": {
+      "feel": "paper, cloth, table, neutral magic",
+      "avoid": "strong faction identity",
+      "runtime_keys": ["summon_common", "hit_common", "equipment_common", "spell_common"]
+    }
+  },
+  "build_tags": {
+    "fire": {
+      "feel": "short flame burst, spark crackle, hot snap",
+      "runtime_keys": ["spell_fire"]
+    },
+    "draw": {
+      "feel": "paper sweep, air lift, light chime",
+      "runtime_keys": ["spell_draw", "draw"]
+    },
+    "death": {
+      "feel": "brittle break, soul pull, dry impact",
+      "runtime_keys": ["spell_death"]
+    },
+    "buff": {
+      "feel": "rune lock, metal ring, stat rise",
+      "runtime_keys": ["spell_buff", "equipment_human", "equipment_common"]
+    },
+    "summon": {
+      "feel": "arrival shimmer, short landing, field presence",
+      "runtime_keys": ["spell_summon", "summon_human", "summon_elf", "summon_undead"]
+    },
+    "low_hp": {
+      "feel": "quick danger pulse, strained magic, recovery snap",
+      "runtime_keys": ["spell_low_hp"]
+    }
+  },
+  "adaptive_bgm": {
+    "battle_base": {
+      "feel": "low board tension, card table weight",
+      "trigger": "normal battle state"
+    },
+    "battle_tension": {
+      "feel": "incoming pressure, boss push, tighter rhythm",
+      "trigger": "enemy turn, boss fight, or large incoming damage"
+    },
+    "battle_lethal": {
+      "feel": "winning line, brighter metal and rising threat",
+      "trigger": "enemy low hp or immediate hero lethal"
+    },
+    "battle_low_hp": {
+      "feel": "danger pulse without uncomfortable long drums",
+      "trigger": "player hero at 30 percent hp or lower"
+    }
+  },
+  "priority_replacements": [
+    "hit_human",
+    "hit_elf",
+    "hit_undead",
+    "impact_heavy",
+    "summon_human",
+    "summon_elf",
+    "summon_undead",
+    "spell_fire",
+    "spell_death",
+    "victory_burst",
+    "battle_base",
+    "battle_tension",
+    "battle_lethal",
+    "battle_low_hp"
+  ],
+  "licensing": {
+    "current_sources": [
+      {
+        "name": "Kenney Impact Sounds",
+        "source_url_or_origin": "https://kenney.nl/assets/impact-sounds",
+        "license": "Creative Commons CC0",
+        "author": "Kenney",
+        "downloaded_at": "2026-08-01",
+        "allowed_for_commercial_use": true,
+        "raw_dir": "res://assets/audio/source/raw/kenney_impact"
+      },
+      {
+        "name": "Kenney RPG Audio",
+        "source_url_or_origin": "https://kenney.nl/assets/rpg-audio",
+        "license": "Creative Commons CC0",
+        "author": "Kenney",
+        "downloaded_at": "2026-08-01",
+        "allowed_for_commercial_use": true,
+        "raw_dir": "res://assets/audio/source/raw/kenney_rpg"
+      },
+      {
+        "name": "ElevenLabs Text to Sound Effects API",
+        "source_url_or_origin": "https://elevenlabs.io/docs/api-reference/text-to-sound-effects/convert",
+        "license": "Generated output under the user's ElevenLabs account terms",
+        "author": "ElevenLabs model output prompted for this project",
+        "downloaded_at": "2026-08-01",
+        "allowed_for_commercial_use": null,
+        "raw_dir": "res://assets/audio/source/raw/elevenlabs"
+      }
+    ],
+    "required_for_raw_sources": [
+      "source_url_or_origin",
+      "license",
+      "author",
+      "downloaded_at",
+      "allowed_for_commercial_use"
+    ],
+    "rule": "Do not commit raw source clips unless their license is clear and redistributable."
+  }
+}

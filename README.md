@@ -89,25 +89,26 @@ res://src/core/Main.tscn
 - 이벤트 데이터: `res://data/events.json`
 - 적 데이터: `res://data/enemies.json`
 - Act 데이터: `res://data/acts.json`
-- 직접 제작 효과음: `res://assets/audio/*.wav`
-- 효과음 생성 스크립트: `res://tools/generate_game_sfx.gd`
+- 런타임 효과음/BGM: `res://assets/audio/*.wav`
+- 효과음 제작 스크립트: `res://tools/build_elevenlabs_sfx.py`, `res://tools/build_authored_sfx.py`, `res://tools/generate_game_sfx.gd`
 
 ## 효과음
 
-전투/버튼 효과음은 Godot 합성식으로 직접 생성한 44.1kHz 16-bit mono WAV 파일을 사용한다. 모든 플레이어는 리미터가 있는 `SFX` 버스를 사용하며, 강타·필살기·승리음은 클릭·hover보다 높은 재생 우선순위를 가진다.
+전투 핵심 효과음은 ElevenLabs Text to Sound Effects로 만든 런타임 WAV를 우선 사용한다. 원본 MP3는 `res://assets/audio/source/raw/elevenlabs`, 최종 WAV는 `res://assets/audio`에 둔다. 모든 효과음은 리미터가 있는 `SFX` 버스를 사용하며, 강타·필살기·승리음은 클릭·hover보다 높은 재생 우선순위를 가진다.
 
 ```bash
-godot4 --headless --path . -s res://tools/generate_game_sfx.gd
+ELEVENLABS_API_KEY=... python3 tools/build_elevenlabs_sfx.py
 ```
 
-생성 대상:
+ElevenLabs 적용 대상:
 
-- `click`, `hover`, `draw`, `play`, `summon`, `spell`
-- `hit`, `counter`, `impact_heavy`, `finisher`, `combo`, `heal`
-- `reward`, `victory`, `victory_burst`, `defeat`
+- 카드 조작: `play`, `draw`
+- 공격/소환: `hit_*`, `summon_*`
+- 주문/장비: `spell_*`, `equipment_*`
+- 전투 보상감: `combo`, `counter`, `impact_heavy`, `finisher`, `reward`, `victory_burst`
 - `power_human`, `power_elf`, `power_undead`
 
-`AudioManager`는 `res://assets/audio/{name}.wav`가 있으면 우선 사용하고, 파일이 없으면 같은 합성식으로 만든 fallback 스트림을 사용한다. WAV는 Godot import 상태에 의존하지 않도록 런타임에서 직접 PCM을 읽어 `AudioStreamWAV`로 캐시한다.
+`AudioManager`는 `res://assets/audio/{name}.wav`가 있으면 우선 사용하고, 파일이 없으면 fallback 스트림을 사용한다. 전투 BGM은 `battle_base`, `battle_tension`, `battle_lethal`, `battle_low_hp` 네 레이어를 판세에 따라 크로스페이드한다. API 키는 환경변수로만 사용하고 저장하지 않는다.
 
 ## 테스트
 

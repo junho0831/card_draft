@@ -409,7 +409,7 @@
         "cost": 1,
         "art": 9,
         "art_id": "forest_archer",
-        "text": "나의 의식 스택을 1만큼 증가시킴",
+        "text": "나의 의식 스택을 1만큼 증가시킴. 순수 준비 주문은 사용 후 이번 전투에서 소멸",
         "build_tags": [
             "draw"
         ]

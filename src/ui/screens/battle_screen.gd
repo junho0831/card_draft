@@ -605,7 +605,7 @@ func _manual_battle_guidance_text(state: Dictionary) -> String:
 			var hero_attacker_name := "아군 유닛"
 			if hero_attacker_index >= 0 and hero_attacker_index < player.field.size():
 				hero_attacker_name = String(Dictionary(player.field[hero_attacker_index]).get("name", hero_attacker_name))
-			return "%s빛나는 %s 선택 -> 붉은 적 영웅 클릭" % [prefix, hero_attacker_name]
+			return "%s빛나는 %s 선택 -> 붉은 적 영웅 클릭 (바로 적 영웅을 눌러도 자동 선택)" % [prefix, hero_attacker_name]
 		"unit_attack_direct":
 			var attacker_index := int(state.get("attacker_index", -1))
 			var target_index := int(state.get("target_index", -1))
@@ -615,7 +615,7 @@ func _manual_battle_guidance_text(state: Dictionary) -> String:
 				attacker_name = String(Dictionary(player.field[attacker_index]).get("name", attacker_name))
 			if target_index >= 0 and target_index < opponent.field.size():
 				target_name = String(Dictionary(opponent.field[target_index]).get("name", target_name))
-			return "%s%s 선택 -> %s 클릭 · %s" % [prefix, attacker_name, target_name, _attack_payoff_text(Dictionary(player.field[attacker_index]), target_index) if attacker_index >= 0 and attacker_index < player.field.size() else "전장 정리"]
+			return "%s%s 선택 -> %s 클릭 · 바로 적을 눌러도 자동 공격 · %s" % [prefix, attacker_name, target_name, _attack_payoff_text(Dictionary(player.field[attacker_index]), target_index) if attacker_index >= 0 and attacker_index < player.field.size() else "전장 정리"]
 		"hero_attack_selected":
 			return "%s공격자는 선택됐습니다. 붉은 적 영웅을 직접 클릭하세요." % prefix
 		"unit_attack_selected":
@@ -964,6 +964,7 @@ func _apply_battle_victory_rewards() -> Dictionary:
 func _finish_player_defeat() -> void:
 	game_over = true
 	battle_finished = true
+	_stop_battle_music()
 	main.current_run["hp"] = 0
 	main.current_run["result"] = "loss"
 	_finish_run(false)
@@ -971,6 +972,7 @@ func _finish_player_defeat() -> void:
 func _finish_player_victory(victory_type: String) -> void:
 	game_over = true
 	battle_finished = true
+	_stop_battle_music()
 	main.current_run["hp"] = int(player.health)
 	main.current_run["battle_victory_type"] = victory_type
 
@@ -2814,9 +2816,9 @@ func _on_hand_card_pressed(index: int) -> void:
 		)
 	player.mana -= cost
 	player.hand.remove_at(index)
-	_play_sfx(_card_play_sfx(card_type))
+	_play_sfx(_card_play_sfx(card))
 	_add_log("%s 사용" % String(card.get("name", "카드")))
-	if card_type != "unit":
+	if card_type != "unit" and not _card_exhausts_after_play(card):
 		player.discard_pile.append(card)
 	main.relic_service.consume_card_discount(battle_state)
 	battle_state["cards_played_this_turn"] = int(battle_state.get("cards_played_this_turn", 0)) + 1
@@ -2939,13 +2941,42 @@ func _battle_effect_context() -> Dictionary:
 		"cards_played_this_turn": int(battle_state.get("cards_played_this_turn", 0)),
 	}
 
-func _card_play_sfx(card_type: String) -> String:
+func _sfx_race_key(card_or_unit: Dictionary) -> String:
+	match String(card_or_unit.get("race", "")).to_lower():
+		"인간", "human":
+			return "human"
+		"엘프", "elf":
+			return "elf"
+		"언데드", "undead":
+			return "undead"
+	return "common"
+
+
+func _primary_build_sfx_tag(card: Dictionary) -> String:
+	var tags: Array = main._card_build_tags(card)
+	for tag in ["fire", "draw", "death", "buff", "summon", "low_hp"]:
+		if tags.has(tag):
+			return tag
+	return "common"
+
+
+func _card_play_sfx(card: Dictionary) -> String:
+	var card_type := String(card.get("type", ""))
+	var race_key := _sfx_race_key(card)
 	match card_type:
 		"unit":
-			return "summon"
+			return "summon_%s" % race_key
 		"equipment":
-			return "combo"
-	return "spell"
+			return "equipment_%s" % race_key
+	return "spell_%s" % _primary_build_sfx_tag(card)
+
+
+func _card_exhausts_after_play(card: Dictionary) -> bool:
+	if String(card.get("type", "")) != "spell":
+		return false
+	var preview := _card_result_preview(card)
+	var is_pure_self_setup := preview.contains("의식") and not preview.contains("드로우") and not preview.contains("피해") and not preview.contains("회복") and not preview.contains("소환") and not preview.contains("강화")
+	return is_pure_self_setup
 
 
 func _calculate_damage(card_or_unit: Dictionary, is_spell: bool, owner_state: Dictionary, base_damage: int) -> int:
@@ -3292,6 +3323,76 @@ func _on_player_unit_pressed(index: int) -> void:
 	_store_battle_snapshot()
 
 
+func _ready_player_attacker_indexes() -> Array[int]:
+	var ready: Array[int] = []
+	for i in range(player.field.size()):
+		if bool(Dictionary(player.field[i]).get("can_attack", false)):
+			ready.append(i)
+	return ready
+
+
+func _best_attacker_for_enemy_target(target_index: int) -> int:
+	if target_index < 0 or target_index >= opponent.field.size():
+		return -1
+	var best_index := -1
+	var best_score := -100000
+	var defender: Dictionary = opponent.field[target_index]
+	for attacker_index in _ready_player_attacker_indexes():
+		var attacker: Dictionary = player.field[attacker_index]
+		var prediction := _predict_unit_attack(attacker, defender, player, opponent)
+		var score := int(prediction.get("damage", 0)) * 10
+		if bool(prediction.get("lethal", false)):
+			score += 1000 + int(defender.get("attack", 0)) * 10
+		score -= int(prediction.get("counter", 0)) * 6
+		score += int(prediction.get("overflow", 0)) * 4
+		score += int(prediction.get("mana_gain", 0)) * 20
+		if bool(Dictionary(defender).get("is_vanguard", false)):
+			score += 150
+		if score > best_score:
+			best_score = score
+			best_index = attacker_index
+	return best_index
+
+
+func _try_auto_select_attacker_for_enemy_target(target_index: int) -> bool:
+	if selected_attacker != -1 or input_locked or game_over or current_player != "player":
+		return false
+	var ready_attackers := _ready_player_attacker_indexes()
+	if ready_attackers.is_empty():
+		_add_log("먼저 공격 가능한 아군 유닛을 준비하세요.")
+		return false
+	var attacker_index := _best_attacker_for_enemy_target(target_index)
+	if attacker_index == -1 and ready_attackers.size() == 1:
+		attacker_index = ready_attackers[0]
+	if attacker_index == -1:
+		return false
+	selected_attacker = attacker_index
+	var attacker_name := String(Dictionary(player.field[attacker_index]).get("name", "아군 유닛"))
+	var target_name := String(Dictionary(opponent.field[target_index]).get("name", "적 유닛"))
+	_add_log("%s 자동 선택 -> %s 공격" % [attacker_name, target_name])
+	_refresh_ui()
+	return true
+
+
+func _try_auto_select_attacker_for_hero() -> bool:
+	if selected_attacker != -1 or input_locked or game_over or current_player != "player":
+		return false
+	if _enemy_vanguard_blocks_hero():
+		_add_log("적 선봉을 먼저 처치해야 영웅을 공격할 수 있습니다.")
+		var vanguard_target := _field_slot_for(opponent, 0)
+		_play_effect_hit_feedback(vanguard_target, "선봉 먼저", Color(1.0, 0.48, 0.24, 1.0))
+		return false
+	var attacker_index := _recommended_ready_attacker_index()
+	if attacker_index == -1:
+		_add_log("영웅을 공격하려면 먼저 공격 가능한 아군 유닛을 선택하세요.")
+		return false
+	selected_attacker = attacker_index
+	var attacker_name := String(Dictionary(player.field[attacker_index]).get("name", "아군 유닛"))
+	_add_log("%s 자동 선택 -> 적 영웅 공격" % attacker_name)
+	_refresh_ui()
+	return true
+
+
 func _show_direct_attack_target_hint() -> void:
 	if opponent_hero_target == null or not is_instance_valid(opponent_hero_target):
 		return
@@ -3306,9 +3407,11 @@ func _show_direct_attack_target_hint() -> void:
 
 
 func _on_opponent_unit_pressed(index: int) -> void:
-	if input_locked or game_over or current_player != "player" or selected_attacker == -1:
+	if input_locked or game_over or current_player != "player":
 		return
 	if index < 0 or index >= opponent.field.size():
+		return
+	if selected_attacker == -1 and not _try_auto_select_attacker_for_enemy_target(index):
 		return
 	await _execute_player_unit_attack(selected_attacker, index)
 	selected_attacker = -1
@@ -3319,7 +3422,9 @@ func _on_opponent_unit_pressed(index: int) -> void:
 
 
 func _attack_opponent_hero() -> void:
-	if input_locked or game_over or current_player != "player" or selected_attacker == -1:
+	if input_locked or game_over or current_player != "player":
+		return
+	if selected_attacker == -1 and not _try_auto_select_attacker_for_hero():
 		return
 	if _enemy_vanguard_blocks_hero():
 		_add_log("적 선봉이 영웅을 보호합니다. 선봉부터 처치하세요.")
@@ -3465,14 +3570,16 @@ func _hero_target_for_player(is_player_target: bool) -> Control:
 func _play_unit_battle_feedback(attacker_side: Dictionary, defender_side: Dictionary, attacker_index: int, defender_index: int, attack_damage: int, defense_damage: int) -> void:
 	var attacker_node = _field_slot_for(attacker_side, attacker_index)
 	var defender_node = _field_slot_for(defender_side, defender_index)
+	var attacker_unit: Dictionary = attacker_side.field[attacker_index] if attacker_index >= 0 and attacker_index < attacker_side.field.size() else {}
+	var defender_unit: Dictionary = defender_side.field[defender_index] if defender_index >= 0 and defender_index < defender_side.field.size() else {}
 	if not _is_battle_cutscene_enabled():
 		_show_damage_number(defender_node, attack_damage)
 		_play_attack_impact_fx(attacker_node, defender_node, attack_damage, false)
-		_play_sfx(_attack_impact_sfx(attack_damage, false))
+		_play_sfx(_attack_impact_sfx(attacker_unit, attack_damage, false))
 		_show_damage_number(attacker_node, defense_damage, true)
 		if defense_damage > 0:
 			_play_attack_impact_fx(defender_node, attacker_node, defense_damage, true)
-			_play_sfx(_attack_impact_sfx(defense_damage, true))
+			_play_sfx(_attack_impact_sfx(defender_unit, defense_damage, true))
 		if not _should_skip_timed_battle_fx():
 			_spawn_impact_slash(defender_node, false)
 			_flash_target(defender_node, Color(1.0, 0.28, 0.22, 1.0), 0.22)
@@ -3480,24 +3587,25 @@ func _play_unit_battle_feedback(attacker_side: Dictionary, defender_side: Dictio
 				_spawn_impact_slash(attacker_node, true)
 				_flash_target(attacker_node, Color(1.0, 0.66, 0.18, 1.0), 0.22)
 		return
-	await _play_inline_attack_feedback(attacker_node, defender_node, attack_damage, attacker_side == player)
+	await _play_inline_attack_feedback(attacker_node, defender_node, attack_damage, attacker_side == player, false, _attack_impact_sfx(attacker_unit, attack_damage, false))
 	if defense_damage > 0:
-		await _play_inline_attack_feedback(defender_node, attacker_node, defense_damage, defender_side == player, true)
+		await _play_inline_attack_feedback(defender_node, attacker_node, defense_damage, defender_side == player, true, _attack_impact_sfx(defender_unit, defense_damage, true))
 
 func _play_hero_attack_feedback(attacker_side: Dictionary, attacker_index: int, defender_is_player: bool, damage: int) -> void:
 	var attacker_node = _field_slot_for(attacker_side, attacker_index)
 	var defender_node = _hero_target_for_player(defender_is_player)
+	var attacker_unit: Dictionary = attacker_side.field[attacker_index] if attacker_index >= 0 and attacker_index < attacker_side.field.size() else {}
 	if not _is_battle_cutscene_enabled():
 		_show_damage_number(defender_node, damage)
 		_play_attack_impact_fx(attacker_node, defender_node, damage, false)
-		_play_sfx(_attack_impact_sfx(damage, false))
+		_play_sfx(_attack_impact_sfx(attacker_unit, damage, false))
 		if not _should_skip_timed_battle_fx():
 			_spawn_impact_slash(defender_node, false)
 			_flash_target(defender_node, Color(1.0, 0.28, 0.22, 1.0), 0.22)
 		return
-	await _play_inline_attack_feedback(attacker_node, defender_node, damage, attacker_side == player)
+	await _play_inline_attack_feedback(attacker_node, defender_node, damage, attacker_side == player, false, _attack_impact_sfx(attacker_unit, damage, false))
 
-func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control, damage: int, attacker_is_player: bool, counter: bool = false) -> void:
+func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control, damage: int, attacker_is_player: bool, counter: bool = false, sfx_name: String = "") -> void:
 	if attacker_node == null or defender_node == null:
 		_show_damage_number(defender_node, damage, counter)
 		return
@@ -3516,7 +3624,7 @@ func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control
 
 	_show_damage_number(defender_node, damage, counter)
 	_play_attack_impact_fx(attacker_node, defender_node, damage, counter)
-	_play_sfx(_attack_impact_sfx(damage, counter))
+	_play_sfx(sfx_name if not sfx_name.is_empty() else _attack_impact_sfx({}, damage, counter))
 	_spawn_impact_slash(defender_node, counter)
 	_flash_target(defender_node, Color(1.0, 0.66, 0.18, 1.0) if counter else Color(1.0, 0.28, 0.22, 1.0), 0.24)
 	_shake_target(defender_node, 12.0 if damage < 3 else 18.0)
@@ -3533,10 +3641,12 @@ func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control
 	recoil.parallel().tween_property(attacker_node, "rotation", start_rotation, 0.15)
 	await recoil.finished
 
-func _attack_impact_sfx(damage: int, counter: bool) -> String:
+func _attack_impact_sfx(attacker: Dictionary, damage: int, counter: bool) -> String:
 	if counter:
 		return "counter"
-	return "impact_heavy" if damage >= 4 else "hit"
+	if damage >= 4:
+		return "impact_heavy"
+	return "hit_%s" % _sfx_race_key(attacker)
 
 func _play_attack_impact_fx(attacker: Control, defender: Control, damage: int, counter: bool) -> void:
 	if _should_skip_timed_battle_fx():
@@ -3862,7 +3972,7 @@ func _run_ai_play_cards() -> void:
 				var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "opponent")
 				opponent.mana -= cost
 				opponent.hand.remove_at(i)
-				if String(card.get("type", "")) != "unit":
+				if String(card.get("type", "")) != "unit" and not _card_exhausts_after_play(card):
 					opponent.discard_pile.append(card)
 
 				_refresh_ui()
@@ -3872,7 +3982,7 @@ func _run_ai_play_cards() -> void:
 				main.battle_effects.play_card(opponent, player, card, _battle_effect_context())
 				_record_player_hero_damage(old_player_health)
 				_refresh_ui()
-				_play_sfx(_card_play_sfx(String(card.get("type", ""))))
+				_play_sfx(_card_play_sfx(card))
 				if flying_card != null and is_instance_valid(flying_card) and battle_fx_layer != null and is_instance_valid(battle_fx_layer):
 					await battle_fx_layer.finish_card(
 						flying_card,
@@ -4750,6 +4860,7 @@ func _refresh_ui() -> void:
 	_refresh_status_labels()
 	_refresh_battle_dashboard()
 	_refresh_action_buttons()
+	_update_adaptive_battle_music()
 	if bool(main.get_meta("disable_battle_ui_rerender", false)):
 		return
 	if opponent_field_box != null:
@@ -4883,6 +4994,70 @@ func _play_sfx(sfx_name: String) -> void:
 	if root and root.get("audio_manager") != null:
 		root.audio_manager.play_sound(sfx_name)
 
+func _update_adaptive_battle_music() -> void:
+	var root = Engine.get_main_loop().current_scene
+	if root and root.get("audio_manager") != null and root.audio_manager.has_method("set_battle_music_state"):
+		root.audio_manager.set_battle_music_state(_battle_music_state())
+
+func _stop_battle_music() -> void:
+	var root = Engine.get_main_loop().current_scene
+	if root and root.get("audio_manager") != null and root.audio_manager.has_method("stop_battle_music"):
+		root.audio_manager.stop_battle_music()
+
+func _battle_music_state() -> Dictionary:
+	if game_over or battle_finished:
+		return {"mode": "base"}
+	var player_health := int(player.get("health", 0))
+	var player_max_health: int = maxi(1, int(player.get("max_health", player_health)))
+	var opponent_health := int(opponent.get("health", 0))
+	var opponent_max_health: int = maxi(1, int(opponent.get("max_health", opponent_health)))
+	var player_low_hp := player_health <= maxi(5, int(ceil(float(player_max_health) * 0.3)))
+	var enemy_low_hp := opponent_health <= maxi(3, int(ceil(float(opponent_max_health) * 0.25)))
+	var can_win_now := _has_immediate_hero_lethal()
+	var incoming_damage := _incoming_enemy_attack_damage()
+	var pressure := current_player == "opponent" or incoming_damage >= maxi(3, int(ceil(float(player_health) * 0.45))) or battle_tier == "boss"
+	var mode := "base"
+	if player_low_hp:
+		mode = "low_hp"
+	elif can_win_now or enemy_low_hp:
+		mode = "lethal"
+	elif pressure:
+		mode = "tension"
+	return {
+		"mode": mode,
+		"player_low_hp": player_low_hp,
+		"enemy_low_hp": enemy_low_hp,
+		"lethal": can_win_now,
+		"incoming_damage": incoming_damage,
+		"boss": battle_tier == "boss",
+	}
+
+func _has_immediate_hero_lethal() -> bool:
+	if _enemy_vanguard_blocks_hero():
+		return false
+	if String(_recommended_action_state().get("outcome", "")) == "victory":
+		return true
+	for unit in player.get("field", []):
+		if not bool(Dictionary(unit).get("can_attack", false)):
+			continue
+		if int(opponent.get("health", 0)) <= _predict_hero_attack_damage(Dictionary(unit), player, false):
+			return true
+	for card in player.get("hand", []):
+		var card_dict: Dictionary = card
+		if not _can_play_card(player, card_dict, "player"):
+			continue
+		if _direct_damage_preview(card_dict) >= int(opponent.get("health", 0)):
+			return true
+	return false
+
+func _incoming_enemy_attack_damage() -> int:
+	var total := 0
+	for unit in opponent.get("field", []):
+		var unit_dict: Dictionary = unit
+		if bool(unit_dict.get("can_attack", false)) or current_player == "opponent":
+			total += maxi(0, int(unit_dict.get("attack", 0)))
+	return total
+
 func _apply_damage_juice(old_p_hp: int, old_o_hp: int) -> void:
 	if int(player.health) < old_p_hp:
 		_flash_and_shake(player_info, Color(1.0, 0.2, 0.2, 1.0))
@@ -4902,13 +5077,15 @@ func _apply_damage_juice(old_p_hp: int, old_o_hp: int) -> void:
 		_flash_and_shake(enemy_hero_hp_label, Color(0.2, 1.0, 0.2, 1.0))
 		_play_sfx("heal")
 
-func _flash_and_shake(node: Control, color: Color) -> void:
-	if not is_instance_valid(node): return
-	var tween = node.create_tween()
-	var orig_pos = node.position
-	var orig_modulate = node.modulate
-	node.modulate = color
-	tween.tween_property(node, "modulate", orig_modulate, 0.3)
+func _flash_and_shake(node, color: Color) -> void:
+	if node == null or not is_instance_valid(node) or not (node is Control):
+		return
+	var control := node as Control
+	var tween = control.create_tween()
+	var orig_pos = control.position
+	var orig_modulate = control.modulate
+	control.modulate = color
+	tween.tween_property(control, "modulate", orig_modulate, 0.3)
 	for i in range(4):
-		tween.parallel().tween_property(node, "position", orig_pos + Vector2(randf_range(-8, 8), randf_range(-8, 8)), 0.05)
-	tween.tween_property(node, "position", orig_pos, 0.05)
+		tween.parallel().tween_property(control, "position", orig_pos + Vector2(randf_range(-8, 8), randf_range(-8, 8)), 0.05)
+	tween.tween_property(control, "position", orig_pos, 0.05)

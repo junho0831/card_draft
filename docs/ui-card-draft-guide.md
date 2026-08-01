@@ -36,7 +36,8 @@ Card Draft UI의 목표는 플레이어가 매 화면에서 세 가지를 바로
 - 전장 행: `HBoxContainer`
 - 손패: `Control` 기반 고정 슬롯 수동 배치
 - 카드 내부 텍스트 스타일: `style_card_title()`, `style_card_rules()`
-- 효과음: `src/services/audio_manager.gd` + `assets/audio/*.wav`
+- 효과음/BGM: `src/services/audio_manager.gd` + `assets/audio/*.wav`
+- 사운드 제작 원본: `assets/audio/source`
 
 현재 구현에서 잘 쓰고 있는 부분:
 
@@ -47,6 +48,7 @@ Card Draft UI의 목표는 플레이어가 매 화면에서 세 가지를 바로
 - 카드 텍스트는 그냥 Label 한 장으로 끝내지 않고 `이름`, `핵심 효과`, `원문 보조 설명`, `상태 바`로 나눈다.
 - 손패 카드는 `_hand_slot`으로 위치를 유지하고, 첫 5장은 교차 슬롯에 넓게 배치해 카드를 낸 뒤에도 남은 카드가 움직이지 않는다.
 - 직접 제작 효과음이 버튼/카드/전투 결과별로 구분되어 있다.
+- 전투 BGM은 기본/압박/킬각/위험 상황에 따라 낮게 깔리는 레이어가 바뀐다.
 
 현재 아직 부족한 부분:
 
@@ -59,7 +61,7 @@ Card Draft UI의 목표는 플레이어가 매 화면에서 세 가지를 바로
 2. hover 시 `scale`, `y offset`, `rotation reset`, `z_index`를 지금보다 더 명확한 피드백으로 다듬는다.
 3. 드래그 중에는 가장 가까운 슬롯 또는 타깃을 하이라이트한다.
 4. 모바일에서는 고정 위치 가로 스와이프를 기본으로 사용하고, 중앙 스냅과 탭 확대를 추가 검증한다.
-5. 효과음은 새 연출이 추가될 때마다 `AudioManager`에 합성식을 추가하고, `godot4 --headless --path . -s res://tools/generate_game_sfx.gd`로 `assets/audio` WAV를 재생성한다.
+5. 효과음은 먼저 `assets/audio/source/sfx_palette.json`의 팔레트 기준으로 설계한다. 샘플 기반 제작은 `python3 tools/build_authored_sfx.py`로 `assets/audio/*.wav`를 export하고, 없을 때만 `AudioManager` 합성식과 `godot --headless --path . -s res://tools/generate_game_sfx.gd`를 fallback 생성용으로 사용한다.
 
 현재 시각 언어는 현대적인 다크 TCG다. 판타지 정체성은 카드 일러스트, 종족 테두리, 전투 효과가 담당한다. 메뉴와 조작 UI는 흑연색 배경, 중립 패널, 얇은 상태색, 대칭 모서리를 사용하고 석재/양피지/금장/룬 프레임은 사용하지 않는다.
 

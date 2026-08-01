@@ -27,7 +27,7 @@ tests/godot/    기본 회귀와 선택형 화면 검증
 - `src/battle/battle_combo_finisher.gd`: 빌드 3연계 피니시
 - `src/battle/battle_objective_service.gd`: 전투당 도전
 - `src/services/relic_service.gd`: 유물 데이터와 전투 훅
-- `src/services/audio_manager.gd`: WAV 로드, fallback 합성, 재생 우선순위
+- `src/services/audio_manager.gd`: WAV 로드, fallback 합성, SFX/BGM 재생 우선순위
 - `src/ui/screens/battle_screen.gd`: 전투 상태 연결과 표시
 - `src/ui/ui_factory.gd`: 공통 UI 생성 진입점
 - `src/ui/styles/ui_tokens.gd`: 간격, 크기, 상태색
@@ -41,6 +41,8 @@ tests/godot/    기본 회귀와 선택형 화면 검증
 - 런 저장: `user://run_state.json`
 - 설정·메타·컬렉션: `user://meta_profile.json`
 - 효과음: `assets/audio/*.wav`
+- 전투 BGM: `battle_base`, `battle_tension`, `battle_lethal`, `battle_low_hp`
+- 사운드 원본 제작 기준: `assets/audio/source/README.md`, `assets/audio/source/sfx_palette.json`
 
 카드·유물 JSON schema는 저장 호환성을 위해 임의로 변경하지 않는다. 내부 `중립` 값은 유지하고 UI에서만 `공용`으로 변환한다.
 
@@ -68,9 +70,13 @@ tests/godot/    기본 회귀와 선택형 화면 검증
 
 ## 오디오와 효과
 
-- `tools/generate_game_sfx.gd`가 44.1kHz 16-bit mono WAV를 생성한다.
+- `tools/build_authored_sfx.py`가 `assets/audio/source/raw`의 CC0 원본 레이어로 런타임 WAV를 제작한다.
+- `tools/generate_game_sfx.gd`는 샘플 원본이 없는 사운드의 fallback WAV를 생성한다.
+- `assets/audio/source`는 직접 제작·샘플 기반 사운드의 원본 관리 폴더다. 런타임은 이 폴더를 읽지 않고 최종 `assets/audio/*.wav`만 읽는다.
 - 파일이 없으면 `AudioManager`가 같은 계열의 fallback 스트림을 만든다.
 - 모든 효과음은 리미터가 있는 `SFX` 버스로 출력한다.
+- 전투 BGM은 `BGM` 버스에서 기본/압박/킬각/위험 레이어를 크로스페이드한다.
+- 전투 화면은 체력 30% 이하, 적 체력 낮음, 즉시 승리 가능, 보스/큰 incoming damage 기준으로 BGM 상태를 보낸다.
 - 승리·피니시·강타·필살기는 UI 소리보다 우선하며 재생 중 click/hover를 낮춘다.
 - 강한 화면 효과는 연계, 처치, 강타, 승리에 집중한다.
 

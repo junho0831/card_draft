@@ -104,6 +104,30 @@ battle -> event/shop -> battle -> rest/shop -> boss
 
 추천 이유는 `바로 활성`, `연계 카드 확보`, `활성까지 N`, `즉시 전투 도움`처럼 짧게 표시한다.
 
+## 사운드 방향
+
+전투 사운드는 `도파민 보상`과 `판세 인지`가 목적이다. 버튼 클릭 같은 UI 소리는 작고 짧게 두고, 카드 사용·소환·타격·필살기·승리 순간에 가장 큰 에너지를 준다.
+
+효과음은 ElevenLabs Text to Sound Effects로 만든 30개 런타임 WAV를 우선 사용한다. 원본 MP3는 `assets/audio/source/raw/elevenlabs`, 게임 로드 파일은 `assets/audio/*.wav`에 둔다. `AudioManager.ELEVENLABS_SFX_KEYS`에 포함된 키는 테스트에서 원본과 WAV 로드 여부를 검증한다.
+
+핵심 매핑:
+
+- 카드 조작: `play`, `draw`
+- 종족 공격: `hit_human`, `hit_elf`, `hit_undead`, `hit_common`
+- 종족 소환: `summon_human`, `summon_elf`, `summon_undead`, `summon_common`
+- 주문/장비: `spell_*`, `equipment_*`
+- 전투 보상감: `combo`, `counter`, `finisher`, `impact_heavy`, `reward`, `victory_burst`
+- 세력 필살기: `power_human`, `power_elf`, `power_undead`
+
+전투 BGM은 4개 레이어를 상황에 따라 크로스페이드한다.
+
+- `battle_base`: 일반 전투
+- `battle_tension`: 적 턴, 보스, 큰 incoming damage
+- `battle_lethal`: 적 체력 낮음 또는 즉시 승리 가능
+- `battle_low_hp`: 플레이어 체력 30% 이하
+
+상황 BGM은 전투 규칙을 바꾸지 않고, 플레이어가 `지금 위험한지`, `지금 끝낼 수 있는지`를 소리로 먼저 느끼게 만드는 보조 장치다.
+
 ## 노드와 메타
 
 - 이벤트: 체력·골드 교환, 카드/유물 획득, 강화, 제거
@@ -128,5 +152,5 @@ battle -> event/shop -> battle -> rest/shop -> boss
 
 1. 손패 드래그와 타깃 프리뷰
 2. 짧은 런 기준 카드·유물·보스 수치 조정
-3. 전투 사운드와 연출의 최종 볼륨 조정
+3. 전투 사운드와 연출의 최종 볼륨/타이밍 조정
 4. `battle_screen.gd`의 진행 로직과 표시 로직 분리

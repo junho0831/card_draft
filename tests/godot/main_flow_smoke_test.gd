@@ -49,9 +49,18 @@ func _test_boots_to_main_menu(main: Node) -> void:
 	_assert_eq(int(main.player_profile.get("battle_tutorial_stage", -1)), 0, "battle tutorial starts at stage 0")
 	_assert_true(main.audio_manager.streams.has("impact_heavy"), "audio manager provides heavy impact sound")
 	_assert_true(main.audio_manager.streams.has("victory_burst"), "audio manager provides victory burst sound")
+	for sound_name in ["summon_human", "summon_elf", "summon_undead", "summon_common", "hit_human", "hit_elf", "hit_undead", "hit_common", "spell_fire", "spell_draw", "spell_death", "spell_buff", "spell_summon", "spell_low_hp", "spell_common", "equipment_human", "equipment_elf", "equipment_undead", "equipment_common"]:
+		_assert_true(main.audio_manager.streams.has(sound_name), "audio manager provides card identity sound: %s" % sound_name)
+	for sound_name in main.audio_manager.authored_sfx_keys():
+		_assert_true(FileAccess.file_exists("res://assets/audio/%s.wav" % sound_name), "runtime ElevenLabs SFX exists: %s" % sound_name)
+		_assert_true(FileAccess.file_exists("res://assets/audio/source/raw/elevenlabs/%s.mp3" % sound_name), "source ElevenLabs SFX exists: %s" % sound_name)
+		_assert_true(main.audio_manager.has_authored_sfx(sound_name), "audio manager loads ElevenLabs SFX: %s" % sound_name)
+	for music_name in ["battle_base", "battle_tension", "battle_lethal", "battle_low_hp"]:
+		_assert_true(main.audio_manager.music_streams.has(music_name), "audio manager provides adaptive battle music: %s" % music_name)
 	var sfx_bus := AudioServer.get_bus_index(&"SFX")
 	_assert_true(sfx_bus >= 0, "audio manager creates a dedicated SFX bus")
 	_assert_true(sfx_bus >= 0 and AudioServer.get_bus_effect_count(sfx_bus) > 0, "SFX bus includes a limiter")
+	_assert_true(AudioServer.get_bus_index(&"BGM") >= 0, "audio manager creates a dedicated BGM bus")
 
 func _test_content_scaling(main: Node) -> void:
 	var original_scale_mode := String(main.player_profile["settings"].get("ui_scale_mode", "auto"))
@@ -204,6 +213,13 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	battle.battle_state["cards_played_this_turn"] = 0
 	var recommended: Dictionary = battle._recommended_action_state()
 	_assert_eq(String(recommended.get("kind", "")), "unit_attack_direct", "recommended action prioritizes attack over another card play")
+	battle.player["health"] = 10
+	battle.opponent["field"][0]["attack"] = 5
+	battle.opponent["field"][0]["can_attack"] = true
+	_assert_eq(String(battle._battle_music_state().get("mode", "")), "tension", "battle music enters tension when enemy damage threatens a small hero")
+	battle.player["health"] = 26
+	battle.opponent["field"][0]["attack"] = 1
+	battle.opponent["field"][0]["can_attack"] = false
 
 	battle.opponent["field"] = []
 	battle.selected_attacker = 0
@@ -218,10 +234,14 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	battle._refresh_action_buttons()
 	var lethal_attack: Dictionary = battle._recommended_action_state()
 	_assert_eq(String(lethal_attack.get("outcome", "")), "victory", "lethal hero attack exposes a victory outcome")
+	_assert_eq(String(battle._battle_music_state().get("mode", "")), "lethal", "battle music enters lethal when the player can win now")
 	_assert_true(String(battle.recommended_action_button.text).contains("승리"), "lethal primary action states that it wins")
 	_assert_true(String(battle.opponent_hero_target_badge_label.text).contains("승리"), "lethal enemy hero target states that clicking wins")
 	battle.selected_attacker = -1
 	battle._refresh_action_buttons()
+	battle.player["health"] = 4
+	_assert_eq(String(battle._battle_music_state().get("mode", "")), "low_hp", "battle music prioritizes player low hp over kill pressure")
+	battle.player["health"] = 26
 
 	var original_node_index := int(main.current_run.get("current_node_index", 0))
 	main.current_run["current_node_index"] = 2
@@ -229,12 +249,46 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	battle._refresh_ui()
 	_assert_eq(String(battle._battle_guidance_mode()), "guided", "second battle changes recommendation to guided manual targeting")
 	_assert_true(String(battle.recommended_action_button.text).begins_with("1단계"), "guided recommendation names the attacker-selection step")
+	_assert_true(String(battle._manual_battle_guidance_text(battle._recommended_action_state())).contains("자동"), "guided attack hint explains that direct enemy clicks auto-pick the attacker")
+	_assert_eq(String(battle._card_play_sfx({"type": "unit", "race": "인간", "build_tags": ["summon"]})), "summon_human", "human unit cards use human summon audio")
+	_assert_eq(String(battle._card_play_sfx({"type": "unit", "race": "엘프", "build_tags": ["draw"]})), "summon_elf", "elf unit cards use elf summon audio")
+	_assert_eq(String(battle._card_play_sfx({"type": "spell", "race": "언데드", "build_tags": ["death"]})), "spell_death", "death-tag spells use death audio")
+	_assert_eq(String(battle._card_play_sfx({"type": "equipment", "race": "중립", "build_tags": ["buff"]})), "equipment_common", "common equipment cards use common equipment audio")
+	_assert_eq(String(battle._attack_impact_sfx({"race": "엘프"}, 2, false)), "hit_elf", "elf attackers use elf hit audio")
+	_assert_true(battle._card_exhausts_after_play(main.card_db.get_card("world_tree_ritual")), "pure self-setup ritual spells exhaust instead of cycling forever")
+	_assert_true(not battle._card_exhausts_after_play(main.card_db.get_card("nature_communion")), "ritual spells with card draw keep normal discard cycling")
+	_assert_true(not battle._card_exhausts_after_play({"id": "new_setup_attack", "type": "spell", "text": "효과", "build_tags": ["buff"]}), "non-ritual setup spells are not exhausted by id or tag alone")
 	var guided_enemy_health := int(battle.opponent.get("health", 0))
 	battle._on_recommended_action_pressed()
 	_assert_eq(int(battle.selected_attacker), 0, "guided recommendation selects only the suggested attacker")
 	_assert_eq(int(battle.opponent.get("health", 0)), guided_enemy_health, "guided recommendation does not execute the final attack")
 	_assert_true(String(battle.recommended_action_button.text).begins_with("2단계"), "guided recommendation advances to direct target selection")
 	_assert_true(bool(battle.battle_focus_panel.visible), "guided attack displays the source-to-target route strip")
+	var auto_test_player: Dictionary = battle.player.duplicate(true)
+	var auto_test_opponent: Dictionary = battle.opponent.duplicate(true)
+	battle.selected_attacker = -1
+	battle.opponent["field"] = [_power_test_unit("자동 대상", 1, 1)]
+	var auto_enemy_health := int(Dictionary(battle.opponent["field"][0]).get("health", 0))
+	await battle._on_opponent_unit_pressed(0)
+	_assert_eq(int(battle.opponent["field"].size()), 0, "clicking an enemy card with no attacker selected auto-executes the best player attack")
+	_assert_eq(int(battle.selected_attacker), -1, "auto enemy attack clears attacker selection after resolving")
+	_assert_true(auto_enemy_health > 0, "enemy test target starts alive")
+	battle.opponent["field"] = []
+	battle.opponent["health"] = 5
+	battle.player["field"] = [_power_test_unit("자동 영웅 공격자", 2, 3)]
+	battle.player["field"][0]["can_attack"] = true
+	battle.selected_attacker = -1
+	battle._refresh_ui()
+	await battle._attack_opponent_hero()
+	_assert_eq(int(battle.opponent.get("health", 0)), 3, "clicking enemy hero with no attacker selected auto-selects and attacks the hero")
+	_assert_eq(int(battle.selected_attacker), -1, "auto hero attack also clears attacker selection")
+	battle.player = auto_test_player.duplicate(true)
+	battle.opponent = auto_test_opponent.duplicate(true)
+	battle.selected_attacker = -1
+	battle.game_over = false
+	battle.battle_finished = false
+	battle.input_locked = false
+	battle._refresh_ui()
 
 	battle.selected_attacker = -1
 	main.current_run["current_node_index"] = 4
