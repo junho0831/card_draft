@@ -4082,10 +4082,12 @@ func _finish_battle_victory() -> void:
 	main.current_run["active_enemy"] = {}
 	main.current_run["battle_snapshot"] = {}
 	if battle_tier == "boss":
-		main.current_run["pending_card_reward"] = {}
+		var active_enemy: Dictionary = battle_state.get("active_enemy", {})
+		var boss_id: String = String(active_enemy.get("id", ""))
+		if boss_id.is_empty() or main.card_db.get_card(boss_id).is_empty():
+			boss_id = "border_guardian" # fallback
+		reward["choices"] = [boss_id]
 		main.set_meta("suppress_next_result_victory_audio", true)
-		main.run_flow.advance_from_current_node()
-		return
 	main.current_run["pending_card_reward"] = reward
 	_save_run()
 	_show_card_reward()

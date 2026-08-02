@@ -26,7 +26,7 @@ func run() -> Dictionary:
 	_test_build_delta_summary(main)
 	_test_race_reward_affinity(main)
 	_test_reward_claim_advances_node(main)
-	_test_boss_victory_finishes_run_without_reward_stop(main)
+	_test_boss_victory_provides_boss_card_reward(main)
 	_test_shop_leave_advances_node(main)
 	_test_rest_complete_advances_node(main)
 	_test_event_complete_advances_node(main)
@@ -576,7 +576,7 @@ func _test_race_reward_affinity(main: Node) -> void:
 		_assert_eq(main.ui.card_race_display_name(affinity_card), "공용", "neutral data is presented as common to players")
 	main.current_run = original_run
 
-func _test_boss_victory_finishes_run_without_reward_stop(main: Node) -> void:
+func _test_boss_victory_provides_boss_card_reward(main: Node) -> void:
 	var acts: Array[Dictionary] = [{
 		"id": 1,
 		"name": "보스 테스트",
@@ -591,9 +591,11 @@ func _test_boss_victory_finishes_run_without_reward_stop(main: Node) -> void:
 	main.battle_screen.battle_tier = "boss"
 	main.battle_screen.player = {"health": 42}
 	main.battle_screen._finish_battle_victory()
-	_assert_eq(String(main.active_screen), "run_result", "boss victory goes directly to run result")
-	_assert_eq(String(main.current_run.get("result", "")), "win", "boss victory marks run as won")
-	_assert_true(Dictionary(main.current_run.get("pending_card_reward", {})).is_empty(), "boss victory skips pending card reward stop")
+	_assert_eq(String(main.active_screen), "reward", "boss victory redirects to card reward selection")
+	var pending_reward: Dictionary = main.current_run.get("pending_card_reward", {})
+	_assert_true(not pending_reward.is_empty(), "boss victory stages pending card reward")
+	var choices: Array = pending_reward.get("choices", [])
+	_assert_true(choices.size() > 0, "boss card is provided in reward choices")
 
 func _test_shop_leave_advances_node(main: Node) -> void:
 	var acts: Array[Dictionary] = _flow_test_acts()

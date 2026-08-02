@@ -651,5 +651,56 @@
         "build_tags": [
             "summon"
         ]
+    },
+    {
+        "id": "border_guardian",
+        "name": "국경 수호자",
+        "type": "unit",
+        "race": "인간",
+        "attr": "대지",
+        "cost": 3,
+        "attack": 3,
+        "health": 5,
+        "art": 4,
+        "art_id": "flame_swordsman",
+        "text": "소환 시 모든 아군 유닛 체력 +1 및 공격력 +1",
+        "build_tags": [
+            "buff",
+            "summon"
+        ]
+    },
+    {
+        "id": "undead_king",
+        "name": "언데드 왕",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "어둠",
+        "cost": 4,
+        "attack": 4,
+        "health": 4,
+        "art": 5,
+        "art_id": "bone_soldier",
+        "text": "소환 시 해골 병사 2장을 소환하고, 아군 유닛 사망 시 적 영웅에게 피해 1",
+        "build_tags": [
+            "summon",
+            "death"
+        ]
+    },
+    {
+        "id": "necro_lord",
+        "name": "강령술사 군주",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "어둠",
+        "cost": 3,
+        "attack": 2,
+        "health": 4,
+        "art": 6,
+        "art_id": "bone_soldier",
+        "text": "소환 시 적 영웅에게 저주 2스택 부여 및 카드 1장 드로우",
+        "build_tags": [
+            "death",
+            "draw"
+        ]
     }
 ]
