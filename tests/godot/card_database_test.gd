@@ -1,7 +1,9 @@
 extends RefCounted
 
 const CardDatabaseScript := preload("res://src/services/card_database.gd")
+const CardLoreServiceScript := preload("res://src/services/card_lore_service.gd")
 const CARD_DATA_PATH := "res://data/cards.json"
+const CARD_LORE_DATA_PATH := "res://data/card_lore.json"
 
 var _failures: Array[String] = []
 var _count := 0
@@ -13,6 +15,7 @@ func run() -> Dictionary:
 	_assert_true(card_db.load_cards(CARD_DATA_PATH), "card database loads sample cards")
 	if _failures.is_empty():
 		_test_build_tags_loaded(card_db)
+		_test_all_cards_have_collection_lore(card_db)
 		_test_signature_equipment_cards(card_db)
 		_test_card_art_ids_have_files(card_db)
 		_test_build_upgraded_unit(card_db)
@@ -29,6 +32,19 @@ func run() -> Dictionary:
 func _test_build_tags_loaded(card_db) -> void:
 	var card: Dictionary = card_db.get_card("fireball")
 	_assert_true((card.get("build_tags", []) as Array).has("fire"), "fireball has fire build tag")
+
+func _test_all_cards_have_collection_lore(card_db) -> void:
+	var lore_service = CardLoreServiceScript.new()
+	_assert_true(lore_service.load_lore(CARD_LORE_DATA_PATH), "card lore service loads collection lore")
+	var missing_lore_ids: Array[String] = lore_service.missing_lore_ids(card_db.card_defs)
+	_assert_true(missing_lore_ids.is_empty(), "all cards have collection lore")
+	for card_data in card_db.card_defs:
+		var card: Dictionary = card_data
+		var card_id := String(card.get("id", ""))
+		var lore: Dictionary = lore_service.lore_for(card_id)
+		_assert_true(not String(lore.get("story", "")).strip_edges().is_empty(), "%s has story lore" % card_id)
+		_assert_true(not String(lore.get("role", "")).strip_edges().is_empty(), "%s has role lore" % card_id)
+		_assert_true(not String(lore.get("hook", "")).strip_edges().is_empty(), "%s has build hook lore" % card_id)
 
 func _test_signature_equipment_cards(card_db) -> void:
 	var expected_tags := {

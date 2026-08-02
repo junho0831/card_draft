@@ -6,10 +6,12 @@ const START_HAND := 4
 const PROFILE_PATH := "user://meta_profile.json"
 const RUN_PATH := "user://run_state.json"
 const CARD_DATA_PATH := "res://data/cards.json"
+const CARD_LORE_DATA_PATH := "res://data/card_lore.json"
 const CARD_ART_SHEET := preload("res://assets/card_art/season1_sample_sheet.png")
 const BATTLE_CUTSCENE_SCENE := preload("res://src/battle/BattleCutscene.tscn")
 const BattleCardEffectsScript := preload("res://src/battle/battle_card_effects.gd")
 const CardDatabaseScript := preload("res://src/services/card_database.gd")
+const CardLoreServiceScript := preload("res://src/services/card_lore_service.gd")
 const DeckServiceScript := preload("res://src/services/deck_service.gd")
 const EnemyServiceScript := preload("res://src/services/enemy_service.gd")
 const EventRunServiceScript := preload("res://src/services/event_run_service.gd")
@@ -37,6 +39,7 @@ const BASE_VIEWPORT_SIZE := Vector2(1280.0, 720.0)
 const MAX_AUTO_UI_SCALE := 1.3
 
 var card_db
+var card_lore_service
 var deck_service
 var enemy_service
 var event_service
@@ -80,6 +83,7 @@ func _ready() -> void:
 	_configure_runtime_performance()
 	_configure_content_scale()
 	card_db = CardDatabaseScript.new()
+	card_lore_service = CardLoreServiceScript.new()
 	deck_service = DeckServiceScript.new()
 	enemy_service = EnemyServiceScript.new()
 	event_service = EventServiceScript.new()
@@ -101,6 +105,9 @@ func _ready() -> void:
 	_build_base_ui()
 	if not card_db.load_cards(CARD_DATA_PATH):
 		_show_error_screen("카드 데이터 로드 실패")
+		return
+	if not card_lore_service.load_lore(CARD_LORE_DATA_PATH):
+		_show_error_screen("카드 스토리 데이터 로드 실패")
 		return
 	if not event_service.load_events() or not enemy_service.load_enemies() or not relic_service.load_relics():
 		_show_error_screen("런 데이터 로드 실패")

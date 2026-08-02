@@ -62,6 +62,24 @@ func _make_collection_card(card: Dictionary, compact: bool) -> Control:
 		"dim_art": owned <= 0,
 		"include_stats": true,
 		"summary_text": main._card_effect_summary(card),
-		"detail_text": String(card.get("text", "")),
+		"detail_text": _collection_lore_text(card),
+		"detail_font": 10 if compact else 11,
+		"rules_min_height": 78 if compact else 92,
 	}))
 	return panel
+
+func _collection_lore_text(card: Dictionary) -> String:
+	var lore: Dictionary = main.card_lore_service.lore_for(String(card.get("id", "")))
+	var story := String(lore.get("story", "")).strip_edges()
+	var role := String(lore.get("role", "")).strip_edges()
+	var hook := String(lore.get("hook", "")).strip_edges()
+	var lines: Array[String] = []
+	if not story.is_empty():
+		lines.append("스토리: %s" % story)
+	if not role.is_empty():
+		lines.append("운용: %s" % role)
+	if not hook.is_empty():
+		lines.append("빌드: %s" % hook)
+	if lines.is_empty():
+		return String(card.get("text", ""))
+	return "\n".join(lines)
