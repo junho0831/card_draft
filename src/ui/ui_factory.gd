@@ -354,14 +354,16 @@ func make_surface_panel(bg_color: Color, border_color: Color = Color(0.32, 0.35,
 	var surface_base := Color(THEME_PANEL.r, THEME_PANEL.g, THEME_PANEL.b, bg_color.a)
 	var surface_color := surface_base.lerp(bg_color, 0.24)
 	var surface_border := THEME_BORDER.lerp(border_color, 0.34)
-	var style := make_style_box(surface_color, surface_border, border_width, min(radius, 8))
-	style.content_margin_left = margins
-	style.content_margin_top = margins
-	style.content_margin_right = margins
-	style.content_margin_bottom = margins
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.2)
-	style.shadow_size = 3
-	style.shadow_offset = Vector2(0, 1)
+	var style: StyleBox = UI_STYLES.make_textured_panel_style(surface_color, surface_border, margins, border_color.r > border_color.b + 0.12) if radius >= 8 and margins >= 10 else make_style_box(surface_color, surface_border, border_width, min(radius, 8))
+	if style is StyleBoxFlat:
+		var flat_style := style as StyleBoxFlat
+		flat_style.content_margin_left = margins
+		flat_style.content_margin_top = margins
+		flat_style.content_margin_right = margins
+		flat_style.content_margin_bottom = margins
+		flat_style.shadow_color = Color(0.0, 0.0, 0.0, 0.2)
+		flat_style.shadow_size = 3
+		flat_style.shadow_offset = Vector2(0, 1)
 	panel.add_theme_stylebox_override("panel", style)
 	return panel
 

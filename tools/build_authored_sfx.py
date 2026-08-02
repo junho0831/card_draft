@@ -46,9 +46,17 @@ def layer(
 
 
 RECIPES: dict[str, list[dict]] = {
+    "click": [
+        layer("metalClick.ogg", 0.52, 0, 0.12, 1.08, 420, 13000),
+        layer("impactWood_medium_003.ogg", 0.18, 10, 0.12, 1.35, 260, 9000),
+    ],
+    "hover": [
+        layer("metalClick.ogg", 0.18, 0, 0.08, 1.45, 800, 14000),
+    ],
     "hit_human": [
-        layer("impactMetal_medium_001.ogg", 0.86, 0, 0.28, 1.02, 150, 10000),
-        layer("knifeSlice.ogg", 0.42, 18, 0.24, 1.12, 220, 12000),
+        layer("drawKnife1.ogg", 0.48, 0, 0.24, 1.1, 260, 12000),
+        layer("impactMetal_medium_001.ogg", 0.72, 18, 0.28, 0.98, 150, 10000),
+        layer("impactPlate_medium_000.ogg", 0.34, 36, 0.22, 0.92, 140, 8500),
     ],
     "hit_elf": [
         layer("knifeSlice.ogg", 0.58, 0, 0.24, 1.22, 260, 13000),
@@ -69,9 +77,16 @@ RECIPES: dict[str, list[dict]] = {
         layer("metalClick.ogg", 0.46, 20, 0.24, 1.18, 260, 12000),
     ],
     "impact_heavy": [
-        layer("impactPlate_heavy_002.ogg", 0.74, 0, 0.42, 0.92, 120, 8500),
-        layer("impactMetal_heavy_000.ogg", 0.7, 18, 0.32, 0.95, 150, 10000),
-        layer("impactWood_heavy_001.ogg", 0.36, 36, 0.36, 0.86, 110, 6500),
+        layer("impactMetal_heavy_000.ogg", 0.76, 0, 0.36, 0.88, 115, 9000),
+        layer("impactPlate_heavy_002.ogg", 0.58, 28, 0.34, 0.82, 120, 8500),
+        layer("impactBell_heavy_001.ogg", 0.25, 70, 0.68, 0.78, 80, 6500),
+        layer("impactWood_heavy_001.ogg", 0.22, 86, 0.28, 0.72, 95, 5200),
+    ],
+    "direct_attack": [
+        layer("drawKnife3.ogg", 0.52, 0, 0.24, 1.16, 280, 13000),
+        layer("knifeSlice.ogg", 0.42, 34, 0.22, 1.18, 320, 13000),
+        layer("impactMetal_medium_001.ogg", 0.54, 86, 0.26, 0.96, 150, 10000),
+        layer("impactBell_heavy_002.ogg", 0.16, 116, 0.44, 0.9, 120, 7000),
     ],
     "summon_human": [
         layer("bookPlace2.ogg", 0.56, 0, 0.34, 0.96, 120, 8000),
@@ -142,12 +157,14 @@ RECIPES: dict[str, list[dict]] = {
         layer("handleSmallLeather.ogg", 0.38, 18, 0.32, 1.0, 160, 8500),
     ],
     "play": [
-        layer("bookPlace2.ogg", 0.48, 0, 0.28, 1.0, 140, 8500),
-        layer("cloth2.ogg", 0.22, 18, 0.26, 1.0, 180, 7500),
+        layer("bookPlace2.ogg", 0.42, 0, 0.26, 0.92, 120, 7200),
+        layer("impactWood_medium_003.ogg", 0.28, 44, 0.18, 1.0, 150, 6500),
+        layer("metalClick.ogg", 0.18, 72, 0.16, 1.18, 340, 11000),
     ],
     "draw": [
-        layer("bookFlip1.ogg", 0.48, 0, 0.34, 1.04, 160, 10000),
-        layer("bookFlip2.ogg", 0.3, 52, 0.28, 1.1, 170, 10000),
+        layer("bookFlip1.ogg", 0.36, 0, 0.28, 1.08, 210, 11000),
+        layer("bookFlip2.ogg", 0.24, 44, 0.24, 1.16, 220, 11000),
+        layer("cloth2.ogg", 0.12, 18, 0.22, 1.05, 280, 9000),
     ],
     "summon": [
         layer("bookPlace2.ogg", 0.42, 0, 0.32, 1.0, 140, 8500),
@@ -171,9 +188,10 @@ RECIPES: dict[str, list[dict]] = {
         layer("knifeSlice.ogg", 0.28, 36, 0.24, 1.18, 220, 12000),
     ],
     "victory_burst": [
-        layer("impactBell_heavy_001.ogg", 0.52, 0, 1.05, 1.08, 160, 11000),
-        layer("impactBell_heavy_002.ogg", 0.36, 180, 0.9, 1.24, 220, 12000),
-        layer("handleCoins.ogg", 0.28, 420, 0.55, 1.08, 180, 11000),
+        layer("impactBell_heavy_001.ogg", 0.46, 0, 0.9, 0.96, 130, 9500),
+        layer("impactPlate_heavy_002.ogg", 0.3, 120, 0.38, 0.9, 120, 8500),
+        layer("impactBell_heavy_002.ogg", 0.32, 230, 0.8, 1.14, 190, 11000),
+        layer("handleCoins.ogg", 0.24, 510, 0.48, 1.12, 240, 12000),
     ],
 }
 
@@ -205,24 +223,24 @@ def repeated(
 
 BGM_RECIPES: dict[str, list[dict]] = {
     "battle_base": [
-        *repeated("bookPlace2.ogg", 2000, 4, 0.16, 0, 0.28, 0.72, 80, 2500),
-        *repeated("cloth2.ogg", 1000, 8, 0.09, 250, 0.26, 0.82, 140, 4200),
-        *repeated("impactWood_medium_003.ogg", 4000, 2, 0.12, 950, 0.28, 0.62, 80, 2400),
+        *repeated("cloth2.ogg", 1600, 5, 0.055, 180, 0.24, 0.9, 220, 5200),
+        *repeated("bookFlip1.ogg", 3200, 3, 0.055, 620, 0.2, 0.84, 240, 5000),
+        *repeated("impactBell_heavy_002.ogg", 4000, 2, 0.07, 1300, 0.34, 0.62, 90, 2400),
     ],
     "battle_tension": [
-        *repeated("impactPlate_medium_000.ogg", 1000, 8, 0.18, 0, 0.24, 0.74, 90, 4200),
-        *repeated("metalLatch.ogg", 2000, 4, 0.13, 500, 0.22, 0.86, 130, 5200),
-        *repeated("clothBelt.ogg", 1000, 8, 0.09, 250, 0.24, 0.78, 100, 3600),
+        *repeated("metalLatch.ogg", 1800, 5, 0.095, 220, 0.2, 0.92, 170, 6200),
+        *repeated("impactPlate_medium_000.ogg", 2400, 4, 0.08, 720, 0.2, 0.78, 120, 3800),
+        *repeated("knifeSlice.ogg", 3200, 3, 0.06, 1120, 0.18, 1.12, 320, 8200),
     ],
     "battle_lethal": [
-        *repeated("impactBell_heavy_002.ogg", 2000, 4, 0.23, 0, 0.42, 1.05, 140, 6800),
-        *repeated("knifeSlice.ogg", 1000, 8, 0.12, 430, 0.2, 1.18, 240, 9000),
-        *repeated("impactMetal_light_003.ogg", 2000, 4, 0.14, 900, 0.2, 1.12, 170, 8200),
+        *repeated("impactBell_heavy_002.ogg", 2200, 4, 0.16, 0, 0.38, 0.98, 120, 6000),
+        *repeated("drawKnife1.ogg", 1400, 6, 0.08, 360, 0.16, 1.22, 340, 9000),
+        *repeated("impactMetal_light_003.ogg", 2800, 3, 0.085, 980, 0.18, 1.08, 200, 8200),
     ],
     "battle_low_hp": [
-        *repeated("impactWood_heavy_001.ogg", 1000, 8, 0.17, 0, 0.24, 0.58, 70, 2600),
-        *repeated("clothBelt.ogg", 1000, 8, 0.1, 210, 0.3, 0.66, 90, 3400),
-        *repeated("metalLatch.ogg", 2000, 4, 0.1, 520, 0.24, 0.72, 130, 5000),
+        *repeated("impactWood_heavy_001.ogg", 1600, 5, 0.11, 0, 0.2, 0.58, 80, 2400),
+        *repeated("clothBelt.ogg", 1600, 5, 0.07, 260, 0.24, 0.68, 130, 3600),
+        *repeated("metalLatch.ogg", 3200, 3, 0.075, 620, 0.22, 0.78, 160, 5200),
     ],
 }
 

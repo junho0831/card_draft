@@ -7,7 +7,7 @@ const HAND_SLOT_PREFERENCE = [1, 3, 5, 7, 9, 0, 2, 4, 6, 8]
 const START_HAND = 5
 const STARTING_MAX_MANA = 1
 const TURN_TIME_SECONDS = 35.0
-const BATTLE_MAX_CONTENT_WIDTH = 1320.0
+const BATTLE_MAX_CONTENT_WIDTH = 1440.0
 const BATTLE_ACTION_DOCK_WIDTH = 420.0
 const FIELD_OCCUPIED_SCALE = 1.06
 const GUIDANCE_MODE_AUTO = "auto"
@@ -1643,6 +1643,13 @@ func _hero_attack_target_badge_text() -> String:
 		if int(opponent.get("health", 0)) <= damage:
 			return "클릭하면 승리"
 		return "지금 클릭 · 피해 %d" % damage
+	if not _ready_player_attacker_indexes().is_empty() and not _is_player_input_locked():
+		var attacker_index := _recommended_ready_attacker_index()
+		if attacker_index >= 0 and attacker_index < player.field.size():
+			var damage := _predict_hero_attack_damage(Dictionary(player.field[attacker_index]), player, false)
+			if int(opponent.get("health", 0)) <= damage:
+				return "대충 클릭 · 자동 승리"
+			return "대충 클릭 · 자동 피해 %d" % damage
 	var recommended_state := _recommended_action_state()
 	if String(recommended_state.get("kind", "")) == "hero_attack_direct":
 		var attacker_index := int(recommended_state.get("attacker_index", -1))
@@ -3406,6 +3413,10 @@ func _show_direct_attack_target_hint() -> void:
 	_spawn_target_glow(opponent_hero_target, Color(1.0, 0.34, 0.26, 1.0), 0.9)
 
 
+func _can_click_enemy_hero_area() -> bool:
+	return current_player == "player" and not _is_player_input_locked() and not game_over and not battle_finished
+
+
 func _on_opponent_unit_pressed(index: int) -> void:
 	if input_locked or game_over or current_player != "player":
 		return
@@ -3598,12 +3609,12 @@ func _play_hero_attack_feedback(attacker_side: Dictionary, attacker_index: int, 
 	if not _is_battle_cutscene_enabled():
 		_show_damage_number(defender_node, damage)
 		_play_attack_impact_fx(attacker_node, defender_node, damage, false)
-		_play_sfx(_attack_impact_sfx(attacker_unit, damage, false))
+		_play_sfx(_hero_attack_sfx(attacker_unit, damage))
 		if not _should_skip_timed_battle_fx():
 			_spawn_impact_slash(defender_node, false)
 			_flash_target(defender_node, Color(1.0, 0.28, 0.22, 1.0), 0.22)
 		return
-	await _play_inline_attack_feedback(attacker_node, defender_node, damage, attacker_side == player, false, _attack_impact_sfx(attacker_unit, damage, false))
+	await _play_inline_attack_feedback(attacker_node, defender_node, damage, attacker_side == player, false, _hero_attack_sfx(attacker_unit, damage))
 
 func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control, damage: int, attacker_is_player: bool, counter: bool = false, sfx_name: String = "") -> void:
 	if attacker_node == null or defender_node == null:
@@ -3646,6 +3657,13 @@ func _attack_impact_sfx(attacker: Dictionary, damage: int, counter: bool) -> Str
 		return "counter"
 	if damage >= 4:
 		return "impact_heavy"
+	return "hit_%s" % _sfx_race_key(attacker)
+
+func _hero_attack_sfx(attacker: Dictionary, damage: int) -> String:
+	if damage >= 5:
+		return "impact_heavy"
+	if damage >= 2:
+		return "direct_attack"
 	return "hit_%s" % _sfx_race_key(attacker)
 
 func _play_attack_impact_fx(attacker: Control, defender: Control, damage: int, counter: bool) -> void:
@@ -4203,26 +4221,52 @@ func _configure_field_button(button: Button, unit: Dictionary, index: int, is_pl
 		else:
 			button.text = "적"
 
-func _make_empty_field_slot(compact: bool, is_next_summon_slot: bool = false) -> PanelContainer:
+func _make_empty_field_slot(compact: bool, is_next_summon_slot: bool = false, is_player_field: bool = true) -> Control:
 	var tight = _is_tight_battle_layout()
 	var portrait = _is_portrait_battle_layout()
 	var mobile = _is_mobile_battle_layout()
-	var placeholder = PanelContainer.new()
 	var slot_alpha := 0.5 if is_next_summon_slot else 0.2
 	var border_alpha := 0.66 if is_next_summon_slot else 0.22
-	placeholder.add_theme_stylebox_override("panel", _make_field_slot_style(Color(0.018, 0.025, 0.035, slot_alpha), Color(0.18, 0.3, 0.42, border_alpha), 1))
+	var placeholder: Control
+	if not is_player_field:
+		var button := Button.new()
+		button.text = ""
+		button.focus_mode = Control.FOCUS_NONE
+		button.disabled = not _can_click_enemy_hero_area()
+		button.pressed.connect(Callable(self, "_attack_opponent_hero"))
+		var enemy_border := Color(1.0, 0.3, 0.24, 0.62 if selected_attacker != -1 or not _ready_player_attacker_indexes().is_empty() else 0.28)
+		button.add_theme_stylebox_override("normal", _make_field_slot_style(Color(0.055, 0.018, 0.02, 0.26), enemy_border, 1))
+		button.add_theme_stylebox_override("hover", _make_field_slot_style(Color(0.09, 0.025, 0.028, 0.42), Color(1.0, 0.34, 0.26, 0.92), 2))
+		button.add_theme_stylebox_override("pressed", _make_field_slot_style(Color(0.12, 0.03, 0.032, 0.5), Color(1.0, 0.42, 0.32, 1.0), 2))
+		button.add_theme_stylebox_override("disabled", _make_field_slot_style(Color(0.018, 0.025, 0.035, slot_alpha), Color(0.18, 0.3, 0.42, border_alpha), 1))
+		button.tooltip_text = "빈 적 전장을 눌러도 적 영웅 직접 공격을 시도합니다."
+		placeholder = button
+	else:
+		var panel := PanelContainer.new()
+		panel.add_theme_stylebox_override("panel", _make_field_slot_style(Color(0.018, 0.025, 0.035, slot_alpha), Color(0.18, 0.3, 0.42, border_alpha), 1))
+		placeholder = panel
 	placeholder.custom_minimum_size = _battle_field_card_size()
 	var box = VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 3)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	placeholder.add_child(box)
-	var emblem_text := "+" if is_next_summon_slot else "·"
-	var emblem: Label = main._make_label(emblem_text, 26 if mobile else (22 if tight and portrait else (24 if tight else (26 if compact else 30))), Color(0.46, 0.64, 0.82, 0.58 if is_next_summon_slot else 0.18))
+	var enemy_clickable := not is_player_field and _can_click_enemy_hero_area()
+	var emblem_text := "+" if is_next_summon_slot else ("⌖" if enemy_clickable else "·")
+	var emblem_color := Color(1.0, 0.34, 0.26, 0.64) if enemy_clickable else Color(0.46, 0.64, 0.82, 0.58 if is_next_summon_slot else 0.18)
+	var emblem: Label = main._make_label(emblem_text, 26 if mobile else (22 if tight and portrait else (24 if tight else (26 if compact else 30))), emblem_color)
 	emblem.autowrap_mode = TextServer.AUTOWRAP_OFF
+	emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(emblem)
 	if is_next_summon_slot:
 		var text: Label = main._make_label("다음 소환", 9 if tight and portrait else (10 if tight else (10 if compact else 11)), Color(0.64, 0.76, 0.9, 0.74))
 		text.autowrap_mode = TextServer.AUTOWRAP_OFF
+		text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(text)
+	elif enemy_clickable:
+		var text: Label = main._make_label("영웅 공격", 9 if tight and portrait else (10 if tight else (10 if compact else 11)), Color(1.0, 0.58, 0.5, 0.78))
+		text.autowrap_mode = TextServer.AUTOWRAP_OFF
+		text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(text)
 	return placeholder
 
@@ -4233,7 +4277,7 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	var wide_tight = _is_wide_tight_battle_layout()
 	var mobile = _is_mobile_battle_layout()
 	if index >= side.field.size():
-		return _make_empty_field_slot(compact, is_player_field and index == side.field.size())
+		return _make_empty_field_slot(compact, is_player_field and index == side.field.size(), is_player_field)
 
 	var frame_size := _battle_field_card_size()
 	var visual_size := frame_size * FIELD_OCCUPIED_SCALE
@@ -4828,14 +4872,15 @@ func _refresh_action_buttons() -> void:
 	if hero_attack_button != null:
 		var vanguard_blocking := _enemy_vanguard_blocks_hero()
 		var can_attack_hero: bool = not _is_player_input_locked() and selected_attacker != -1 and not vanguard_blocking
+		var can_click_hero_area := _can_click_enemy_hero_area()
 		var recommended_hero_target := recommended_kind == "hero_attack_direct" and not vanguard_blocking
-		hero_attack_button.disabled = not can_attack_hero
+		hero_attack_button.disabled = not can_click_hero_area
 		hero_attack_button.text = ""
 		if vanguard_blocking:
-			hero_attack_button.tooltip_text = "적 선봉을 처치해야 영웅을 공격할 수 있습니다."
+			hero_attack_button.tooltip_text = "클릭하면 선봉 처치 안내를 표시합니다."
 		else:
-			hero_attack_button.tooltip_text = "2단계: 이 적 영웅 영역을 클릭해 직접 공격" if can_attack_hero else "1단계: 공격 가능한 내 유닛을 먼저 클릭하세요"
-		if can_attack_hero or recommended_hero_target:
+			hero_attack_button.tooltip_text = "적 영웅 영역 어디든 클릭하면 공격자가 자동 선택됩니다." if can_click_hero_area else "플레이어 턴에 직접 공격할 수 있습니다."
+		if can_attack_hero or recommended_hero_target or (can_click_hero_area and not _ready_player_attacker_indexes().is_empty()):
 			_style_battle_button(hero_attack_button, Color(0.13, 0.04, 0.045, 0.98), Color(1.0, 0.32, 0.26, 1.0), true)
 		else:
 			_style_battle_button(hero_attack_button, Color(0.045, 0.06, 0.078, 0.92), Color(0.72, 0.18, 0.16, 1.0), false)

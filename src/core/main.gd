@@ -36,7 +36,7 @@ const AudioManagerScript := preload("res://src/services/audio_manager.gd")
 const CARD_ART_COLS := 4
 const CARD_ART_ROWS := 3
 const BASE_VIEWPORT_SIZE := Vector2(1280.0, 720.0)
-const MAX_AUTO_UI_SCALE := 1.3
+const MAX_AUTO_UI_SCALE := 1.45
 
 var card_db
 var card_lore_service
@@ -2104,7 +2104,9 @@ func _render_scale_for_physical_size(physical_size: Vector2) -> float:
 	if native_scale < 1.0:
 		return 1.0
 	var automatic_scale := clampf(native_scale, 1.0, MAX_AUTO_UI_SCALE)
-	return clampf(automatic_scale * _ui_scale_multiplier(), 0.9, MAX_AUTO_UI_SCALE * 1.1)
+	if physical_size.x >= 1600.0 and physical_size.x >= physical_size.y:
+		automatic_scale = maxf(automatic_scale, 1.0)
+	return clampf(automatic_scale * _ui_scale_multiplier(), 0.95, MAX_AUTO_UI_SCALE * 1.08)
 
 func _layout_size_for_physical_size(physical_size: Vector2) -> Vector2:
 	return physical_size / _render_scale_for_physical_size(physical_size)

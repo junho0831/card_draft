@@ -48,6 +48,9 @@ func _test_boots_to_main_menu(main: Node) -> void:
 	_assert_true(not bool(main.player_profile.get("battle_tutorial_seen", true)), "battle tutorial starts enabled for new profile")
 	_assert_eq(int(main.player_profile.get("battle_tutorial_stage", -1)), 0, "battle tutorial starts at stage 0")
 	_assert_true(main.audio_manager.streams.has("impact_heavy"), "audio manager provides heavy impact sound")
+	_assert_true(main.audio_manager.streams.has("direct_attack"), "audio manager provides direct attack sound")
+	_assert_true(FileAccess.file_exists("res://assets/audio/direct_attack.wav"), "runtime direct attack SFX exists")
+	_assert_true(main.audio_manager.has_authored_sfx("direct_attack"), "audio manager loads direct attack SFX")
 	_assert_true(main.audio_manager.streams.has("victory_burst"), "audio manager provides victory burst sound")
 	for sound_name in ["summon_human", "summon_elf", "summon_undead", "summon_common", "hit_human", "hit_elf", "hit_undead", "hit_common", "spell_fire", "spell_draw", "spell_death", "spell_buff", "spell_summon", "spell_low_hp", "spell_common", "equipment_human", "equipment_elf", "equipment_undead", "equipment_common"]:
 		_assert_true(main.audio_manager.streams.has(sound_name), "audio manager provides card identity sound: %s" % sound_name)
@@ -71,15 +74,15 @@ func _test_content_scaling(main: Node) -> void:
 	_assert_eq(main._layout_size_for_physical_size(Vector2(390, 844)), Vector2(390, 844), "phone layout keeps native logical pixels")
 	_assert_eq(main._layout_size_for_physical_size(Vector2(800, 1280)), Vector2(800, 1280), "tablet layout keeps native logical pixels")
 	var full_hd_layout: Vector2 = main._layout_size_for_physical_size(Vector2(1920, 1080))
-	_assert_true(is_equal_approx(full_hd_layout.x, 1476.9231) and is_equal_approx(full_hd_layout.y, 830.7692), "full HD caps automatic UI scale at 1.3")
-	_assert_true(is_equal_approx(main._content_scale_factor_for_physical_size(Vector2(1920, 1080)), 0.8666667), "full HD applies the capped Canvas Items factor")
+	_assert_true(is_equal_approx(full_hd_layout.x, 1324.1379) and is_equal_approx(full_hd_layout.y, 744.8276), "full HD uses the roomy desktop UI scale")
+	_assert_true(is_equal_approx(main._content_scale_factor_for_physical_size(Vector2(1920, 1080)), 0.9666667), "full HD keeps Canvas Items close to native size")
 	var ultrawide_layout: Vector2 = main._layout_size_for_physical_size(Vector2(2560, 1080))
-	_assert_true(is_equal_approx(ultrawide_layout.x, 1969.2308) and is_equal_approx(ultrawide_layout.y, 830.7692), "ultrawide keeps extra horizontal layout space")
+	_assert_true(is_equal_approx(ultrawide_layout.x, 1765.5172) and is_equal_approx(ultrawide_layout.y, 744.8276), "ultrawide keeps extra horizontal layout space with larger UI")
 	main.player_profile["settings"]["ui_scale_mode"] = "large"
-	_assert_true(is_equal_approx(main._render_scale_for_physical_size(Vector2(1920, 1080)), 1.43), "large mode increases desktop UI scale")
+	_assert_true(is_equal_approx(main._render_scale_for_physical_size(Vector2(1920, 1080)), 1.566), "large mode increases desktop UI scale")
 	_assert_eq(main._layout_size_for_physical_size(Vector2(390, 844)), Vector2(390, 844), "large mode does not shrink phone layout")
 	main.player_profile["settings"]["ui_scale_mode"] = "small"
-	_assert_true(is_equal_approx(main._render_scale_for_physical_size(Vector2(1920, 1080)), 1.17), "small mode reduces desktop UI scale")
+	_assert_true(is_equal_approx(main._render_scale_for_physical_size(Vector2(1920, 1080)), 1.305), "small mode reduces desktop UI scale")
 	main.player_profile["settings"]["ui_scale_mode"] = original_scale_mode
 
 func _test_battle_objective_service() -> void:
@@ -279,6 +282,8 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	battle.player["field"][0]["can_attack"] = true
 	battle.selected_attacker = -1
 	battle._refresh_ui()
+	_assert_true(not bool(battle.hero_attack_button.disabled), "enemy hero target remains clickable before selecting an attacker")
+	_assert_true(battle.opponent_field_slots.size() > 0 and battle.opponent_field_slots[0] is Button and not bool((battle.opponent_field_slots[0] as Button).disabled), "empty enemy board slots also act as loose direct-attack hit areas")
 	await battle._attack_opponent_hero()
 	_assert_eq(int(battle.opponent.get("health", 0)), 3, "clicking enemy hero with no attacker selected auto-selects and attacks the hero")
 	_assert_eq(int(battle.selected_attacker), -1, "auto hero attack also clears attacker selection")

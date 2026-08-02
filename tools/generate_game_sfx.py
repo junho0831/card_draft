@@ -165,7 +165,7 @@ def heal() -> list[float]:
 
 
 def hit() -> list[float]:
-    duration = 0.56
+	duration = 0.56
 
     def sample(t: float, p: float) -> float:
         impact = env_hit(p, 0.003, 11.5)
@@ -177,11 +177,26 @@ def hit() -> list[float]:
         ring = sine(1040.0, t) * math.exp(-p * 9.0) * 0.12
         return saturate(body + thud + blade + crunch + ring, 2.75)
 
-    return render(duration, sample)
+	return render(duration, sample)
+
+def direct_attack() -> list[float]:
+	duration = 0.62
+
+	def sample(t: float, p: float) -> float:
+		launch = env_hit(p, 0.006, 8.0)
+		strike = env_hit(max(0.0, (p - 0.18) / 0.82), 0.012, 11.0)
+		settle = env_hit(max(0.0, (p - 0.34) / 0.66), 0.025, 7.0)
+		whoosh = sine(640.0 - 430.0 * p, t, sine(70.0, t) * 1.8) * math.sin(min(1.0, p / 0.34) * math.pi) * 0.34
+		blade = sine(1180.0 - 620.0 * p, t) * (launch * 0.18 + strike * 0.42)
+		body = sine(88.0 - 38.0 * p, t) * (strike + settle * 0.28) * 0.9
+		snap = noise() * (launch * 0.22 + strike * 0.48) * 0.28
+		return saturate(whoosh + blade + body + snap, 2.35)
+
+	return render(duration, sample)
 
 
 def counter() -> list[float]:
-    duration = 0.46
+	duration = 0.46
 
     def sample(t: float, p: float) -> float:
         block = sine(70.0 - 34.0 * p, t) * math.exp(-p * 7.0) * 0.78
@@ -266,9 +281,10 @@ def main() -> None:
         "play": play,
         "summon": summon,
         "spell": spell,
-        "heal": heal,
-        "hit": hit,
-        "counter": counter,
+		"heal": heal,
+		"hit": hit,
+		"direct_attack": direct_attack,
+		"counter": counter,
         "combo": combo,
         "finisher": finisher,
         "reward": reward,

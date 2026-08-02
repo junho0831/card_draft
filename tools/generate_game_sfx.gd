@@ -29,6 +29,7 @@ const SOUND_NAMES := [
 	"hit_elf",
 	"hit_undead",
 	"hit_common",
+	"direct_attack",
 	"spell_fire",
 	"spell_draw",
 	"spell_death",

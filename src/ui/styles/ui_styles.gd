@@ -2,6 +2,12 @@ extends RefCounted
 class_name UiStyles
 
 const UI_TOKENS = preload("res://src/ui/styles/ui_tokens.gd")
+const BUTTON_GOLD_PATH := "res://assets/ui/generated/slices/button_gold.png"
+const BUTTON_BLUE_PATH := "res://assets/ui/generated/slices/button_blue.png"
+const BUTTON_RED_PATH := "res://assets/ui/generated/slices/button_red.png"
+const BUTTON_DARK_PATH := "res://assets/ui/generated/slices/button_dark.png"
+const PANEL_GOLD_PATH := "res://assets/ui/generated/slices/panel_gold.png"
+const PANEL_BLUE_PATH := "res://assets/ui/generated/slices/panel_blue.png"
 
 const NEUTRAL_BASE := Color(0.035, 0.042, 0.055, 1.0)
 const NEUTRAL_BORDER := Color(0.28, 0.32, 0.4, 1.0)
@@ -54,6 +60,79 @@ static func make_action_button_style(bg_color: Color, accent_color: Color, activ
 	style.shadow_offset = Vector2(0, 3)
 	return style
 
+static func _load_texture(path: String) -> Texture2D:
+	return ResourceLoader.load(path) as Texture2D
+
+static func _panel_texture_for_accent(accent_color: Color) -> Texture2D:
+	var path := PANEL_GOLD_PATH if accent_color.r >= accent_color.b else PANEL_BLUE_PATH
+	var texture := _load_texture(path)
+	return texture if texture != null else _load_texture(PANEL_BLUE_PATH)
+
+static func make_textured_panel_style(bg_color: Color, accent_color: Color, margin: int = 12, gold_bias: bool = false) -> StyleBox:
+	var texture := _load_texture(PANEL_GOLD_PATH) if gold_bias else _panel_texture_for_accent(accent_color)
+	if texture == null:
+		return make_style_box(bg_color, accent_color, 1, 8)
+	var style := StyleBoxTexture.new()
+	style.texture = texture
+	style.texture_margin_left = 112
+	style.texture_margin_top = 84
+	style.texture_margin_right = 112
+	style.texture_margin_bottom = 84
+	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	style.content_margin_left = margin + 6
+	style.content_margin_top = margin + 4
+	style.content_margin_right = margin + 6
+	style.content_margin_bottom = margin + 4
+	style.modulate_color = Color(0.9, 0.92, 0.96, bg_color.a)
+	return style
+
+static func _button_texture_for_role(role: String, accent_color: Color) -> Texture2D:
+	var path := BUTTON_DARK_PATH
+	match role:
+		"primary", "power":
+			path = BUTTON_GOLD_PATH
+		"danger":
+			path = BUTTON_RED_PATH
+		"turn":
+			path = BUTTON_BLUE_PATH
+		_:
+			if accent_color.r > accent_color.b + 0.12 and accent_color.r > accent_color.g:
+				path = BUTTON_RED_PATH
+			elif accent_color.b > accent_color.r + 0.08:
+				path = BUTTON_BLUE_PATH
+	var texture := _load_texture(path)
+	return texture if texture != null else _load_texture(BUTTON_DARK_PATH)
+
+static func _make_textured_button_style(texture: Texture2D, tint: Color, active: bool = false) -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = texture
+	style.texture_margin_left = 76
+	style.texture_margin_top = 42
+	style.texture_margin_right = 76
+	style.texture_margin_bottom = 42
+	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	style.content_margin_left = 18 if active else 15
+	style.content_margin_top = 10
+	style.content_margin_right = 18 if active else 15
+	style.content_margin_bottom = 12
+	style.modulate_color = tint
+	return style
+
+static func _textured_button_state_styles(role: String, accent_color: Color, active: bool) -> Array[StyleBox]:
+	var texture := _button_texture_for_role(role, accent_color)
+	var normal := _make_textured_button_style(texture, Color(0.92, 0.94, 0.98, 1.0), active)
+	var hover: StyleBoxTexture = normal.duplicate()
+	hover.modulate_color = Color(1.08, 1.08, 1.1, 1.0)
+	var pressed: StyleBoxTexture = normal.duplicate()
+	pressed.modulate_color = Color(0.78, 0.8, 0.84, 1.0)
+	pressed.content_margin_top = 13
+	pressed.content_margin_bottom = 9
+	var disabled: StyleBoxTexture = normal.duplicate()
+	disabled.modulate_color = Color(0.52, 0.55, 0.6, 0.62)
+	return [normal, hover, pressed, disabled]
+
 static func _apply_button_text(button: Button, font_size: int, outline_size: int = 0) -> void:
 	button.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0, 1.0))
 	button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 1.0))
@@ -63,7 +142,7 @@ static func _apply_button_text(button: Button, font_size: int, outline_size: int
 	button.add_theme_constant_override("outline_size", maxi(0, outline_size))
 	button.add_theme_font_size_override("font_size", font_size)
 
-static func _button_state_styles(base_color: Color, accent_color: Color, active: bool) -> Array[StyleBoxFlat]:
+static func _button_state_styles(base_color: Color, accent_color: Color, active: bool) -> Array[StyleBox]:
 	var normal := make_action_button_style(base_color, accent_color, active, 5)
 	var hover: StyleBoxFlat = normal.duplicate()
 	hover.bg_color = normal.bg_color.lightened(0.09)
@@ -82,7 +161,7 @@ static func _button_state_styles(base_color: Color, accent_color: Color, active:
 	disabled.border_color = Color(normal.border_color.r, normal.border_color.g, normal.border_color.b, 0.28)
 	return [normal, hover, pressed, disabled]
 
-static func _apply_button_styles(button: Button, styles: Array[StyleBoxFlat]) -> void:
+static func _apply_button_styles(button: Button, styles: Array[StyleBox]) -> void:
 	button.add_theme_stylebox_override("normal", styles[0])
 	button.add_theme_stylebox_override("hover", styles[1])
 	button.add_theme_stylebox_override("pressed", styles[2])
@@ -130,6 +209,6 @@ static func apply_role_button(
 		base = base_override
 	if role != "power" and accent_color != Color(0.42, 0.68, 1.0, 1.0):
 		accent = accent.lerp(accent_color, 0.42)
-	_apply_button_styles(button, _button_state_styles(base, accent, active))
+	_apply_button_styles(button, _textured_button_state_styles(role, accent, active))
 	var resolved_font := font_size if font_size > 0 else UI_TOKENS.FONT_ACTION if role in ["primary", "power"] else 16
-	_apply_button_text(button, resolved_font)
+	_apply_button_text(button, resolved_font, 2 if role in ["primary", "power"] else 1)

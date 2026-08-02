@@ -265,7 +265,7 @@ func _claim_player(priority: int) -> AudioStreamPlayer:
 func _sound_priority(sound_name: String) -> int:
 	if sound_name in ["victory_burst", "finisher"]:
 		return 5
-	if sound_name in ["impact_heavy", "power_human", "power_elf", "power_undead"]:
+	if sound_name in ["direct_attack", "impact_heavy", "power_human", "power_elf", "power_undead"]:
 		return 4
 	if sound_name.begins_with("summon_") or sound_name.begins_with("hit_") or sound_name.begins_with("spell_") or sound_name.begins_with("equipment_"):
 		return 3
@@ -283,6 +283,8 @@ func _duck_duration_msec(sound_name: String) -> int:
 			return 900
 		"impact_heavy":
 			return 420
+		"direct_attack":
+			return 360
 		"power_human", "power_elf", "power_undead":
 			return 780
 	return 0
@@ -293,6 +295,8 @@ func _minimum_gap_msec(sound_name: String) -> int:
 			return 85
 		"impact_heavy":
 			return 180
+		"direct_attack":
+			return 220
 		"play", "summon":
 			return 120
 		"power_human", "power_undead", "finisher":
@@ -413,6 +417,7 @@ func _generate_all_sounds() -> void:
 	streams["power_elf"] = _generate_elf_power()
 	streams["power_undead"] = _generate_undead_power()
 	streams["impact_heavy"] = _generate_heavy_impact()
+	streams["direct_attack"] = _generate_direct_attack()
 	streams["victory_burst"] = _generate_victory_burst()
 	streams["summon_human"] = _generate_race_summon("human")
 	streams["summon_elf"] = _generate_race_summon("elf")
@@ -453,6 +458,7 @@ func _generate_all_sounds() -> void:
 		"power_elf": -2.0,
 		"power_undead": -5.8,
 		"impact_heavy": -5.4,
+		"direct_attack": -4.9,
 		"victory_burst": -4.2,
 		"summon_human": -5.4,
 		"summon_elf": -5.8,
@@ -487,6 +493,7 @@ func _generate_all_sounds() -> void:
 		"power_elf": 0.012,
 		"power_undead": 0.008,
 		"impact_heavy": 0.012,
+		"direct_attack": 0.01,
 		"victory_burst": 0.0,
 		"summon_human": 0.014,
 		"summon_elf": 0.018,
@@ -864,6 +871,32 @@ func _generate_heavy_impact() -> AudioStreamWAV:
 		var crack: float = (raw_noise - noise_lp * 0.35) * (first + second * 0.9) * 0.58
 		var air: float = noise_lp * tail * 0.2
 		_write_sample(bytes, i, _saturate(sub + body + metal + crack + air, 2.0))
+	return _finish_stream(parts)
+
+func _generate_direct_attack() -> AudioStreamWAV:
+	var duration := 0.62
+	var parts := _new_stream(duration)
+	var bytes: PackedByteArray = parts["bytes"]
+	var phase_whoosh := 0.0
+	var phase_low := 0.0
+	var phase_blade := 0.0
+	var noise_lp := 0.0
+	for i in range(int(parts["samples"])):
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var p: float = t / duration
+		phase_whoosh += (lerpf(620.0, 180.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_low += (lerpf(118.0, 58.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		phase_blade += (lerpf(1320.0, 460.0, p) * 2.0 * PI) / float(SAMPLE_RATE)
+		var raw_noise := rng.randf_range(-1.0, 1.0)
+		noise_lp = lerpf(noise_lp, raw_noise, 0.12)
+		var launch := _impact_after(p, 0.0, 13.5)
+		var strike := _impact_after(p, 0.18, 16.0)
+		var settle := _impact_after(p, 0.34, 9.0)
+		var whoosh: float = _triangle_wave(phase_whoosh) * sin(clampf(p / 0.34, 0.0, 1.0) * PI) * 0.26
+		var blade: float = sin(phase_blade) * (launch * 0.28 + strike * 0.7) * 0.28
+		var body: float = sin(phase_low) * (strike + settle * 0.34) * 0.48
+		var snap: float = (raw_noise - noise_lp * 0.28) * (launch * 0.26 + strike * 0.62) * 0.42
+		_write_sample(bytes, i, _saturate(whoosh + blade + body + snap, 2.2))
 	return _finish_stream(parts)
 
 func _generate_victory_burst() -> AudioStreamWAV:
