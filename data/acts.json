@@ -4,8 +4,29 @@
 		"name": "국경지대",
 		"nodes": [
 			["battle"],
+			["battle", "event"],
 			["event", "shop"],
+			["battle", "elite"],
+			["rest"],
+			["battle", "shop"],
+			["elite", "event"],
+			["battle", "event"],
+			["rest", "shop"],
+			["boss"]
+		]
+	},
+	{
+		"id": 2,
+		"name": "황량한 무덤",
+		"nodes": [
 			["battle"],
+			["battle", "event"],
+			["elite", "shop"],
+			["event", "battle"],
+			["rest"],
+			["battle", "shop"],
+			["elite", "event"],
+			["battle", "elite"],
 			["rest", "shop"],
 			["boss"]
 		]
