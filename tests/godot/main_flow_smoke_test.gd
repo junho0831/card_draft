@@ -20,6 +20,7 @@ func run() -> Dictionary:
 	_test_battle_objective_service()
 	_test_run_start_and_battle_entry(main)
 	_test_battle_ui_defaults(main)
+	_test_hand_card_drag_and_target_line(main)
 	_test_race_powers(main)
 	_test_secondary_screens(main)
 	_test_continue_run_routes(main)
@@ -305,6 +306,29 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	_assert_eq(int(battle.opponent.get("health", 0)), guided_enemy_health, "hint mode leaves combat state unchanged")
 	main.current_run["current_node_index"] = original_node_index
 	battle._refresh_ui()
+
+func _test_hand_card_drag_and_target_line(main: Node) -> void:
+	var battle = main.battle_screen
+	if battle == null or not is_instance_valid(battle):
+		return
+	
+	_assert_true(not battle.is_dragging_hand_card, "battle starts with hand card drag inactive")
+	_assert_true(battle.battle_fx_layer != null, "battle screen has fx layer")
+	
+	battle._start_hand_card_drag(0, Vector2(200, 500))
+	_assert_true(battle.is_dragging_hand_card, "hand card drag activates")
+	_assert_true(battle.drag_preview_card != null, "drag preview card created")
+	_assert_true(battle.battle_fx_layer.drag_line != null, "drag target line created on fx layer")
+	_assert_true(battle.battle_fx_layer.drag_target_reticle != null, "drag reticle created on fx layer")
+	
+	battle._update_hand_card_drag(Vector2(200, 300), 0)
+	_assert_true(battle.battle_fx_layer.drag_line.points.size() > 0, "drag target line has curve points")
+	
+	battle._finish_hand_card_drag(Vector2(200, 500), 0)
+	_assert_true(not battle.is_dragging_hand_card, "hand card drag finishes cleanly")
+	_assert_true(battle.drag_preview_card == null, "drag preview card cleaned up")
+	_assert_true(battle.battle_fx_layer.drag_line == null, "drag line cleaned up")
+	_assert_true(battle.battle_fx_layer.drag_target_reticle == null, "drag reticle cleaned up")
 
 func _test_race_powers(main: Node) -> void:
 	var battle = main.battle_screen

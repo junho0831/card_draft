@@ -5,6 +5,8 @@ const HEAVY_IMPACT_TEXTURE_PATH := "res://assets/fx/impact_heavy_v1.png"
 
 var rng := RandomNumberGenerator.new()
 var heavy_impact_texture: Texture2D
+var drag_line: Line2D = null
+var drag_target_reticle: Control = null
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -361,3 +363,54 @@ func _spawn_frame_pulse(color: Color, duration: float) -> void:
 func _free_if_valid(node: Node) -> void:
 	if node != null and is_instance_valid(node):
 		node.queue_free()
+
+func show_drag_target_line(start_pos: Vector2, target_pos: Vector2, accent: Color, is_valid: bool) -> void:
+	if drag_line == null or not is_instance_valid(drag_line):
+		drag_line = Line2D.new()
+		drag_line.width = 6.0
+		drag_line.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		drag_line.end_cap_mode = Line2D.LINE_CAP_ROUND
+		drag_line.z_index = 250
+		add_child(drag_line)
+	
+	if drag_target_reticle == null or not is_instance_valid(drag_target_reticle):
+		drag_target_reticle = Control.new()
+		drag_target_reticle.z_index = 251
+		drag_target_reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var ring := Line2D.new()
+		ring.name = "Ring"
+		ring.width = 4.0
+		ring.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		ring.end_cap_mode = Line2D.LINE_CAP_ROUND
+		for point_index in range(25):
+			var angle := TAU * float(point_index) / 24.0
+			ring.add_point(Vector2(cos(angle), sin(angle)) * 24.0)
+		drag_target_reticle.add_child(ring)
+		add_child(drag_target_reticle)
+	
+	var line_color := accent if is_valid else Color(0.85, 0.25, 0.25, 0.8)
+	drag_line.default_color = line_color
+	
+	drag_line.clear_points()
+	var delta := target_pos - start_pos
+	var control_point := (start_pos + target_pos) * 0.5 + Vector2(delta.x * 0.15, -absf(delta.y) * 0.25 - 40.0)
+	var steps := 20
+	for i in range(steps + 1):
+		var t := float(i) / float(steps)
+		var p := _quadratic_point(start_pos, control_point, target_pos, t)
+		drag_line.add_point(p)
+	
+	drag_target_reticle.position = target_pos
+	drag_target_reticle.visible = true
+	var ring_node := drag_target_reticle.get_node_or_null("Ring") as Line2D
+	if ring_node != null:
+		ring_node.default_color = line_color
+
+func clear_drag_target_line() -> void:
+	if drag_line != null and is_instance_valid(drag_line):
+		drag_line.queue_free()
+		drag_line = null
+	if drag_target_reticle != null and is_instance_valid(drag_target_reticle):
+		drag_target_reticle.queue_free()
+		drag_target_reticle = null
+

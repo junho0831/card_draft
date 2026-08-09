@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bk6yeqd5wwgjq"
-path="res://.godot/imported/panel_gold.png-21af31b07e4224e3e638562cbeba3249.ctex"
+uid="uid://j03ndncpdtty"
+path="res://.godot/imported/스크린샷 2026-06-15 오후 5.50.05.png-a3f9d126118e9fffd72c873707d1a1a3.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/generated/slices/panel_gold.png"
-dest_files=["res://.godot/imported/panel_gold.png-21af31b07e4224e3e638562cbeba3249.ctex"]
+source_file="res://docs/스크린샷 2026-06-15 오후 5.50.05.png"
+dest_files=["res://.godot/imported/스크린샷 2026-06-15 오후 5.50.05.png-a3f9d126118e9fffd72c873707d1a1a3.ctex"]
 
 [params]
 

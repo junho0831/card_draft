@@ -85,6 +85,11 @@ var battle_objectives = BATTLE_OBJECTIVE_SERVICE.new()
 var combo_finisher = BATTLE_COMBO_FINISHER.new()
 var battle_momentum = BATTLE_MOMENTUM_SERVICE.new()
 var selected_hand_slot: int = -1
+var is_dragging_hand_card: bool = false
+var drag_candidate_index: int = -1
+var drag_start_mouse_pos: Vector2 = Vector2.ZERO
+var drag_preview_card: Control = null
+
 
 func _show_hover_popup(node: Control, title_text: String, description_text: String, accent_color: Color) -> void:
 	if _should_skip_timed_battle_fx():
@@ -2776,7 +2781,147 @@ func _draw_cards(side: Dictionary, count: int) -> void:
 			_add_log("패가 가득 차서 카드가 버려짐: %s" % burned_card.get("name", ""))
 
 
+func _on_hand_card_gui_input(event: InputEvent, card_index: int) -> void:
+	if input_locked or game_over or current_player != "player":
+		return
+	if card_index < 0 or card_index >= player.hand.size():
+		return
+	
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed:
+				drag_candidate_index = card_index
+				drag_start_mouse_pos = mb.global_position
+			else:
+				if is_dragging_hand_card:
+					_finish_hand_card_drag(mb.global_position, card_index)
+				drag_candidate_index = -1
+	elif event is InputEventScreenTouch:
+		var st := event as InputEventScreenTouch
+		if st.pressed:
+			drag_candidate_index = card_index
+			drag_start_mouse_pos = st.position
+		else:
+			if is_dragging_hand_card:
+				_finish_hand_card_drag(st.position, card_index)
+			drag_candidate_index = -1
+	elif event is InputEventMouseMotion:
+		var mm := event as InputEventMouseMotion
+		if drag_candidate_index == card_index and (mm.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+			var dist := drag_start_mouse_pos.distance_to(mm.global_position)
+			if not is_dragging_hand_card and dist > 14.0:
+				_start_hand_card_drag(card_index, mm.global_position)
+			elif is_dragging_hand_card:
+				_update_hand_card_drag(mm.global_position, card_index)
+	elif event is InputEventScreenDrag:
+		var sd := event as InputEventScreenDrag
+		if drag_candidate_index == card_index:
+			var dist := drag_start_mouse_pos.distance_to(sd.position)
+			if not is_dragging_hand_card and dist > 14.0:
+				_start_hand_card_drag(card_index, sd.position)
+			elif is_dragging_hand_card:
+				_update_hand_card_drag(sd.position, card_index)
+
+func _start_hand_card_drag(card_index: int, current_pos: Vector2) -> void:
+	if is_dragging_hand_card:
+		return
+	is_dragging_hand_card = true
+	_hide_hover_popup()
+	var card: Dictionary = player.hand[card_index]
+	var hand_slot := int(card.get("_hand_slot", card_index))
+	var source_control := _hand_card_control(hand_slot)
+	
+	if source_control != null and is_instance_valid(source_control):
+		source_control.modulate.a = 0.3
+	
+	if drag_preview_card != null and is_instance_valid(drag_preview_card):
+		drag_preview_card.queue_free()
+		drag_preview_card = null
+		
+	var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "player")
+	var visual_size := _battle_hand_card_size() * 0.85
+	drag_preview_card = _make_card_action_visual(card, cost, visual_size)
+	drag_preview_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	drag_preview_card.z_index = 300
+	if battle_fx_layer != null and is_instance_valid(battle_fx_layer):
+		battle_fx_layer.add_child(drag_preview_card)
+		drag_preview_card.position = current_pos - visual_size * 0.5
+	
+	_play_sfx("hover")
+	_update_hand_card_drag(current_pos, card_index)
+
+func _update_hand_card_drag(current_pos: Vector2, card_index: int) -> void:
+	if not is_dragging_hand_card or card_index < 0 or card_index >= player.hand.size():
+		return
+	var card: Dictionary = player.hand[card_index]
+	var hand_slot := int(card.get("_hand_slot", card_index))
+	var source_control := _hand_card_control(hand_slot)
+	var start_pos := current_pos
+	if source_control != null and is_instance_valid(source_control):
+		start_pos = source_control.get_global_transform_with_canvas() * (source_control.size * 0.5)
+	
+	var visual_size := _battle_hand_card_size() * 0.85
+	if drag_preview_card != null and is_instance_valid(drag_preview_card):
+		drag_preview_card.position = current_pos - visual_size * 0.5
+	
+	var playable := not _is_player_input_locked() and _can_play_card(player, card, "player")
+	var target_node := _card_action_target(card, true)
+	var target_pos := current_pos
+	if target_node != null and is_instance_valid(target_node):
+		target_pos = target_node.get_global_transform_with_canvas() * (target_node.size * 0.5)
+	
+	var is_valid_drop := playable and (current_pos.y < (start_pos.y - 50.0) or current_pos.distance_to(target_pos) < 120.0)
+	var accent := _card_accent_color(card)
+	
+	if battle_fx_layer != null and is_instance_valid(battle_fx_layer):
+		if battle_fx_layer.has_method("show_drag_target_line"):
+			battle_fx_layer.show_drag_target_line(start_pos, target_pos if is_valid_drop else current_pos, accent, is_valid_drop)
+
+func _finish_hand_card_drag(release_pos: Vector2, card_index: int) -> void:
+	if not is_dragging_hand_card or card_index < 0 or card_index >= player.hand.size():
+		return
+	is_dragging_hand_card = false
+	drag_candidate_index = -1
+	
+	var card: Dictionary = player.hand[card_index]
+	var hand_slot := int(card.get("_hand_slot", card_index))
+	var source_control := _hand_card_control(hand_slot)
+	var start_pos := release_pos
+	if source_control != null and is_instance_valid(source_control):
+		source_control.modulate.a = 1.0
+		start_pos = source_control.get_global_transform_with_canvas() * (source_control.size * 0.5)
+		
+	if drag_preview_card != null and is_instance_valid(drag_preview_card):
+		drag_preview_card.queue_free()
+		drag_preview_card = null
+		
+	if battle_fx_layer != null and is_instance_valid(battle_fx_layer):
+		if battle_fx_layer.has_method("clear_drag_target_line"):
+			battle_fx_layer.clear_drag_target_line()
+			
+	var playable := not _is_player_input_locked() and _can_play_card(player, card, "player")
+	var target_node := _card_action_target(card, true)
+	var target_pos := release_pos
+	if target_node != null and is_instance_valid(target_node):
+		target_pos = target_node.get_global_transform_with_canvas() * (target_node.size * 0.5)
+		
+	var is_valid_drop := playable and (release_pos.y < (start_pos.y - 50.0) or release_pos.distance_to(target_pos) < 120.0)
+	
+	if is_valid_drop:
+		_on_hand_card_pressed(card_index)
+	else:
+		_render_hand()
+
 func _on_hand_card_pressed(index: int) -> void:
+	is_dragging_hand_card = false
+	drag_candidate_index = -1
+	if drag_preview_card != null and is_instance_valid(drag_preview_card):
+		drag_preview_card.queue_free()
+		drag_preview_card = null
+	if battle_fx_layer != null and is_instance_valid(battle_fx_layer):
+		if battle_fx_layer.has_method("clear_drag_target_line"):
+			battle_fx_layer.clear_drag_target_line()
 	if input_locked or game_over or current_player != "player":
 		return
 	if index < 0 or index >= player.hand.size():
@@ -4486,6 +4631,7 @@ func _render_hand() -> void:
 		frame.add_theme_stylebox_override("pressed", _make_race_card_style(card, Color(0.035, 0.042, 0.055, 1.0), accent, 2, 7, 0.04))
 		frame.add_theme_color_override("font_color", Color(1, 1, 1, 0))
 		frame.pressed.connect(Callable(self, "_on_hand_card_pressed").bind(i))
+		frame.gui_input.connect(Callable(self, "_on_hand_card_gui_input").bind(i))
 		frame.set_meta("hand_slot", hand_slot)
 		if not playable:
 			frame.modulate = Color(0.46, 0.48, 0.54, 0.82)
