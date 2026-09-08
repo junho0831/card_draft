@@ -13,6 +13,8 @@ func _init(_main: Node) -> void:
 	main = _main
 
 func build(body: VBoxContainer, act_data: Dictionary) -> void:
+	if not main._lesson_description().is_empty():
+		body.add_child(main.ui.make_guidance_banner("이번에 배울 것", main._lesson_description(), Color(0.12, 0.2, 0.3, 1.0), true))
 	nodes_data = act_data.get("nodes", [])
 	current_index = int(main.current_run.get("current_node_index", 0))
 
@@ -288,7 +290,7 @@ func _make_build_direction_panel(compact: bool) -> PanelContainer:
 			var title_text := "%s %s 시너지 (%d/%d)" % [meta.get("icon", ""), meta.get("name", ""), val, main._build_threshold()]
 			var status_str := ""
 			if active:
-				status_str = "[color=#5CD65C][b]● 활성화됨[/b][/color] (효과 적용 중)"
+				status_str = "[color=#5CD65C][b]활성화됨[/b][/color] (효과 적용 중)"
 			else:
 				status_str = "[color=#A0A5B0]○ 비활성화됨[/color] (활성화까지 %d장 부족)" % (main._build_threshold() - val)
 			var desc_text := "%s\n\n[color=#F2C96B][b]효과:[/b][/color] %s" % [status_str, meta.get("bonus", "")]
@@ -480,7 +482,7 @@ func _draw_map_background(canvas_width: int, canvas_height: int, compact: bool) 
 		map_canvas.add_child(ridge)
 
 	for i in range(14):
-		var star: Label = main._make_label("✦", 10 if compact else 12, Color(0.38, 0.34, 0.18, 0.32))
+		var star: Label = main._make_label("*", 10 if compact else 12, Color(0.38, 0.34, 0.18, 0.32))
 		star.position = Vector2(42 + i * 73, 24 + int((i * 37) % max(80, canvas_height - 40)))
 		star.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		map_canvas.add_child(star)
@@ -594,7 +596,7 @@ func _make_node_button(index: int, type: String, pos: Vector2) -> Control:
 			
 	if index < current_index:
 		color = color.darkened(0.6)
-		icon_text = "✓"
+		icon_text = "완료"
 		label_text = "완료"
 		btn.disabled = true
 	elif index == current_index:
@@ -672,17 +674,19 @@ func _make_node_button(index: int, type: String, pos: Vector2) -> Control:
 	return btn
 
 func _node_icon(node_type: String) -> String:
+	if node_type == "lesson_reward":
+		return "장비"
 	match node_type:
 		"battle":
-			return "⚔"
+			return "전투"
 		"elite":
-			return "◆"
+			return "이벤트"
 		"boss":
-			return "♛"
+			return "보스"
 		"event":
 			return "?"
 		"shop":
-			return "▣"
+			return "상점"
 		"rest":
 			return "♨"
 		_:

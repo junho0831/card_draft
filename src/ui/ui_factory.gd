@@ -478,19 +478,19 @@ func relic_visual_meta(relic: Dictionary) -> Dictionary:
 			break
 	match tag:
 		"fire":
-			return {"icon": "◆", "bg": Color(0.36, 0.12, 0.06, 1.0), "accent": Color(1.0, 0.36, 0.14, 1.0)}
+			return {"icon": "*", "bg": Color(0.36, 0.12, 0.06, 1.0), "accent": Color(1.0, 0.36, 0.14, 1.0)}
 		"draw":
-			return {"icon": "▣", "bg": Color(0.08, 0.18, 0.34, 1.0), "accent": Color(0.38, 0.68, 1.0, 1.0)}
+			return {"icon": "D", "bg": Color(0.08, 0.18, 0.34, 1.0), "accent": Color(0.38, 0.68, 1.0, 1.0)}
 		"buff":
-			return {"icon": "⚑", "bg": Color(0.28, 0.2, 0.06, 1.0), "accent": Color(1.0, 0.78, 0.24, 1.0)}
+			return {"icon": "B", "bg": Color(0.28, 0.2, 0.06, 1.0), "accent": Color(1.0, 0.78, 0.24, 1.0)}
 		"summon":
-			return {"icon": "✦", "bg": Color(0.08, 0.24, 0.16, 1.0), "accent": Color(0.38, 0.86, 0.56, 1.0)}
+			return {"icon": "*", "bg": Color(0.08, 0.24, 0.16, 1.0), "accent": Color(0.38, 0.86, 0.56, 1.0)}
 		"death":
-			return {"icon": "☠", "bg": Color(0.18, 0.1, 0.28, 1.0), "accent": Color(0.72, 0.42, 1.0, 1.0)}
+			return {"icon": "X", "bg": Color(0.18, 0.1, 0.28, 1.0), "accent": Color(0.72, 0.42, 1.0, 1.0)}
 		"low_hp":
-			return {"icon": "♥", "bg": Color(0.3, 0.08, 0.1, 1.0), "accent": Color(1.0, 0.36, 0.42, 1.0)}
+			return {"icon": "HP", "bg": Color(0.3, 0.08, 0.1, 1.0), "accent": Color(1.0, 0.36, 0.42, 1.0)}
 		_:
-			return {"icon": "◆", "bg": Color(0.14, 0.14, 0.18, 1.0), "accent": Color(0.7, 0.66, 0.9, 1.0)}
+			return {"icon": "*", "bg": Color(0.14, 0.14, 0.18, 1.0), "accent": Color(0.7, 0.66, 0.9, 1.0)}
 
 func make_relic_badge(relic: Dictionary, compact: bool = false, show_text: bool = true) -> PanelContainer:
 	var meta := relic_visual_meta(relic)
@@ -503,9 +503,10 @@ func make_relic_badge(relic: Dictionary, compact: bool = false, show_text: bool 
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 6 if compact else 8)
 	panel.add_child(row)
-	var icon := make_label(String(meta.get("icon", "◆")), 14 if compact else 16, accent.lightened(0.2))
-	icon.autowrap_mode = TextServer.AUTOWRAP_OFF
-	row.add_child(icon)
+	if not show_text:
+		var icon := make_label(String(meta.get("icon", "*")), 14 if compact else 16, accent.lightened(0.2))
+		icon.autowrap_mode = TextServer.AUTOWRAP_OFF
+		row.add_child(icon)
 	if show_text:
 		var label := make_label(String(relic.get("name", "유물")), 12 if compact else 13, Color(0.96, 0.94, 1.0, 1.0))
 		label.autowrap_mode = TextServer.AUTOWRAP_OFF

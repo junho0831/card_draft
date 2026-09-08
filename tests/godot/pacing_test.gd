@@ -19,14 +19,10 @@ func _test_run_shape_targets_short_clear_run() -> void:
 	_assert_eq(acts.size(), 2, "pacing uses 2 acts")
 	if acts.is_empty():
 		return
-	var nodes: Array = (acts[0] as Dictionary).get("nodes", [])
-	_assert_eq(nodes.size(), 10, "pacing keeps the launch act at 10 quick nodes")
-	_assert_eq(String((nodes[0] as Array)[0]), "battle", "pacing starts with a normal battle")
-	_assert_true((nodes[1] as Array).has("battle") or (nodes[1] as Array).has("event"), "second node offers battle or event choice")
-	_assert_true((nodes[2] as Array).has("event") or (nodes[2] as Array).has("shop"), "third node offers event or shop choice")
-	_assert_true((nodes[3] as Array).has("battle") or (nodes[3] as Array).has("elite"), "fourth node offers battle or elite choice")
-	_assert_eq(String((nodes[4] as Array)[0]), "rest", "fifth node is a rest point")
-	_assert_eq(String((nodes[nodes.size() - 1] as Array)[0]), "boss", "pacing ends directly on a boss")
+	for act_variant in acts:
+		var nodes: Array = Dictionary(act_variant).get("nodes", [])
+		_assert_eq(nodes.size(), 5, "each act has five meaningful decision layers")
+		_assert_eq(nodes, [["battle"], ["event", "shop"], ["battle", "elite"], ["rest", "shop"], ["boss"]], "act balances building, optional risk, preparation and boss")
 
 func _test_enemy_health_keeps_battles_short() -> void:
 	var enemies: Array = _load_json_array("res://data/enemies.json")

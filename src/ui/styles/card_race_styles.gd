@@ -29,7 +29,7 @@ static func visual_meta(race: String) -> Dictionary:
 			}
 		"언데드":
 			return {
-				"mark": "☠",
+				"mark": "*",
 				"display_name": "언데드",
 				"lineage": "망자",
 				"accent": Color(0.72, 0.4, 1.0, 1.0),
@@ -41,7 +41,7 @@ static func visual_meta(race: String) -> Dictionary:
 			}
 		"정령":
 			return {
-				"mark": "✦",
+				"mark": "*",
 				"display_name": "정령",
 				"lineage": "원소",
 				"accent": Color(0.2, 0.8, 0.86, 1.0),
@@ -53,7 +53,7 @@ static func visual_meta(race: String) -> Dictionary:
 			}
 		"중립":
 			return {
-				"mark": "◆",
+				"mark": "*",
 				"display_name": "공용",
 				"lineage": "모든 세력",
 				"accent": Color(0.68, 0.76, 0.86, 1.0),

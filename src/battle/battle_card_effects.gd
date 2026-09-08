@@ -22,7 +22,7 @@ func play_card(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: 
 				"art_id": String(card.get("art_id", "")),
 				"can_attack": false,
 			}
-			var relic_service = context.get("relic_service")
+			var relic_service = context.get("relic_service") if String(context.get("owner_key", "player")) == "player" else null
 			if relic_service != null:
 				relic_service.on_unit_summoned(context.get("run_data", {}), unit, context)
 			owner.field.append(unit)
@@ -40,17 +40,17 @@ func play_card(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: 
 func on_unit_died(dead_unit: Dictionary, owner: Dictionary, enemy: Dictionary, context: Dictionary) -> void:
 	var log: Callable = context.get("log", Callable())
 	var draw_cards: Callable = context.get("draw_cards", Callable())
-	if String(dead_unit.get("id", "")) == "grave_knight":
+	if _base_card_id(String(dead_unit.get("id", ""))) == "grave_knight":
 		owner.health = min(int(owner.get("max_health", context.get("max_health", 20))), int(owner.health) + 2)
 		if log.is_valid():
 			log.call("무덤 기사 사망 효과: %s 영웅 체력 2 회복" % owner.name)
-	if String(dead_unit.get("id", "")) == "bone_soldier":
+	if _base_card_id(String(dead_unit.get("id", ""))) == "bone_soldier":
 		enemy.health -= 1
 		if log.is_valid():
 			log.call("해골 병사 사망 효과: %s 영웅에게 피해 1" % enemy.name)
-	if String(dead_unit.get("id", "")) == "berserker":
+	if _base_card_id(String(dead_unit.get("id", ""))) == "berserker":
 		owner.health -= 2
-		var relic_service = context.get("relic_service")
+		var relic_service = context.get("relic_service") if String(context.get("owner_key", "player")) == "player" else null
 		if relic_service != null:
 			relic_service.on_hero_hp_lost(context.get("run_data", {}), context, owner, 2)
 		if log.is_valid():
@@ -97,7 +97,7 @@ func _resolve_unit_play(owner: Dictionary, enemy: Dictionary, unit: Dictionary, 
 					log.call("기사단 창병 효과: 가장 앞의 아군 공격력 +1")
 		"thief":
 			owner.health -= 1
-			var relic_service = context.get("relic_service")
+			var relic_service = context.get("relic_service") if String(context.get("owner_key", "player")) == "player" else null
 			if relic_service != null:
 				relic_service.on_hero_hp_lost(context.get("run_data", {}), context, owner, 1)
 			if log.is_valid():
@@ -107,7 +107,7 @@ func _resolve_unit_play(owner: Dictionary, enemy: Dictionary, unit: Dictionary, 
 		"ritual_sapling":
 			_add_ritual(owner, 1, log, "의식의 묘목")
 		"stone_golem":
-			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 2)
+			owner.health = min(int(owner.get("max_health", context.get("max_health", 20))), int(owner.health) + 2)
 			if log.is_valid():
 				log.call("돌 골렘 효과: %s 영웅 체력 2 회복" % owner.name)
 
@@ -117,6 +117,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 	var cleanup: Callable = context.get("cleanup_dead_units", Callable())
 	var calc_damage: Callable = context.get("calculate_damage", Callable())
 	var card_id := _base_card_id(String(card.get("id", "")))
+	var effect_bonus := int(card.get("effect_bonus", 0))
 	match card_id:
 		"vampiric_strike":
 			var damage := 2
@@ -134,18 +135,18 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 				_resolve_breakthrough(owner, enemy, damage, target_health, context)
 				if cleanup.is_valid():
 					cleanup.call(owner, enemy)
-			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 2)
+			owner.health = min(int(owner.get("max_health", context.get("max_health", 20))), int(owner.health) + 2)
 			if log.is_valid():
 				log.call("%s: 영웅 체력 2 회복" % owner.name)
 		"battlecry":
 			for unit in owner.field:
-				unit.attack += 1
-				unit.health += 1
-				unit.max_health += 1
+				unit.attack += 1 + effect_bonus
+				unit.health += 1 + effect_bonus
+				unit.max_health += 1 + effect_bonus
 			if log.is_valid():
-				log.call("%s: 전장의 함성! 아군 전체 공격력 +1, 체력 +1" % owner.name)
+				log.call("%s: 전장의 함성! 아군 전체 +%d/+%d" % [owner.name, 1 + effect_bonus, 1 + effect_bonus])
 		"death_mark":
-			_add_curse(enemy, 1, log, "죽음의 낙인")
+			_add_curse(enemy, 1 + effect_bonus, log, "죽음의 낙인")
 		"plague_spread":
 			for unit in enemy.field:
 				unit.health -= 1
@@ -160,26 +161,26 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 				draw_cards.call(owner, 1)
 		"funeral_fog":
 			if enemy.field.is_empty():
-				enemy.health -= 2
+				enemy.health -= 2 + effect_bonus
 				if log.is_valid():
-					log.call("장례 안개! %s 영웅에게 피해 2" % enemy.name)
+					log.call("장례 안개! %s 영웅에게 피해 %d" % [enemy.name, 2 + effect_bonus])
 			else:
 				var target_health := int(enemy.field[0].get("health", 0))
-				enemy.field[0].health -= 2
+				enemy.field[0].health -= 2 + effect_bonus
 				if log.is_valid():
-					log.call("장례 안개! %s에게 피해 2" % enemy.field[0].name)
-				_resolve_breakthrough(owner, enemy, 2, target_health, context)
+					log.call("장례 안개! %s에게 피해 %d" % [enemy.field[0].name, 2 + effect_bonus])
+				_resolve_breakthrough(owner, enemy, 2 + effect_bonus, target_health, context)
 				if cleanup.is_valid():
 					cleanup.call(owner, enemy)
 			_add_curse(enemy, 1, log, "장례 안개")
 		"world_tree_ritual":
-			_add_ritual(owner, 1, log, "세계수 의식")
+			_add_ritual(owner, 1 + effect_bonus, log, "세계수 의식")
 		"nature_communion":
 			_add_ritual(owner, 1, log, "자연의 교감")
 			if draw_cards.is_valid():
 				draw_cards.call(owner, 1)
 		"moonwell":
-			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 4)
+			owner.health = min(int(owner.get("max_health", context.get("max_health", 20))), int(owner.health) + 4)
 			_add_ritual(owner, 1, log, "달샘")
 		"ancient_oath":
 			_add_ritual(owner, 2, log, "고대의 맹세")
@@ -195,7 +196,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 				log.call("%s: 지휘관의 명령, 아군 전체 공격력 +%d" % [owner.name, bonus])
 		"royal_support":
 			if draw_cards.is_valid():
-				draw_cards.call(owner, 1)
+				draw_cards.call(owner, 1 + effect_bonus)
 			if not owner.field.is_empty():
 				for unit in owner.field:
 					if String(unit.get("race", "")) == "인간":
@@ -203,7 +204,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 						unit.max_health += 1
 						break
 			if log.is_valid():
-				log.call("%s: 왕실 지원, 카드 1장 드로우" % owner.name)
+				log.call("%s: 왕실 지원, 카드 %d장 드로우" % [owner.name, 1 + effect_bonus])
 		"elven_insight":
 			if draw_cards.is_valid():
 				draw_cards.call(owner, 2)
@@ -220,7 +221,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 			if String(card.get("id", "")).ends_with("_plus"):
 				hp_loss = 1
 			owner.health -= hp_loss
-			var relic_service = context.get("relic_service")
+			var relic_service = context.get("relic_service") if String(context.get("owner_key", "player")) == "player" else null
 			if relic_service != null:
 				relic_service.on_hero_hp_lost(context.get("run_data", {}), context, owner, hp_loss)
 			if draw_cards.is_valid():
@@ -243,8 +244,10 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 					"art_id": "bone_soldier",
 				}, context)
 		"corpse_explosion":
-			if not owner.field.is_empty():
-				owner.field[0].health = 0
+			var sacrifice := _selected_ally(owner, context)
+			if sacrifice.is_empty():
+				return
+			sacrifice.health = 0
 			if enemy.field.is_empty():
 				enemy.health -= 2
 				if log.is_valid():
@@ -263,6 +266,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 			elif card_id == "gale_shot":
 				var played_count := int(context.get("cards_played_this_turn", 0))
 				base_damage = 4 if played_count >= 3 else 1
+			base_damage += effect_bonus
 			var damage := base_damage
 			if calc_damage.is_valid():
 				damage = int(calc_damage.call(card, true, owner, base_damage))
@@ -284,14 +288,14 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 				if cleanup.is_valid():
 					cleanup.call(owner, enemy)
 		"first_aid":
-			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 3)
+			owner.health = min(int(owner.get("max_health", context.get("max_health", 20))), int(owner.health) + 3 + effect_bonus)
 			if not owner.field.is_empty():
 				owner.field[0]["health"] = int(owner.field[0].get("health", 0)) + 1
 				owner.field[0]["max_health"] = int(owner.field[0].get("max_health", 0)) + 1
 			if log.is_valid():
-				log.call("%s: 응급 치료, 영웅 체력 3 회복 / 앞 아군 체력 +1" % owner.name)
+				log.call("%s: 응급 치료, 영웅 체력 %d 회복 / 앞 아군 체력 +1" % [owner.name, 3 + effect_bonus])
 		"healing_potion":
-			owner.health = min(int(context.get("max_health", 20)), int(owner.health) + 5)
+			owner.health = min(int(owner.get("max_health", context.get("max_health", 20))), int(owner.health) + 5)
 			if log.is_valid():
 				log.call("%s: 회복 물약, 영웅 체력 5 회복" % owner.name)
 
@@ -299,7 +303,9 @@ func _resolve_equipment(owner: Dictionary, enemy: Dictionary, card: Dictionary, 
 	var log: Callable = context.get("log", Callable())
 	if owner.field.is_empty():
 		return
-	var target: Dictionary = owner.field[0]
+	var target := _selected_ally(owner, context)
+	if target.is_empty():
+		return
 	var card_id := _base_card_id(String(card.get("id", "")))
 	var result_text := "공격력 +2"
 	match card_id:
@@ -326,7 +332,7 @@ func _resolve_equipment(owner: Dictionary, enemy: Dictionary, card: Dictionary, 
 			target["attack"] = int(target.get("attack", 0)) + 2
 			target["blood_blade_heal"] = int(target.get("blood_blade_heal", 0)) + 1
 			owner["health"] = int(owner.get("health", 0)) - 2
-			var relic_service = context.get("relic_service")
+			var relic_service = context.get("relic_service") if String(context.get("owner_key", "player")) == "player" else null
 			if relic_service != null:
 				relic_service.on_hero_hp_lost(context.get("run_data", {}), context, owner, 2)
 			result_text = "공격력 +2 / 내 영웅 피해 2 / 공격 후 회복 1"
@@ -385,7 +391,7 @@ func _summon_war_horn_token(owner: Dictionary, context: Dictionary) -> bool:
 		"art_id": "militia",
 		"can_attack": true,
 	}
-	var relic_service = context.get("relic_service")
+	var relic_service = context.get("relic_service") if String(context.get("owner_key", "player")) == "player" else null
 	if relic_service != null:
 		relic_service.on_unit_summoned(context.get("run_data", {}), token, context)
 	owner.field.append(token)
@@ -437,3 +443,12 @@ func _add_ritual(owner: Dictionary, amount: int, log: Callable, source: String) 
 	owner["ritual_stacks"] = int(owner.get("ritual_stacks", 0)) + amount
 	if log.is_valid():
 		log.call("%s! 의식 스택 +%d (현재: %d)" % [source, amount, int(owner.get("ritual_stacks", 0))])
+
+func _selected_ally(owner: Dictionary, context: Dictionary) -> Dictionary:
+	var units: Array = owner.get("field", [])
+	if not context.has("target_unit_id"):
+		return {} if units.is_empty() else units[0]
+	for unit in units:
+		if int(unit.get("battle_unit_id", -1)) == int(context["target_unit_id"]) and int(unit.get("health", 0)) > 0:
+			return unit
+	return {}

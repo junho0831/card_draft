@@ -36,7 +36,25 @@ func init_run(race_id: String) -> void:
 	var start_gold := 85 + int(upgrades.get("start_gold", 0)) * 15
 	var deck_ids: Array[String] = main.run_generator.starter_deck(race_id)
 	main.current_run = main.run_store.create_new_run(acts, deck_ids, start_hp, start_gold, race_id)
+	if main.pending_guided_run and int(main.player_profile.get("learning_stage", 0)) < 5:
+		main.current_run["guided_run"] = true
+		main.current_run["lesson_resume_stage"] = int(main.player_profile.get("learning_stage", 0))
+		main.current_run.map_nodes[0]["nodes"] = [["battle"], ["lesson_reward"], ["battle"], ["rest"], ["boss"]]
+		var simple: Array[String] = []
+		var reserve: Array[String] = []
+		for id in deck_ids:
+			if String(main.card_db.get_card(id).get("type", "")) == "unit":
+				simple.append(id)
+			else:
+				reserve.append(id)
+		while simple.size() < 10:
+			simple.append(simple[0])
+		main.current_run["deck_ids"] = simple
+		main.current_run["lesson_reserve"] = reserve
 	var relic_id: String = main.run_generator.get_starting_relic(race_id)
+	if bool(main.current_run.get("guided_run", false)):
+		main.current_run["lesson_starting_relic"] = relic_id
+		relic_id = ""
 	if not relic_id.is_empty():
 		(main.current_run.get("relic_ids", []) as Array).append(relic_id)
 		main.relic_service.apply_on_acquire(main.current_run, relic_id)
@@ -49,10 +67,10 @@ func continue_run() -> void:
 		return
 	var result := String(main.current_run.get("result", ""))
 	if result == "win":
-		main._show_run_result(true)
+		main._finish_run(true)
 		return
 	if result == "loss":
-		main._show_run_result(false)
+		main._finish_run(false)
 		return
 	var pending_message: Dictionary = main.current_run.get("pending_message", {})
 	if not pending_message.is_empty():
@@ -87,6 +105,7 @@ func show_map() -> void:
 	if main.current_run.is_empty():
 		main._show_main_menu()
 		return
+	_unlock_lesson_content()
 	var act_data: Dictionary = main._current_act()
 	if act_data.is_empty():
 		main._show_message("진행 중인 지도를 불러오지 못했습니다.", "_show_main_menu")
@@ -106,6 +125,11 @@ func enter_current_node() -> void:
 			prepare_battle("elite")
 		"boss":
 			prepare_battle("boss")
+		"lesson_reward":
+			if Dictionary(main.current_run.get("pending_card_reward", {})).is_empty():
+				main.current_run["pending_card_reward"] = {"choices": main.Onboarding.equipment_choices(), "lesson_equipment": true, "gold_reward": 0}
+				main._save_run()
+			show_card_reward()
 		"event":
 			if Dictionary(main.current_run.get("pending_event", {})).is_empty():
 				main.current_run["pending_event"] = main.event_service.roll_event()
@@ -135,11 +159,12 @@ func show_event() -> void:
 func advance_from_current_node(pending_keys: Array[String] = []) -> void:
 	for key in pending_keys:
 		main.current_run[String(key)] = {}
+	_record_lesson_completion()
 	main.run_store.mark_node_cleared(main.current_run)
 	main.run_store.advance_after_node(main.current_run)
 	main._save_run()
 	if String(main.current_run.get("result", "")) == "win":
-		main._show_run_result(true)
+		main._finish_run(true)
 		return
 	show_map()
 
@@ -190,3 +215,20 @@ func complete_rest() -> void:
 func prepare_battle(tier: String) -> void:
 	if _ensure_battle_screen():
 		main.battle_screen._prepare_battle(tier)
+
+func _record_lesson_completion() -> void:
+	if bool(main.current_run.get("guided_run", false)) and int(main.current_run.get("act", 1)) == 1:
+		main.player_profile["learning_stage"] = maxi(int(main.player_profile.get("learning_stage", 0)), int(main.current_run.get("current_node_index", 0)) + 1)
+		main._save_profile()
+
+func _unlock_lesson_content() -> void:
+	if main._lesson_stage() >= 4 and main.current_run.has("lesson_reserve"):
+		main.current_run.deck_ids.append_array(main.current_run.lesson_reserve)
+		main.current_run.erase("lesson_reserve")
+	if main._lesson_stage() >= 5 and main.current_run.has("lesson_starting_relic"):
+		var id := String(main.current_run.lesson_starting_relic)
+		if not main.current_run.relic_ids.has(id):
+			main.current_run.relic_ids.append(id)
+			main.relic_service.apply_on_acquire(main.current_run, id)
+		main.current_run.erase("lesson_starting_relic")
+	main._save_run()

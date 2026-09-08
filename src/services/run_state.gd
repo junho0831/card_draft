@@ -18,6 +18,7 @@ func has_saved_run(path: String) -> bool:
 func create_new_run(acts: Array[Dictionary], deck_ids: Array[String], start_hp: int = 50, start_gold: int = 100, race_id: String = "human") -> Dictionary:
 	return {
 		"seed": randi(),
+		"run_id": "%d-%d-%d" % [int(Time.get_unix_time_from_system() * 1000000.0), Time.get_ticks_usec(), randi()],
 		"race_id": race_id if race_id in ["human", "elf", "undead"] else "human",
 		"act": 1,
 		"current_node_index": 0,
@@ -32,6 +33,7 @@ func create_new_run(acts: Array[Dictionary], deck_ids: Array[String], start_hp: 
 		"relic_ids": [],
 		"map_nodes": acts.duplicate(true),
 		"visited_nodes": [],
+		"cleared_node_types": {},
 		"pending_shop": {},
 		"pending_event": {},
 		"pending_message": {},
@@ -58,6 +60,10 @@ func mark_node_cleared(run_data: Dictionary) -> void:
 	if not visited.has(key):
 		visited.append(key)
 	run_data["visited_nodes"] = visited
+	var cleared_types: Dictionary = run_data.get("cleared_node_types", {})
+	if not cleared_types.has(key):
+		cleared_types[key] = String(current_node(run_data).get("type", ""))
+	run_data["cleared_node_types"] = cleared_types
 
 func advance_after_node(run_data: Dictionary) -> void:
 	var current_act := int(run_data.get("act", 1))
@@ -75,6 +81,7 @@ func advance_after_node(run_data: Dictionary) -> void:
 			run_data["current_node_index"] = 0
 	else:
 		run_data["current_node_index"] = current_node_index + 1
+	run_data["current_path_index"] = 0
 
 func current_node(run_data: Dictionary) -> Dictionary:
 	var current_act := int(run_data.get("act", 1))
@@ -91,6 +98,8 @@ func current_node(run_data: Dictionary) -> Dictionary:
 	var layer: Variant = nodes[current_node_index]
 	var node_type: String = "unknown"
 	if typeof(layer) == TYPE_ARRAY:
+		if layer.is_empty():
+			return {}
 		if current_path_index >= 0 and current_path_index < layer.size():
 			node_type = String(layer[current_path_index])
 		else:

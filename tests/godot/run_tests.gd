@@ -1,6 +1,12 @@
 extends SceneTree
 
+const TestStorage = preload("res://src/services/game_storage.gd")
+
 const TEST_SCRIPTS := [
+	preload("res://tests/godot/onboarding_test.gd"),
+	preload("res://tests/godot/battle_resume_test.gd"),
+	preload("res://tests/godot/combat_strategy_test.gd"),
+	preload("res://tests/godot/run_strategy_test.gd"),
 	preload("res://tests/godot/run_state_test.gd"),
 	preload("res://tests/godot/card_database_test.gd"),
 	preload("res://tests/godot/event_run_service_test.gd"),
@@ -11,11 +17,14 @@ const TEST_SCRIPTS := [
 	preload("res://tests/godot/main_flow_smoke_test.gd"),
 ]
 
-var _profile_path := ProjectSettings.globalize_path("user://meta_profile.json")
+var _profile_path := TestStorage.profile_path()
 var _profile_backup := ""
 var _had_profile := false
 
 func _init() -> void:
+	if not TestStorage.prepare_test_directory():
+		quit(2)
+		return
 	call_deferred("_run_all_tests")
 
 func _run_all_tests() -> void:
@@ -24,7 +33,7 @@ func _run_all_tests() -> void:
 	var total := 0
 	for script in TEST_SCRIPTS:
 		var test_case = script.new()
-		var result: Dictionary = test_case.run()
+		var result: Dictionary = await test_case.run()
 		total += int(result.get("count", 0))
 		for failure in result.get("failures", []):
 			failures.append(String(failure))

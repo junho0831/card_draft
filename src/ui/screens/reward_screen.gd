@@ -14,6 +14,8 @@ func _is_reward_compact_layout() -> bool:
 	return main._layout_viewport_size().x < 1100.0
 
 func build(body: VBoxContainer) -> void:
+	if not main._lesson_description().is_empty():
+		body.add_child(main.ui.make_guidance_banner("이번에 배울 것", main._lesson_description(), Color(0.12, 0.2, 0.3, 1.0), true))
 	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
 	var compact: bool = _is_reward_compact_layout()
 	var tight: bool = _is_tight_reward_layout()
@@ -22,13 +24,16 @@ func build(body: VBoxContainer) -> void:
 	var action_dock_layout: bool = phone_portrait or (viewport_size.x > viewport_size.y and viewport_size.y <= 800.0)
 	if not phone_portrait:
 		body.add_child(main._make_run_summary_panel())
-	body.add_child(main.ui.make_guidance_banner("다음 행동", "추천 카드 1장만 보고 바로 고르거나 건너뛰세요", Color(0.24, 0.2, 0.12, 1.0), compact))
+	body.add_child(main.ui.make_guidance_banner("다음 행동", "유물을 고른 뒤, 다음 전투에 필요한 카드 1장을 선택하세요" if _has_relic_choice(reward) else ("장비 한 장을 골라 아군을 강화해보세요" if bool(reward.get("lesson_equipment", false)) else "주력 강화 · 보조 연계 · 새로운 방향 중 다음 수를 고르세요"), Color(0.24, 0.2, 0.12, 1.0), compact))
+	if _has_relic_choice(reward):
+		body.add_child(_make_relic_choices(reward, compact))
 	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hub.add_theme_constant_override("separation", 8 if tight else 10)
 	body.add_child(hub)
 
 	var build_panel := _make_build_panel(compact)
+	build_panel.visible = main._lesson_stage() >= 5
 	if not phone_portrait:
 		hub.add_child(build_panel)
 
@@ -42,7 +47,7 @@ func build(body: VBoxContainer) -> void:
 	var title: Label = main._make_label("카드 1장 선택", 18 if compact else 22, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	card_box.add_child(title)
-	var subtitle: Label = main._make_label("추천 1장만 보면 됩니다. 선택 즉시 다음 맵으로 넘어갑니다.", 12 if tight else (13 if compact else 14), Color(0.86, 0.9, 0.96, 1.0))
+	var subtitle: Label = main._make_label("카드를 추가하거나 건너뛰면 선택한 보상을 받고 다음 장소로 이동합니다.", 12 if tight else (13 if compact else 14), Color(0.86, 0.9, 0.96, 1.0))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	card_box.add_child(subtitle)
 
@@ -56,7 +61,13 @@ func build(body: VBoxContainer) -> void:
 
 	if phone_portrait:
 		hub.add_child(build_panel)
-	hub.add_child(_make_reward_side_panel(reward, compact))
+	if main._lesson_stage() >= 5:
+		hub.add_child(_make_reward_side_panel(reward, compact))
+	elif not action_dock_layout:
+		var proceed := Button.new()
+		proceed.text = "추천 장비 받기" if bool(reward.get("lesson_equipment", false)) else "카드 건너뛰기"
+		proceed.pressed.connect(_skip_card_reward)
+		hub.add_child(proceed)
 	if action_dock_layout:
 		_mount_reward_action_dock(body, reward)
 
@@ -66,20 +77,27 @@ func _mount_reward_action_dock(body: VBoxContainer, reward: Dictionary) -> void:
 		return
 	var reason: String = _reward_choice_reason(card, true)
 	var impact: String = main._choice_impact_text(card)
+	if main._lesson_stage() < 5:
+		reason = "다음 전투에서 아군을 골라 사용하세요" if bool(reward.get("lesson_equipment", false)) else "다음 전투에 쓸 카드 한 장을 고르세요"
+		impact = String(card.get("text", ""))
 	var dock: Dictionary = main.ui.mount_screen_action_dock(
 		main,
 		body,
-		"빠른 선택 · %s" % String(card.get("name", "추천 카드")),
+		("추천 카드 · %s" if main._lesson_stage() < 5 else "주력 강화 · %s") % String(card.get("name", "추천 카드")),
 		"%s · %s · 골드 +%d" % [reason, impact, int(reward.get("gold_reward", 0))],
 		Color(0.42, 0.68, 1.0, 1.0),
 		126
 	)
 	screen_action_dock = dock.get("panel") as PanelContainer
 	var actions: BoxContainer = dock.get("actions") as BoxContainer
-	var claim_button: Button = main.ui.make_dock_action_button("추천 카드 추가 ▶", String(card.get("name", "카드")), Color(0.18, 0.42, 0.72, 1.0), true, 224)
+	var claim_button: Button = main.ui.make_dock_action_button("이 카드로 진행 ▶", String(card.get("name", "카드")), Color(0.18, 0.42, 0.72, 1.0), true, 224)
+	claim_button.disabled = not _relic_choice_ready(reward)
 	claim_button.pressed.connect(Callable(self, "_claim_card_reward").bind(String(card.get("id", ""))))
 	actions.add_child(claim_button)
 	var skip_button: Button = main.ui.make_dock_action_button("건너뛰기", "덱을 얇게 유지", Color(0.18, 0.22, 0.28, 1.0), false, 144)
+	skip_button.disabled = not _relic_choice_ready(reward)
+	if bool(reward.get("lesson_equipment", false)):
+		skip_button.text = "추천 장비 받기"
 	skip_button.pressed.connect(Callable(self, "_skip_card_reward"))
 	actions.add_child(skip_button)
 
@@ -178,9 +196,9 @@ func _make_reward_side_panel(reward: Dictionary, compact: bool) -> PanelContaine
 	var reason_title: Label = main._make_label("추천 기준", 13 if compact else 14, Color(1.0, 0.88, 0.55, 1.0))
 	reason_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(reason_title)
-	var reason_chip: PanelContainer = main.ui.make_chip("현재 빌드 우선", Color(0.24, 0.18, 0.08, 1.0), Color(1.0, 0.9, 0.58, 1.0), 12 if compact else 13)
+	var reason_chip: PanelContainer = main.ui.make_chip("세 가지 성장 방향", Color(0.24, 0.18, 0.08, 1.0), Color(1.0, 0.9, 0.58, 1.0), 12 if compact else 13)
 	box.add_child(reason_chip)
-	var reason: Label = main._make_label("%s %s 축에 가장 잘 맞습니다.\n애매하면 건너뛰어 덱을 얇게 유지하세요." % [String(meta.get("icon", "")), String(meta.get("name", "현재"))], 11 if compact else 12, Color(0.82, 0.86, 0.92, 1.0))
+	var reason: Label = main._make_label("%s %s 주력 강화, 보조 연계, 새로운 방향을 비교하세요.\n건너뛰면 덱을 얇게 유지합니다." % [String(meta.get("icon", "")), String(meta.get("name", "현재"))], 11 if compact else 12, Color(0.82, 0.86, 0.92, 1.0))
 	reason.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(reason)
 	var skip_chip: PanelContainer = main.ui.make_chip("선택 안 해도 됨", Color(0.12, 0.14, 0.18, 1.0), Color(0.9, 0.94, 1.0, 1.0), 11 if compact else 12)
@@ -191,11 +209,14 @@ func _make_reward_side_panel(reward: Dictionary, compact: bool) -> PanelContaine
 	skip_button.custom_minimum_size = Vector2(132 if compact else 142, 34 if compact else 36)
 	main.ui.style_button(skip_button, Color(0.16, 0.18, 0.21, 1.0))
 	skip_button.add_theme_font_size_override("font_size", 13)
+	skip_button.disabled = not _relic_choice_ready(reward)
 	skip_button.pressed.connect(Callable(self, "_skip_card_reward"))
 	box.add_child(skip_button)
 	return panel
 
 func _reward_choice_reason(card: Dictionary, matches_primary: bool) -> String:
+	if main._lesson_stage() < 5:
+		return "아군 한 명을 골라 장착" if String(card.get("type", "")) == "equipment" else "카드 효과를 보고 골라보세요"
 	if matches_primary:
 		return main._choice_playstyle_text(card)
 	if String(card.get("race", "")) == "중립":
@@ -232,6 +253,10 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var growth: Dictionary = _reward_growth_summary(card)
 	var growth_plain_text: String = main._plain_build_delta_text(card)
 	var impact_text: String = main._choice_impact_text(card)
+	if main._lesson_stage() < 5:
+		impact_text = "사용 전에는 취소할 수 있어요"
+		growth = {}
+		growth_plain_text = ""
 	var frame_tint := Color(0.06, 0.085, 0.13, 1.0) if matches_primary else Color(0.055, 0.072, 0.08, 1.0) if matches_race else Color(0.055, 0.065, 0.082, 1.0)
 	var frame_accent := Color(0.44, 0.7, 1.0, 1.0) if matches_primary else race_color if matches_race else Color(0.0, 0.0, 0.0, 0.0)
 	var frame := PanelContainer.new()
@@ -241,6 +266,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 3 if tight else 4)
 	frame.add_child(box)
+	box.add_child(main.ui.make_chip(_card_choice_role(String(card.get("id", ""))), Color(0.12, 0.2, 0.3, 1.0), Color(0.86, 0.94, 1.0), 12))
 
 	if phone_portrait:
 		var quick_reason := "%s%s · %s" % ["추천 · " if matches_primary else "", reason_text, impact_text]
@@ -253,7 +279,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 			var race_badge: PanelContainer = main.ui.make_chip("%s 세력 연계" % String(race_meta.get("name", "현재")), race_color.darkened(0.58), race_color.lightened(0.3), 11 if tight else 12)
 			box.add_child(race_badge)
 		elif is_common:
-			var common_badge: PanelContainer = main.ui.make_chip("◆ 공용 · 모든 세력 사용", Color(0.09, 0.12, 0.16, 1.0), Color(0.82, 0.9, 0.98, 1.0), 11 if tight else 12)
+			var common_badge: PanelContainer = main.ui.make_chip("공용 · 모든 세력 사용", Color(0.09, 0.12, 0.16, 1.0), Color(0.82, 0.9, 0.98, 1.0), 11 if tight else 12)
 			box.add_child(common_badge)
 		var reason_badge: PanelContainer = main.ui.make_chip(reason_text, Color(0.12, 0.18, 0.24, 1.0) if not matches_primary else Color(0.1, 0.2, 0.36, 1.0), Color(0.9, 0.96, 1.0, 1.0), 11 if tight else 12)
 		box.add_child(reason_badge)
@@ -308,27 +334,109 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	else:
 		main.ui.style_role_button(button, "secondary", Color(0.42, 0.62, 0.82, 1.0), Color(0.12, 0.2, 0.3, 1.0), 12)
 	button.add_theme_font_size_override("font_size", 12)
+	button.disabled = not _relic_choice_ready(main.current_run.get("pending_card_reward", {}))
 	button.pressed.connect(Callable(self, "_claim_card_reward").bind(String(card.get("id", ""))))
 	box.add_child(button)
 	return frame
 
+func _has_relic_choice(reward: Dictionary) -> bool:
+	return not (reward.get("relic_choices", []) as Array).is_empty()
+
+func _selected_reward_relic(reward: Dictionary) -> Dictionary:
+	var choices: Array = reward.get("relic_choices", [])
+	if choices.is_empty():
+		return Dictionary(reward.get("bonus_relic", {}))
+	if choices.size() == 1:
+		return Dictionary(choices[0])
+	var selected_id := String(reward.get("selected_relic_id", ""))
+	for relic_variant in choices:
+		var relic: Dictionary = relic_variant
+		if String(relic.get("id", "")) == selected_id:
+			return relic
+	return {}
+
+func _relic_choice_ready(reward: Dictionary) -> bool:
+	return not _has_relic_choice(reward) or not _selected_reward_relic(reward).is_empty()
+
+func _select_relic_reward(relic_id: String) -> void:
+	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
+	for relic_variant in reward.get("relic_choices", []):
+		if String(Dictionary(relic_variant).get("id", "")) == relic_id:
+			reward["selected_relic_id"] = relic_id
+			main.current_run["pending_card_reward"] = reward
+			main._save_run()
+			main._show_card_reward()
+			return
+
+func _make_relic_choices(reward: Dictionary, compact: bool) -> PanelContainer:
+	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.11, 0.09, 0.15, 1.0), Color(0.4, 0.28, 0.58, 1.0), 1, 12, 12)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	panel.add_child(box)
+	var title: Label = main._make_label("유물 1개 선택 · 이번 런의 연계를 강화합니다", 16 if compact else 18, Color(0.92, 0.82, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	box.add_child(title)
+	var row: BoxContainer = main.ui.make_responsive_box(main._is_phone_portrait_layout(), 8)
+	box.add_child(row)
+	var selected: Dictionary = _selected_reward_relic(reward)
+	for relic_variant in reward.get("relic_choices", []):
+		var relic: Dictionary = relic_variant
+		var id := String(relic.get("id", ""))
+		var chosen := String(selected.get("id", "")) == id
+		var button := Button.new()
+		button.name = "RelicChoice_" + id
+		button.text = "%s%s\n%s\n%s" % ["✓ 선택됨 · " if chosen else "", String(relic.get("name", "유물")), String(relic.get("text", "")), main._choice_impact_text(relic)]
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.custom_minimum_size = Vector2(0, 136 if compact else 120)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		main.ui.style_button(button, Color(0.34, 0.22, 0.52, 1.0) if chosen else Color(0.17, 0.14, 0.24, 1.0))
+		button.add_theme_font_size_override("font_size", 13 if compact else 14)
+		button.pressed.connect(Callable(self, "_select_relic_reward").bind(id))
+		row.add_child(button)
+	return panel
+
+func _card_choice_role(card_id: String) -> String:
+	if bool(Dictionary(main.current_run.get("pending_card_reward", {})).get("lesson_equipment", false)):
+		return "아군 한 명 강화 · 다음 전투에서 사용"
+	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
+	var index := (reward.get("choices", []) as Array).find(card_id)
+	if String(reward.get("battle_tier", "")) == "boss":
+		return ["보스 영입", "주력 강화", "보조 연계"][clampi(index, 0, 2)]
+	return ["주력 강화", "보조 연계", "새로운 방향"][clampi(index, 0, 2)]
+
 func _claim_card_reward(card_id: String) -> void:
+	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
+	if reward.is_empty() or not (reward.get("choices", []) as Array).has(card_id) or not main.cards_by_id.has(card_id) or not _relic_choice_ready(reward):
+		return
 	if main.audio_manager != null:
 		main.audio_manager.play_sound("click")
 	(main.current_run.get("deck_ids", []) as Array).append(card_id)
+	if bool(reward.get("lesson_equipment", false)):
+		main.current_run["lesson_equipment_id"] = card_id
 	_finalize_reward()
 
 func _skip_card_reward() -> void:
+	if bool(Dictionary(main.current_run.get("pending_card_reward", {})).get("lesson_equipment", false)):
+		_claim_card_reward("training_sword")
+		return
+	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
+	if reward.is_empty() or not _relic_choice_ready(reward):
+		return
 	if main.audio_manager != null:
 		main.audio_manager.play_sound("click")
 	_finalize_reward()
 
 func _finalize_reward() -> void:
 	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
-	var bonus_relic: Dictionary = reward.get("bonus_relic", {})
-	if not bonus_relic.is_empty():
-		var relic_id := String(bonus_relic.get("id", ""))
-		(main.current_run.get("relic_ids", []) as Array).append(relic_id)
-		main.relic_service.apply_on_acquire(main.current_run, relic_id)
+	if reward.is_empty() or not _relic_choice_ready(reward):
+		return
+	var relic := _selected_reward_relic(reward)
+	if not relic.is_empty():
+		var relic_id := String(relic.get("id", ""))
+		var owned: Array = main.current_run.get("relic_ids", [])
+		if not owned.has(relic_id):
+			owned.append(relic_id)
+			main.current_run["relic_ids"] = owned
+			main.relic_service.apply_on_acquire(main.current_run, relic_id)
 	var pending_keys: Array[String] = ["pending_card_reward"]
 	main.run_flow.advance_from_current_node(pending_keys)

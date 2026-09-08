@@ -35,9 +35,11 @@ func make_default_profile(card_defs: Array) -> Dictionary:
 		"gold": LOCAL_DEBUG_GOLD,
 		"soul_stones": 0,
 		"last_daily_reward_day": "",
+		"learning_stage": 0,
 		"battle_tutorial_seen": false,
 		"battle_tutorial_stage": 0,
 		"recent_runs": [],
+		"settled_run_ids": {},
 		"owned_cards": owned,
 		"unlocked_cards": [],
 		"unlocked_relics": [],
@@ -64,6 +66,7 @@ func normalize(profile: Dictionary, card_defs: Array) -> Dictionary:
 		profile["soul_stones"] = 0
 	if not profile.has("last_daily_reward_day"):
 		profile["last_daily_reward_day"] = ""
+	profile["learning_stage"] = clampi(int(profile.get("learning_stage", 5 if bool(profile.get("battle_tutorial_seen", false)) else 0)), 0, 5)
 	if not profile.has("battle_tutorial_seen"):
 		profile["battle_tutorial_seen"] = false
 	if not profile.has("battle_tutorial_stage"):
@@ -71,6 +74,8 @@ func normalize(profile: Dictionary, card_defs: Array) -> Dictionary:
 	profile["battle_tutorial_stage"] = clampi(int(profile.get("battle_tutorial_stage", 0)), 0, 3)
 	if int(profile.get("battle_tutorial_stage", 0)) >= 3:
 		profile["battle_tutorial_seen"] = true
+	if not profile.has("settled_run_ids") or typeof(profile["settled_run_ids"]) != TYPE_DICTIONARY:
+		profile["settled_run_ids"] = {}
 	if not profile.has("recent_runs") or typeof(profile["recent_runs"]) != TYPE_ARRAY:
 		profile["recent_runs"] = []
 	if not profile.has("owned_cards") or typeof(profile["owned_cards"]) != TYPE_DICTIONARY:

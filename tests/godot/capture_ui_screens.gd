@@ -1,10 +1,15 @@
 extends SceneTree
 
+const TestStorage = preload("res://src/services/game_storage.gd")
+
 const MAIN_SCENE := preload("res://src/core/Main.tscn")
 
-var output_dir := "user://ui_captures"
+var output_dir := TestStorage.path_for("ui_captures")
 
 func _init() -> void:
+	if not TestStorage.prepare_test_directory():
+		quit(2)
+		return
 	call_deferred("_capture_all")
 
 func _capture_all() -> void:

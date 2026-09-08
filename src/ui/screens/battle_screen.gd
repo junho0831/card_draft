@@ -6,7 +6,9 @@ const MAX_HAND_VISUAL_SLOTS = 10
 const HAND_SLOT_PREFERENCE = [1, 3, 5, 7, 9, 0, 2, 4, 6, 8]
 const START_HAND = 5
 const STARTING_MAX_MANA = 1
-const TURN_TIME_SECONDS = 35.0
+const TURN_TIME_SECONDS = 0.0
+const EnemyPolicy = preload("res://src/battle/battle_enemy_policy.gd")
+var pending_action: Dictionary = {}
 const BATTLE_MAX_CONTENT_WIDTH = 1440.0
 const BATTLE_ACTION_DOCK_WIDTH = 420.0
 const FIELD_OCCUPIED_SCALE = 1.06
@@ -24,6 +26,8 @@ var root_box: VBoxContainer
 var status_label: Label
 var battle_guidance_label: Label
 var battle_objective_label: Label
+var ally_cancel_button: Button
+var enemy_intent_label: Label
 var battle_focus_label: Label
 var battle_focus_panel: PanelContainer
 var opponent_info: Label
@@ -180,9 +184,7 @@ func _init(main_ref) -> void:
 	root_box = main.root_box
 
 func _on_turn_timeout() -> void:
-	if main.active_screen == "battle" and current_player == "player" and not game_over and not input_locked:
-		_add_log("시간 초과! 턴이 강제로 종료됩니다.")
-		_on_end_turn_pressed()
+	pass # Deliberate, untimed turns.
 
 func _save_run() -> void:
 	main._save_run()
@@ -220,6 +222,7 @@ func _restore_side(snapshot: Dictionary, fallback_name: String) -> Dictionary:
 	}
 
 func _store_battle_snapshot() -> void:
+	_ensure_battle_unit_ids()
 	if main.active_screen != "battle" or battle_finished or main.current_run.is_empty():
 		return
 	main.current_run["battle_snapshot"] = {
@@ -233,6 +236,11 @@ func _store_battle_snapshot() -> void:
 		"turn_timer_left": 0.0 if turn_timer == null or turn_timer.is_stopped() else turn_timer.time_left,
 		"battle_objective": Dictionary(battle_state.get("battle_objective", {})).duplicate(true),
 		"battle_state_flags": {
+			"player_turn_count": int(battle_state.get("player_turn_count", 0)),
+			"next_battle_unit_id": int(battle_state.get("next_battle_unit_id", 1)),
+			"holy_shield_ready": bool(battle_state.get("holy_shield_ready", false)),
+			"draw_combo_mana_claimed": bool(battle_state.get("draw_combo_mana_claimed", false)),
+			"ai_phase": String(battle_state.get("ai_phase", "cards")),
 			"cards_played_this_turn": int(battle_state.get("cards_played_this_turn", 0)),
 			"combo_tag": String(battle_state.get("combo_tag", "")),
 			"combo_streak": int(battle_state.get("combo_streak", 0)),
@@ -261,6 +269,14 @@ func _restore_battle_snapshot(snapshot: Dictionary) -> void:
 	selected_attacker = int(snapshot.get("selected_attacker", -1))
 	input_locked = bool(snapshot.get("input_locked", false))
 	var flags: Dictionary = snapshot.get("battle_state_flags", {})
+	pending_action.clear()
+	input_locked = current_player == "opponent"
+	battle_state["player_turn_count"] = int(flags.get("player_turn_count", 0))
+	battle_state["next_battle_unit_id"] = int(flags.get("next_battle_unit_id", 1))
+	battle_state["draw_combo_mana_claimed"] = bool(flags.get("draw_combo_mana_claimed", false))
+	battle_state["holy_shield_ready"] = bool(flags.get("holy_shield_ready", false))
+	battle_state["ai_phase"] = String(flags.get("ai_phase", "cards"))
+	_ensure_battle_unit_ids()
 	battle_state["cards_played_this_turn"] = int(flags.get("cards_played_this_turn", 0))
 	battle_state["combo_tag"] = String(flags.get("combo_tag", ""))
 	battle_state["combo_streak"] = int(flags.get("combo_streak", 0))
@@ -282,10 +298,7 @@ func _restore_battle_snapshot(snapshot: Dictionary) -> void:
 	_build_battle_ui()
 	if log_label != null:
 		log_label.text = String(snapshot.get("log_text", ""))
-	var restored_time_left: float = float(snapshot.get("turn_timer_left", 0.0))
-	if current_player == "player" and turn_timer != null and restored_time_left > 0.0:
-		turn_timer.start(restored_time_left)
-	elif turn_timer != null:
+	if turn_timer != null:
 		turn_timer.stop()
 	_init_status_trackers()
 	_refresh_ui()
@@ -321,6 +334,8 @@ func _node_type_name(node_type: String) -> String:
 	return main._node_type_name(node_type)
 
 func _can_play_card(side: Dictionary, card: Dictionary, owner_key: String) -> bool:
+	if _base_card_id(String(card.get("id", ""))) == "corpse_explosion" and side.field.is_empty():
+		return false
 	var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, owner_key)
 	if cost > int(side.mana):
 		return false
@@ -350,6 +365,8 @@ func _format_opponent_victory_gauge() -> String:
 	return "적 자원: %s" % _format_side_resources(opponent)
 
 func _format_player_victory_gauge() -> String:
+	if main._lesson_stage() < 2:
+		return _format_side_resources(player)
 	var parts: Array[String] = [main._battle_build_hint_text()]
 	var combo_text := _combo_status_text()
 	if not combo_text.is_empty():
@@ -374,6 +391,8 @@ func _attack_payoff_text(attacker: Dictionary, target_index: int) -> String:
 
 
 func _recommended_action_state() -> Dictionary:
+	if not pending_action.is_empty():
+		return {"kind": "select_target", "text": "아군을 선택하세요", "guidance": "밝게 표시된 아군을 선택 · 취소 버튼으로 돌아가기"}
 	if _is_player_input_locked():
 		return {
 			"kind": "wait",
@@ -503,13 +522,14 @@ func _apply_boss_pattern_on_turn_start() -> void:
 	if String(enemy_data.get("tier", "")) != "boss":
 		return
 	battle_state["boss_turn_count"] = int(battle_state.get("boss_turn_count", 0)) + 1
-	match String(enemy_data.get("id", "")):
-		"border_guardian":
+	var pattern := EnemyPolicy.boss_pattern(enemy_data, int(battle_state["boss_turn_count"]), opponent.field.size())
+	match String(pattern.get("kind", "")):
+		"buff":
 			if not opponent.field.is_empty():
 				opponent.field[0]["attack"] = int(opponent.field[0].get("attack", 0)) + 1
 				_add_log("보스 패턴: 국경 수호자가 선봉 공격력 +1")
 				_record_build_trigger("boss", "선봉 강화", _field_slot_for(opponent, 0), Color(1.0, 0.58, 0.24, 1.0), false)
-		"undead_king":
+		"summon":
 			if int(battle_state.get("boss_turn_count", 0)) % 3 == 0 and opponent.field.size() < 3:
 				opponent.field.append({
 					"id": "bone_soldier",
@@ -525,27 +545,34 @@ func _apply_boss_pattern_on_turn_start() -> void:
 				})
 				_add_log("보스 패턴: 언데드 왕이 해골 지원 소환")
 				_record_build_trigger("boss", "해골 소환", _field_slot_for(opponent, opponent.field.size() - 1), Color(0.76, 0.5, 1.0, 1.0), false)
-		"necro_lord":
+		"curse":
 			player["curses"] = int(player.get("curses", 0)) + 1
 			_add_log("보스 패턴: 강령술사 군주가 저주 +1")
 			_record_build_trigger("boss", "저주 +1", _hero_target_for_player(true), Color(0.76, 0.5, 1.0, 1.0), false)
 
-func _next_enemy_action_text() -> String:
-	var ready_attack = 0
-	for unit in opponent.field:
-		if bool(Dictionary(unit).get("can_attack", false)):
-			ready_attack += int(Dictionary(unit).get("attack", 0))
-	if ready_attack >= int(player.get("health", 0)):
-		return "다음 적 행동: 영웅 공격 위험"
-	if ready_attack > 0:
-		return "다음 적 행동: 유닛 공격 · %s" % _enemy_strategy_text()
-	for card in opponent.hand:
-		var enemy_card: Dictionary = card
-		if String(enemy_card.get("type", "")) == "unit" and _can_play_card(opponent, enemy_card, "opponent"):
-			return "다음 적 행동: 소환 준비 · %s" % _enemy_strategy_text()
-	return "다음 적 행동: %s" % _enemy_strategy_text()
+func _next_enemy_action_text(compact: bool = false) -> String:
+	var parts: Array[String] = []
+	var enemy: Dictionary = main.current_run.get("active_enemy", {})
+	var pattern: Dictionary = EnemyPolicy.boss_pattern(enemy, int(battle_state.get("boss_turn_count", 0)) + 1, opponent.field.size())
+	for i in range(opponent.field.size()):
+		var unit: Dictionary = opponent.field[i]
+		if current_player == "opponent" and not bool(unit.get("can_attack", false)):
+			continue
+		var damage := _calculate_damage(unit, false, opponent, int(unit.get("attack", 0)))
+		if current_player == "player" and i == 0 and String(pattern.get("kind", "")) == "buff":
+			damage += 1
+		var target_index := EnemyPolicy.attack_target(unit, player.field, damage)
+		var target_name := "영웅" if target_index < 0 else String(player.field[target_index].get("name", "아군"))
+		parts.append("%s→%s %d" % [String(unit.get("name", "적")), target_name, damage])
+	if compact and parts.size() > 1:
+		parts = [parts[0], "외 %d기" % (parts.size() - 1)]
+	if not pattern.is_empty():
+		parts.append("보스: " + String(pattern.get("text", "")))
+	return "현재 전장 기준: %s · 추가 카드 효과 미확정" % (" / ".join(parts) if not parts.is_empty() else "공격 없음")
 
 func _combo_status_text() -> String:
+	if main._lesson_stage() < 2:
+		return ""
 	var tag := String(battle_state.get("combo_tag", ""))
 	var streak := int(battle_state.get("combo_streak", 0))
 	var finisher_used := bool(battle_state.get("combo_finisher_used", false))
@@ -561,6 +588,8 @@ func _combo_status_text() -> String:
 		var active_meta: Dictionary = main._build_tag_meta().get(active_tag, {})
 		return "%s 연계 준비" % String(active_meta.get("name", active_tag))
 	var meta: Dictionary = main._build_tag_meta().get(tag, {})
+	if main._lesson_stage() < 4:
+		return "%s %d연계 · 같은 표시의 카드를 이어 사용하세요" % [String(meta.get("name", tag)), streak]
 	var next_text := "피니시 완료" if finisher_used else ("다음 같은 태그면 발동" if streak == 1 else ("다음 카드면 피니시" if streak == 2 else "연계 발동 중"))
 	return "%s %d연계 · %s" % [String(meta.get("name", tag)), streak, next_text]
 
@@ -647,8 +676,17 @@ func _manual_battle_guidance_text(state: Dictionary) -> String:
 			return "이번 턴 행동이 끝났습니다. 턴 넘기기를 누르세요."
 
 func _current_battle_guidance_text() -> String:
+	if not pending_action.is_empty():
+		return "아군을 눌러 대상을 확정하세요 · 취소 가능"
 	if game_over:
 		return "전투 종료"
+	if main._lesson_stage() == 0:
+		if not opponent.field.is_empty():
+			return "아군 소환 → 공격 가능한 아군 선택 → 적 선봉 선택. 마나를 쓰면 턴을 종료하세요."
+		return "선봉을 처치했습니다! 공격 가능한 아군을 누른 뒤 적 영웅을 누르세요."
+	var lesson_hint := _equipment_lesson_guidance()
+	if not lesson_hint.is_empty() and not _is_player_input_locked():
+		return lesson_hint
 	var state := _recommended_action_state()
 	if _battle_guidance_mode() == GUIDANCE_MODE_AUTO:
 		return String(state.get("guidance", "아래 큰 다음 행동 버튼을 누르세요."))
@@ -708,6 +746,7 @@ func _compact_card_hover_text(card: Dictionary, cost: int, playable: bool) -> St
 	var parts: Array[String] = []
 	parts.append("비용 %d  |  %s" % [cost, "사용 가능" if playable else _unplayable_card_hint(card, cost)])
 	parts.append(_card_result_preview(card))
+	parts.append(_combo_card_preview(card))
 	var tags: Array = main._card_build_tags(card)
 	if not tags.is_empty():
 		parts.append("빌드: %s" % main._build_progress_text_for_tags(tags))
@@ -748,7 +787,19 @@ func _make_battle_guidance_panel(compact: bool) -> PanelContainer:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title.custom_minimum_size = Vector2(0 if mobile else (80 if tight else (96 if compact else 125)), 0)
-	row.add_child(title)
+	if mobile:
+		var heading := HBoxContainer.new()
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		heading.add_child(title)
+		ally_cancel_button = Button.new()
+		ally_cancel_button.text = "선택 취소"
+		ally_cancel_button.custom_minimum_size = Vector2(88, 36)
+		ally_cancel_button.pressed.connect(_cancel_ally_selection)
+		ally_cancel_button.visible = not pending_action.is_empty()
+		heading.add_child(ally_cancel_button)
+		row.add_child(heading)
+	else:
+		row.add_child(title)
 	battle_guidance_label = main._make_label("", 14 if mobile else (13 if tight else (16 if compact else 18)), Color(1.0, 0.98, 0.94, 1.0))
 	battle_guidance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	battle_guidance_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -763,6 +814,8 @@ func _make_battle_guidance_panel(compact: bool) -> PanelContainer:
 	return panel
 
 func _should_show_battle_tutorial() -> bool:
+	if main._lesson_stage() < 5:
+		return false
 	return _effective_battle_tutorial_stage() < 3 and not bool(main.player_profile.get("battle_tutorial_seen", false))
 
 func _battle_tutorial_stage() -> int:
@@ -937,11 +990,12 @@ func _battle_reward_choices() -> Array[String]:
 
 func _apply_battle_victory_rewards() -> Dictionary:
 	var bonus_relic = {}
+	var relic_choices: Array[Dictionary] = []
 	var gold_reward = randi_range(15, 25)
 	var objective: Dictionary = battle_state.get("battle_objective", {})
 	var objective_bonus := 0
 	if battle_tier in ["elite", "boss"]:
-		bonus_relic = main.relic_service.random_relic(main.current_run.get("relic_ids", []))
+		relic_choices = main._roll_relic_reward_choices(2)
 		gold_reward = randi_range(30, 50) if battle_tier == "elite" else 50
 	if battle_objectives.resolve_victory(objective) and not bool(objective.get("reward_claimed", false)):
 		objective_bonus = int(objective.get("reward_gold", 0))
@@ -960,6 +1014,8 @@ func _apply_battle_victory_rewards() -> Dictionary:
 	return {
 		"choices": _battle_reward_choices(),
 		"bonus_relic": bonus_relic,
+		"relic_choices": relic_choices,
+		"selected_relic_id": "",
 		"battle_tier": battle_tier,
 		"gold_reward": gold_reward,
 		"objective_bonus": objective_bonus,
@@ -982,6 +1038,7 @@ func _finish_player_victory(victory_type: String) -> void:
 	main.current_run["battle_victory_type"] = victory_type
 
 func _reset_battle_state() -> void:
+	pending_action.clear()
 	current_player = "player"
 	selected_attacker = -1
 	selected_hand_slot = -1
@@ -1008,7 +1065,7 @@ func _reset_battle_state() -> void:
 		"build_trigger_count": 0,
 		"necromancer_ring_used": false,
 		"second_chance_used": false,
-		"active_build_tags": main._active_build_tags(main._current_build_scores()),
+		"active_build_tags": (["summon", "buff"] if main._lesson_stage() == 2 else main._active_build_tags(main._current_build_scores())),
 		"summon_build_started": false,
 		"boss_turn_count": 0,
 		"race_power_used": false,
@@ -1019,6 +1076,8 @@ func _reset_battle_state() -> void:
 	}
 
 func _create_battle_objective() -> Dictionary:
+	if main._lesson_stage() < 5:
+		return {}
 	var node_index := int(main.current_run.get("current_node_index", 0))
 	var seed_value := int(main.current_run.get("seed", 0)) + node_index * 31
 	var enemy: Dictionary = main.current_run.get("active_enemy", {})
@@ -1091,6 +1150,8 @@ func _enemy_vanguard_blocks_hero() -> bool:
 
 
 func _is_build_active(tag: String) -> bool:
+	if main._lesson_stage() < 2:
+		return false
 	return (battle_state.get("active_build_tags", []) as Array).has(tag)
 
 func _add_build_log(message: String) -> void:
@@ -1170,6 +1231,8 @@ func _race_power_button_text() -> String:
 	return "필살기 · %s\n%s" % [String(meta.get("power_name", "")), String(meta.get("power_short", "전투당 1회"))]
 
 func _can_use_race_power() -> bool:
+	if main._lesson_stage() < 4:
+		return false
 	if _is_player_input_locked() or bool(battle_state.get("race_power_used", false)):
 		return false
 	if main._current_race_id() == "undead" and player.field.is_empty():
@@ -1202,9 +1265,16 @@ func _recommended_race_power_state() -> Dictionary:
 		"guidance": "아래 큰 버튼을 눌러 %s을 사용하세요 · 전투당 1회" % String(meta.get("power_name", "필살기")),
 	}
 
-func _on_race_power_pressed() -> void:
+func _on_race_power_pressed(target_unit_id: int = -1) -> void:
 	if not _can_use_race_power():
 		return
+	if main._current_race_id() == "undead":
+		if target_unit_id < 0:
+			_begin_ally_selection({"kind": "power"})
+			return
+		if _ally_index_by_id(target_unit_id) < 0:
+			return
+	pending_action.clear()
 	input_locked = true
 	selected_attacker = -1
 	battle_state["race_power_used"] = true
@@ -1214,7 +1284,7 @@ func _on_race_power_pressed() -> void:
 		"elf":
 			_resolve_elf_race_power()
 		"undead":
-			_resolve_undead_race_power()
+			_resolve_undead_race_power(target_unit_id)
 		_:
 			_resolve_human_race_power()
 	input_locked = false
@@ -1250,14 +1320,10 @@ func _resolve_elf_race_power() -> void:
 	player["mana"] = int(player.get("mana", 0)) + 2
 	_add_log("세력 필살기: 바람의 순환 - 카드 2장 드로우 / 마나 +2")
 
-func _resolve_undead_race_power() -> void:
-	var sacrifice_index := 0
-	var lowest_health := 999999
-	for i in range(player.field.size()):
-		var health := int(player.field[i].get("health", 0))
-		if health < lowest_health:
-			lowest_health = health
-			sacrifice_index = i
+func _resolve_undead_race_power(target_unit_id: int = -1) -> void:
+	var sacrifice_index := _ally_index_by_id(target_unit_id)
+	if sacrifice_index < 0:
+		return
 	var sacrifice_name := String(player.field[sacrifice_index].get("name", "아군"))
 	player.field[sacrifice_index]["health"] = 0
 	_cleanup_dead_units(player, opponent)
@@ -1301,10 +1367,16 @@ func _play_race_power_feedback() -> void:
 		_play_effect_hit_feedback(target, String(meta.get("power_name", "필살기")), color)
 
 func _combo_candidate_tags(card: Dictionary) -> Array[String]:
+	if main._lesson_stage() < 2:
+		return []
 	var active_tags: Array[String] = []
 	for tag in main._card_build_tags(card):
 		if _is_build_active(tag):
 			active_tags.append(String(tag))
+	# Unit-led chains begin with summon; an existing matching chain still wins.
+	if String(card.get("type", "")) == "unit" and active_tags.has("summon"):
+		active_tags.erase("summon")
+		active_tags.push_front("summon")
 	return active_tags
 
 func _resolve_card_combo(card: Dictionary) -> void:
@@ -1324,7 +1396,10 @@ func _resolve_card_combo(card: Dictionary) -> void:
 	_record_objective_event("combo", next_streak)
 	if next_streak < 2:
 		return
+	_record_lesson_action("combo")
 	_trigger_combo_bonus(next_tag, next_streak)
+	if main._lesson_stage() < 4:
+		return
 	var finisher_result: Dictionary = combo_finisher.try_resolve(next_tag, next_streak, battle_state, player, opponent, _battle_effect_context())
 	if not finisher_result.is_empty():
 		_play_combo_finisher_feedback(finisher_result)
@@ -1362,7 +1437,9 @@ func _trigger_combo_bonus(tag: String, streak: int) -> void:
 			_add_log("연계 발동: 화염 카드 연속 사용으로 폭발 피해 %d" % burst_damage)
 		"draw":
 			_draw_cards(player, 1)
-			player["mana"] = int(player.get("mana", 0)) + 1 if streak >= 3 else int(player.get("mana", 0))
+			if streak >= 3 and not bool(battle_state.get("draw_combo_mana_claimed", false)):
+				player["mana"] = int(player.get("mana", 0)) + 1
+				battle_state["draw_combo_mana_claimed"] = true
 			_add_log("연계 발동: 드로우 카드 연속 사용으로 카드 1장 추가%s" % (" / 마나 +1" if streak >= 3 else ""))
 			_play_effect_hit_feedback(_hero_target_for_player(true), combo_name, Color(0.42, 0.76, 1.0, 1.0))
 			combo_color = Color(0.42, 0.76, 1.0, 1.0)
@@ -1405,7 +1482,7 @@ func _trigger_combo_bonus(tag: String, streak: int) -> void:
 
 func _build_damage_bonus(source: Dictionary, is_spell: bool, owner_state: Dictionary) -> int:
 	var bonus = 0
-	if _is_build_active("fire") and String(source.get("attr", "")) == "화염":
+	if owner_state == player and _is_build_active("fire") and String(source.get("attr", "")) == "화염":
 		bonus += 2
 	if _is_build_active("low_hp") and not is_spell and owner_state == player and int(player.get("health", 0)) <= int(player.get("max_health", 0)) / 2:
 		bonus += 1
@@ -1507,17 +1584,17 @@ func _make_side_info_card(title_text: String, side: Dictionary, hero_art: int, c
 	hero_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	info_box.add_child(hero_name)
 
-	var hp_text = "❤ %d / %d" % [int(side.get("health", 0)), int(side.get("max_health", 0))]
+	var hp_text = "HP %d / %d" % [int(side.get("health", 0)), int(side.get("max_health", 0))]
 	var hp_label: Label = main._make_label(hp_text, 13 if tight else (14 if compact else 15), Color(1.0, 0.76, 0.76, 1.0))
 	hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	info_box.add_child(hp_label)
 
-	var sub_text = "⚔ %d  |  손패 %d" % [
+	var sub_text = "공격 %d  |  손패 %d" % [
 		_total_field_attack(side),
 		(side.get("hand", []) as Array).size(),
 	]
 	if enemy_side:
-		sub_text = "⚔ %d  |  덱 %d" % [_total_field_attack(side), (side.get("deck", []) as Array).size()]
+		sub_text = "공격 %d  |  덱 %d" % [_total_field_attack(side), (side.get("deck", []) as Array).size()]
 	var sub_label: Label = main._make_label(sub_text, 11 if tight else (12 if compact else 13), Color(0.84, 0.88, 0.94, 1.0))
 	sub_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	info_box.add_child(sub_label)
@@ -1699,8 +1776,11 @@ func _make_collision_line(compact: bool) -> PanelContainer:
 	left_line.custom_minimum_size = Vector2(0, 2)
 	left_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(left_line)
-	var label: Label = main._make_label("VS", 9 if tight else 10, Color(0.82, 0.86, 0.94, 1.0))
-	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	var label: Label = main._make_label("", 11 if tight else 12, Color(1.0, 0.72, 0.48))
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_stretch_ratio = 30.0
+	enemy_intent_label = label
 	row.add_child(label)
 	var right_line = ColorRect.new()
 	right_line.color = Color(0.34, 0.72, 1.0, 0.62)
@@ -1775,7 +1855,7 @@ func _make_deck_preview_panel(compact: bool, min_height: int) -> Dictionary:
 	count_row.add_theme_constant_override("separation", 6 if tight else 8)
 	deck_box.add_child(count_row)
 
-	var deck_icon: Label = main._make_label("▣", 12 if tight else (15 if compact else 17), Color(0.7, 0.62, 1.0, 1.0))
+	var deck_icon: Label = main._make_label("덱", 12 if tight else (15 if compact else 17), Color(0.7, 0.62, 1.0, 1.0))
 	deck_icon.autowrap_mode = TextServer.AUTOWRAP_OFF
 	count_row.add_child(deck_icon)
 
@@ -2014,8 +2094,6 @@ func _recommended_attack_target_index(attacker: Dictionary) -> int:
 			return i
 	var best_lethal_index = -1
 	var best_lethal_attack = -1
-	var best_fallback_index = -1
-	var best_fallback_health = 999999
 	for i in range(opponent.field.size()):
 		var enemy_unit: Dictionary = opponent.field[i]
 		var prediction = _predict_unit_attack(attacker, enemy_unit, player, opponent)
@@ -2024,13 +2102,10 @@ func _recommended_attack_target_index(attacker: Dictionary) -> int:
 			if threat > best_lethal_attack:
 				best_lethal_attack = threat
 				best_lethal_index = i
-		var hp = int(enemy_unit.get("health", 0))
-		if hp < best_fallback_health:
-			best_fallback_health = hp
-			best_fallback_index = i
 	if best_lethal_index != -1:
 		return best_lethal_index
-	return best_fallback_index
+	# With the vanguard gone, pressure the hero instead of throwing away units.
+	return -1
 
 func _recommended_action_text() -> String:
 	var state := _recommended_action_state()
@@ -2291,6 +2366,9 @@ func _render_build_chips() -> void:
 	if build_chip_box == null or not is_instance_valid(build_chip_box):
 		return
 	_clear_container(build_chip_box)
+	build_chip_box.visible = main._lesson_stage() >= 5
+	if main._lesson_stage() < 5:
+		return
 	var compact = _is_compact_layout()
 	var tight = _is_tight_battle_layout()
 	var active_tags: Array = battle_state.get("active_build_tags", []) as Array
@@ -2324,7 +2402,7 @@ func _render_build_chips() -> void:
 			var title_text = "%s %s 시너지 (%d/%d)" % [meta.get("icon", ""), meta.get("name", ""), val, main._build_threshold()]
 			var status_str = ""
 			if active:
-				status_str = "[color=#5CD65C][b]● 활성화됨[/b][/color] (효과 적용 중)"
+				status_str = "[color=#5CD65C][b]활성화됨[/b][/color] (효과 적용 중)"
 			else:
 				status_str = "[color=#A0A5B0]○ 비활성화됨[/color] (활성화까지 %d장 부족)" % (main._build_threshold() - val)
 			if combo_active:
@@ -2340,15 +2418,15 @@ func _refresh_side_info_cards() -> void:
 	if enemy_hero_name_label != null and is_instance_valid(enemy_hero_name_label):
 		enemy_hero_name_label.text = String(opponent.get("name", "적 영웅"))
 	if enemy_hero_hp_label != null and is_instance_valid(enemy_hero_hp_label):
-		enemy_hero_hp_label.text = "❤ %d / %d" % [int(opponent.get("health", 0)), int(opponent.get("max_health", 0))]
+		enemy_hero_hp_label.text = "HP %d / %d" % [int(opponent.get("health", 0)), int(opponent.get("max_health", 0))]
 	if enemy_hero_sub_label != null and is_instance_valid(enemy_hero_sub_label):
-		enemy_hero_sub_label.text = "⚔ %d  |  덱 %d / 버림 %d" % [_total_field_attack(opponent), (opponent.get("deck", []) as Array).size(), (opponent.get("discard_pile", []) as Array).size()]
+		enemy_hero_sub_label.text = "공격 %d  |  덱 %d / 버림 %d" % [_total_field_attack(opponent), (opponent.get("deck", []) as Array).size(), (opponent.get("discard_pile", []) as Array).size()]
 	if player_hero_name_label != null and is_instance_valid(player_hero_name_label):
 		player_hero_name_label.text = String(player.get("name", "플레이어"))
 	if player_hero_hp_label != null and is_instance_valid(player_hero_hp_label):
-		player_hero_hp_label.text = "❤ %d / %d" % [int(player.get("health", 0)), int(player.get("max_health", 0))]
+		player_hero_hp_label.text = "HP %d / %d" % [int(player.get("health", 0)), int(player.get("max_health", 0))]
 	if player_hero_sub_label != null and is_instance_valid(player_hero_sub_label):
-		player_hero_sub_label.text = "⚔ %d  |  손패 %d" % [_total_field_attack(player), (player.get("hand", []) as Array).size()]
+		player_hero_sub_label.text = "공격 %d  |  손패 %d" % [_total_field_attack(player), (player.get("hand", []) as Array).size()]
 	if enemy_hand_count_label != null and is_instance_valid(enemy_hand_count_label):
 		if enemy_deck_count_label == null:
 			enemy_hand_count_label.text = "손패 %d | 덱 %d" % [(opponent.get("hand", []) as Array).size(), (opponent.get("deck", []) as Array).size()]
@@ -2601,14 +2679,7 @@ func _build_battle_ui() -> void:
 	_initialize_battle_runtime_ui()
 
 func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
-	if is_player_turn:
-		turn_timer.start(TURN_TIME_SECONDS)
-		await _show_turn_banner("내 턴!", true)
-	else:
-		turn_timer.stop()
-		turn_timer_label.text = ""
-		await _show_turn_banner("적 턴!", false)
-
+	turn_timer.stop()
 	side.max_mana = min(MAX_MANA, int(side.max_mana) + 1)
 	side.mana = side.max_mana
 	if is_player_turn and bool(battle_state.get("mana_crystal_bonus", false)):
@@ -2620,6 +2691,8 @@ func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
 	_draw_cards(side, max(0, START_HAND - (side.get("hand", []) as Array).size()))
 	if is_player_turn:
 		battle_momentum.reset_player_turn(battle_state)
+		battle_state["draw_combo_mana_claimed"] = false
+		battle_state["player_turn_count"] = int(battle_state.get("player_turn_count", 0)) + 1
 		battle_state["cards_played_this_turn"] = 0
 		battle_state["combo_tag"] = ""
 		battle_state["combo_streak"] = 0
@@ -2632,7 +2705,13 @@ func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
 	if game_over:
 		return
 	_add_log("%s 턴 시작: 마나 %d/%d" % [side.name, side.mana, side.max_mana])
+	if is_player_turn:
+		input_locked = false
+	else:
+		battle_state["ai_phase"] = "cards"
+	_refresh_ui()
 	_store_battle_snapshot()
+	await _show_turn_banner("내 턴!" if is_player_turn else "적 턴!", is_player_turn)
 
 
 func _apply_delayed_status(side: Dictionary) -> void:
@@ -2909,11 +2988,18 @@ func _finish_hand_card_drag(release_pos: Vector2, card_index: int) -> void:
 	var is_valid_drop := playable and (release_pos.y < (start_pos.y - 50.0) or release_pos.distance_to(target_pos) < 120.0)
 	
 	if is_valid_drop:
+		if _requires_ally_target(card):
+			_ensure_battle_unit_ids()
+			for i in range(player.field.size()):
+				var slot := _field_slot_for(player, i)
+				if slot != null and slot.get_global_rect().has_point(release_pos):
+					_on_hand_card_pressed(card_index, int(player.field[i].battle_unit_id))
+					return
 		_on_hand_card_pressed(card_index)
 	else:
 		_render_hand()
 
-func _on_hand_card_pressed(index: int) -> void:
+func _on_hand_card_pressed(index: int, target_unit_id: int = -1) -> void:
 	is_dragging_hand_card = false
 	drag_candidate_index = -1
 	if drag_preview_card != null and is_instance_valid(drag_preview_card):
@@ -2928,7 +3014,7 @@ func _on_hand_card_pressed(index: int) -> void:
 		return
 	var card: Dictionary = player.hand[index]
 	var hand_slot := int(card.get("_hand_slot", index))
-	if _uses_touch_hand_selection() and selected_hand_slot != hand_slot:
+	if target_unit_id < 0 and _uses_touch_hand_selection() and selected_hand_slot != hand_slot:
 		selected_hand_slot = hand_slot
 		_render_hand()
 		hand_render_signature = _hand_signature()
@@ -2943,13 +3029,21 @@ func _on_hand_card_pressed(index: int) -> void:
 		else:
 			_add_log("장착할 아군 유닛이 없습니다.")
 		return
+	if _requires_ally_target(card):
+		if target_unit_id < 0:
+			_begin_ally_selection({"kind": "card", "hand_slot": hand_slot, "card_id": String(card.id)})
+			return
+		if _ally_index_by_id(target_unit_id) < 0:
+			return
+	pending_action.clear()
+	player_field_signature = ""
 	selected_hand_slot = -1
 	_clear_card_board_preview()
 	_hide_hover_popup()
 	var card_type := String(card.get("type", ""))
 	var old_field_size: int = player.field.size()
 	var source := _hand_card_control(hand_slot)
-	var target := _card_action_target(card, true)
+	var target := _field_slot_for(player, _ally_index_by_id(target_unit_id)) if target_unit_id >= 0 else _card_action_target(card, true)
 	var accent := _card_accent_color(card)
 	var flying_card: Control = null
 	input_locked = true
@@ -2976,8 +3070,10 @@ func _on_hand_card_pressed(index: int) -> void:
 	battle_state["cards_played_this_turn"] = int(battle_state.get("cards_played_this_turn", 0)) + 1
 	var old_p_hp = int(player.health)
 	var old_o_hp = int(opponent.health)
-	main.battle_effects.play_card(player, opponent, card, _battle_effect_context())
+	main.battle_effects.play_card(player, opponent, card, _battle_effect_context("player", target_unit_id))
 	main.relic_service.on_card_played(main.current_run, battle_state, player)
+	if card_type == "equipment":
+		_record_lesson_action("equipped")
 	_resolve_card_combo(card)
 	var summoned_index = -1
 	if card_type == "unit" and player.field.size() > old_field_size:
@@ -3078,8 +3174,9 @@ func _make_card_action_visual(card: Dictionary, cost: int, requested_size: Vecto
 	return visual
 
 
-func _battle_effect_context() -> Dictionary:
-	return {
+func _battle_effect_context(owner_key: String = "player", target_unit_id: int = -1) -> Dictionary:
+	var context := {
+		"owner_key": owner_key,
 		"draw_cards": Callable(self, "_draw_cards"),
 		"log": Callable(self, "_add_log"),
 		"cleanup_dead_units": Callable(self, "_cleanup_dead_units"),
@@ -3088,10 +3185,14 @@ func _battle_effect_context() -> Dictionary:
 		"on_unit_summoned": Callable(self, "_apply_build_on_unit_summoned"),
 		"relic_trigger": Callable(self, "_on_relic_trigger"),
 		"relic_service": main.relic_service,
-		"run_data": main.current_run,
-		"max_health": int(main.current_run.get("max_hp", 50)),
+		"run_data": main.current_run if owner_key == "player" else {},
+		"max_health": int(player.get("max_health", 50)) if owner_key == "player" else int(opponent.get("max_health", 20)),
 		"cards_played_this_turn": int(battle_state.get("cards_played_this_turn", 0)),
 	}
+
+	if target_unit_id >= 0:
+		context["target_unit_id"] = target_unit_id
+	return context
 
 func _sfx_race_key(card_or_unit: Dictionary) -> String:
 	match String(card_or_unit.get("race", "")).to_lower():
@@ -3132,7 +3233,7 @@ func _card_exhausts_after_play(card: Dictionary) -> bool:
 
 
 func _calculate_damage(card_or_unit: Dictionary, is_spell: bool, owner_state: Dictionary, base_damage: int) -> int:
-	var damage: int = base_damage + main.relic_service.damage_bonus(main.current_run, card_or_unit, is_spell, owner_state) + _build_damage_bonus(card_or_unit, is_spell, owner_state)
+	var damage: int = base_damage + (main.relic_service.damage_bonus(main.current_run, card_or_unit, is_spell, owner_state) if owner_state == player else 0) + _build_damage_bonus(card_or_unit, is_spell, owner_state)
 	if owner_state == player and is_spell and String(card_or_unit.get("attr", "")) == "화염":
 		var relic_ids: Array = main.current_run.get("relic_ids", [])
 		if relic_ids.has("burning_heart") and int(battle_state.get("cards_played_this_turn", 0)) >= 2:
@@ -3229,7 +3330,7 @@ func _play_effect_hit_feedback(target: Control, text: String, color: Color) -> v
 	_flash_target(target, color, 0.24)
 
 func _apply_equipment_attack_triggers(attacker: Dictionary, attacker_side: Dictionary, defender_side: Dictionary) -> void:
-	var result: Dictionary = main.battle_effects.on_unit_attacked(attacker, attacker_side, defender_side, _battle_effect_context())
+	var result: Dictionary = main.battle_effects.on_unit_attacked(attacker, attacker_side, defender_side, _battle_effect_context("player" if attacker_side == player else "opponent"))
 	var hero_damage := int(result.get("hero_damage", 0))
 	var draw_amount := int(result.get("draw", 0))
 	var heal_amount := int(result.get("heal", 0))
@@ -3314,7 +3415,7 @@ func _card_heal_preview(card: Dictionary) -> int:
 	var card_id = _base_card_id(String(card.get("id", "")))
 	match card_id:
 		"first_aid":
-			return 3
+			return 3 + int(card.get("effect_bonus", 0))
 		"healing_potion":
 			return 5
 		"vampiric_strike":
@@ -3339,9 +3440,11 @@ func _direct_damage_preview(card: Dictionary) -> int:
 			base_damage = 1
 	if base_damage <= 0:
 		return 0
-	return _calculate_damage(card, true, player, base_damage)
+	return _calculate_damage(card, true, player, base_damage + int(card.get("effect_bonus", 0)))
 
 func _card_result_preview(card: Dictionary) -> String:
+	if int(card.get("effect_bonus", 0)) > 0:
+		return String(card.get("text", ""))
 	var default_summary: String = main._card_effect_summary(card)
 	var card_type = String(card.get("type", ""))
 	var card_id = _base_card_id(String(card.get("id", "")))
@@ -3461,6 +3564,10 @@ func _recommended_hand_card() -> Dictionary:
 
 
 func _on_player_unit_pressed(index: int) -> void:
+	if not pending_action.is_empty():
+		if index >= 0 and index < player.field.size():
+			await _confirm_ally_target(int(player.field[index].get("battle_unit_id", -1)))
+		return
 	if input_locked or game_over or current_player != "player":
 		return
 	if index < 0 or index >= player.field.size():
@@ -3563,6 +3670,8 @@ func _can_click_enemy_hero_area() -> bool:
 
 
 func _on_opponent_unit_pressed(index: int) -> void:
+	if not pending_action.is_empty():
+		return
 	if input_locked or game_over or current_player != "player":
 		return
 	if index < 0 or index >= opponent.field.size():
@@ -3578,6 +3687,8 @@ func _on_opponent_unit_pressed(index: int) -> void:
 
 
 func _attack_opponent_hero() -> void:
+	if not pending_action.is_empty():
+		return
 	if input_locked or game_over or current_player != "player":
 		return
 	if selected_attacker == -1 and not _try_auto_select_attacker_for_hero():
@@ -3908,6 +4019,12 @@ func _front_opponent_target() -> Control:
 
 func _show_card_board_preview(card: Dictionary, playable: bool) -> void:
 	_clear_card_board_preview()
+	if is_instance_valid(battle_guidance_label) and pending_action.is_empty():
+		battle_guidance_label.text = _combo_card_preview(card)
+	if playable and _requires_ally_target(card):
+		for i in range(player.field.size()):
+			_add_card_preview_marker(_field_slot_for(player, i), "아군 선택", Color(0.4, 1.0, 0.7))
+		return
 	if not playable or _is_player_input_locked():
 		return
 	var card_type := String(card.get("type", ""))
@@ -4063,7 +4180,7 @@ func _cleanup_side_dead(owner: Dictionary, enemy: Dictionary) -> void:
 				var original_card = main.card_db.get_card(String(dead_unit.get("id", "")))
 				if not original_card.is_empty():
 					owner.discard_pile.append(original_card)
-			main.battle_effects.on_unit_died(dead_unit, owner, enemy, _battle_effect_context())
+			main.battle_effects.on_unit_died(dead_unit, owner, enemy, _battle_effect_context("player" if owner == player else "opponent"))
 			if owner == player:
 				main.relic_service.on_ally_unit_died(main.current_run, battle_state, dead_unit)
 				_apply_build_on_ally_died(enemy)
@@ -4071,6 +4188,9 @@ func _cleanup_side_dead(owner: Dictionary, enemy: Dictionary) -> void:
 
 
 func _on_end_turn_pressed() -> void:
+	if not pending_action.is_empty():
+		_cancel_ally_selection()
+		return
 	if input_locked or game_over or current_player != "player":
 		return
 	_play_sfx("click")
@@ -4079,6 +4199,7 @@ func _on_end_turn_pressed() -> void:
 	_clear_card_board_preview()
 	_discard_hand(player)
 	current_player = "opponent"
+	battle_state["ai_phase"] = "start"
 	selected_attacker = -1
 	await _start_turn(opponent, false)
 	_refresh_ui()
@@ -4091,10 +4212,25 @@ func _on_end_turn_pressed() -> void:
 
 
 func _run_ai_turn() -> void:
+	_check_game_over()
 	if game_over:
 		return
-	await _run_ai_play_cards()
-	await _run_ai_attack_sequence()
+	var phase := String(battle_state.get("ai_phase", "cards"))
+	if phase == "start":
+		await _start_turn(opponent, false)
+		phase = "cards"
+	if phase == "cards":
+		await _run_ai_play_cards()
+		if game_over:
+			return
+		battle_state["ai_phase"] = "attacks"
+		_store_battle_snapshot()
+	if String(battle_state.get("ai_phase", "")) == "attacks":
+		await _run_ai_attack_sequence()
+		if game_over:
+			return
+		battle_state["ai_phase"] = "end"
+		_store_battle_snapshot()
 	if not game_over:
 		_discard_hand(opponent)
 		current_player = "player"
@@ -4125,42 +4261,46 @@ func _show_opponent_played_card_fx(card: Dictionary):
 		_is_fast_ai_enabled() or not _is_battle_cutscene_enabled()
 	)
 
+func _next_ai_card_index() -> int:
+	var tags: Array = Dictionary(main.current_run.get("active_enemy", {})).get("ai_tags", [])
+	var best := -1
+	var best_priority := -1
+	var best_cost := 999
+	for i in range(opponent.hand.size()):
+		var card: Dictionary = opponent.hand[i]
+		if not _can_play_card(opponent, card, "opponent"):
+			continue
+		var priority := EnemyPolicy.card_priority(card, tags, not opponent.field.is_empty())
+		var cost := int(card.get("cost", 0))
+		if priority > best_priority or (priority == best_priority and cost < best_cost):
+			best = i
+			best_priority = priority
+			best_cost = cost
+	return best
+
 func _run_ai_play_cards() -> void:
-	var played = true
-	while played:
-		played = false
-		for i in range(opponent.hand.size()):
-			var card: Dictionary = opponent.hand[i]
-			if _can_play_card(opponent, card, "opponent"):
-				var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "opponent")
-				opponent.mana -= cost
-				opponent.hand.remove_at(i)
-				if String(card.get("type", "")) != "unit" and not _card_exhausts_after_play(card):
-					opponent.discard_pile.append(card)
-
-				_refresh_ui()
-				var flying_card: Control = await _show_opponent_played_card_fx(card)
-
-				var old_player_health := int(player.get("health", 0))
-				main.battle_effects.play_card(opponent, player, card, _battle_effect_context())
-				_record_player_hero_damage(old_player_health)
-				_refresh_ui()
-				_play_sfx(_card_play_sfx(card))
-				if flying_card != null and is_instance_valid(flying_card) and battle_fx_layer != null and is_instance_valid(battle_fx_layer):
-					await battle_fx_layer.finish_card(
-						flying_card,
-						String(card.get("type", "")),
-						_card_accent_color(card),
-						_is_fast_ai_enabled() or not _is_battle_cutscene_enabled()
-					)
-				_check_game_over()
-				played = true
-				if game_over:
-					return
-				if not _is_fast_ai_enabled() and not _should_skip_timed_battle_fx():
-					await main.get_tree().create_timer(0.25).timeout
-				_store_battle_snapshot()
-				break
+	if main.Onboarding.first_battle(main.current_run):
+		return
+	while not game_over:
+		var index := _next_ai_card_index()
+		if index < 0:
+			return
+		var card: Dictionary = opponent.hand[index]
+		opponent.mana -= int(card.get("cost", 0))
+		opponent.hand.remove_at(index)
+		if String(card.get("type", "")) != "unit" and not _card_exhausts_after_play(card):
+			opponent.discard_pile.append(card)
+		var old_player_health := int(player.get("health", 0))
+		main.battle_effects.play_card(opponent, player, card, _battle_effect_context("opponent"))
+		_record_player_hero_damage(old_player_health)
+		_store_battle_snapshot()
+		_refresh_ui()
+		_check_game_over()
+		if game_over:
+			return
+		var flying_card: Control = await _show_opponent_played_card_fx(card)
+		if flying_card != null and is_instance_valid(flying_card) and is_instance_valid(battle_fx_layer):
+			await battle_fx_layer.finish_card(flying_card, String(card.get("type", "")), _card_accent_color(card), _is_fast_ai_enabled())
 
 func _run_ai_attack_sequence() -> void:
 	var i = 0
@@ -4169,7 +4309,8 @@ func _run_ai_attack_sequence() -> void:
 			i += 1
 			continue
 		if not player.field.is_empty():
-			await _combat(opponent, player, i, 0)
+			var target_index := EnemyPolicy.attack_target(opponent.field[i], player.field, _calculate_damage(opponent.field[i], false, opponent, int(opponent.field[i].attack)))
+			await _combat(opponent, player, i, target_index)
 		else:
 			await _run_ai_hero_attack(i)
 		_check_game_over()
@@ -4183,13 +4324,13 @@ func _run_ai_hero_attack(index: int) -> void:
 		return
 	var unit: Dictionary = opponent.field[index]
 	var damage = _calculate_damage(unit, false, opponent, int(unit.attack))
-	damage = main.relic_service.mitigate_hero_damage(main.current_run, battle_state, damage, true)
 	input_locked = true
 	_refresh_ui()
 	if _is_battle_cutscene_enabled():
 		await _play_hero_cutscene(unit, player.name, damage, opponent, index, true)
 	else:
 		_play_hero_attack_feedback(opponent, index, true, damage)
+	damage = main.relic_service.mitigate_hero_damage(main.current_run, battle_state, damage, true)
 	var old_player_health := int(player.get("health", 0))
 	player.health -= damage
 	_record_player_hero_damage(old_player_health)
@@ -4222,19 +4363,23 @@ func _check_game_over() -> void:
 		await _finish_battle_victory()
 
 func _finish_battle_victory() -> void:
+	var defeated_boss_id := String(Dictionary(main.current_run.get("active_enemy", {})).get("id", ""))
 	var reward: Dictionary = _apply_battle_victory_rewards()
-	await _play_battle_victory_sequence(reward)
 	main.current_run["active_enemy"] = {}
 	main.current_run["battle_snapshot"] = {}
 	if battle_tier == "boss":
 		var active_enemy: Dictionary = battle_state.get("active_enemy", {})
-		var boss_id: String = String(active_enemy.get("id", ""))
+		var boss_id: String = defeated_boss_id
 		if boss_id.is_empty() or main.card_db.get_card(boss_id).is_empty():
 			boss_id = "border_guardian" # fallback
-		reward["choices"] = [boss_id]
+		reward["choices"] = main._roll_boss_card_reward_choices(boss_id, 3)
 		main.set_meta("suppress_next_result_victory_audio", true)
+	if bool(main.current_run.get("guided_run", false)) and int(main.current_run.get("act", 1)) == 1 and int(main.current_run.get("current_node_index", 0)) == 0:
+		main.run_flow.advance_from_current_node()
+		return
 	main.current_run["pending_card_reward"] = reward
 	_save_run()
+	await _play_battle_victory_sequence(reward)
 	_show_card_reward()
 
 func _play_battle_victory_sequence(reward: Dictionary) -> void:
@@ -4349,7 +4494,7 @@ func _restore_label_color_if_valid(label, original_color: Color) -> void:
 
 func _configure_field_button(button: Button, unit: Dictionary, index: int, is_player_field: bool) -> void:
 	if is_player_field:
-		button.disabled = _is_player_input_locked() or not bool(unit.can_attack)
+		button.disabled = _is_player_input_locked() or (not bool(unit.can_attack) and pending_action.is_empty())
 		button.pressed.connect(Callable(self, "_on_player_unit_pressed").bind(index))
 		if index == selected_attacker:
 			button.text = "선택"
@@ -4450,7 +4595,7 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	var is_recommended_source := is_player_field and selected_attacker == -1 and recommended_kind in ["hero_attack_direct", "unit_attack_direct"] and int(recommended_state.get("attacker_index", -1)) == index
 	var is_recommended_target := not is_player_field and recommended_kind in ["unit_attack_direct", "unit_attack_selected"] and int(recommended_state.get("target_index", -1)) == index
 	if is_player_field:
-		is_disabled = _is_player_input_locked() or not bool(unit.get("can_attack", false))
+		is_disabled = _is_player_input_locked() or (not bool(unit.get("can_attack", false)) and pending_action.is_empty())
 		if not is_disabled:
 			frame.pressed.connect(func(): _on_player_unit_pressed(index))
 	else:
@@ -4476,7 +4621,10 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	var card_state := "default"
 	var slot_bg = Color(0.025, 0.03, 0.04, 0.94)
 
-	if is_player_field and index == selected_attacker:
+	if is_player_field and not pending_action.is_empty():
+		card_state = "target"
+		slot_bg = Color(0.025, 0.15, 0.10, 0.98)
+	elif is_player_field and index == selected_attacker:
 		card_state = "selected"
 		slot_bg = Color(0.04, 0.08, 0.14, 0.98)
 	elif is_recommended_source:
@@ -4555,7 +4703,11 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 			var prediction_badge: PanelContainer = _make_battle_badge(prediction_text, Color(0.16, 0.05, 0.055, 0.96), Color(1.0, 0.34, 0.24, 1.0), 9)
 			prediction_badge.position = Vector2((art_size.x - prediction_badge.custom_minimum_size.x) / 2.0, 4)
 			art_container.add_child(prediction_badge)
-	if is_player_field and index == selected_attacker:
+	if is_player_field and not pending_action.is_empty():
+		var selection_badge := _make_battle_badge("대상 선택", Color(0.02, 0.15, 0.1), Color(0.4, 1.0, 0.7), 9)
+		selection_badge.position = Vector2(4, 4)
+		art_container.add_child(selection_badge)
+	elif is_player_field and index == selected_attacker:
 		var selected_badge_text := "1. 선택" if mobile else "1. 공격자"
 		var selected_badge: PanelContainer = _make_battle_badge(selected_badge_text, Color(0.03, 0.12, 0.2, 0.96), Color(0.34, 0.72, 1.0, 1.0), 9)
 		selected_badge.position = Vector2(max(4.0, art_size.x - selected_badge.custom_minimum_size.x - 4.0), 4)
@@ -4934,6 +5086,14 @@ func _refresh_timer_label() -> void:
 	turn_timer_label.text = _top_resource_text()
 
 func _refresh_status_labels() -> void:
+	if is_instance_valid(ally_cancel_button):
+		ally_cancel_button.visible = not pending_action.is_empty()
+	if is_instance_valid(race_power_button):
+		race_power_button.visible = main._lesson_stage() >= 4
+	if is_instance_valid(enemy_intent_label):
+		enemy_intent_label.visible = main._lesson_stage() >= 4
+		enemy_intent_label.text = _next_enemy_action_text(true)
+		enemy_intent_label.tooltip_text = _next_enemy_action_text()
 	if status_label != null and is_instance_valid(status_label):
 		var boss_pattern := _boss_pattern_text()
 		if _is_mobile_battle_layout():
@@ -5002,7 +5162,7 @@ func _refresh_action_buttons() -> void:
 			_style_battle_button(race_power_button, Color(0.07, 0.08, 0.1, 0.84), Color(0.24, 0.28, 0.34, 0.8), false, "power")
 			race_power_button.modulate = Color(0.58, 0.6, 0.64, 0.76)
 	if recommended_action_button != null:
-		recommended_action_button.disabled = _is_player_input_locked() or recommended_kind == "wait"
+		recommended_action_button.disabled = _is_player_input_locked() or recommended_kind in ["wait", "select_target"]
 		recommended_action_button.text = _recommended_action_text()
 		recommended_action_button.modulate = Color.WHITE
 		if _battle_guidance_mode() == GUIDANCE_MODE_HINT and recommended_kind != "end_turn":
@@ -5013,7 +5173,7 @@ func _refresh_action_buttons() -> void:
 			_style_battle_button(recommended_action_button, Color(0.25, 0.075, 0.035, 0.99), Color(1.0, 0.72, 0.2, 1.0), true, "primary")
 		elif recommended_kind == "end_turn":
 			_style_battle_button(recommended_action_button, Color(0.07, 0.16, 0.25, 0.98), Color(0.28, 0.68, 1.0, 1.0), true, "primary")
-		elif recommended_kind == "wait":
+		elif recommended_kind in ["wait", "select_target"]:
 			_style_battle_button(recommended_action_button, Color(0.08, 0.1, 0.13, 0.82), Color(0.28, 0.34, 0.42, 0.8), false, "primary")
 		else:
 			_style_battle_button(recommended_action_button, Color(0.12, 0.085, 0.035, 0.98), Color(0.94, 0.72, 0.28, 1.0), true, "primary")
@@ -5039,7 +5199,7 @@ func _refresh_action_buttons() -> void:
 			opponent_hero_target_badge.add_theme_stylebox_override("panel", _make_modern_style(Color(0.13, 0.045, 0.05, 0.96) if can_attack_hero or recommended_hero_target else Color(0.08, 0.1, 0.13, 0.92), badge_accent, 2 if can_attack_hero or recommended_hero_target else 1, 6, 5))
 	if end_turn_button != null:
 		end_turn_button.disabled = _is_player_input_locked()
-		end_turn_button.text = "직접 턴 종료"
+		end_turn_button.text = "선택 취소" if not pending_action.is_empty() else "직접 턴 종료"
 		if recommended_kind == "end_turn":
 			_style_battle_button(end_turn_button, Color(0.08, 0.16, 0.24, 0.96), Color(0.22, 0.62, 0.95, 1.0), true, "turn")
 			end_turn_button.modulate = Color.WHITE
@@ -5048,6 +5208,7 @@ func _refresh_action_buttons() -> void:
 			end_turn_button.modulate = Color(0.7, 0.72, 0.76, 0.88)
 
 func _refresh_ui() -> void:
+	_ensure_battle_unit_ids()
 	_hide_hover_popup()
 	_refresh_timer_label()
 	_refresh_status_labels()
@@ -5091,10 +5252,7 @@ func rebuild_layout() -> void:
 		detail_panel.visible = show_details
 	if log_label != null and is_instance_valid(log_label):
 		log_label.text = saved_log
-	if timer_was_running and current_player == "player" and timer_left > 0.0:
-		turn_timer.start(timer_left)
-	else:
-		turn_timer.stop()
+	turn_timer.stop()
 	_init_status_trackers()
 	_refresh_ui()
 
@@ -5113,6 +5271,17 @@ func start_battle() -> void:
 	player = _new_side(main._current_race_hero_name(), main.card_db.build_deck_from_ids(main.current_run.get("deck_ids", [])), int(main.current_run.get("hp", 50)), int(main.current_run.get("max_hp", 50)))
 	opponent = _new_side(String(enemy.get("name", "적")), main.card_db.build_deck_from_ids(enemy.get("deck_ids", [])), int(enemy.get("base_hp", 20)), int(enemy.get("base_hp", 20)))
 	var enemy_vanguard := _deploy_enemy_vanguard(enemy)
+	if main.Onboarding.first_battle(main.current_run) and not opponent.field.is_empty():
+		opponent.field[0]["attack"] = 1
+		opponent.field[0]["health"] = 1
+		opponent.field[0]["max_health"] = 1
+	if main._lesson_stage() == 2:
+		var chosen_equipment := String(main.current_run.get("lesson_equipment_id", ""))
+		for i in range(player.deck.size()):
+			if String(player.deck[i].get("type", "")) == "equipment" and (chosen_equipment.is_empty() or String(player.deck[i].get("id", "")) == chosen_equipment):
+				var equipment: Dictionary = player.deck.pop_at(i)
+				player.deck.append(equipment)
+				break
 	_draw_cards(player, START_HAND)
 	_draw_cards(opponent, mini(START_HAND, opponent.deck.size()))
 	_reset_battle_state()
@@ -5127,8 +5296,6 @@ func start_battle() -> void:
 	_refresh_ui()
 	if not enemy_vanguard.is_empty() and not _should_skip_timed_battle_fx():
 		_play_slot_pop_feedback(_field_slot_for(opponent, 0), "선봉 등장", Color(1.0, 0.42, 0.28, 1.0))
-	_store_battle_snapshot()
-	await _show_turn_banner("전투 시작!", true)
 	await _start_turn(player, true)
 
 
@@ -5282,3 +5449,105 @@ func _flash_and_shake(node, color: Color) -> void:
 	for i in range(4):
 		tween.parallel().tween_property(control, "position", orig_pos + Vector2(randf_range(-8, 8), randf_range(-8, 8)), 0.05)
 	tween.tween_property(control, "position", orig_pos, 0.05)
+
+func _ensure_battle_unit_ids() -> void:
+	var next_id := int(battle_state.get("next_battle_unit_id", 1))
+	var used := {}
+	for side in [player, opponent]:
+		for unit in side.get("field", []):
+			next_id = maxi(next_id, int(unit.get("battle_unit_id", 0)) + 1)
+	for side in [player, opponent]:
+		for unit in side.get("field", []):
+			var id := int(unit.get("battle_unit_id", 0))
+			if id <= 0 or used.has(id):
+				id = next_id
+				next_id += 1
+				unit["battle_unit_id"] = id
+			used[id] = true
+	battle_state["next_battle_unit_id"] = next_id
+
+func _ally_index_by_id(id: int) -> int:
+	if id < 0:
+		return -1
+	for i in range(player.field.size()):
+		if int(player.field[i].get("battle_unit_id", -2)) == id and int(player.field[i].get("health", 0)) > 0:
+			return i
+	return -1
+
+func _requires_ally_target(card: Dictionary) -> bool:
+	var id := _base_card_id(String(card.get("id", "")))
+	return (String(card.get("type", "")) == "equipment" and id != "royal_standard") or id == "corpse_explosion"
+
+func _begin_ally_selection(action: Dictionary) -> void:
+	_ensure_battle_unit_ids()
+	pending_action = action.duplicate(true)
+	selected_attacker = -1
+	player_field_signature = ""
+	_refresh_ui()
+	for i in range(player.field.size()):
+		_show_slot_overlay_text(_field_slot_for(player, i), "대상 선택", Color(0.4, 1.0, 0.7))
+
+func _cancel_ally_selection() -> void:
+	pending_action.clear()
+	player_field_signature = ""
+	_clear_card_board_preview()
+	_refresh_ui()
+
+func _confirm_ally_target(id: int) -> void:
+	if pending_action.is_empty() or _ally_index_by_id(id) < 0 or _is_player_input_locked():
+		return
+	var action := pending_action.duplicate(true)
+	if String(action.get("kind", "")) == "power":
+		_on_race_power_pressed(id)
+		return
+	for i in range(player.hand.size()):
+		var card: Dictionary = player.hand[i]
+		if int(card.get("_hand_slot", i)) == int(action.get("hand_slot", -1)) and String(card.get("id", "")) == String(action.get("card_id", "")):
+			await _on_hand_card_pressed(i, id)
+			return
+	_cancel_ally_selection()
+
+func _combo_card_preview(card: Dictionary) -> String:
+	if main._lesson_stage() < 2:
+		return "마나를 사용해 아군을 소환하세요. 소환한 다음 턴부터 공격할 수 있습니다."
+	var tags := _combo_candidate_tags(card)
+	var current := String(battle_state.get("combo_tag", ""))
+	var streak := int(battle_state.get("combo_streak", 0))
+	if tags.is_empty():
+		return "연계 중단" if streak > 0 else "활성 연계 태그 없음"
+	var keeps := not current.is_empty() and tags.has(current)
+	var next_tag := current if keeps else String(tags[0])
+	var next_streak := streak + 1 if keeps else 1
+	var names := {"fire": "추가 화염 피해", "draw": "드로우 +1", "death": "적 영웅 피해", "buff": "선봉 성장", "low_hp": "영웅 회복", "summon": "마지막 유닛 즉시 공격"}
+	var result := "%s · %d연계" % ["연계 유지" if keeps else ("연계 전환" if streak > 0 else "연계 시작"), next_streak]
+	if next_streak >= 2:
+		result += " · " + String(names.get(next_tag, ""))
+	if main._lesson_stage() >= 4 and next_streak >= 3 and not bool(battle_state.get("combo_finisher_used", false)):
+		result += " · 피니시!"
+	return result
+
+func _record_lesson_action(action: String) -> void:
+	if not bool(main.current_run.get("guided_run", false)) or int(main.current_run.get("act", 1)) != 1 or int(main.current_run.get("current_node_index", 0)) != 2:
+		return
+	var actions: Dictionary = main.current_run.get("lesson_actions", {})
+	actions[action] = true
+	main.current_run["lesson_actions"] = actions
+
+func _equipment_lesson_guidance() -> String:
+	if not bool(main.current_run.get("guided_run", false)) or int(main.current_run.get("act", 1)) != 1 or int(main.current_run.get("current_node_index", 0)) != 2 or int(main.current_run.get("lesson_resume_stage", 0)) >= 3:
+		return ""
+	var actions: Dictionary = main.current_run.get("lesson_actions", {})
+	if not bool(actions.get("equipped", false)):
+		if player.field.is_empty():
+			return "먼저 유닛 한 명을 소환하세요. 장비는 전장에 있는 아군에게 사용합니다."
+		for card in player.hand:
+			if String(card.get("type", "")) == "equipment":
+				if main.relic_service.modify_card_cost(main.current_run, battle_state, card, "player") > int(player.mana):
+					return "장비를 쓸 마나가 부족합니다. 공격을 마치고 턴을 넘기면 마나가 채워집니다."
+				return "%s을 누른 뒤 강화할 아군을 고르세요. 대상을 고르기 전에는 취소할 수 있어요." % String(card.get("name", "장비"))
+		return "장비는 손패에 들어왔을 때 사용할 수 있습니다. 지금은 소환과 공격을 이어가세요."
+	if not bool(actions.get("combo", false)):
+		if player.field.size() >= MAX_FIELD:
+			return "장비 장착 완료! 전장이 가득 찼습니다. 공격으로 자리를 만든 뒤 유닛 두 장을 이어 쓰면 2연계가 됩니다."
+		return "장비 장착 완료! 한 턴에 유닛 두 장을 이어 쓰면 소환 2연계가 됩니다. 중간에 다른 카드를 쓰면 끊길 수 있어요."
+	return "장비와 2연계를 모두 사용했습니다! 배운 방법으로 적 영웅을 쓰러뜨리세요."

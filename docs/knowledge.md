@@ -85,14 +85,14 @@ tests/godot/    기본 회귀와 선택형 화면 검증
 기본 개발 루프는 하나만 실행한다.
 
 ```bash
-/opt/homebrew/bin/godot --headless -s res://tests/godot/run_tests.gd
+/opt/homebrew/bin/godot --headless -s res://tests/godot/run_tests.gd -- --test-data-dir=/tmp/card-draft-check
 ```
 
 UI를 변경한 경우에만 다음을 추가한다.
 
 ```bash
-/opt/homebrew/bin/godot --path . -s res://tests/godot/capture_ui_responsive.gd
-/opt/homebrew/bin/godot --path . -s res://tests/godot/validate_ui_captures.gd
+/opt/homebrew/bin/godot --path . -s res://tests/godot/capture_ui_responsive.gd -- --test-data-dir=/tmp/card-draft-check
+/opt/homebrew/bin/godot --path . -s res://tests/godot/validate_ui_captures.gd -- --test-data-dir=/tmp/card-draft-check
 ```
 
 런 흐름을 변경한 경우에만 `playthrough_probe.gd`를 사용한다.

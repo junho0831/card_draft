@@ -3,8 +3,7 @@ extends Control
 const MAX_MANA := 10
 const MAX_FIELD := 5
 const START_HAND := 4
-const PROFILE_PATH := "user://meta_profile.json"
-const RUN_PATH := "user://run_state.json"
+const GameStorage := preload("res://src/services/game_storage.gd")
 const CARD_DATA_PATH := "res://data/cards.json"
 const CARD_LORE_DATA_PATH := "res://data/card_lore.json"
 const CARD_ART_SHEET := preload("res://assets/card_art/season1_sample_sheet.png")
@@ -62,6 +61,8 @@ var player_profile := {}
 var current_run := {}
 var collection_filter := "전체"
 var active_screen := "main_menu"
+const Onboarding = preload("res://src/services/onboarding_service.gd")
+var pending_guided_run := false
 var pending_race_selection_id := "human"
 
 var root_box: VBoxContainer
@@ -115,12 +116,12 @@ func _ready() -> void:
 
 	card_defs = card_db.card_defs
 	cards_by_id = card_db.cards_by_id
-	player_profile = profile_store.load_or_create(PROFILE_PATH, card_defs)
+	player_profile = profile_store.load_or_create(GameStorage.profile_path(), card_defs)
 	player_profile = profile_store.apply_local_debug_defaults(player_profile, card_defs)
 	_save_profile()
 	_apply_root_layout()
 	_apply_window_mode()
-	current_run = run_store.load_or_empty(RUN_PATH)
+	current_run = run_store.load_or_empty(GameStorage.run_path())
 	_show_main_menu()
 	last_layout_signature = _layout_signature(_layout_viewport_size())
 	var game_window := get_window()
@@ -337,17 +338,17 @@ func _clear_modal() -> void:
 		child.free()
 
 func _save_profile() -> void:
-	profile_store.save(PROFILE_PATH, player_profile)
+	profile_store.save(GameStorage.profile_path(), player_profile)
 
 func _save_run() -> void:
 	if current_run.is_empty():
-		run_store.clear(RUN_PATH)
+		run_store.clear(GameStorage.run_path())
 	else:
-		run_store.save(RUN_PATH, current_run)
+		run_store.save(GameStorage.run_path(), current_run)
 
 func _clear_run() -> void:
 	current_run = {}
-	run_store.clear(RUN_PATH)
+	run_store.clear(GameStorage.run_path())
 
 func _show_error_screen(message: String) -> void:
 	_clear_screen()
@@ -367,7 +368,14 @@ func _show_main_menu() -> void:
 	root_box.add_child(_make_main_menu_content(compact))
 	root_box.add_child(_make_main_menu_footer(compact))
 
+func _lesson_stage() -> int:
+	return Onboarding.stage(current_run)
+
+func _lesson_description() -> String:
+	return Onboarding.description(current_run)
+
 func _start_new_run() -> void:
+	pending_guided_run = int(player_profile.get("learning_stage", 0)) < 5
 	pending_race_selection_id = "human"
 	run_flow.start_new_run()
 
@@ -512,7 +520,6 @@ func _record_recent_run(is_win: bool) -> void:
 	while recent.size() > 5:
 		recent.pop_back()
 	player_profile["recent_runs"] = recent
-	_save_profile()
 
 func _relative_time_text(unix_time: int) -> String:
 	var delta: int = max(0, int(Time.get_unix_time_from_system()) - unix_time)
@@ -568,7 +575,7 @@ func _main_menu_recent_stats() -> Dictionary:
 		"win_rate": win_rate,
 	}
 
-func _menu_nav_button(parent: Node, title: String, subtitle: String, callback_method: String, color: Color, icon_text: String = "◆", compact: bool = false) -> Button:
+func _menu_nav_button(parent: Node, title: String, subtitle: String, callback_method: String, color: Color, icon_text: String = "-", compact: bool = false) -> Button:
 	var button: Button = ui.make_large_action_button(title, subtitle, icon_text, color, compact)
 	if compact and not _is_phone_portrait_layout():
 		button.custom_minimum_size = Vector2(300, 62)
@@ -675,10 +682,10 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 		resource_bar.add_theme_constant_override("separation", 10)
 		resources_row = resource_bar
 	row.add_child(resources_row)
-	resources_row.add_child(_make_top_resource_chip("🔥", "%d/%d" % [1 if current_run.is_empty() else int(current_run.get("hp", 0)), 1 if current_run.is_empty() else int(current_run.get("max_hp", 0))], compact))
-	resources_row.add_child(_make_top_resource_chip("🗂", "%d" % card_defs.size(), compact))
-	resources_row.add_child(_make_top_resource_chip("🪙", _format_large_number(int(player_profile.get("gold", 0))), compact))
-	resources_row.add_child(_make_top_resource_chip("🔷", _format_large_number(int(player_profile.get("soul_stones", 0))), compact))
+	resources_row.add_child(_make_top_resource_chip("HP", "%d/%d" % [1 if current_run.is_empty() else int(current_run.get("hp", 0)), 1 if current_run.is_empty() else int(current_run.get("max_hp", 0))], compact))
+	resources_row.add_child(_make_top_resource_chip("카드", "%d" % card_defs.size(), compact))
+	resources_row.add_child(_make_top_resource_chip("골드", _format_large_number(int(player_profile.get("gold", 0))), compact))
+	resources_row.add_child(_make_top_resource_chip("영혼", _format_large_number(int(player_profile.get("soul_stones", 0))), compact))
 
 	var actions: Control
 	if stack_top_bar:
@@ -695,14 +702,14 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 		actions = action_bar
 	row.add_child(actions)
 	if phone_portrait:
-		_small_hub_button_config(actions, "가이드", "_show_ui_guide", "🗺", 46, 44, 10)
-		_small_hub_button_config(actions, "설정", "_show_settings", "⚙", 46, 44, 10)
+		_small_hub_button_config(actions, "가이드", "_show_ui_guide", "도움", 46, 44, 10)
+		_small_hub_button_config(actions, "설정", "_show_settings", "설정", 46, 44, 10)
 	else:
-		_small_hub_button(actions, "도감", "_show_compendium", "📖")
-		_small_hub_button(actions, "업적", "_show_achievements", "🏆")
-		_small_hub_button(actions, "설정", "_show_settings", "⚙")
+		_small_hub_button(actions, "도감", "_show_compendium", "도감")
+		_small_hub_button(actions, "업적", "_show_achievements", "업적")
+		_small_hub_button(actions, "설정", "_show_settings", "설정")
 		if not OS.has_feature("web"):
-			_small_hub_button(actions, "종료", "_quit_game", "⏻")
+			_small_hub_button(actions, "종료", "_quit_game", "종료")
 	return panel
 
 func _make_main_menu_node_summary(compact: bool) -> Control:
@@ -851,18 +858,18 @@ func _make_main_menu_content(compact: bool) -> Control:
 
 	var continue_subtitle := "진행 중인 런이 없습니다.\n새 런을 시작해 흐름을 여세요."
 	if not current_run.is_empty():
-		continue_subtitle = "Act %d - %s\n노드 %d / 8" % [int(current_run.get("act", 1)), String(_current_act().get("name", "")), int(current_run.get("current_node_index", 0)) + 1]
+		continue_subtitle = "Act %d - %s\n노드 %d / %d" % [int(current_run.get("act", 1)), String(_current_act().get("name", "")), int(current_run.get("current_node_index", 0)) + 1, (_current_act().get("nodes", []) as Array).size()]
 	if not phone_portrait:
 		var left_column := VBoxContainer.new()
 		left_column.custom_minimum_size = Vector2(220 if not compact else 300, 0)
 		left_column.add_theme_constant_override("separation", 8)
 		content.add_child(left_column)
-		var continue_button := _menu_nav_button(left_column, "이어하기", continue_subtitle, "_continue_run", Color(0.18, 0.34, 0.16, 1.0), "✦", compact)
+		var continue_button := _menu_nav_button(left_column, "이어하기", continue_subtitle, "_continue_run", Color(0.18, 0.34, 0.16, 1.0), "RUN", compact)
 		continue_button.disabled = current_run.is_empty()
-		_menu_nav_button(left_column, "새 런 시작", "새로운 모험을 시작합니다.", "_start_new_run", Color(0.16, 0.32, 0.58, 1.0), "⚔", compact)
-		_menu_nav_button(left_column, "카드 컬렉션", "카드 도감과 보유 카드를 확인합니다.", "_show_collection", Color(0.12, 0.14, 0.18, 1.0), "🃏", compact)
-		_menu_nav_button(left_column, "유물", "현재 유물과 해금 유물을 확인합니다.", "_show_compendium", Color(0.12, 0.14, 0.18, 1.0), "🜂", compact)
-		_menu_nav_button(left_column, "메타 강화", "영혼석으로 시작 보너스를 강화합니다.", "_show_meta_upgrade", Color(0.12, 0.14, 0.18, 1.0), "🌿", compact)
+		_menu_nav_button(left_column, "새 런 시작", "새로운 모험을 시작합니다.", "_start_new_run", Color(0.16, 0.32, 0.58, 1.0), "NEW", compact)
+		_menu_nav_button(left_column, "카드 컬렉션", "카드 도감과 보유 카드를 확인합니다.", "_show_collection", Color(0.12, 0.14, 0.18, 1.0), "CARD", compact)
+		_menu_nav_button(left_column, "유물", "현재 유물과 해금 유물을 확인합니다.", "_show_compendium", Color(0.12, 0.14, 0.18, 1.0), "유물", compact)
+		_menu_nav_button(left_column, "메타 강화", "영혼석으로 시작 보너스를 강화합니다.", "_show_meta_upgrade", Color(0.12, 0.14, 0.18, 1.0), "강화", compact)
 
 	var center_column := VBoxContainer.new()
 	center_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -896,7 +903,7 @@ func _make_main_menu_content(compact: bool) -> Control:
 		var primary_title := "이어하기" if not current_run.is_empty() else "새 런 시작"
 		var primary_subtitle := "바로 이어서 다음 전투로 갑니다." if not current_run.is_empty() else "바로 첫 전투 흐름으로 들어갑니다."
 		var primary_method := "_continue_run" if not current_run.is_empty() else "_start_new_run"
-		var primary_action: Button = ui.make_large_action_button(primary_title, primary_subtitle, "▶" if not current_run.is_empty() else "⚔", Color(0.16, 0.32, 0.58, 1.0), true)
+		var primary_action: Button = ui.make_large_action_button(primary_title, primary_subtitle, "GO" if not current_run.is_empty() else "NEW", Color(0.16, 0.32, 0.58, 1.0), true)
 		primary_action.custom_minimum_size = Vector2(0, 96)
 		ui.style_flat_button(primary_action, Color(0.12, 0.24, 0.42, 1.0), Color(0.98, 0.82, 0.42, 1.0), 15, 3)
 		primary_action.pressed.connect(Callable(self, primary_method))
@@ -909,13 +916,13 @@ func _make_main_menu_content(compact: bool) -> Control:
 		quick_row.add_theme_constant_override("h_separation", 8)
 		quick_row.add_theme_constant_override("v_separation", 8)
 		hero_text_box.add_child(quick_row)
-		var collection_button := _small_hub_button_config(quick_row, "카드", "_show_collection", "🃏", 0, 48, 11)
+		var collection_button := _small_hub_button_config(quick_row, "카드", "_show_collection", "CARD", 0, 48, 11)
 		collection_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var meta_button := _small_hub_button_config(quick_row, "메타", "_show_meta_upgrade", "🌿", 0, 48, 11)
+		var meta_button := _small_hub_button_config(quick_row, "메타", "_show_meta_upgrade", "UP", 0, 48, 11)
 		meta_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var relic_button := _small_hub_button_config(quick_row, "유물", "_show_compendium", "🜂", 0, 48, 11)
+		var relic_button := _small_hub_button_config(quick_row, "유물", "_show_compendium", "유물", 0, 48, 11)
 		relic_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var guide_button := _small_hub_button_config(quick_row, "가이드", "_show_ui_guide", "🗺", 0, 48, 11)
+		var guide_button := _small_hub_button_config(quick_row, "가이드", "_show_ui_guide", "도움", 0, 48, 11)
 		guide_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if not phone_portrait:
 		var hero_objective: PanelContainer = ui.make_objective_panel("다음 행동", _main_menu_next_action_text().replace("다음 행동: ", ""), compact)
@@ -1001,8 +1008,8 @@ func _make_main_menu_footer(compact: bool) -> Control:
 		var tip_chip_row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 		tip_chip_row.add_theme_constant_override("separation", 8)
 		tip_box.add_child(tip_chip_row)
-		tip_chip_row.add_child(ui.make_chip("🔥 화염", Color(0.22, 0.12, 0.08, 1.0), Color(1.0, 0.88, 0.76, 1.0), 12 if compact else 13))
-		tip_chip_row.add_child(ui.make_chip("💀 사망", Color(0.16, 0.1, 0.22, 1.0), Color(0.92, 0.88, 1.0, 1.0), 12 if compact else 13))
+		tip_chip_row.add_child(ui.make_chip("화염", Color(0.22, 0.12, 0.08, 1.0), Color(1.0, 0.88, 0.76, 1.0), 12 if compact else 13))
+		tip_chip_row.add_child(ui.make_chip("사망", Color(0.16, 0.1, 0.22, 1.0), Color(0.92, 0.88, 1.0, 1.0), 12 if compact else 13))
 		var tip_text := _make_label("일부 카드와 유물은 특정 빌드 시너지를 강하게 만듭니다.", 15 if compact else 16, Color(0.86, 0.9, 0.96, 1.0))
 		tip_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		tip_box.add_child(tip_text)
@@ -1250,13 +1257,29 @@ func _show_run_result(is_win: bool, play_audio: bool = true) -> void:
 	_retain_screen_controller(RunResultScreenScript.new(self)).build(body, is_win, play_audio)
 
 func _finish_run(is_win: bool) -> void:
+	if current_run.is_empty():
+		return
+	var run_id := String(current_run.get("run_id", ""))
+	if run_id.is_empty():
+		# Stable across reloads, including a crash between profile and run saves.
+		run_id = "legacy-" + JSON.stringify([current_run.get("seed", 0), current_run.get("started_at", 0), current_run.get("race_id", "human")]).sha256_text()
+		current_run["run_id"] = run_id
+	var ledger: Dictionary = player_profile.get("settled_run_ids", {})
+	var already_settled := ledger.has(run_id)
+	var legacy_settled := not already_settled and current_run.has("earned_soul_stones") and float(current_run.get("finished_at", 0)) > 0.0
 	current_run["result"] = "win" if is_win else "loss"
-	current_run["finished_at"] = Time.get_unix_time_from_system()
-	var earned_soul_stones := _run_soul_stones(is_win)
+	if float(current_run.get("finished_at", 0)) <= 0.0:
+		current_run["finished_at"] = Time.get_unix_time_from_system()
+	var earned_soul_stones := int(ledger.get(run_id, current_run.get("earned_soul_stones", _run_soul_stones(is_win))))
 	current_run["earned_soul_stones"] = earned_soul_stones
-	player_profile["soul_stones"] = int(player_profile.get("soul_stones", 0)) + earned_soul_stones
-	_record_recent_run(is_win)
-	_save_profile()
+	if not already_settled:
+		ledger[run_id] = earned_soul_stones
+		player_profile["settled_run_ids"] = ledger
+		if not legacy_settled:
+			player_profile["soul_stones"] = int(player_profile.get("soul_stones", 0)) + earned_soul_stones
+			_record_recent_run(is_win)
+		# Balance, history and ledger are committed in the same profile write.
+		_save_profile()
 	current_run["active_enemy"] = {}
 	current_run["battle_snapshot"] = {}
 	current_run["pending_event"] = {}
@@ -1346,6 +1369,8 @@ func _show_message(message: String, callback_method: String, target: Object = nu
 	_retain_screen_controller(MessageScreenScript.new(self)).build(body, message, callback_method, target)
 
 func _make_run_summary_panel() -> Control:
+	if _lesson_stage() < 5:
+		return ui.make_guidance_banner("내 상태", "체력 %d/%d · 골드 %d · 덱 %d장" % [int(current_run.get("hp", 0)), int(current_run.get("max_hp", 0)), int(current_run.get("gold", 0)), current_run.get("deck_ids", []).size()], Color(0.12, 0.2, 0.3, 1.0), true)
 	var compact := _is_compact_layout()
 	var viewport_size := _layout_viewport_size()
 	var phone := _is_mobile_phone_layout()
@@ -1429,12 +1454,12 @@ func _profile_upgrades() -> Dictionary:
 
 func _build_tag_meta() -> Dictionary:
 	return {
-		"fire": {"icon": "🔥", "name": "화염", "color": Color(0.84, 0.34, 0.16, 1.0), "bonus": "화염 피해 +2 / 연계 시 폭발 피해"},
-		"draw": {"icon": "📖", "name": "드로우", "color": Color(0.24, 0.46, 0.82, 1.0), "bonus": "추가 드로우 / 연계 시 마나 회복"},
-		"death": {"icon": "💀", "name": "사망", "color": Color(0.48, 0.28, 0.58, 1.0), "bonus": "아군 사망 시 적 영웅 피해"},
-		"buff": {"icon": "⚔", "name": "버프", "color": Color(0.7, 0.58, 0.18, 1.0), "bonus": "소환 유닛 체력 +1 / 연계 시 선봉 성장"},
-		"low_hp": {"icon": "❤️", "name": "저체력", "color": Color(0.76, 0.22, 0.28, 1.0), "bonus": "위험 체력에서 공격 피해 +1 / 연계 회복"},
-		"summon": {"icon": "👥", "name": "소환", "color": Color(0.22, 0.58, 0.32, 1.0), "bonus": "전투 시작 토큰 / 연계 시 즉시 공격"},
+		"fire": {"icon": "화염", "name": "화염", "color": Color(0.84, 0.34, 0.16, 1.0), "bonus": "화염 피해 +2 / 연계 시 폭발 피해"},
+		"draw": {"icon": "드로우", "name": "드로우", "color": Color(0.24, 0.46, 0.82, 1.0), "bonus": "추가 드로우 / 연계 시 마나 회복"},
+		"death": {"icon": "사망", "name": "사망", "color": Color(0.48, 0.28, 0.58, 1.0), "bonus": "아군 사망 시 적 영웅 피해"},
+		"buff": {"icon": "버프", "name": "버프", "color": Color(0.7, 0.58, 0.18, 1.0), "bonus": "소환 유닛 체력 +1 / 연계 시 선봉 성장"},
+		"low_hp": {"icon": "위험", "name": "저체력", "color": Color(0.76, 0.22, 0.28, 1.0), "bonus": "위험 체력에서 공격 피해 +1 / 연계 회복"},
+		"summon": {"icon": "소환", "name": "소환", "color": Color(0.22, 0.58, 0.32, 1.0), "bonus": "전투 시작 토큰 / 연계 시 즉시 공격"},
 	}
 
 func _build_threshold() -> int:
@@ -1482,6 +1507,8 @@ func _base_card_id(card_id: String) -> String:
 	return card_id
 
 func _card_effect_summary(card: Dictionary) -> String:
+	if int(card.get("effect_bonus", 0)) > 0 and not String(card.get("text", "")).is_empty():
+		return String(card["text"])
 	var card_id := _base_card_id(String(card.get("id", "")))
 	var card_type := String(card.get("type", ""))
 	if card_type == "unit":
@@ -1894,37 +1921,38 @@ func _choice_impact_text(source: Dictionary) -> String:
 	return "%s 활성까지 %d" % [String(meta.get("name", best_tag)), max(0, _build_threshold() - next_score)]
 
 func _run_soul_stones(is_win: bool) -> int:
-	var stones := 0
-	var visited: Array = current_run.get("visited_nodes", [])
+	var stones := 100 if is_win else 0
+	var counted := {}
+	var cleared_types: Dictionary = current_run.get("cleared_node_types", {})
 	var acts: Array = current_run.get("map_nodes", [])
-	for key in visited:
-		var parts := String(key).split(":")
-		if parts.size() != 2:
+	for key_variant in current_run.get("visited_nodes", []):
+		var key := String(key_variant)
+		if counted.has(key):
 			continue
-		var act_index := int(parts[0]) - 1
-		var node_index := int(parts[1])
-		if act_index < 0 or act_index >= acts.size():
-			continue
+		counted[key] = true
+		var node_type := String(cleared_types.get(key, ""))
+		if node_type.is_empty():
+			# Legacy runs did not record the selected path; retain the saved map.
+			var parts := key.split(":")
+			if parts.size() != 2:
+				continue
+			var act_index := int(parts[0]) - 1
+			var node_index := int(parts[1])
+			if act_index < 0 or act_index >= acts.size():
+				continue
 			var nodes: Array = Dictionary(acts[act_index]).get("nodes", [])
 			if node_index < 0 or node_index >= nodes.size():
 				continue
 			var node_value: Variant = nodes[node_index]
-			var node_type := ""
 			if typeof(node_value) == TYPE_ARRAY:
-				var node_options: Array = node_value
-				if not node_options.is_empty():
-					node_type = String(node_options[0])
+				if not (node_value as Array).is_empty():
+					node_type = String(node_value[0])
 			else:
 				node_type = String(node_value)
-				match node_type:
-					"battle":
-						stones += 5
-					"elite":
-						stones += 15
-					"boss":
-						stones += 30
-	if is_win:
-		stones += 100
+		match node_type:
+			"battle": stones += 5
+			"elite": stones += 15
+			"boss": stones += 30
 	return stones
 
 func _roll_card_choices(count: int) -> Array[String]:
@@ -1936,29 +1964,101 @@ func _roll_card_choices(count: int) -> Array[String]:
 		pool.remove_at(index)
 	return ids
 
+func _secondary_build_tag(scores: Dictionary) -> String:
+	var primary := _primary_build_tag(scores)
+	var best_tag := ""
+	var best_score := 0
+	# Prefer a build that this reward can bring closer to activation.
+	for tag in _valid_build_tags():
+		var score := int(scores.get(tag, 0))
+		if tag != primary and score > best_score and score < _build_threshold():
+			best_tag = tag
+			best_score = score
+	if not best_tag.is_empty():
+		return best_tag
+	for tag in _valid_build_tags():
+		var score := int(scores.get(tag, 0))
+		if tag != primary and score > best_score:
+			best_tag = tag
+			best_score = score
+	return best_tag
+
 func _roll_card_reward_choices(count: int, high_cost_only: bool = false) -> Array[String]:
 	var ids: Array[String] = []
-	var primary_tag := _primary_build_tag(_current_build_scores())
+	var scores := _current_build_scores()
+	var primary_tag := _primary_build_tag(scores)
+	var secondary_tag := _secondary_build_tag(scores)
 	var race_name := String(_current_race_meta().get("data_race", "인간"))
+	var full_pool := _reward_card_pool("", high_cost_only)
 	if count > 0:
 		var focused_pool := _reward_card_pool(primary_tag, high_cost_only, race_name)
 		if focused_pool.is_empty():
 			focused_pool = _reward_card_pool(primary_tag, high_cost_only)
 		if focused_pool.is_empty():
-			focused_pool = _reward_card_pool("", high_cost_only, race_name)
+			focused_pool = full_pool
 		_append_random_reward_choice(ids, focused_pool)
 	if ids.size() < count:
-		var common_pool := _reward_card_pool("", high_cost_only, "중립")
-		if common_pool.is_empty():
-			common_pool = _reward_card_pool("", high_cost_only, race_name)
-		_append_random_reward_choice(ids, common_pool)
-	var pool: Array[String] = _reward_card_pool("", high_cost_only)
+		var support_pool: Array[String] = []
+		if not secondary_tag.is_empty():
+			support_pool = _reward_card_pool(secondary_tag, high_cost_only)
+		if support_pool.is_empty():
+			support_pool = _reward_card_pool("", high_cost_only, "중립")
+		_append_random_reward_choice(ids, support_pool)
+	if ids.size() < count:
+		var pivot_pool: Array[String] = []
+		for card_id in full_pool:
+			var tags := _card_build_tags(card_db.get_card(card_id))
+			if not tags.has(primary_tag) and (secondary_tag.is_empty() or not tags.has(secondary_tag)):
+				pivot_pool.append(card_id)
+		_append_random_reward_choice(ids, pivot_pool)
 	while ids.size() < count:
 		var before_size := ids.size()
-		_append_random_reward_choice(ids, pool)
+		_append_random_reward_choice(ids, full_pool)
 		if ids.size() == before_size:
 			break
 	return ids
+
+func _roll_boss_card_reward_choices(boss_id: String, count: int = 3) -> Array[String]:
+	var ids: Array[String] = []
+	if count > 0 and not card_db.get_card(boss_id).is_empty():
+		ids.append(boss_id)
+	for card_id in _roll_card_reward_choices(count):
+		if ids.size() >= count:
+			break
+		if not ids.has(card_id):
+			ids.append(card_id)
+	var pool := _reward_card_pool()
+	while ids.size() < count:
+		var before_size := ids.size()
+		_append_random_reward_choice(ids, pool)
+		if before_size == ids.size():
+			break
+	return ids
+
+func _roll_relic_reward_choices(count: int = 2) -> Array[Dictionary]:
+	var choices: Array[Dictionary] = []
+	var pool: Array[Dictionary] = []
+	var matching: Array[Dictionary] = []
+	var owned: Array = current_run.get("relic_ids", [])
+	var active := _active_build_tags(_current_build_scores())
+	for raw_relic in relic_service.relics:
+		var relic: Dictionary = raw_relic
+		if owned.has(String(relic.get("id", ""))):
+			continue
+		pool.append(relic)
+		for tag in _relic_build_tags(relic):
+			if active.has(tag):
+				matching.append(relic)
+				break
+	if count > 0 and not matching.is_empty():
+		var first: Dictionary = matching[randi() % matching.size()]
+		choices.append(first.duplicate(true))
+		pool.erase(first)
+	while choices.size() < count and not pool.is_empty():
+		var index := randi() % pool.size()
+		choices.append(pool[index].duplicate(true))
+		pool.remove_at(index)
+	return choices
 
 func _append_random_reward_choice(ids: Array[String], source_pool: Array[String]) -> void:
 	var pool := source_pool.duplicate()
@@ -2017,6 +2117,8 @@ func _current_act() -> Dictionary:
 	return acts[act_index]
 
 func _node_type_name(node_type: String) -> String:
+	if node_type == "lesson_reward":
+		return "장비 배우기"
 	match node_type:
 		"battle":
 			return "일반전투"
@@ -2219,3 +2321,10 @@ func _quit_game() -> void:
 
 func _prepare_battle(tier: String) -> void:
 	run_flow.prepare_battle(tier)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if active_screen != "battle" or battle_screen == null or battle_screen.pending_action.is_empty():
+		return
+	if event.is_action_pressed("ui_cancel") or (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT):
+		battle_screen._cancel_ally_selection()
+		get_viewport().set_input_as_handled()

@@ -1,8 +1,10 @@
 extends SceneTree
 
+const TestStorage = preload("res://src/services/game_storage.gd")
+
 const MAIN_SCENE := preload("res://src/core/Main.tscn")
 
-var output_dir := "user://playthrough_probe"
+var output_dir := TestStorage.path_for("playthrough_probe")
 var report: Array[String] = []
 var boss_steps := 0
 var max_battle_steps := 0
@@ -11,11 +13,31 @@ var breakthroughs_triggered := 0
 var breakthrough_damage := 0
 var headless := false
 var probe_failed := false
+var cases: Array[Dictionary] = []
+var battle_metrics: Array[Dictionary] = []
 
 func _init() -> void:
-	call_deferred("_run")
+	if not TestStorage.prepare_test_directory():
+		quit(2)
+		return
+	call_deferred("_run_all")
 
-func _run() -> void:
+func _run_all() -> void:
+	var index := 0
+	for race in ["human", "elf", "undead"]:
+		if OS.get_cmdline_user_args().has("--elf-only") and race != "elf":
+			continue
+		for elite in ([false] if OS.get_cmdline_user_args().has("--guided") else [false, true]):
+			seed(20260908 + index)
+			index += 1
+			await _run_case(race, elite)
+	var file := FileAccess.open(TestStorage.path_for("playthrough_metrics.json"), FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify({"cases": cases, "battles": battle_metrics, "failed": probe_failed}, "\t"))
+	print("PLAYTHROUGH CASES: ", JSON.stringify(cases))
+	quit(1 if probe_failed else 0)
+
+func _run_case(race: String, elite: bool) -> void:
 	headless = DisplayServer.get_name() == "headless"
 	var global_dir := ProjectSettings.globalize_path(output_dir)
 	DirAccess.make_dir_recursive_absolute(global_dir)
@@ -27,6 +49,7 @@ func _run() -> void:
 	main.set_meta("disable_window_mode_changes", true)
 	main.set_meta("layout_viewport_override", Vector2i(1280, 720))
 	main.set_meta("disable_timed_battle_fx", true)
+	main.set_meta("disable_battle_ui_rerender", headless)
 	root.add_child(main)
 	await _wait_for_frame()
 	await _wait_for_frame()
@@ -36,23 +59,28 @@ func _run() -> void:
 	main._show_main_menu()
 	await _capture("01_main_menu")
 	
+	main.player_profile["learning_stage"] = 0 if OS.get_cmdline_user_args().has("--guided") else 5
 	main._start_new_run()
 	await _wait_for_frame()
 	_note(main, "start_run")
 	await _capture("02_race_selection")
 	if String(main.active_screen) == "race_selection":
-		main._init_run("human")
+		main._init_run(race)
 		await _wait_for_frame()
 		await _wait_for_frame()
-	_note(main, "race_selected:human")
+	_note(main, "race_selected:%s elite=%s" % [race, elite])
 	await _capture("03_map_start")
 	if String(main.active_screen) != "map":
 		_note(main, "race_selection_failed")
 		probe_failed = true
 	
+	var node_count := 0
+	for act in main.current_run.get("map_nodes", []):
+		node_count += act.get("nodes", []).size()
+	var safety_limit := node_count * 6 + 10
 	var safety := 0
 	var completed_run := false
-	while safety < 40:
+	while safety < safety_limit:
 		safety += 1
 		var screen := String(main.active_screen)
 		if screen == "run_result":
@@ -63,7 +91,10 @@ func _run() -> void:
 		match screen:
 			"map":
 				_note(main, "enter_node")
-				main._enter_current_node(0)
+				var node_index := int(main.current_run.get("current_node_index", 0))
+				var act: Dictionary = main._current_act()
+				var layer: Array = act.get("nodes", [])[node_index]
+				main._enter_current_node(layer.find("elite") if elite and layer.has("elite") else 0)
 				await _wait_for_frame()
 				await _capture("%02d_%s" % [safety, String(main.active_screen)])
 			"battle":
@@ -86,20 +117,22 @@ func _run() -> void:
 				probe_failed = true
 				break
 	
-	if safety >= 40:
+	if safety >= safety_limit:
 		_note(main, "safety_stop")
 		probe_failed = true
 	if not completed_run:
 		probe_failed = true
 	_note_fun_metrics(main)
 	
-	for line in report:
-		print(line)
+	cases.append({"race": race, "elite": elite, "result": String(main.current_run.get("result", "")), "nodes": main.current_run.get("visited_nodes", []).size(), "hp": main.current_run.get("hp", 0)})
+	if not completed_run:
+		for line in report:
+			print(line)
+	report.clear()
 	print("Playthrough probe captures saved to %s" % global_dir)
 	root.remove_child(main)
 	main.queue_free()
 	await _wait_for_frame()
-	quit(1 if probe_failed else 0)
 
 func _play_battle(main: Node, safety: int) -> void:
 	var battle = main.battle_screen
@@ -119,9 +152,10 @@ func _play_battle(main: Node, safety: int) -> void:
 			break
 	await _capture("%02d_battle_start" % safety)
 	var steps := 0
+	var initial_hp := int(battle.player.get("health", 0))
+	var deadline := Time.get_ticks_msec() + 60000
 	var wait_ticks := 0
-	while String(main.active_screen) == "battle" and steps < 80:
-		steps += 1
+	while String(main.active_screen) == "battle" and steps < 160 and Time.get_ticks_msec() < deadline:
 		if battle.input_locked or String(battle.current_player) != "player":
 			wait_ticks += 1
 			if wait_ticks % 20 == 0:
@@ -139,6 +173,10 @@ func _play_battle(main: Node, safety: int) -> void:
 			await _wait_frames(3 if headless else 18)
 			continue
 		wait_ticks = 0
+		steps += 1
+		if not battle.pending_action.is_empty():
+			await _choose_ally(battle)
+			continue
 		var action: Dictionary = battle._recommended_action_state()
 		_note(main, "battle_action step=%d kind=%s text=%s player_hp=%d enemy_hp=%d mana=%d hand=%d pfield=%d efield=%d" % [
 			steps,
@@ -156,6 +194,7 @@ func _play_battle(main: Node, safety: int) -> void:
 		if steps == 3:
 			await _capture("%02d_battle_mid" % safety)
 	await _wait_frames(3 if headless else 20)
+	battle_metrics.append({"race": main._current_race_id(), "tier": battle.battle_tier, "enemy": battle.opponent.get("name", ""), "turns": battle.battle_state.get("player_turn_count", 0), "finisher": battle.battle_state.get("combo_finisher_used", false), "hp_lost_net": initial_hp - int(battle.player.get("health", 0)), "actions": steps})
 	max_battle_steps = maxi(max_battle_steps, steps)
 	var node_type := String(main.run_store.current_node(main.current_run).get("type", ""))
 	if node_type == "boss":
@@ -185,10 +224,14 @@ func _claim_first_reward(main: Node, safety: int) -> void:
 	var choices: Array = reward.get("choices", [])
 	_note(main, "reward choices=%s gold=%d" % [str(choices), int(reward.get("gold_reward", 0))])
 	await _capture("%02d_reward" % safety)
+	var reward_screen = main.active_screen_controller
+	var relics: Array = reward.get("relic_choices", [])
+	if not relics.is_empty():
+		reward_screen._select_relic_reward(String(relics[0].get("id", "")))
+		reward_screen = main.active_screen_controller
 	if choices.is_empty():
-		main.run_flow.advance_from_current_node(["pending_card_reward"])
+		reward_screen._skip_card_reward()
 	else:
-		var reward_screen = main.active_screen_controller
 		reward_screen._claim_card_reward(String(choices[0]))
 	await _wait_for_frame()
 
@@ -216,7 +259,7 @@ func _leave_shop(main: Node, safety: int) -> void:
 func _complete_rest(main: Node, safety: int) -> void:
 	_note(main, "rest complete hp=%d/%d" % [int(main.current_run.get("hp", 0)), int(main.current_run.get("max_hp", 0))])
 	await _capture("%02d_rest" % safety)
-	main._complete_rest()
+	main.run_flow.rest_heal()
 	await _wait_for_frame()
 
 func _note(main: Node, text: String) -> void:
@@ -314,3 +357,19 @@ func _image_has_content(image: Image) -> bool:
 			min_luma = minf(min_luma, luma)
 			max_luma = maxf(max_luma, luma)
 	return max_luma - min_luma > 0.02
+
+func _choose_ally(battle) -> void:
+	var sacrifice := String(battle.pending_action.get("kind", "")) == "power" or String(battle.pending_action.get("card_id", "")).begins_with("corpse_explosion")
+	var best_id := -1
+	var best_score := -100000
+	for unit in battle.player.field:
+		var score := int(unit.get("attack", 0)) * 3 + (10 if bool(unit.get("can_attack", false)) else 0)
+		if sacrifice:
+			score = -int(unit.get("attack", 0)) - int(unit.get("health", 0)) + (10 if String(unit.get("id", "")).trim_suffix("_plus") == "bone_soldier" else 0) + int(unit.get("bone_armor_death_damage", 0)) * 5
+		if score > best_score:
+			best_score = score
+			best_id = int(unit.get("battle_unit_id", -1))
+	if best_id >= 0:
+		await battle._confirm_ally_target(best_id)
+	else:
+		battle._cancel_ally_selection()

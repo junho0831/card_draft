@@ -1,10 +1,12 @@
 extends SceneTree
+const TestStorage = preload("res://src/services/game_storage.gd")
 
 const CAPTURE_NAMES := [
 	"01_main_menu",
 	"02_race_selection",
 	"03_run_map",
 	"04_battle",
+	"04c_ally_target",
 	"05_card_reward",
 	"06_shop",
 	"07_event",
@@ -28,10 +30,10 @@ func _validate_all() -> void:
 	for viewport_name in RESPONSIVE_VIEWPORTS:
 		for capture_name in CAPTURE_NAMES:
 			_validate_capture(
-				"user://ui_captures_responsive/%s_%s.png" % [viewport_name, capture_name],
+				TestStorage.path_for("ui_captures_responsive/%s_%s.png" % [viewport_name, capture_name]),
 				failures
 			)
-	_validate_capture("user://ui_captures_responsive/mobile_390x844_04b_battle_hand.png", failures)
+	_validate_capture(TestStorage.path_for("ui_captures_responsive/mobile_390x844_04b_battle_hand.png"), failures)
 	if failures.is_empty():
 		print("PASS responsive UI captures validated")
 		quit(0)

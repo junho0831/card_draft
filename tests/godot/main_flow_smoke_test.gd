@@ -99,6 +99,7 @@ func _test_battle_objective_service() -> void:
 
 func _test_run_start_and_battle_entry(main: Node) -> void:
 	var run_before_selection: Dictionary = main.current_run.duplicate(true)
+	main.player_profile["learning_stage"] = 5
 	main._start_new_run()
 	_assert_eq(String(main.active_screen), "race_selection", "start_new_run opens race selection")
 	_assert_eq(main.current_run, run_before_selection, "race selection preserves the current run until confirmation")
@@ -382,6 +383,8 @@ func _test_race_powers(main: Node) -> void:
 	battle.opponent["max_health"] = 10
 	battle._reset_battle_state()
 	battle._on_race_power_pressed()
+	_assert_true(not bool(battle.battle_state.get("race_power_used", false)), "power selection does not consume charge")
+	battle._confirm_ally_target(int(battle.player.field[0]["battle_unit_id"]))
 	_assert_eq(int(battle.opponent.get("health", 0)), 7, "undead power deals three hero damage")
 	_assert_eq(battle.player.field.size(), 1, "undead power replaces sacrifice with a skeleton")
 	_assert_eq(String(battle.player.field[0].get("id", "")), "grave_skeleton_token", "undead power summons its token")
@@ -596,8 +599,8 @@ func _test_race_reward_affinity(main: Node) -> void:
 		_assert_true(main._card_build_tags(focused_card).has(main._primary_build_tag(main._current_build_scores())), "first reward card matches primary build")
 	if choices.size() >= 2:
 		var affinity_card: Dictionary = main.card_db.get_card(choices[1])
-		_assert_eq(String(affinity_card.get("race", "")), "중립", "second reward card is a common option")
-		_assert_eq(main.ui.card_race_display_name(affinity_card), "공용", "neutral data is presented as common to players")
+		_assert_true(main._card_build_tags(affinity_card).has(main._secondary_build_tag(main._current_build_scores())), "second reward card connects another build")
+		_assert_eq(main.ui.card_race_display_name({"race": "중립"}), "공용", "neutral data is presented as common to players")
 	main.current_run = original_run
 
 func _test_boss_victory_provides_boss_card_reward(main: Node) -> void:
@@ -619,7 +622,8 @@ func _test_boss_victory_provides_boss_card_reward(main: Node) -> void:
 	var pending_reward: Dictionary = main.current_run.get("pending_card_reward", {})
 	_assert_true(not pending_reward.is_empty(), "boss victory stages pending card reward")
 	var choices: Array = pending_reward.get("choices", [])
-	_assert_true(choices.size() > 0, "boss card is provided in reward choices")
+	_assert_eq(choices.size(), 3, "boss offers three alternatives")
+	_assert_true(choices.has(String(enemy.id)), "actual defeated boss card is offered")
 
 func _test_shop_leave_advances_node(main: Node) -> void:
 	var acts: Array[Dictionary] = _flow_test_acts()

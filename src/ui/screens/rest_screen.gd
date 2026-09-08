@@ -150,11 +150,11 @@ func _make_rest_info_row(title: String, value: String, color: Color, compact: bo
 	return row
 
 func _make_rest_action(title: String, detail: String, color: Color, compact: bool) -> Button:
-	var icon := "◆"
+	var icon := "휴식"
 	if title == "휴식":
-		icon = "♥"
+		icon = "회복"
 	elif title == "명상":
-		icon = "✦"
+		icon = "추천"
 	elif title.begins_with("떠나기"):
 		icon = "➜"
 	var button: Button = main.ui.make_large_action_button(title, detail, icon, color, compact)

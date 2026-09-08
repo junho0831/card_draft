@@ -20,7 +20,7 @@ static func make_name_band(
 	band.add_theme_stylebox_override("panel", main.ui.make_race_band_style(card, 3))
 	band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var title := "%s %s" % [String(race_visual.get("mark", "◆")), String(card.get("name", ""))]
+	var title := "%s %s" % [String(race_visual.get("mark", "*")), String(card.get("name", ""))]
 	if not suffix.is_empty():
 		title += " %s" % suffix
 	var label: Label = main._make_label(title, int(values.get("title_font", 15)), race_visual.get("text", Color(0.98, 0.98, 0.96, 1.0)))

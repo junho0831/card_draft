@@ -130,13 +130,13 @@ func damage_bonus(run_data: Dictionary, source: Dictionary, is_spell: bool, owne
 	return bonus
 
 func on_ally_unit_died(run_data: Dictionary, battle_state: Dictionary, dead_unit: Dictionary) -> void:
+	var log: Callable = battle_state.get("log", Callable())
 	var relic_ids: Array = run_data.get("relic_ids", [])
 	if relic_ids.has("book_of_death"):
 		var draw_cards: Callable = battle_state.get("draw_cards", Callable())
 		if draw_cards.is_valid():
 			draw_cards.call(battle_state.get("player_state", {}), 1)
 		_emit_relic_trigger(battle_state, "book_of_death", "사망 드로우 +1")
-		var log: Callable = battle_state.get("log", Callable())
 		if log.is_valid():
 			log.call("죽음의 서 효과: 카드 1장 드로우")
 	if relic_ids.has("necromancer_ring") and not bool(battle_state.get("necromancer_ring_used", false)):

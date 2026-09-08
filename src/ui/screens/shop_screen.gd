@@ -139,9 +139,9 @@ func _make_shop_summary_panel(compact: bool) -> PanelContainer:
 	var title: Label = main._make_label("보유 자원", 17 if compact else 18, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(title)
-	box.add_child(_make_resource_card("골드", "%d" % int(main.current_run.get("gold", 0)), "●", Color(0.42, 0.3, 0.08, 1.0), compact))
-	box.add_child(_make_resource_card("체력", "%d / %d" % [int(main.current_run.get("hp", 0)), int(main.current_run.get("max_hp", 50))], "♥", Color(0.34, 0.14, 0.14, 1.0), compact))
-	box.add_child(_make_resource_card("덱", "%d장" % (main.current_run.get("deck_ids", []) as Array).size(), "▣", Color(0.12, 0.22, 0.34, 1.0), compact))
+	box.add_child(_make_resource_card("골드", "%d" % int(main.current_run.get("gold", 0)), "골드", Color(0.42, 0.3, 0.08, 1.0), compact))
+	box.add_child(_make_resource_card("체력", "%d / %d" % [int(main.current_run.get("hp", 0)), int(main.current_run.get("max_hp", 50))], "HP", Color(0.34, 0.14, 0.14, 1.0), compact))
+	box.add_child(_make_resource_card("덱", "%d장" % (main.current_run.get("deck_ids", []) as Array).size(), "덱", Color(0.12, 0.22, 0.34, 1.0), compact))
 	box.add_child(HSeparator.new())
 	box.add_child(main.ui.make_chip("우선순위: 핵심 카드 확보 -> 제거 -> 회복", Color(0.16, 0.16, 0.1, 1.0), Color(0.96, 0.94, 0.82, 1.0), 12 if compact else 13))
 	var hint: Label = main._make_label("강화할지, 골드를 아낄지 선택하세요.", 12 if compact else 13, Color(0.82, 0.86, 0.92, 1.0))
@@ -205,13 +205,13 @@ func _make_resource_card(title: String, value: String, icon: String, color: Colo
 	return panel
 
 func _make_service_button(title: String, detail: String, color: Color, compact: bool) -> Button:
-	var icon := "◆"
+	var icon := "상품"
 	if title.begins_with("카드"):
 		icon = "⌫"
 	elif title.begins_with("체력"):
-		icon = "♥"
+		icon = "회복"
 	elif title.begins_with("덱"):
-		icon = "▣"
+		icon = "덱"
 	elif title.begins_with("나가기"):
 		icon = "➜"
 	var button: Button = main.ui.make_large_action_button(title, detail, icon, color, compact)

@@ -193,11 +193,11 @@ func _make_option_button(option: Dictionary, compact: bool) -> Button:
 
 func _effect_icon(effect: String) -> String:
 	if effect in ["merchant_card", "gain_equipment", "gain_human", "gain_undead", "upgrade_card"]:
-		return "✦"
+		return "선택"
 	if effect in ["merchant_relic", "curse_relic", "gamble_relic"]:
-		return "◆"
+		return "이벤트"
 	if effect in ["heal", "heal_10", "max_hp_trade"]:
-		return "♥"
+		return "회복"
 	if effect in ["remove_card"]:
 		return "⌫"
 	if effect in ["gamble_small"]:

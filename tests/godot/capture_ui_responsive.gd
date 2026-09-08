@@ -1,5 +1,7 @@
 extends SceneTree
 
+const TestStorage = preload("res://src/services/game_storage.gd")
+
 const MAIN_SCENE := preload("res://src/core/Main.tscn")
 const CAPTURE_NAMES := [
 	"01_main_menu",
@@ -20,10 +22,13 @@ const VIEWPORTS := [
 	{"name": "mobile_390x844", "size": Vector2i(390, 844)},
 ]
 
-var output_dir := "user://ui_captures_responsive"
+var output_dir := TestStorage.path_for("ui_captures_responsive")
 var capture_failed := false
 
 func _init() -> void:
+	if not TestStorage.prepare_test_directory():
+		quit(2)
+		return
 	call_deferred("_run_capture")
 
 func _run_capture() -> void:
@@ -61,6 +66,7 @@ func _run_capture() -> void:
 					"-s",
 					"res://tests/godot/capture_ui_responsive.gd",
 					"--",
+					"--test-data-dir=" + TestStorage.test_directory(),
 					"--single-viewport",
 					viewport_name,
 					str(viewport_size.x),
@@ -111,6 +117,7 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 		return
 	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[0]], "main_menu")
 
+	main.player_profile["learning_stage"] = 0 if OS.get_cmdline_user_args().has("--guided") else 5
 	main._start_new_run()
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
@@ -162,7 +169,13 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 		main.root_scroll.scroll_vertical = 0
 		await _wait_for_capture_frame()
 
+	main.battle_screen._begin_ally_selection({"kind": "power"})
+	await _wait_for_capture_frame()
+	await _capture_screen(main, "%s_04c_ally_target" % viewport_name, "battle")
+	main.battle_screen._cancel_ally_selection()
 	main.current_run["pending_card_reward"] = {
+		"relic_choices": main._roll_relic_reward_choices(2),
+		"selected_relic_id": "",
 		"choices": main._roll_card_reward_choices(3, false),
 		"gold_reward": 20,
 		"bonus_relic": {},
@@ -206,7 +219,7 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	await _wait_for_capture_frame()
 	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[8]], "run_result")
 
-	root.remove_child(main)
+	main._clear_screen()
 	main.queue_free()
 	await _wait_for_capture_frame()
 

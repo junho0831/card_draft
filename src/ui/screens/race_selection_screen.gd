@@ -31,6 +31,21 @@ func build(body: VBoxContainer) -> void:
 		compact
 	))
 
+	var learning := CheckButton.new()
+	learning.text = "단계별로 배우기" if int(main.player_profile.get("learning_stage", 0)) == 0 else "단계별 안내 이어서 배우기"
+	if int(main.player_profile.get("learning_stage", 0)) >= 5:
+		learning.text = "기본 조작 학습 완료"
+		learning.disabled = true
+	learning.button_pressed = main.pending_guided_run
+	learning.toggled.connect(func(enabled: bool): main.pending_guided_run = enabled)
+	body.add_child(learning)
+	var skip := Button.new()
+	skip.text = "바로 시작 · 안내 없이 선택한 세력으로"
+	skip.pressed.connect(func():
+		main.pending_guided_run = false
+		_confirm_selection()
+	)
+	body.add_child(skip)
 	var comparison: BoxContainer = VBoxContainer.new() if stacked else HBoxContainer.new()
 	comparison.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	comparison.add_theme_constant_override("separation", 10 if phone else 14)

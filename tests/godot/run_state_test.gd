@@ -1,7 +1,7 @@
 extends RefCounted
 
 const RunStateScript := preload("res://src/services/run_state.gd")
-const TEMP_PATH := "user://run_state_test.json"
+var TEMP_PATH := preload("res://src/services/game_storage.gd").path_for("run_state_test.json")
 
 var _failures: Array[String] = []
 var _count := 0

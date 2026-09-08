@@ -28,6 +28,7 @@ window/handheld/orientation=4
 [gui]
 
 common/default_scroll_deadzone=8
+theme/custom="res://assets/ui/main_theme.tres"
 
 [physics]
 
