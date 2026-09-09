@@ -31,7 +31,7 @@ func build(body: VBoxContainer) -> void:
 
 	body.add_child(main.ui.make_guidance_banner(
 		"새 런 준비",
-		"세력 하나를 고르면 시작 덱, 유물, 전투 필살기가 함께 정해집니다.",
+		"세력을 고른 뒤 시작 전략을 선택하세요. 학습 모드에서는 기본 덱으로 차근차근 배웁니다.",
 		Color(0.12, 0.2, 0.3, 1.0),
 		compact
 	))
@@ -71,42 +71,22 @@ func build(body: VBoxContainer) -> void:
 	strategy_box.add_child(strategy_error)
 	_render_strategies()
 	var actions: BoxContainer
-	if mobile_portrait:
-		var dock: Dictionary = main.ui.mount_screen_action_dock(
-			main,
-			body,
-			"2. 선택한 세력으로 시작",
-			"",
-			Color(0.42, 0.68, 1.0, 1.0),
-			126
-		)
-		fixed_footer = dock.get("panel") as PanelContainer
-		dock_title_label = dock.get("title_label") as Label
-		selection_summary = dock.get("detail_label") as Label
-		actions = dock.get("actions") as BoxContainer
-	else:
-		var footer: PanelContainer = main.ui.make_surface_panel(
-			Color(0.045, 0.055, 0.07, 0.98),
-			Color(0.2, 0.32, 0.46, 1.0),
-			1,
-			8,
-			10
-		)
-		footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		body.add_child(footer)
-		var footer_box := VBoxContainer.new()
-		footer_box.add_theme_constant_override("separation", 8)
-		footer.add_child(footer_box)
-		selection_summary = main._make_label("", 13 if compact else 15, Color(0.88, 0.92, 0.98, 1.0))
-		selection_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		selection_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		footer_box.add_child(selection_summary)
-		actions = main.ui.make_action_bar(false, 8)
-		footer_box.add_child(actions)
+	var dock: Dictionary = main.ui.mount_screen_action_dock(
+		main,
+		body,
+		"2. 선택한 세력으로 시작",
+		"",
+		Color(0.42, 0.68, 1.0, 1.0),
+		126
+	)
+	fixed_footer = dock.get("panel") as PanelContainer
+	dock_title_label = dock.get("title_label") as Label
+	selection_summary = dock.get("detail_label") as Label
+	actions = dock.get("actions") as BoxContainer
 
 	actions.alignment = BoxContainer.ALIGNMENT_CENTER
 	actions.add_theme_constant_override("separation", 8)
-	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mobile_portrait else Control.SIZE_SHRINK_CENTER
+	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var back_button := Button.new()
 	back_button.text = "메인 메뉴"
 	back_button.custom_minimum_size = Vector2(104 if mobile_portrait else 150, 64 if mobile_portrait else (58 if short else 66))
@@ -118,7 +98,7 @@ func build(body: VBoxContainer) -> void:
 
 	start_button = Button.new()
 	start_button.custom_minimum_size = Vector2(0 if mobile_portrait else 320, 64 if mobile_portrait else (58 if short else 66))
-	start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mobile_portrait else Control.SIZE_FILL
 	start_button.pressed.connect(Callable(self, "_confirm_selection"))
 	actions.add_child(start_button)
 
@@ -255,7 +235,7 @@ func _select_race(race_id: String) -> void:
 		main.audio_manager.play_sound("click")
 	_refresh_selection()
 	if not main.pending_guided_run and is_instance_valid(strategy_box):
-		main.root_scroll.call_deferred("ensure_control_visible", strategy_box)
+		Callable(self, "_scroll_to_strategies").call_deferred()
 
 func _refresh_selection() -> void:
 	for race_id in main._valid_race_ids():
@@ -310,6 +290,8 @@ func _set_guided_mode(enabled: bool) -> void:
 	main.pending_guided_run = enabled
 	_render_strategies()
 	_refresh_selection()
+	if not enabled:
+		Callable(self, "_scroll_to_strategies").call_deferred()
 
 func _choose_strategy(id: String) -> void:
 	var strategy: Dictionary = main.StartingStrategies.get_strategy(id)
@@ -369,3 +351,12 @@ func _render_strategies() -> void:
 				var label: Label = main._make_label("%s ×%d · 마나 %d\n%s" % [card.name, counts[id], card.cost, card.text], 13, Color(0.9, 0.95, 1.0))
 				label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				box.add_child(label)
+
+func _scroll_to_strategies() -> void:
+	if not is_instance_valid(main) or not main.is_inside_tree():
+		return
+	var tree: SceneTree = main.get_tree()
+	await tree.process_frame
+	await tree.process_frame
+	if is_instance_valid(main) and is_instance_valid(strategy_box) and main.root_scroll.is_ancestor_of(strategy_box):
+		main.root_scroll.scroll_vertical += int(strategy_box.global_position.y - main.root_scroll.global_position.y)

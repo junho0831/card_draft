@@ -83,6 +83,10 @@ func _configure_runtime_performance() -> void:
 
 
 func _ready() -> void:
+	if not GameStorage.test_directory().is_empty() and not GameStorage.prepare_test_directory():
+		push_error("테스트 저장 경로를 준비하지 못했습니다. 실행을 중단합니다.")
+		get_tree().quit(2)
+		return
 	_configure_runtime_performance()
 	_configure_content_scale()
 	card_db = CardDatabaseScript.new()
@@ -331,13 +335,16 @@ func _clear_screen() -> void:
 		root_scroll.scroll_horizontal = 0
 		root_scroll.scroll_vertical = 0
 	for child in root_box.get_children():
-		child.free()
+		# A button may be dispatching the event that switches screens.
+		root_box.remove_child(child)
+		child.queue_free()
 
 	_clear_modal()
 
 func _clear_modal() -> void:
 	for child in modal_layer.get_children():
-		child.free()
+		modal_layer.remove_child(child)
+		child.queue_free()
 
 func _save_profile() -> void:
 	profile_store.save(GameStorage.profile_path(), player_profile)

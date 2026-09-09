@@ -4744,7 +4744,14 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 		available_target_badge.position = Vector2(max(4.0, art_size.x - available_target_badge.custom_minimum_size.x - 4.0), 4)
 		art_container.add_child(available_target_badge)
 
+	_ignore_field_decoration_input(slot)
 	return slot_root
+
+func _ignore_field_decoration_input(node: Node) -> void:
+	if node is Control:
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_ignore_field_decoration_input(child)
 
 func _render_field(container: HBoxContainer, side: Dictionary, is_player_field: bool) -> void:
 	_clear_container(container)
