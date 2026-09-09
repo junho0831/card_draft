@@ -27,7 +27,8 @@ battle -> event/shop -> battle/elite -> rest/shop -> boss
 - 영웅 체력 26
 - 골드 85
 - 시작 덱 10장
-- 선택 세력 카드 9장 + 공용 카드 1장
+- 일반 런은 세력별 두 시작 전략 중 하나의 덱·유물을 사용한다(`data/starting_strategies.json`).
+- 전략을 생략하는 기존 호출은 종전 시작 구성을 사용하며, 학습은 기존 덱의 단계별 개방을 유지한다.
 
 ## 첫 런 학습
 

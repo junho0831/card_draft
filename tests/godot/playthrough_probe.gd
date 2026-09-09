@@ -15,6 +15,10 @@ var headless := false
 var probe_failed := false
 var cases: Array[Dictionary] = []
 var battle_metrics: Array[Dictionary] = []
+var matrix_strategy := ""
+var case_seed := 0
+var matrix_main: Node
+var matrix_profile: Dictionary = {}
 
 func _init() -> void:
 	if not TestStorage.prepare_test_directory():
@@ -23,6 +27,32 @@ func _init() -> void:
 	call_deferred("_run_all")
 
 func _run_all() -> void:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--strategy="):
+			matrix_strategy = arg.trim_prefix("--strategy=")
+	if not matrix_strategy.is_empty():
+		var strategy: Dictionary = preload("res://src/services/starting_strategy_service.gd").get_strategy(matrix_strategy)
+		if strategy.is_empty():
+			quit(2)
+			return
+		var checkpoint_path := TestStorage.path_for("progress.json")
+		if FileAccess.file_exists(checkpoint_path):
+			var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(checkpoint_path))
+			cases.assign(saved.get("cases", []))
+			battle_metrics.assign(saved.get("battles", []))
+			probe_failed = bool(saved.get("failed", false))
+		for seed_index in range(10):
+			for elite in [false, true]:
+				case_seed = 20260909 + seed_index
+				if cases.any(func(entry): return int(entry.get("seed", 0)) == case_seed and bool(entry.get("elite", false)) == elite):
+					continue
+				await _run_case(String(strategy.race_id), elite)
+		var file := FileAccess.open(TestStorage.path_for("playthrough_metrics.json"), FileAccess.WRITE)
+		file.store_string(JSON.stringify({"cases": cases, "battles": battle_metrics, "failed": probe_failed}, "\t"))
+		var wins := cases.filter(func(entry): return entry.result == "win").size()
+		print("STRATEGY RESULT: ", matrix_strategy, " wins=", wins, "/", cases.size(), " stalled=", probe_failed)
+		quit(1 if probe_failed or wins == 0 else 0)
+		return
 	var index := 0
 	for race in ["human", "elf", "undead"]:
 		if OS.get_cmdline_user_args().has("--elf-only") and race != "elf":
@@ -45,27 +75,40 @@ func _run_case(race: String, elite: bool) -> void:
 	DisplayServer.window_set_size(Vector2i(1280, 720))
 	await _wait_for_frame()
 	
-	var main = MAIN_SCENE.instantiate()
+	var main = matrix_main if is_instance_valid(matrix_main) else MAIN_SCENE.instantiate()
+	var newly_created: bool = not main.is_inside_tree()
 	main.set_meta("disable_window_mode_changes", true)
 	main.set_meta("layout_viewport_override", Vector2i(1280, 720))
 	main.set_meta("disable_timed_battle_fx", true)
 	main.set_meta("disable_battle_ui_rerender", headless)
-	root.add_child(main)
+	if newly_created:
+		root.add_child(main)
+		if not matrix_strategy.is_empty():
+			matrix_main = main
+			matrix_profile = main.player_profile.duplicate(true)
+	elif not matrix_strategy.is_empty():
+		main.player_profile = matrix_profile.duplicate(true)
 	await _wait_for_frame()
 	await _wait_for_frame()
 	main.player_profile["settings"]["battle_cutscene"] = false
 	main.player_profile["settings"]["fast_ai"] = true
 	main._clear_run()
-	main._show_main_menu()
+	if matrix_strategy.is_empty():
+		main._show_main_menu()
 	await _capture("01_main_menu")
 	
 	main.player_profile["learning_stage"] = 0 if OS.get_cmdline_user_args().has("--guided") else 5
-	main._start_new_run()
+	if matrix_strategy.is_empty():
+		main._start_new_run()
+	else:
+		main.pending_guided_run = false
 	await _wait_for_frame()
 	_note(main, "start_run")
 	await _capture("02_race_selection")
-	if String(main.active_screen) == "race_selection":
-		main._init_run(race)
+	if String(main.active_screen) == "race_selection" or not matrix_strategy.is_empty():
+		if not matrix_strategy.is_empty():
+			seed(case_seed)
+		main._init_run(race, matrix_strategy)
 		await _wait_for_frame()
 		await _wait_for_frame()
 	_note(main, "race_selected:%s elite=%s" % [race, elite])
@@ -124,14 +167,20 @@ func _run_case(race: String, elite: bool) -> void:
 		probe_failed = true
 	_note_fun_metrics(main)
 	
-	cases.append({"race": race, "elite": elite, "result": String(main.current_run.get("result", "")), "nodes": main.current_run.get("visited_nodes", []).size(), "hp": main.current_run.get("hp", 0)})
+	cases.append({"strategy_id": matrix_strategy, "seed": case_seed, "race": race, "elite": elite, "result": String(main.current_run.get("result", "")), "nodes": main.current_run.get("visited_nodes", []).size(), "hp": main.current_run.get("hp", 0)})
 	if not completed_run:
 		for line in report:
 			print(line)
 	report.clear()
+	if not matrix_strategy.is_empty():
+		var checkpoint := FileAccess.open(TestStorage.path_for("progress.json"), FileAccess.WRITE)
+		checkpoint.store_string(JSON.stringify({"cases": cases, "battles": battle_metrics, "failed": probe_failed}))
 	print("Playthrough probe captures saved to %s" % global_dir)
-	root.remove_child(main)
-	main.queue_free()
+	if matrix_strategy.is_empty():
+		root.remove_child(main)
+		main.queue_free()
+	else:
+		main._clear_screen()
 	await _wait_for_frame()
 
 func _play_battle(main: Node, safety: int) -> void:
@@ -194,7 +243,7 @@ func _play_battle(main: Node, safety: int) -> void:
 		if steps == 3:
 			await _capture("%02d_battle_mid" % safety)
 	await _wait_frames(3 if headless else 20)
-	battle_metrics.append({"race": main._current_race_id(), "tier": battle.battle_tier, "enemy": battle.opponent.get("name", ""), "turns": battle.battle_state.get("player_turn_count", 0), "finisher": battle.battle_state.get("combo_finisher_used", false), "hp_lost_net": initial_hp - int(battle.player.get("health", 0)), "actions": steps})
+	battle_metrics.append({"strategy_id": matrix_strategy, "seed": case_seed, "metrics": battle.battle_state.get("strategy_metrics", {}).duplicate(true), "first_turn_win": battle.battle_state.get("player_turn_count", 0) == 1 and int(battle.opponent.get("health", 0)) <= 0, "race": main._current_race_id(), "tier": battle.battle_tier, "enemy": battle.opponent.get("name", ""), "turns": battle.battle_state.get("player_turn_count", 0), "finisher": battle.battle_state.get("combo_finisher_used", false), "hp_lost_net": initial_hp - int(battle.player.get("health", 0)), "actions": steps})
 	max_battle_steps = maxi(max_battle_steps, steps)
 	var node_type := String(main.run_store.current_node(main.current_run).get("type", ""))
 	if node_type == "boss":

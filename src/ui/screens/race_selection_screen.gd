@@ -11,6 +11,11 @@ var start_button: Button
 var selection_summary: Label
 var fixed_footer: PanelContainer
 var dock_title_label: Label
+var strategy_box: VBoxContainer
+var strategy_cards: BoxContainer
+var strategy_error: Label
+var learning_toggle: CheckButton
+var expanded_strategy_id := ""
 
 func _init(_main: Node) -> void:
 	main = _main
@@ -32,18 +37,19 @@ func build(body: VBoxContainer) -> void:
 	))
 
 	var learning := CheckButton.new()
+	learning_toggle = learning
 	learning.text = "단계별로 배우기" if int(main.player_profile.get("learning_stage", 0)) == 0 else "단계별 안내 이어서 배우기"
 	if int(main.player_profile.get("learning_stage", 0)) >= 5:
 		learning.text = "기본 조작 학습 완료"
 		learning.disabled = true
 	learning.button_pressed = main.pending_guided_run
-	learning.toggled.connect(func(enabled: bool): main.pending_guided_run = enabled)
+	learning.toggled.connect(_set_guided_mode)
 	body.add_child(learning)
 	var skip := Button.new()
-	skip.text = "바로 시작 · 안내 없이 선택한 세력으로"
+	skip.text = "바로 시작 · 전략 고르기"
 	skip.pressed.connect(func():
-		main.pending_guided_run = false
-		_confirm_selection()
+		learning.set_pressed_no_signal(false)
+		_set_guided_mode(false)
 	)
 	body.add_child(skip)
 	var comparison: BoxContainer = VBoxContainer.new() if stacked else HBoxContainer.new()
@@ -54,6 +60,16 @@ func build(body: VBoxContainer) -> void:
 	for race_id in main._valid_race_ids():
 		comparison.add_child(_make_race_card(race_id, compact, phone, short))
 
+	strategy_box = VBoxContainer.new()
+	strategy_box.add_theme_constant_override("separation", 8)
+	body.add_child(strategy_box)
+	strategy_box.add_child(main._make_label("시작 전략 선택", 20, Color(1.0, 0.88, 0.55)))
+	strategy_cards = VBoxContainer.new() if mobile_portrait else HBoxContainer.new()
+	strategy_cards.add_theme_constant_override("separation", 10)
+	strategy_box.add_child(strategy_cards)
+	strategy_error = main._make_label("", 14, Color(1.0, 0.5, 0.4))
+	strategy_box.add_child(strategy_error)
+	_render_strategies()
 	var actions: BoxContainer
 	if mobile_portrait:
 		var dock: Dictionary = main.ui.mount_screen_action_dock(
@@ -166,17 +182,7 @@ func _make_race_card(race_id: String, compact: bool, phone: bool, short: bool) -
 	power_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	power_box.add_child(power_text)
 
-	var relic: Dictionary = main.relic_service.get_relic(String(meta.get("relic_id", "")))
-	var relic_row := HBoxContainer.new()
-	relic_row.add_theme_constant_override("separation", 7)
-	box.add_child(relic_row)
-	var relic_label: Label = main._make_label("시작 유물", 11 if compact else 12, Color(0.68, 0.74, 0.82, 1.0))
-	relic_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	relic_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	relic_row.add_child(relic_label)
-	relic_row.add_child(main.ui.make_relic_badge(relic, compact))
-
-	var cards_label: Label = main._make_label("대표 카드 · %s\n시작 덱 · 세력 9장 + 공용 1장" % " · ".join(meta.get("representative_card_names", [])), 11 if compact else 12, Color(0.78, 0.84, 0.92, 1.0))
+	var cards_label: Label = main._make_label("대표 카드 · %s\n시작 덱과 유물은 아래 전략에서 선택" % " · ".join(meta.get("representative_card_names", [])), 11 if compact else 12, Color(0.78, 0.84, 0.92, 1.0))
 	cards_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	cards_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(cards_label)
@@ -238,11 +244,18 @@ func _apply_race_panel_style(race_id: String) -> void:
 	panel.add_theme_stylebox_override("panel", style)
 
 func _select_race(race_id: String) -> void:
+	var changed: bool = selected_race_id != main._normalize_race_id(race_id)
 	selected_race_id = main._normalize_race_id(race_id)
+	if changed:
+		main.pending_strategy_id = ""
+		expanded_strategy_id = ""
 	main.pending_race_selection_id = selected_race_id
+	_render_strategies()
 	if main.audio_manager != null:
 		main.audio_manager.play_sound("click")
 	_refresh_selection()
+	if not main.pending_guided_run and is_instance_valid(strategy_box):
+		main.root_scroll.call_deferred("ensure_control_visible", strategy_box)
 
 func _refresh_selection() -> void:
 	for race_id in main._valid_race_ids():
@@ -281,8 +294,78 @@ func _refresh_selection() -> void:
 		start_button.text = "2. %s" % String(selected_meta.get("start_text", "인간으로 시작"))
 		main.ui.style_primary_button(start_button, selected_accent.darkened(0.38))
 		start_button.add_theme_font_size_override("font_size", 18)
+		if not main.pending_guided_run:
+			var chosen: Dictionary = main.StartingStrategies.get_strategy(main.pending_strategy_id)
+			start_button.disabled = chosen.is_empty()
+			start_button.text = "%s · %s 시작" % [String(selected_meta.get("name", "")), String(chosen.get("name", "전략 선택"))]
+		else:
+			start_button.disabled = false
 
 func _confirm_selection() -> void:
 	if main.audio_manager != null:
 		main.audio_manager.play_sound("click")
-	main._init_run(selected_race_id)
+	main._init_run(selected_race_id, "" if main.pending_guided_run else main.pending_strategy_id)
+
+func _set_guided_mode(enabled: bool) -> void:
+	main.pending_guided_run = enabled
+	_render_strategies()
+	_refresh_selection()
+
+func _choose_strategy(id: String) -> void:
+	var strategy: Dictionary = main.StartingStrategies.get_strategy(id)
+	if not main.StartingStrategies.is_valid(strategy, selected_race_id, main.card_db, main.relic_service):
+		return
+	main.pending_strategy_id = id
+	_render_strategies()
+	_refresh_selection()
+
+func _toggle_strategy_deck(id: String) -> void:
+	expanded_strategy_id = "" if expanded_strategy_id == id else id
+	_render_strategies()
+
+func _render_strategies() -> void:
+	if not is_instance_valid(strategy_box):
+		return
+	strategy_box.visible = not main.pending_guided_run
+	for child in strategy_cards.get_children():
+		strategy_cards.remove_child(child)
+		child.queue_free()
+	var choices: Array[Dictionary] = main.StartingStrategies.for_race(selected_race_id)
+	if not choices.any(func(entry): return String(entry.id) == main.pending_strategy_id):
+		main.pending_strategy_id = String(choices[0].id) if not choices.is_empty() else ""
+	strategy_error.text = "전략 데이터를 불러오지 못했습니다." if choices.is_empty() else ""
+	for strategy in choices:
+		var panel := PanelContainer.new()
+		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var selected: bool = String(strategy.id) == main.pending_strategy_id
+		panel.add_theme_stylebox_override("panel", main.ui.make_style_box(Color(0.06, 0.1, 0.16), Color(0.5, 0.75, 1.0) if selected else Color(0.2, 0.3, 0.4), 2, 8))
+		strategy_cards.add_child(panel)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 8)
+		panel.add_child(box)
+		var relic: Dictionary = main.relic_service.get_relic(String(strategy.relic_id))
+		var tag: Dictionary = main._build_tag_meta().get(String(strategy.primary_tag), {})
+		for line in [strategy.name, strategy.description, "장점 · " + String(strategy.strength), "약점 · " + String(strategy.weakness), "첫 행동 · " + String(strategy.opening), "주력 · " + String(tag.get("name", strategy.primary_tag)), "시작 유물 · " + String(relic.get("name", "")) + " — " + String(relic.get("text", ""))]:
+			var label: Label = main._make_label(String(line), 14, Color(0.92, 0.95, 1.0))
+			label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			box.add_child(label)
+		var choose := Button.new()
+		choose.text = ("✓ 선택됨 · " if selected else "이 전략 선택 · ") + String(strategy.name)
+		choose.custom_minimum_size.y = 44
+		choose.pressed.connect(_choose_strategy.bind(String(strategy.id)))
+		box.add_child(choose)
+		var expand := Button.new()
+		expand.text = "덱 10장 접기" if expanded_strategy_id == String(strategy.id) else "덱 10장 펼쳐보기"
+		expand.custom_minimum_size.y = 44
+		expand.pressed.connect(_toggle_strategy_deck.bind(String(strategy.id)))
+		box.add_child(expand)
+		if expanded_strategy_id == String(strategy.id):
+			var counts := {}
+			for id in strategy.deck_ids:
+				counts[id] = int(counts.get(id, 0)) + 1
+			for id in counts:
+				var card: Dictionary = main.card_db.get_card(String(id))
+				var label: Label = main._make_label("%s ×%d · 마나 %d\n%s" % [card.name, counts[id], card.cost, card.text], 13, Color(0.9, 0.95, 1.0))
+				label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				box.add_child(label)

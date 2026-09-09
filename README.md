@@ -52,6 +52,12 @@
 
 ## 실행
 
+자세한 명령어와 저장 경로는 [게임 실행과 테스트 안내](docs/run-and-test.md)를 참고한다.
+
+```bash
+godot --path .
+```
+
 Godot 4.6 이상에서 이 폴더를 열고 실행한다.
 
 시작 씬:
@@ -119,7 +125,7 @@ ElevenLabs 적용 대상:
 기본 개발 루프는 headless 회귀 테스트 하나만 실행한다.
 
 ```bash
-godot4 --headless -s res://tests/godot/run_tests.gd -- --test-data-dir=/tmp/card-draft-check
+godot --headless --path . -s res://tests/godot/run_tests.gd -- --test-data-dir=/tmp/card-draft-check
 ```
 
 현재 포함:
@@ -134,18 +140,19 @@ UI를 바꾼 경우에만 반응형 캡처를 따로 확인한다.
 반응형 기준은 `1920x1080`, `1280x720`, `1024x768`, `800x1280`, 모바일 웹 `390x844`다. `Canvas Items + Expand`는 최대 1.3배까지 자동 확대해 Full HD에서 조작 UI가 작아 보이지 않게 하면서 추가 전장 공간도 남긴다. 설정의 `UI 크기`에서 1280px 이상 큰 화면 표시를 `자동`, `크게`, `작게`로 보정할 수 있고, 작은 화면은 터치 가독성을 위해 기존 논리 픽셀을 유지한다. `900px` 이하 세로 전투는 카드 크기를 줄이는 대신 가로 레일, 중앙 스냅, 첫 탭 선택 확대를 사용한다.
 
 ```bash
-godot4 --path . -s res://tests/godot/capture_ui_responsive.gd -- --test-data-dir=/tmp/card-draft-check
-godot4 --path . -s res://tests/godot/validate_ui_captures.gd -- --test-data-dir=/tmp/card-draft-check
+godot --path . -s res://tests/godot/capture_ui_responsive.gd -- --test-data-dir=/tmp/card-draft-check
+godot --path . -s res://tests/godot/validate_ui_captures.gd -- --test-data-dir=/tmp/card-draft-check
 ```
 
 전투 재미/런 흐름을 확인할 때만 플레이스루 프로브를 실행한다.
 
 ```bash
-godot4 --path . -s res://tests/godot/playthrough_probe.gd -- --test-data-dir=/tmp/card-draft-check
+godot --path . -s res://tests/godot/playthrough_probe.gd -- --test-data-dir=/tmp/card-draft-check
 ```
 
 ## 문서
 
+- [게임 실행과 테스트 안내](docs/run-and-test.md)
 - 전략 업데이트 검증 기록: `res://docs/strategy-verification.md`
 - 현재 코드 기준 게임 기획서: `res://docs/game-design.md`
 - 개발 메모: `res://docs/knowledge.md`
@@ -156,7 +163,7 @@ godot4 --path . -s res://tests/godot/playthrough_probe.gd -- --test-data-dir=/tm
 
 - 제한 시간 없이 장비·시체 폭발·언데드 필살기 대상을 직접 선택한다. 선택 취소, Esc, 우클릭은 자원을 소비하지 않는다.
 - 전장 중앙에 다음 공격과 보스 패턴을 예고한다. 예고는 현재 전장 기준이며 추가 카드 효과는 미확정이다.
-- 복수 태그 유닛으로 연계를 시작하면 소환 태그를 우선한다. 이미 이어지는 태그가 있으면 그 연계를 유지한다.
+- 복수 태그 카드로 새 연계를 시작하면 선택한 전략의 주력 태그가 활성 상태일 때 우선한다. 전략이 없는 기존 런은 소환 우선 규칙을 유지한다. 이미 이어지는 태그가 있으면 그 연계를 유지한다.
 - 드로우 연계 마나 환급은 턴당 한 번이다. 강화 카드의 실제 효과와 설명을 함께 갱신한다.
 - 테스트는 `--test-data-dir`가 지정된 별도 경로만 사용한다. 자동 플레이는 세 세력의 일반/엘리트 경로 여섯 런을 실행하고 `playthrough_metrics.json`에 턴 수와 피니시 등을 기록한다.
 
@@ -173,3 +180,18 @@ godot --headless --path . -s res://tests/godot/playthrough_probe.gd -- --test-da
 ```
 
 두 번째 전투의 안내는 실제 행동에 맞춰 바뀐다. 아군이 없으면 소환, 마나가 부족하면 턴 종료, 장착할 수 있으면 대상 선택을 안내한다. 장비를 실제로 사용한 뒤에는 유닛 두 장으로 소환 2연계를 시도하도록 안내하고, 사용 완료 상태도 런 저장에 남긴다. 대상 선택 취소는 장비 사용으로 기록하지 않는다.
+
+
+## 세력별 시작 전략
+
+일반 런과 `바로 시작 · 전략 고르기`에서는 세력별 두 전략 중 하나를 고른다. 각 전략의 장점·약점·첫 행동과 시작 유물을 확인하고, `덱 10장 펼쳐보기`로 구성을 볼 수 있다. 하단 시작 버튼을 눌러야 런이 저장된다.
+
+| 세력 | 전략 | 주력 태그 | 시작 유물 |
+| --- | --- | --- | --- |
+| 인간 | 군단 / 정예 | 소환 / 버프 | 검투사 투구 / 전술 교본 |
+| 엘프 | 순환 / 기습 | 드로우 / 소환 | 세계수 잎 / 전장의 북 |
+| 언데드 | 희생 / 혈투 | 사망 / 저체력 | 사령술사의 반지 / 피의 성배 |
+
+학습 런은 기존 구성과 단계별 개방을 유지한다. 보상은 실제 덱·유물 점수로 결정하므로 다른 전략을 섞을 수 있다. 이어하기는 저장된 구성을 사용하며 기존 런을 자동 변환하지 않는다.
+
+정의는 `data/starting_strategies.json`, 비교 결과와 구성 보정 사유는 [시작 전략 비교](docs/starting-strategy-comparison.md), 실행 명령은 [실행과 테스트](docs/run-and-test.md)를 참고한다.

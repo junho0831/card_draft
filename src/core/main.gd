@@ -62,6 +62,8 @@ var current_run := {}
 var collection_filter := "전체"
 var active_screen := "main_menu"
 const Onboarding = preload("res://src/services/onboarding_service.gd")
+const StartingStrategies = preload("res://src/services/starting_strategy_service.gd")
+var pending_strategy_id := ""
 var pending_guided_run := false
 var pending_race_selection_id := "human"
 
@@ -377,10 +379,11 @@ func _lesson_description() -> String:
 func _start_new_run() -> void:
 	pending_guided_run = int(player_profile.get("learning_stage", 0)) < 5
 	pending_race_selection_id = "human"
+	pending_strategy_id = ""
 	run_flow.start_new_run()
 
-func _init_run(race_id: String) -> void:
-	run_flow.init_run(race_id)
+func _init_run(race_id: String, strategy_id: String = "") -> void:
+	run_flow.init_run(race_id, strategy_id)
 
 func _show_race_selection() -> void:
 	active_screen = "race_selection"

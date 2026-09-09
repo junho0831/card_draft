@@ -25,8 +25,16 @@ func _ensure_battle_screen() -> bool:
 func start_new_run() -> void:
 	main._show_race_selection()
 
-func init_run(race_id: String) -> void:
+func init_run(race_id: String, strategy_id: String = "") -> void:
 	race_id = main._normalize_race_id(race_id)
+	var strategy: Dictionary = {}
+	if not strategy_id.is_empty():
+		strategy = main.StartingStrategies.get_strategy(strategy_id)
+		if not main.StartingStrategies.is_valid(strategy, race_id, main.card_db, main.relic_service):
+			main._show_message("선택한 시작 전략을 사용할 수 없습니다. 세력과 전략을 다시 골라주세요.", "_show_race_selection")
+			return
+	if main.pending_guided_run and int(main.player_profile.get("learning_stage", 0)) < 5:
+		strategy = {}
 	var acts: Array[Dictionary] = main.run_generator.load_acts()
 	if acts.is_empty():
 		main._show_message("Act 데이터를 불러오지 못했습니다.", "_show_main_menu")
@@ -35,7 +43,15 @@ func init_run(race_id: String) -> void:
 	var start_hp := 26 + int(upgrades.get("start_hp", 0)) * 4
 	var start_gold := 85 + int(upgrades.get("start_gold", 0)) * 15
 	var deck_ids: Array[String] = main.run_generator.starter_deck(race_id)
+	if not strategy.is_empty():
+		deck_ids.assign(strategy.deck_ids)
 	main.current_run = main.run_store.create_new_run(acts, deck_ids, start_hp, start_gold, race_id)
+	if not strategy.is_empty():
+		main.current_run["strategy_id"] = strategy.id
+		main.current_run["strategy_name"] = strategy.name
+		main.current_run["strategy_primary_tag"] = strategy.primary_tag
+		main.current_run["starting_deck_ids"] = deck_ids.duplicate()
+		main.current_run["starting_relic_id"] = strategy.relic_id
 	if main.pending_guided_run and int(main.player_profile.get("learning_stage", 0)) < 5:
 		main.current_run["guided_run"] = true
 		main.current_run["lesson_resume_stage"] = int(main.player_profile.get("learning_stage", 0))
@@ -51,7 +67,7 @@ func init_run(race_id: String) -> void:
 			simple.append(simple[0])
 		main.current_run["deck_ids"] = simple
 		main.current_run["lesson_reserve"] = reserve
-	var relic_id: String = main.run_generator.get_starting_relic(race_id)
+	var relic_id: String = String(strategy.relic_id) if not strategy.is_empty() else main.run_generator.get_starting_relic(race_id)
 	if bool(main.current_run.get("guided_run", false)):
 		main.current_run["lesson_starting_relic"] = relic_id
 		relic_id = ""

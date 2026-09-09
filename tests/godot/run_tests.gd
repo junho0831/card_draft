@@ -3,6 +3,7 @@ extends SceneTree
 const TestStorage = preload("res://src/services/game_storage.gd")
 
 const TEST_SCRIPTS := [
+	preload("res://tests/godot/starting_strategy_test.gd"),
 	preload("res://tests/godot/onboarding_test.gd"),
 	preload("res://tests/godot/battle_resume_test.gd"),
 	preload("res://tests/godot/combat_strategy_test.gd"),

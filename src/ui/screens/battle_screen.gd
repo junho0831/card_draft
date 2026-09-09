@@ -234,6 +234,7 @@ func _store_battle_snapshot() -> void:
 		"opponent": _serialize_side(opponent),
 		"log_text": "" if log_label == null else log_label.text,
 		"turn_timer_left": 0.0 if turn_timer == null or turn_timer.is_stopped() else turn_timer.time_left,
+		"strategy_metrics": Dictionary(battle_state.get("strategy_metrics", {})).duplicate(true),
 		"battle_objective": Dictionary(battle_state.get("battle_objective", {})).duplicate(true),
 		"battle_state_flags": {
 			"player_turn_count": int(battle_state.get("player_turn_count", 0)),
@@ -292,6 +293,7 @@ func _restore_battle_snapshot(snapshot: Dictionary) -> void:
 	battle_state["breakthrough_mana_claimed"] = bool(flags.get("breakthrough_mana_claimed", false))
 	battle_state["breakthrough_count"] = int(flags.get("breakthrough_count", 0))
 	battle_state["breakthrough_damage"] = int(flags.get("breakthrough_damage", 0))
+	battle_state["strategy_metrics"] = Dictionary(snapshot.get("strategy_metrics", {})).duplicate(true)
 	var restored_objective: Dictionary = snapshot.get("battle_objective", {})
 	if not restored_objective.is_empty():
 		battle_state["battle_objective"] = restored_objective.duplicate(true)
@@ -1073,6 +1075,7 @@ func _reset_battle_state() -> void:
 		"breakthrough_count": 0,
 		"breakthrough_damage": 0,
 		"battle_objective": _create_battle_objective(),
+		"strategy_metrics": {"equipment": 0, "sacrifices": 0, "draws": player.get("hand", []).size()},
 	}
 
 func _create_battle_objective() -> Dictionary:
@@ -1324,6 +1327,7 @@ func _resolve_undead_race_power(target_unit_id: int = -1) -> void:
 	var sacrifice_index := _ally_index_by_id(target_unit_id)
 	if sacrifice_index < 0:
 		return
+	_record_strategy_metric("sacrifices")
 	var sacrifice_name := String(player.field[sacrifice_index].get("name", "아군"))
 	player.field[sacrifice_index]["health"] = 0
 	_cleanup_dead_units(player, opponent)
@@ -1377,6 +1381,10 @@ func _combo_candidate_tags(card: Dictionary) -> Array[String]:
 	if String(card.get("type", "")) == "unit" and active_tags.has("summon"):
 		active_tags.erase("summon")
 		active_tags.push_front("summon")
+	var strategy_tag := String(main.current_run.get("strategy_primary_tag", ""))
+	if not String(main.current_run.get("strategy_id", "")).is_empty() and active_tags.has(strategy_tag):
+		active_tags.erase(strategy_tag)
+		active_tags.push_front(strategy_tag)
 	return active_tags
 
 func _resolve_card_combo(card: Dictionary) -> void:
@@ -2851,6 +2859,7 @@ func _draw_cards(side: Dictionary, count: int) -> void:
 		if side.hand.size() < 10:
 			var drawn = side.deck.pop_back()
 			if side == player:
+				_record_strategy_metric("draws")
 				drawn["_is_new"] = true
 				drawn["_hand_slot"] = _next_free_hand_slot(side.hand)
 			side.hand.append(drawn)
@@ -3073,7 +3082,10 @@ func _on_hand_card_pressed(index: int, target_unit_id: int = -1) -> void:
 	main.battle_effects.play_card(player, opponent, card, _battle_effect_context("player", target_unit_id))
 	main.relic_service.on_card_played(main.current_run, battle_state, player)
 	if card_type == "equipment":
+		_record_strategy_metric("equipment")
 		_record_lesson_action("equipped")
+	if _base_card_id(String(card.get("id", ""))) == "corpse_explosion":
+		_record_strategy_metric("sacrifices")
 	_resolve_card_combo(card)
 	var summoned_index = -1
 	if card_type == "unit" and player.field.size() > old_field_size:
@@ -5551,3 +5563,8 @@ func _equipment_lesson_guidance() -> String:
 			return "장비 장착 완료! 전장이 가득 찼습니다. 공격으로 자리를 만든 뒤 유닛 두 장을 이어 쓰면 2연계가 됩니다."
 		return "장비 장착 완료! 한 턴에 유닛 두 장을 이어 쓰면 소환 2연계가 됩니다. 중간에 다른 카드를 쓰면 끊길 수 있어요."
 	return "장비와 2연계를 모두 사용했습니다! 배운 방법으로 적 영웅을 쓰러뜨리세요."
+
+func _record_strategy_metric(key: String) -> void:
+	var metrics: Dictionary = battle_state.get("strategy_metrics", {})
+	metrics[key] = int(metrics.get(key, 0)) + 1
+	battle_state["strategy_metrics"] = metrics
