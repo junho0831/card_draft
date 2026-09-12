@@ -33,13 +33,13 @@ static func card_metrics(mode: String, compact: bool = false, tight: bool = fals
 	var separation := SPACE_SM
 	match mode:
 		"hand":
-			title_font = 12 if compact else FONT_CARD_TITLE
+			title_font = 13 if compact else 15
 			identity_font = 8 if tight else 10
-			summary_font = 10 if compact else 12
-			detail_font = 8 if tight else 9
+			summary_font = 13
+			detail_font = 12
 			separation = 3 if tight else 5
 		"field":
-			title_font = 10 if tight and compact else (11 if tight else (12 if compact else 13))
+			title_font = 12 if compact else 13
 			identity_font = 9 if tight else 10
 			summary_font = 10 if tight else 11
 			detail_font = 9

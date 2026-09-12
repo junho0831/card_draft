@@ -1,0 +1,322 @@
+{
+  "generator": "tools/compose_original_audio.py",
+  "seed": 20260910,
+  "sample_rate": 32000,
+  "source": "Mathematical synthesis only; no third-party audio inputs",
+  "music": {
+    "title": "Embers at the Border",
+    "bpm": 80,
+    "bars": 16,
+    "seconds": 48
+  },
+  "files": {
+    "menu_theme": {
+      "seconds": 48.0,
+      "loop": true,
+      "peak_dbfs": -2.3,
+      "rms_dbfs": -15.5,
+      "sha256": "3943e398c7760fe1d94ee28525fe5b2bb47e849dfed590dfdd0a2b46d950ba56"
+    },
+    "battle_base": {
+      "seconds": 48.0,
+      "loop": true,
+      "peak_dbfs": -2.31,
+      "rms_dbfs": -16.83,
+      "sha256": "56d962c009e34b593a8f84402359add94b3c6d0ce83485713f98dcd868d2d063"
+    },
+    "battle_tension": {
+      "seconds": 48.0,
+      "loop": true,
+      "peak_dbfs": -2.41,
+      "rms_dbfs": -19.96,
+      "sha256": "d18f8bc428c794f85bebc6ae3b2f2d4e3f2d65d5ec9fcb5d6f1ade34ea301dd7"
+    },
+    "battle_lethal": {
+      "seconds": 48.0,
+      "loop": true,
+      "peak_dbfs": -2.32,
+      "rms_dbfs": -15.74,
+      "sha256": "56e399e7d81b3ba821e352f2ae4758963d45fb35ff39658a955f948192940d1a"
+    },
+    "battle_low_hp": {
+      "seconds": 48.0,
+      "loop": true,
+      "peak_dbfs": -2.34,
+      "rms_dbfs": -22.13,
+      "sha256": "6314d8382b9f746c3e0bf041865e373e35492aea359db1ab373514c103ef83fe"
+    },
+    "click": {
+      "seconds": 0.15,
+      "loop": false,
+      "peak_dbfs": -2.57,
+      "rms_dbfs": -13.49,
+      "sha256": "94a643c78398194bfd2037192e3886cfe2a04a922d0e9a048736b2bbe554bc0d"
+    },
+    "draw": {
+      "seconds": 0.32,
+      "loop": false,
+      "peak_dbfs": -3.25,
+      "rms_dbfs": -15.37,
+      "sha256": "2d1d462d828958eceafed1ab4d410ed5fe9b8101e11a6729fd5cc3ad1661f3d1"
+    },
+    "play": {
+      "seconds": 0.34,
+      "loop": false,
+      "peak_dbfs": -2.38,
+      "rms_dbfs": -14.75,
+      "sha256": "df24c9623841c25dd22ffce6c864cc5fa19665a3d386085a31696cfbde3e3150"
+    },
+    "summon": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.66,
+      "rms_dbfs": -16.26,
+      "sha256": "12b8d1c93caa3f5d70c562cc5b437203e2bd212d376c018a23464aeefb1cdf95"
+    },
+    "spell": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.37,
+      "rms_dbfs": -15.06,
+      "sha256": "41373b057d943ca4decef7619244514a6c6ec5f3195ceb454439076248dc9579"
+    },
+    "counter": {
+      "seconds": 0.45,
+      "loop": false,
+      "peak_dbfs": -3.53,
+      "rms_dbfs": -19.21,
+      "sha256": "e6553a0ff135176f81c5f88e45aa9d82ba77aaea620e8bc8a2aee4e0f83f1d26"
+    },
+    "heal": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.35,
+      "rms_dbfs": -15.23,
+      "sha256": "e04ca682b9bf6951c8c130ceef6d163cb860de14b9f072650bd9df5331c4696c"
+    },
+    "hit": {
+      "seconds": 0.45,
+      "loop": false,
+      "peak_dbfs": -2.88,
+      "rms_dbfs": -18.98,
+      "sha256": "57f981100f55426b82ba61cb57685ae846a5052fe564e8cb5f56543532899cd5"
+    },
+    "combo": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.36,
+      "rms_dbfs": -15.74,
+      "sha256": "320edeccac8bff16f9a84795090e87ec32900004a0cac239afe6af5e8e626e3b"
+    },
+    "finisher": {
+      "seconds": 1.6,
+      "loop": false,
+      "peak_dbfs": -2.6,
+      "rms_dbfs": -17.56,
+      "sha256": "39f33b3c85270a4d5e73158ba9c4022a5f26d3f6dd55c98b2f261c472be5edec"
+    },
+    "reward": {
+      "seconds": 3.2,
+      "loop": false,
+      "peak_dbfs": -2.32,
+      "rms_dbfs": -16.64,
+      "sha256": "e9ced941d5f97bae433b174b5fd1e54e2375e7ad4fa79ae5ccd9399c1519a1fd"
+    },
+    "victory": {
+      "seconds": 3.2,
+      "loop": false,
+      "peak_dbfs": -2.2,
+      "rms_dbfs": -16.76,
+      "sha256": "c33fa3b6a75b37ec4afccfd004aa72ad30e98e64ef0bbecf71eb7a432c2c36b3"
+    },
+    "defeat": {
+      "seconds": 3.2,
+      "loop": false,
+      "peak_dbfs": -2.37,
+      "rms_dbfs": -16.3,
+      "sha256": "9156d8c904fad23f1f56c25cc1433740a82a921c816f8a1cf6c4e679119e461b"
+    },
+    "hover": {
+      "seconds": 0.08,
+      "loop": false,
+      "peak_dbfs": -2.32,
+      "rms_dbfs": -12.44,
+      "sha256": "809096fa2eb37ef3c526d143f2baae92080654595d8345a3f6617b1d94dfe594"
+    },
+    "power_human": {
+      "seconds": 1.6,
+      "loop": false,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -17.69,
+      "sha256": "e8a14a5833f6673a6354afc802bf93503db0cc5258828a308885ed4ed49aca4c"
+    },
+    "power_elf": {
+      "seconds": 1.6,
+      "loop": false,
+      "peak_dbfs": -2.49,
+      "rms_dbfs": -18.44,
+      "sha256": "f516f8ee9c18faa523b79e8f55a4b52ce93811b7c0b0ca9168aac13269bb314c"
+    },
+    "power_undead": {
+      "seconds": 1.6,
+      "loop": false,
+      "peak_dbfs": -2.55,
+      "rms_dbfs": -17.2,
+      "sha256": "5d968ffd4ec5844659010bb544a0a23e3e1baac012914d1666fb220d5838757b"
+    },
+    "impact_heavy": {
+      "seconds": 0.75,
+      "loop": false,
+      "peak_dbfs": -3.76,
+      "rms_dbfs": -20.88,
+      "sha256": "4099842c267b99d4a59322f5c7f70e64ae1b4e6c4b2ba049a62b4562777f640c"
+    },
+    "direct_attack": {
+      "seconds": 0.45,
+      "loop": false,
+      "peak_dbfs": -2.2,
+      "rms_dbfs": -18.13,
+      "sha256": "c7b11a253b6d9da14d73a70a7697433010ddf08ed3309d67c7d376c8fbd113ec"
+    },
+    "victory_burst": {
+      "seconds": 3.2,
+      "loop": false,
+      "peak_dbfs": -2.52,
+      "rms_dbfs": -17.59,
+      "sha256": "84a6e81a8b0f28734e99f22c04bb05e48abc96725eaa749f69656662c855b79a"
+    },
+    "summon_human": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.09,
+      "rms_dbfs": -15.87,
+      "sha256": "1823060597c426ca631cddb87b1fad40d97275943b1a447c1d95238fb508e80a"
+    },
+    "summon_elf": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.64,
+      "rms_dbfs": -18.04,
+      "sha256": "ff083760b7b033348c24d984ea51035961b4f548e9dbf81f18b8fa71b6c92afc"
+    },
+    "summon_undead": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.32,
+      "rms_dbfs": -16.36,
+      "sha256": "d3192c1210dec8f889f012e8b3d0d0892b23d0a118ee1183ac4fc959ed42e9a9"
+    },
+    "summon_common": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.21,
+      "rms_dbfs": -16.09,
+      "sha256": "2f4686235cefee014fff371cd86692e96fd4da46fc0c637997de2eb62a19fe83"
+    },
+    "hit_human": {
+      "seconds": 0.45,
+      "loop": false,
+      "peak_dbfs": -3.96,
+      "rms_dbfs": -18.75,
+      "sha256": "85b722705e55b4651800f7704c812e1d7a2add6274ff36d7b803691d36fa1218"
+    },
+    "hit_elf": {
+      "seconds": 0.45,
+      "loop": false,
+      "peak_dbfs": -4.25,
+      "rms_dbfs": -19.55,
+      "sha256": "8305b7fc720446ca162432aee4372a24f772a8c3c1505e0a95e73fe3369344c7"
+    },
+    "hit_undead": {
+      "seconds": 0.45,
+      "loop": false,
+      "peak_dbfs": -2.89,
+      "rms_dbfs": -18.1,
+      "sha256": "c2bae4e344c6af9386caba0f53918f784416e99ba8e2b773b9c16c5b64fd7037"
+    },
+    "hit_common": {
+      "seconds": 0.45,
+      "loop": false,
+      "peak_dbfs": -3.16,
+      "rms_dbfs": -18.69,
+      "sha256": "757a5cc84f7f61002a25ee33e6b35baddfd9c7af93d8028b67565465342c825c"
+    },
+    "spell_fire": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.46,
+      "rms_dbfs": -16.65,
+      "sha256": "53d3bf9cd25c844767078a015cce6024bc1c4dd865f5ef2f0ca554bc5743579c"
+    },
+    "spell_draw": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.39,
+      "rms_dbfs": -15.63,
+      "sha256": "f31628e4b0c2c81f943e250e34a4e53beee35fc3be26d1f897c55d1f850849ca"
+    },
+    "spell_death": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.41,
+      "rms_dbfs": -15.58,
+      "sha256": "3620e443dbf6c395d14396bbae15df23883cc3d93444e3ba9ce5dd78aac3d85a"
+    },
+    "spell_buff": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.39,
+      "rms_dbfs": -14.86,
+      "sha256": "d7300b19b1551c7975303e4a352fbb7b9a7e9a8c71b92f34fbf36eb0811dbc4e"
+    },
+    "spell_summon": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.3,
+      "rms_dbfs": -15.98,
+      "sha256": "8dd9ca72a0bafb77b4ccd3afb40adb2931a790e77d2c7233379c050ba64c2c3c"
+    },
+    "spell_low_hp": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.28,
+      "rms_dbfs": -14.02,
+      "sha256": "db345d495d16fbf66e201c1ea42074459bb0ef410072e70788b9b8d38d75b850"
+    },
+    "spell_common": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.38,
+      "rms_dbfs": -15.49,
+      "sha256": "13885a30a14123c612de507a50f85b7b454537f67e4cc363d8256d837a028c95"
+    },
+    "equipment_human": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -15.51,
+      "sha256": "a5aa5a556c3b6167317df922f6bc8bb15c763aa4ea146953fe83287e5769d53b"
+    },
+    "equipment_elf": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.34,
+      "rms_dbfs": -15.52,
+      "sha256": "dbbba88097d56a1d6b39c3b0deda0a2aeea2ee4a640b9322bf563d2a8720b91d"
+    },
+    "equipment_undead": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.3,
+      "rms_dbfs": -14.99,
+      "sha256": "eede8f08a810f7d86fca0422291d6a90963768a1c2074375a4fec71a7b0743cd"
+    },
+    "equipment_common": {
+      "seconds": 0.85,
+      "loop": false,
+      "peak_dbfs": -2.4,
+      "rms_dbfs": -15.51,
+      "sha256": "ded10eb6348aa305c27fb7acee4707362c13b66316d02eeddae9aad17c302903"
+    }
+  }
+}

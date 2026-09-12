@@ -99,8 +99,9 @@ res://src/core/Main.tscn
 - 이벤트 데이터: `res://data/events.json`
 - 적 데이터: `res://data/enemies.json`
 - Act 데이터: `res://data/acts.json`
-- 런타임 효과음/BGM: `res://assets/audio/*.wav`
-- 효과음 제작 스크립트: `res://tools/build_elevenlabs_sfx.py`, `res://tools/build_authored_sfx.py`, `res://tools/generate_game_sfx.gd`
+- 런타임 음악·효과음: `res://assets/audio/local_models_v1/`의 생성 모델 음원을 우선 사용
+- 무료 로컬 음원 제작·라이선스·실행 방법: [로컬 모델 음원](docs/local-model-audio.md)
+- 생성 도구: `tools/generate_local_music.py`, `tools/generate_local_sfx.py`; 인코딩 도구: `tools/package_model_music.py`, `tools/package_model_sfx.py`
 
 ## 효과음
 

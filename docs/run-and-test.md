@@ -59,7 +59,7 @@ TEST STORAGE: /tmp/card-draft-tests/run_state.json | /tmp/card-draft-tests/meta_
 정상적으로 끝나면 다음과 같은 결과가 나온다.
 
 ```text
-PASS 1206 assertions
+PASS 1242 assertions
 ```
 
 숫자는 테스트 파일 수가 아니라 **검증 항목의 합계**이며 테스트 추가에 따라 달라진다. `FAIL`, `SCRIPT ERROR`, `Parse Error`가 나오면 해당 로그를 확인한다. 성공 시 종료 코드는 `0`이며, 명령 직후 `echo $?`로 확인할 수 있다. 실행 중 한동안 출력이 없을 수 있으므로 최종 결과가 나올 때까지 기다린다.
@@ -171,3 +171,5 @@ godot --resolution 390x844 --path . -s res://tests/godot/capture_strategies.gd -
 전략 선택·덱 펼쳐보기·시작 버튼 PNG와 인간·엘프 네 전략의 `input_scenarios.json`을 저장한다. 입력 시나리오는 실제 카드 선택 및 아군 대상 확정 핸들러를 호출하는 자동 검사이며 신규 사용자 직접 플레이 검증과는 구분한다.
 
 실제 GUI 입력으로 발견한 화면 전환 문제와 수정 검증은 [실행 조작 점검 기록](ui-playtest-review.md)을 참고한다.
+
+현재 음악·효과음 제작과 검증은 [로컬 모델 음원](local-model-audio.md), 화면 변경 사항은 [참조 기반 UI 기록](ui-reference-redesign.md)을 참고한다. [이전 합성 오디오](original-audio.md)는 사용자가 교체를 요청한 초기 실험 기록이다.

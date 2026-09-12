@@ -1,0 +1,17 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "One playing card slides across a wooden table and lands with a crisp papery snap. Close-up dry foley, isolated single action, no speech or music.",
+  "seed": 20260912,
+  "steps": 50,
+  "seconds": 3,
+  "elapsed_seconds": 515.0908398850006,
+  "sha256": "185e0ec146f84c722228df869ad7035966cb2fa15769146cdc4852c519141b16",
+  "file": "card_play.ogg",
+  "output_seconds": 0.6,
+  "output_peak": 0.6372805237770081,
+  "trim_start_seconds": 1.92,
+  "output_sha256": "c548add3656255058a6d77be5b7d1b3e7fc20411a86df893e825dd9a998b0fd1",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

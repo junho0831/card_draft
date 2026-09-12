@@ -1,0 +1,17 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "A single heavy steel sword strikes a wooden shield. Sharp metallic clang, deep wooden impact, a short natural decay. Isolated close-up sound effect, no speech or music.",
+  "seed": 20260911,
+  "steps": 50,
+  "seconds": 3,
+  "elapsed_seconds": 580.9645087139797,
+  "sha256": "d92e7c31a17cd0f55ab87bf15590fecfa55cbf3d2bc1cb16a524d9c5314060eb",
+  "file": "sword_hit.ogg",
+  "output_seconds": 1.2,
+  "output_peak": 0.6638469099998474,
+  "trim_start_seconds": 1.16,
+  "output_sha256": "a4b5abc490d006219a9bbd3771d338f91e4ce826c9d7aa7111435bbf119da394",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

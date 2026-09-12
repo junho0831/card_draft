@@ -211,6 +211,9 @@ func make_action_bar(compact: bool, separation: int = 10) -> BoxContainer:
 	return bar
 
 func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, detail: String, accent: Color, dock_height: int = 126) -> Dictionary:
+	var wide: bool = main._layout_viewport_size().x >= 1100.0
+	if wide:
+		dock_height = 90
 	var dock := make_surface_panel(Color(0.025, 0.034, 0.048, 0.99), accent.darkened(0.12), 2, 8, 8)
 	dock.set_meta("screen_action_dock", true)
 	dock.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -232,6 +235,8 @@ func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, de
 	detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(detail_label)
+	detail_label.visible = not wide
+	dock.tooltip_text = detail
 
 	var action_scroll := ScrollContainer.new()
 	action_scroll.set_meta("allow_horizontal_scroll", true)
@@ -383,7 +388,7 @@ func style_card_title(label: Label, compact: bool = false) -> void:
 	label.add_theme_constant_override("outline_size", 0)
 
 func style_card_rules(label: Label, compact: bool = false, muted: bool = false) -> void:
-	label.add_theme_font_size_override("font_size", 10 if compact else 12)
+	label.add_theme_font_size_override("font_size", 12 if compact else 14)
 	label.add_theme_color_override("font_color", Color(0.7, 0.75, 0.82, 0.78) if muted else Color(0.9, 0.93, 0.98, 1.0))
 	label.add_theme_constant_override("outline_size", 0)
 

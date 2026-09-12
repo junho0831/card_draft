@@ -50,17 +50,35 @@ func _test_boots_to_main_menu(main: Node) -> void:
 	_assert_eq(int(main.player_profile.get("battle_tutorial_stage", -1)), 0, "battle tutorial starts at stage 0")
 	_assert_true(main.audio_manager.streams.has("impact_heavy"), "audio manager provides heavy impact sound")
 	_assert_true(main.audio_manager.streams.has("direct_attack"), "audio manager provides direct attack sound")
-	_assert_true(FileAccess.file_exists("res://assets/audio/direct_attack.wav"), "runtime direct attack SFX exists")
+	_assert_true(ResourceLoader.exists("res://assets/audio/original_v1/direct_attack.ogg"), "runtime direct attack SFX exists")
 	_assert_true(main.audio_manager.has_authored_sfx("direct_attack"), "audio manager loads direct attack SFX")
 	_assert_true(main.audio_manager.streams.has("victory_burst"), "audio manager provides victory burst sound")
 	for sound_name in ["summon_human", "summon_elf", "summon_undead", "summon_common", "hit_human", "hit_elf", "hit_undead", "hit_common", "spell_fire", "spell_draw", "spell_death", "spell_buff", "spell_summon", "spell_low_hp", "spell_common", "equipment_human", "equipment_elf", "equipment_undead", "equipment_common"]:
 		_assert_true(main.audio_manager.streams.has(sound_name), "audio manager provides card identity sound: %s" % sound_name)
+	var all_model_sfx_loaded := true
 	for sound_name in main.audio_manager.authored_sfx_keys():
-		_assert_true(FileAccess.file_exists("res://assets/audio/%s.wav" % sound_name), "runtime ElevenLabs SFX exists: %s" % sound_name)
-		_assert_true(FileAccess.file_exists("res://assets/audio/source/raw/elevenlabs/%s.mp3" % sound_name), "source ElevenLabs SFX exists: %s" % sound_name)
-		_assert_true(main.audio_manager.has_authored_sfx(sound_name), "audio manager loads ElevenLabs SFX: %s" % sound_name)
+		_assert_true(ResourceLoader.exists("res://assets/audio/original_v1/%s.ogg" % sound_name), "original SFX resource exists: %s" % sound_name)
+		var sound_path := String(main.audio_manager.custom_streams.get(sound_name).resource_path)
+		all_model_sfx_loaded = all_model_sfx_loaded and sound_path.begins_with("res://assets/audio/local_models_v1/")
+		_assert_true(sound_path.begins_with("res://assets/audio/original_v1/") or sound_path.begins_with("res://assets/audio/local_models_v1/"), "SFX is loaded from a documented production directory: %s" % sound_name)
+		_assert_true(main.audio_manager.has_authored_sfx(sound_name), "audio manager loads original SFX: %s" % sound_name)
+	if ResourceLoader.exists("res://assets/audio/local_models_v1/ui_click.ogg"):
+		_assert_true(all_model_sfx_loaded, "complete generated SFX pack replaces every runtime sound")
 	for music_name in ["battle_base", "battle_tension", "battle_lethal", "battle_low_hp"]:
 		_assert_true(main.audio_manager.music_streams.has(music_name), "audio manager provides adaptive battle music: %s" % music_name)
+	_assert_true(main.audio_manager.menu_music_player.stream != null, "original menu music is loaded")
+	if ResourceLoader.exists("res://assets/audio/local_models_v1/menu_theme.ogg"):
+		_assert_true(String(main.audio_manager.menu_music_player.stream.resource_path).begins_with("res://assets/audio/local_models_v1/"), "generated menu score takes priority")
+	for music_name in main.audio_manager.BATTLE_MUSIC_KEYS:
+		_assert_true(main.audio_manager.custom_music_streams.has(music_name), "original battle layer loaded: %s" % music_name)
+		_assert_true(main.audio_manager.custom_music_streams[music_name].loop, "battle layer loops: %s" % music_name)
+	if ResourceLoader.exists("res://assets/audio/local_models_v1/battle_base.ogg"):
+		_assert_true(String(main.audio_manager.custom_music_streams["battle_base"].resource_path).begins_with("res://assets/audio/local_models_v1/"), "generated battle score takes priority")
+		for mode in ["base", "tension", "lethal", "low_hp"]:
+			var targets: Dictionary = main.audio_manager._battle_music_layer_targets(mode, {"boss": true})
+			_assert_true(float(targets["battle_base"]) > -80.0, "generated score remains audible: %s" % mode)
+			for layer in ["battle_tension", "battle_lethal", "battle_low_hp"]:
+				_assert_eq(float(targets[layer]), -80.0, "unrelated old stems stay silent under generated score: %s/%s" % [mode, layer])
 	var sfx_bus := AudioServer.get_bus_index(&"SFX")
 	_assert_true(sfx_bus >= 0, "audio manager creates a dedicated SFX bus")
 	_assert_true(sfx_bus >= 0 and AudioServer.get_bus_effect_count(sfx_bus) > 0, "SFX bus includes a limiter")

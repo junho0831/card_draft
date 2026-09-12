@@ -1,0 +1,17 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "One small mechanical wooden button clicks firmly with a short dry tick. Clean isolated interface sound, no speech or music.",
+  "seed": 20260918,
+  "steps": 24,
+  "seconds": 3,
+  "elapsed_seconds": 238.50456451898208,
+  "sha256": "47b629cdaf3b0803e7ebeb40ff64066142314132a69107a12c77ef1faa6dd32b",
+  "file": "ui_click.ogg",
+  "output_seconds": 0.25,
+  "output_peak": 0.6247471570968628,
+  "trim_start_seconds": 1.06,
+  "output_sha256": "ed04cde28f96e92043c36ba146e76964359ed7095612d59495edf1afab113574",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

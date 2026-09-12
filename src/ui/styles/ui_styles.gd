@@ -69,22 +69,11 @@ static func _panel_texture_for_accent(accent_color: Color) -> Texture2D:
 	return texture if texture != null else _load_texture(PANEL_BLUE_PATH)
 
 static func make_textured_panel_style(bg_color: Color, accent_color: Color, margin: int = 12, gold_bias: bool = false) -> StyleBox:
-	var texture := _load_texture(PANEL_GOLD_PATH) if gold_bias else _panel_texture_for_accent(accent_color)
-	if texture == null:
-		return make_style_box(bg_color, accent_color, 1, 8)
-	var style := StyleBoxTexture.new()
-	style.texture = texture
-	style.texture_margin_left = 112
-	style.texture_margin_top = 84
-	style.texture_margin_right = 112
-	style.texture_margin_bottom = 84
-	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	style.content_margin_left = margin + 6
-	style.content_margin_top = margin + 4
-	style.content_margin_right = margin + 6
-	style.content_margin_bottom = margin + 4
-	style.modulate_color = Color(0.9, 0.92, 0.96, bg_color.a)
+	var style := make_style_box(bg_color, Color(0.18, 0.23, 0.29), 1, 8)
+	style.content_margin_left = margin
+	style.content_margin_right = margin
+	style.content_margin_top = margin
+	style.content_margin_bottom = margin
 	return style
 
 static func _button_texture_for_role(role: String, accent_color: Color) -> Texture2D:
@@ -209,6 +198,6 @@ static func apply_role_button(
 		base = base_override
 	if role != "power" and accent_color != Color(0.42, 0.68, 1.0, 1.0):
 		accent = accent.lerp(accent_color, 0.42)
-	_apply_button_styles(button, _textured_button_state_styles(role, accent, active))
+	_apply_button_styles(button, _button_state_styles(base, accent, active))
 	var resolved_font := font_size if font_size > 0 else UI_TOKENS.FONT_ACTION if role in ["primary", "power"] else 16
-	_apply_button_text(button, resolved_font, 2 if role in ["primary", "power"] else 1)
+	_apply_button_text(button, resolved_font, 0)

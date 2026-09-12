@@ -1,0 +1,17 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "Bones and pieces of armor collapse onto a stone floor in one short heavy clatter, then settle. Close-up dry sound effect, no voice or music.",
+  "seed": 20260916,
+  "steps": 24,
+  "seconds": 3,
+  "elapsed_seconds": 221.09346024898696,
+  "sha256": "6d9c7994f1295e667f77cdc206b13ee43c093b7f4c4e65b6083f0ce5f75bc049",
+  "file": "unit_death.ogg",
+  "output_seconds": 1.8,
+  "output_peak": 0.4065898656845093,
+  "trim_start_seconds": 1.2,
+  "output_sha256": "a089c649d249e28f1d23a2a88b126ab3ef8b7cf626e0d210f9e2dfa470f4746c",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

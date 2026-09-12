@@ -1,0 +1,17 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "A heavy armored knight takes one step onto a stone floor. Weighty boot impact with chainmail and plate armor rattling briefly. Isolated close-up sound effect, no speech or music.",
+  "seed": 20260913,
+  "steps": 50,
+  "seconds": 3,
+  "elapsed_seconds": 525.4228960020118,
+  "sha256": "4dfb4fd6735ccdbd052395afb9dea335609793fe29f5430521ec3370313076f7",
+  "file": "summon.ogg",
+  "output_seconds": 1.4,
+  "output_peak": 0.6592373251914978,
+  "trim_start_seconds": 0.15,
+  "output_sha256": "464af293e19704389274b0b00b31d5d75f17f0e2502eb8db38cdcf7ab43b7846",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

@@ -8,6 +8,7 @@ var nodes_data: Array
 var current_index: int
 var hover_popup: PanelContainer = null
 var screen_action_dock: PanelContainer = null
+var vertical_route := false
 
 func _init(_main: Node) -> void:
 	main = _main
@@ -19,13 +20,15 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	current_index = int(main.current_run.get("current_node_index", 0))
 
 	var compact: bool = _is_map_compact_layout()
+	vertical_route = not compact and nodes_data.size() <= 5
 	var phone: bool = main._is_mobile_phone_layout()
 	var viewport_size: Vector2 = main._layout_viewport_size()
 	var portrait_flow: bool = viewport_size.y > viewport_size.x
 	var phone_portrait: bool = main._is_phone_portrait_layout()
 	if not phone_portrait:
-		body.add_child(main._make_run_summary_panel())
-	body.add_child(main.ui.make_guidance_banner("다음 행동", _map_primary_guidance_text(), Color(0.2, 0.24, 0.18, 1.0), compact))
+		body.add_child(_make_map_status_strip(compact))
+	if compact:
+		body.add_child(main.ui.make_guidance_banner("다음 행동", _map_primary_guidance_text(), Color(0.2, 0.24, 0.18, 1.0), compact))
 
 	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -58,7 +61,7 @@ func _make_map_status_strip(compact: bool) -> PanelContainer:
 	row.add_child(main.ui.make_chip("Act %d" % int(main.current_run.get("act", 1)), Color(0.12, 0.22, 0.34, 1.0), Color(0.86, 0.92, 1.0, 1.0), 13 if compact else 14))
 	row.add_child(main.ui.make_chip("노드 %d / %d" % [current_index + 1, nodes_data.size()], Color(0.14, 0.18, 0.24, 1.0), Color(0.96, 0.97, 0.94, 1.0), 13 if compact else 14))
 	row.add_child(main.ui.make_chip("다음 %s" % main._node_type_name(_current_node_type()), Color(0.18, 0.18, 0.1, 1.0), Color(1.0, 0.92, 0.72, 1.0), 13 if compact else 14))
-	row.add_child(main.ui.make_chip("추천 방향 %s" % _primary_build_hint(), Color(0.12, 0.16, 0.24, 1.0), Color(0.84, 0.9, 1.0, 1.0), 13 if compact else 14))
+	row.add_child(main.ui.make_chip("HP %d/%d · 골드 %d" % [int(main.current_run.get("hp", 0)), int(main.current_run.get("max_hp", 0)), int(main.current_run.get("gold", 0))], Color(0.12, 0.16, 0.24, 1.0), Color(0.84, 0.9, 1.0, 1.0), 13 if compact else 14))
 	return panel
 
 func _make_map_panel(compact: bool) -> PanelContainer:
@@ -107,6 +110,10 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	var node_spacing: int = clampi(int((visible_map_width - 184) / step_count), min_spacing, max_spacing)
 	var canvas_width: int = 184 + step_count * node_spacing
 	var canvas_height := 198 if compact else 212
+	if vertical_route:
+		canvas_width = maxi(460, viewport_width - 500)
+		canvas_height = 390
+		map_scroll.custom_minimum_size.y = canvas_height
 	map_canvas.custom_minimum_size = Vector2(canvas_width, canvas_height)
 	map_canvas.size = map_canvas.custom_minimum_size
 	map_canvas.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -147,7 +154,7 @@ func _make_legend_row(node_type: String, compact: bool) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var icon_panel: PanelContainer = main.ui.make_surface_panel(_node_color(node_type), _node_color(node_type).lightened(0.2), 1, 6, 4)
-	icon_panel.custom_minimum_size = Vector2(18, 18)
+	icon_panel.custom_minimum_size = Vector2(40, 32)
 	var icon_label: Label = main._make_label(_node_icon(node_type), 10 if compact else 11, Color(1.0, 0.96, 0.88, 1.0))
 	icon_panel.add_child(icon_label)
 	row.add_child(icon_panel)
@@ -464,8 +471,18 @@ func _node_color(node_type: String) -> Color:
 			return Color(0.25, 0.27, 0.3, 1.0)
 
 func _draw_map_background(canvas_width: int, canvas_height: int, compact: bool) -> void:
+	if ResourceLoader.exists("res://assets/backgrounds/campaign_valley_v1.png"):
+		var landscape := TextureRect.new()
+		landscape.texture = load("res://assets/backgrounds/campaign_valley_v1.png")
+		landscape.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		landscape.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		landscape.size = Vector2(canvas_width, canvas_height)
+		landscape.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		landscape.modulate = Color(0.75, 0.8, 0.9)
+		map_canvas.add_child(landscape)
+		return
 	var bg := ColorRect.new()
-	bg.color = Color(0.035, 0.055, 0.052, 1.0)
+	bg.color = Color(0.035, 0.055, 0.052, 0.72)
 	bg.custom_minimum_size = Vector2(canvas_width, canvas_height)
 	bg.size = bg.custom_minimum_size
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -507,6 +524,8 @@ func _draw_map(spacing: int, canvas_height: int) -> void:
 			py += int(offsets[i % offsets.size()])
 		
 		var pos := Vector2(px, py)
+		if vertical_route:
+			pos = Vector2(map_canvas.custom_minimum_size.x / 2 + [-65, 65, -35, 60, 0][i % 5], canvas_height - 48 - i * 72)
 		points.append(pos)
 		var node_type: String = ""
 		var layer_data: Variant = nodes_data[i]
@@ -635,7 +654,7 @@ func _make_node_button(index: int, type: String, pos: Vector2) -> Control:
 		style.border_width_top = 5
 		style.border_width_bottom = 5
 	elif index > current_index:
-		btn.modulate = Color(0.42, 0.44, 0.48, 0.68)
+		btn.modulate = Color(0.8, 0.84, 0.9, 1.0)
 	btn.add_theme_stylebox_override("normal", style)
 	
 	var hover = style.duplicate()
@@ -651,7 +670,7 @@ func _make_node_button(index: int, type: String, pos: Vector2) -> Control:
 	btn.add_theme_color_override("font_color", Color(1.0, 0.96, 0.82, 1.0))
 	btn.add_theme_color_override("font_disabled_color", Color(0.54, 0.56, 0.6, 1.0))
 	btn.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 1.0))
-	btn.add_theme_constant_override("outline_size", 4)
+	btn.add_theme_constant_override("outline_size", 0)
 	
 	if index == current_index:
 		btn.pivot_offset = btn.custom_minimum_size / 2.0
@@ -678,11 +697,11 @@ func _node_icon(node_type: String) -> String:
 		return "장비"
 	match node_type:
 		"battle":
-			return "전투"
+			return "⚔"
 		"elite":
-			return "이벤트"
+			return "◆"
 		"boss":
-			return "보스"
+			return "♛"
 		"event":
 			return "?"
 		"shop":

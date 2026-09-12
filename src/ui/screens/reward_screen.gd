@@ -22,10 +22,10 @@ func build(body: VBoxContainer) -> void:
 	var phone_portrait: bool = main._is_phone_portrait_layout()
 	var viewport_size: Vector2 = main._layout_viewport_size()
 	var action_dock_layout: bool = phone_portrait or (viewport_size.x > viewport_size.y and viewport_size.y <= 800.0)
-	if not phone_portrait:
+	if not action_dock_layout:
 		body.add_child(main._make_run_summary_panel())
 	body.add_child(main.ui.make_guidance_banner("다음 행동", "유물을 고른 뒤, 다음 전투에 필요한 카드 1장을 선택하세요" if _has_relic_choice(reward) else ("장비 한 장을 골라 아군을 강화해보세요" if bool(reward.get("lesson_equipment", false)) else "주력 강화 · 보조 연계 · 새로운 방향 중 다음 수를 고르세요"), Color(0.24, 0.2, 0.12, 1.0), compact))
-	if _has_relic_choice(reward):
+	if _has_relic_choice(reward) and compact:
 		body.add_child(_make_relic_choices(reward, compact))
 	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
 	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -34,7 +34,12 @@ func build(body: VBoxContainer) -> void:
 
 	var build_panel := _make_build_panel(compact)
 	build_panel.visible = main._lesson_stage() >= 5
-	if not phone_portrait:
+	if not compact and _has_relic_choice(reward):
+		var relic_panel := _make_relic_choices(reward, true)
+		relic_panel.custom_minimum_size.x = 210
+		hub.add_child(relic_panel)
+		build_panel.queue_free()
+	elif not phone_portrait:
 		hub.add_child(build_panel)
 
 	var card_panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 14)
@@ -245,92 +250,29 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var phone_portrait: bool = main._is_phone_portrait_layout()
 	var primary_tag: String = main._primary_build_tag(main._current_build_scores())
 	var matches_primary: bool = main._card_matches_build_tag(card, primary_tag)
-	var matches_race: bool = main._card_matches_current_race(card)
-	var is_common := String(card.get("race", "")) == "중립"
-	var race_meta: Dictionary = main._current_race_meta()
-	var race_color: Color = race_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
-	var reason_text := _reward_choice_reason(card, matches_primary)
-	var growth: Dictionary = _reward_growth_summary(card)
-	var growth_plain_text: String = main._plain_build_delta_text(card)
-	var impact_text: String = main._choice_impact_text(card)
-	if main._lesson_stage() < 5:
-		impact_text = "사용 전에는 취소할 수 있어요"
-		growth = {}
-		growth_plain_text = ""
-	var frame_tint := Color(0.06, 0.085, 0.13, 1.0) if matches_primary else Color(0.055, 0.072, 0.08, 1.0) if matches_race else Color(0.055, 0.065, 0.082, 1.0)
-	var frame_accent := Color(0.44, 0.7, 1.0, 1.0) if matches_primary else race_color if matches_race else Color(0.0, 0.0, 0.0, 0.0)
 	var frame := PanelContainer.new()
-	frame.add_theme_stylebox_override("panel", main.ui.make_race_card_style(card, frame_tint, 3 if matches_primary or matches_race else 2, 10, 0.16 if matches_primary else (0.1 if matches_race else 0.03), frame_accent))
-	frame.custom_minimum_size = Vector2(0 if phone_portrait else (188 if tight else (160 if compact else 188)), 0)
+	frame.add_theme_stylebox_override("panel", main.ui.make_race_card_style(card, Color(0.035, 0.05, 0.07, 0.94), 2, 8, 0.12, Color(0.94, 0.72, 0.3) if matches_primary else Color.TRANSPARENT))
+	frame.custom_minimum_size = Vector2(0 if phone_portrait else 188, 0)
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	frame.tooltip_text = "%s\n%s\n%s" % [_reward_choice_reason(card, matches_primary), main._plain_build_delta_text(card), main._choice_impact_text(card)]
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 3 if tight else 4)
+	box.add_theme_constant_override("separation", 8)
 	frame.add_child(box)
-	box.add_child(main.ui.make_chip(_card_choice_role(String(card.get("id", ""))), Color(0.12, 0.2, 0.3, 1.0), Color(0.86, 0.94, 1.0), 12))
-
-	if phone_portrait:
-		var quick_reason := "%s%s · %s" % ["추천 · " if matches_primary else "", reason_text, impact_text]
-		box.add_child(main.ui.make_chip(quick_reason, Color(0.1, 0.2, 0.36, 1.0) if matches_primary else Color(0.1, 0.15, 0.2, 1.0), Color(0.9, 0.96, 1.0, 1.0), 11))
-	else:
-		if matches_primary:
-			var recommend: PanelContainer = main.ui.make_chip("추천", Color(0.1, 0.28, 0.56, 1.0), Color(0.82, 0.92, 1.0, 1.0), 12)
-			box.add_child(recommend)
-		if matches_race:
-			var race_badge: PanelContainer = main.ui.make_chip("%s 세력 연계" % String(race_meta.get("name", "현재")), race_color.darkened(0.58), race_color.lightened(0.3), 11 if tight else 12)
-			box.add_child(race_badge)
-		elif is_common:
-			var common_badge: PanelContainer = main.ui.make_chip("공용 · 모든 세력 사용", Color(0.09, 0.12, 0.16, 1.0), Color(0.82, 0.9, 0.98, 1.0), 11 if tight else 12)
-			box.add_child(common_badge)
-		var reason_badge: PanelContainer = main.ui.make_chip(reason_text, Color(0.12, 0.18, 0.24, 1.0) if not matches_primary else Color(0.1, 0.2, 0.36, 1.0), Color(0.9, 0.96, 1.0, 1.0), 11 if tight else 12)
-		box.add_child(reason_badge)
-		var impact_badge: PanelContainer = main.ui.make_chip(
-			impact_text,
-			Color(0.18, 0.13, 0.24, 1.0) if impact_text.contains("활성") else Color(0.1, 0.15, 0.2, 1.0),
-			Color(1.0, 0.84, 0.58, 1.0) if impact_text.contains("활성") else Color(0.82, 0.92, 1.0, 1.0),
-			10 if tight else 11
-		)
-		box.add_child(impact_badge)
-	var growth_headline := String(growth.get("headline", ""))
-	if not phone_portrait and not growth_headline.is_empty():
-		var growth_chip: PanelContainer = main.ui.make_chip(
-			"%s  |  %s" % [growth_headline, main._choice_playstyle_text(card)],
-			Color(0.12, 0.22, 0.18, 1.0) if bool(growth.get("will_activate", false)) else Color(0.12, 0.14, 0.22, 1.0),
-			Color(0.72, 1.0, 0.82, 1.0) if bool(growth.get("will_activate", false)) else Color(0.86, 0.94, 1.0, 1.0),
-			10 if tight else 11
-		)
-		box.add_child(growth_chip)
+	var role: Label = main._make_label(_card_choice_role(String(card.get("id", ""))), 13, Color(1.0, 0.83, 0.48))
+	box.add_child(role)
 	box.add_child(main.ui.make_card_header(main, card, "reward", compact, tight, int(card.get("cost", 0))))
-	box.add_child(main.ui.make_card_art(main, card, Vector2(250, 112) if phone_portrait else (Vector2(176, 108) if tight else (Vector2(142, 86) if compact else Vector2(176, 106)))))
+	box.add_child(main.ui.make_card_art(main, card, Vector2(180, 140 if phone_portrait else 156)))
 	box.add_child(main.ui.make_card_identity_label(main, card, "reward", compact, tight, false, true))
-	var tag_text: String = main._format_card_tag_text(card)
-	if not phone_portrait and not tag_text.is_empty():
-		var tag_label: Label = main._make_label(tag_text, 10 if tight else 11, Color(1.0, 0.82, 0.56, 1.0))
-		tag_label.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.02, 1.0))
-		tag_label.add_theme_constant_override("outline_size", 2)
-		box.add_child(tag_label)
-	var growth_detail := String(growth.get("detail", ""))
-	if not phone_portrait and not growth_detail.is_empty():
-		var growth_label: Label = main._make_label(growth_detail, 10 if tight else 11, Color(0.74, 0.92, 0.82, 1.0) if bool(growth.get("will_activate", false)) else Color(0.78, 0.84, 0.92, 1.0))
-		growth_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		box.add_child(growth_label)
-	if not phone_portrait and not growth_plain_text.is_empty():
-		var plain_label: Label = main._make_label(growth_plain_text, 10 if tight else 11, Color(0.9, 0.94, 0.98, 1.0))
-		plain_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		box.add_child(plain_label)
-	var tag := String(growth.get("primary_tag", ""))
-	if not phone_portrait and not tag.is_empty():
-		var effect_label: Label = main._make_label(main._build_activation_effect_text(tag), 10 if tight else 11, Color(1.0, 0.84, 0.62, 1.0))
-		effect_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		main.ui.style_card_rules(effect_label, true, false)
-		box.add_child(effect_label)
-	box.add_child(main.ui.make_card_rules_block(main, card, main._card_effect_summary(card), "" if phone_portrait else String(card.get("text", "")), "reward", compact, tight, 34.0 if tight else 24.0))
+	box.add_child(main.ui.make_card_rules_block(main, card, main._card_effect_summary(card), "", "reward", compact, tight, 40.0))
+	var reason: Label = main._make_label(_reward_choice_reason(card, matches_primary), 13, Color(0.78, 0.86, 0.93))
+	reason.custom_minimum_size.y = 36
+	box.add_child(reason)
 	var button := Button.new()
 	button.text = "덱에 추가 ▶" if matches_primary else "선택"
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(98 if tight else (96 if compact else 110), 30 if tight else 32)
 	if matches_primary:
-		main.ui.style_role_button(button, "primary", Color(0.46, 0.7, 1.0, 1.0), Color(0.1, 0.24, 0.48, 1.0), 12)
+		main.ui.style_role_button(button, "primary", Color(0.96, 0.74, 0.3, 1.0), Color(0.24, 0.18, 0.07, 1.0), 14)
 	else:
 		main.ui.style_role_button(button, "secondary", Color(0.42, 0.62, 0.82, 1.0), Color(0.12, 0.2, 0.3, 1.0), 12)
 	button.add_theme_font_size_override("font_size", 12)
@@ -376,7 +318,7 @@ func _make_relic_choices(reward: Dictionary, compact: bool) -> PanelContainer:
 	var title: Label = main._make_label("유물 1개 선택 · 이번 런의 연계를 강화합니다", 16 if compact else 18, Color(0.92, 0.82, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(title)
-	var row: BoxContainer = main.ui.make_responsive_box(main._is_phone_portrait_layout(), 8)
+	var row: BoxContainer = main.ui.make_responsive_box(compact, 8)
 	box.add_child(row)
 	var selected: Dictionary = _selected_reward_relic(reward)
 	for relic_variant in reward.get("relic_choices", []):

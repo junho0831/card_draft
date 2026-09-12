@@ -1,0 +1,17 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "A gentle shimmering magical chime swells softly and fades into tiny sparkling bells. One short warm healing spell, no speech or background music.",
+  "seed": 20260914,
+  "steps": 50,
+  "seconds": 3,
+  "elapsed_seconds": 613.2471779100015,
+  "sha256": "5ecdba6e2706e167ccda464af4054d6f25f20cde59482f62157834d3e6a5aec7",
+  "file": "heal.ogg",
+  "output_seconds": 2.0,
+  "output_peak": 0.6213865876197815,
+  "trim_start_seconds": 1.0,
+  "output_sha256": "15c960bc79a86eedc8a7b3418bfd4e6895d86a091be7f9a7cbd4647b534b2772",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

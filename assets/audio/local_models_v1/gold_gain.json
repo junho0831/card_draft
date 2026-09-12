@@ -1,0 +1,17 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "A small handful of gold coins falls into a leather pouch with bright metal clinks and a soft leather rustle. Single isolated sound effect, no speech or music.",
+  "seed": 20260917,
+  "steps": 24,
+  "seconds": 3,
+  "elapsed_seconds": 224.17272400201182,
+  "sha256": "accf9f0ae663d97712faac650eaf08aeb59a25815fbca0cf20315bce35e15853",
+  "file": "gold_gain.ogg",
+  "output_seconds": 1.3,
+  "output_peak": 0.6421697735786438,
+  "trim_start_seconds": 0.95,
+  "output_sha256": "297387ae57f9aba9f38b62cbb7265d352fdd51ed26c1876ad7f5738f4098fd35",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

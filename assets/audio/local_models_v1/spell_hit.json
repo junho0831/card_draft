@@ -1,0 +1,17 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "A single magical fireball bursts with a fast rushing flame, heavy fiery impact and brief crackling embers. Isolated fantasy sound effect, no speech or music.",
+  "seed": 20260915,
+  "steps": 50,
+  "seconds": 3,
+  "elapsed_seconds": 626.4269341840118,
+  "sha256": "54f9a1eff859da54ae3e7bebc927a34b1dc331c02ab507e195cd28d7a9fb0709",
+  "file": "spell_hit.ogg",
+  "output_seconds": 1.5,
+  "output_peak": 0.6747713088989258,
+  "trim_start_seconds": 0.22,
+  "output_sha256": "d79cb134f7ce221be630d575651356acb7ac1df4e9eb0d1b3ffe0d5dff2f0c7c",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

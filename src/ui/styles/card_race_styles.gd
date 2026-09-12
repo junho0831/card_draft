@@ -81,7 +81,7 @@ static func make_frame_style(
 		surface = surface.lerp(state_tint, 0.34)
 	surface = surface.lerp(accent, clampf(emphasis, 0.0, 0.24))
 	var style := StyleBoxFlat.new()
-	style.bg_color = surface
+	style.bg_color = Color(0.07, 0.085, 0.11).lerp(surface, 0.2)
 	style.border_color = accent.lightened(clampf(emphasis, 0.0, 0.2))
 	style.border_width_left = border_width
 	style.border_width_top = border_width
@@ -106,7 +106,7 @@ static func make_frame_style(
 	style.content_margin_right = margin
 	style.content_margin_bottom = margin + 1
 	style.shadow_color = Color(accent.r * 0.12, accent.g * 0.12, accent.b * 0.12, 0.72)
-	style.shadow_size = 7 if emphasis > 0.0 else 5
+	style.shadow_size = 3 if emphasis > 0.0 else 1
 	style.shadow_offset = Vector2(0, 3)
 	style.anti_aliasing = true
 	return style
@@ -114,7 +114,7 @@ static func make_frame_style(
 static func make_band_style(race: String, margin: int = 3) -> StyleBoxFlat:
 	var meta := visual_meta(race)
 	var style := StyleBoxFlat.new()
-	style.bg_color = meta["band"]
+	style.bg_color = Color(0.075, 0.09, 0.12)
 	style.border_color = Color(meta["accent"]).lightened(0.08)
 	style.border_width_left = 3
 	style.border_width_top = 1

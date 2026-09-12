@@ -11,7 +11,7 @@ func _is_tight_shop_layout() -> bool:
 	return not _is_shop_compact_layout() and main._layout_viewport_size().y <= 760.0
 
 func _is_shop_compact_layout() -> bool:
-	return main._is_compact_layout_for(1360.0, 800.0)
+	return main._layout_viewport_size().x < 1000.0
 
 func build(body: VBoxContainer) -> void:
 	var shop_state: Dictionary = main.current_run.get("pending_shop", {})
@@ -50,10 +50,9 @@ func build(body: VBoxContainer) -> void:
 	gold.autowrap_mode = TextServer.AUTOWRAP_OFF
 	gold.custom_minimum_size = Vector2(96, 0)
 	title_row.add_child(gold)
-	var subtitle: Label = main._make_label("카드와 유물을 구매하거나 오른쪽에서 덱을 정비하세요.", 12 if compact else 13, Color(0.82, 0.86, 0.92, 1.0))
+	var subtitle: Label = main._make_label("카드와 유물을 골라 덱을 강화하세요.", 12 if compact else 13, Color(0.82, 0.86, 0.92, 1.0))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	products_box.add_child(subtitle)
-	products_box.add_child(main.ui.make_objective_panel("상점 목표", "현재 빌드에 맞는 카드나 유물을 고르고, 필요하면 덱을 압축하세요.", compact))
 	var product_row: BoxContainer = main.ui.make_responsive_box(compact, 10)
 	product_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	products_box.add_child(product_row)
@@ -122,7 +121,7 @@ func _recommended_shop_card(shop_state: Dictionary) -> Dictionary:
 func _make_shop_status_strip(compact: bool) -> PanelContainer:
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 0.98), Color(0.22, 0.18, 0.12, 1.0), 1, 12, 12)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
+	var row := HFlowContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	panel.add_child(row)
 	row.add_child(main.ui.make_chip("현재 골드 %d" % int(main.current_run.get("gold", 0)), Color(0.34, 0.24, 0.08, 1.0), Color(1.0, 0.9, 0.62, 1.0), 13 if compact else 14))
@@ -229,7 +228,7 @@ func _make_shop_card_product(card: Dictionary, shop_state: Dictionary, compact: 
 	inner.add_child(main.ui.make_card_face(main, card, "shop", {
 		"compact": compact,
 		"tight": tight,
-		"art_size": Vector2(142, 82) if tight else (Vector2(132, 84) if compact else Vector2(154, 94)),
+		"art_size": Vector2(142, 150) if tight else (Vector2(132, 120) if compact else Vector2(154, 170)),
 		"include_stats": true,
 		"summary_text": main._card_effect_summary(card),
 		"show_detail": false,

@@ -5,43 +5,15 @@ const SAMPLE_RATE := 44100
 const SFX_BUS_NAME := &"SFX"
 const BGM_BUS_NAME := &"BGM"
 const BATTLE_MUSIC_KEYS := ["battle_base", "battle_tension", "battle_lethal", "battle_low_hp"]
-const ELEVENLABS_SFX_KEYS := [
-	"play",
-	"draw",
-	"hit_human",
-	"hit_elf",
-	"hit_undead",
-	"hit_common",
-	"impact_heavy",
-	"summon_human",
-	"summon_elf",
-	"summon_undead",
-	"summon_common",
-	"spell_fire",
-	"spell_death",
-	"spell_buff",
-	"spell_draw",
-	"spell_summon",
-	"spell_low_hp",
-	"spell_common",
-	"equipment_human",
-	"equipment_elf",
-	"equipment_undead",
-	"equipment_common",
-	"power_human",
-	"power_elf",
-	"power_undead",
-	"combo",
-	"counter",
-	"finisher",
-	"reward",
-	"victory_burst",
-]
+const ORIGINAL_AUDIO_DIR := "res://assets/audio/original_v1"
+const MODEL_AUDIO_DIR := "res://assets/audio/local_models_v1"
 
 var players: Array[AudioStreamPlayer] = []
 var max_players := 12
 
+var menu_music_player: AudioStreamPlayer
 var music_players := {}
+var music_tweens := {}
 var streams := {}
 var custom_streams := {}
 var music_streams := {}
@@ -71,8 +43,29 @@ func _ready() -> void:
 	_load_custom_sounds()
 	_load_custom_music()
 	_setup_battle_music_players()
+	menu_music_player = AudioStreamPlayer.new()
+	menu_music_player.bus = BGM_BUS_NAME
+	menu_music_player.volume_db = -18.0
+	var menu_path := ORIGINAL_AUDIO_DIR + "/menu_theme.ogg"
+	if ResourceLoader.exists(MODEL_AUDIO_DIR + "/menu_theme.ogg"):
+		menu_path = MODEL_AUDIO_DIR + "/menu_theme.ogg"
+		menu_music_player.volume_db = -10.0
+	if ResourceLoader.exists(menu_path):
+		menu_music_player.stream = load(menu_path)
+		_make_stream_loop(menu_music_player.stream)
+	add_child(menu_music_player)
+	_play_menu_music()
+
+func _play_menu_music() -> void:
+	if not _is_headless_runtime() and is_instance_valid(menu_music_player) and menu_music_player.stream != null and not menu_music_player.playing:
+		menu_music_player.play()
 
 func _exit_tree() -> void:
+	for key in music_tweens.keys():
+		_cancel_music_tween(key)
+	if is_instance_valid(menu_music_player):
+		menu_music_player.stop()
+		menu_music_player.stream = null
 	for player in players:
 		if player == null or not is_instance_valid(player):
 			continue
@@ -121,7 +114,7 @@ func play_sound(sound_name: String) -> void:
 		duck_until_msec = maxi(duck_until_msec, now_msec + duck_duration)
 
 func authored_sfx_keys() -> Array:
-	return ELEVENLABS_SFX_KEYS.duplicate()
+	return streams.keys()
 
 func has_authored_sfx(sound_name: String) -> bool:
 	return custom_streams.has(sound_name)
@@ -150,6 +143,8 @@ func _ensure_bus(bus_name: StringName) -> int:
 	return bus_index
 
 func set_battle_music_state(state: Dictionary) -> void:
+	if is_instance_valid(menu_music_player):
+		menu_music_player.stop()
 	var mode := String(state.get("mode", "base"))
 	if not BATTLE_MUSIC_KEYS.has("battle_%s" % mode):
 		mode = "base"
@@ -171,6 +166,7 @@ func set_battle_music_state(state: Dictionary) -> void:
 		_fade_music_layer(key, float(targets.get(key, -80.0)), 0.55)
 
 func stop_battle_music() -> void:
+	_play_menu_music()
 	current_battle_music_mode = "stopped"
 	current_battle_music_signature = "stopped"
 	for key in music_players.keys():
@@ -180,7 +176,9 @@ func stop_battle_music() -> void:
 		if _is_headless_runtime():
 			player.volume_db = -80.0
 			continue
+		_cancel_music_tween(key)
 		var tween := create_tween()
+		music_tweens[key] = tween
 		tween.tween_property(player, "volume_db", -80.0, 0.36)
 		tween.tween_callback(Callable(player, "stop"))
 
@@ -199,6 +197,8 @@ func _setup_battle_music_players() -> void:
 
 func _ensure_battle_music_playing() -> void:
 	for key in BATTLE_MUSIC_KEYS:
+		if _has_model_battle_score() and key != "battle_base":
+			continue
 		if not music_players.has(key):
 			continue
 		var player: AudioStreamPlayer = music_players[key]
@@ -214,6 +214,11 @@ func _battle_music_layer_targets(mode: String, state: Dictionary) -> Dictionary:
 		"battle_lethal": -80.0,
 		"battle_low_hp": -80.0,
 	}
+	# A generated orchestral mix already contains all instruments. Keep older
+	# stems silent so unrelated harmonies are never layered over the new score.
+	if _has_model_battle_score():
+		targets["battle_base"] = -10.0 if mode == "base" else -8.0
+		return targets
 	if bool(state.get("boss", false)):
 		targets["battle_base"] = -24.5
 		targets["battle_tension"] = -22.0
@@ -231,6 +236,16 @@ func _battle_music_layer_targets(mode: String, state: Dictionary) -> Dictionary:
 			targets["battle_low_hp"] = -18.5
 	return targets
 
+func _has_model_battle_score() -> bool:
+	var stream = custom_music_streams.get("battle_base")
+	return stream != null and String(stream.resource_path).begins_with(MODEL_AUDIO_DIR)
+
+func _cancel_music_tween(key: String) -> void:
+	var previous = music_tweens.get(key)
+	if previous != null and previous.is_valid():
+		previous.kill()
+	music_tweens.erase(key)
+
 func _fade_music_layer(key: String, target_db: float, duration: float) -> void:
 	if not music_players.has(key):
 		return
@@ -240,7 +255,9 @@ func _fade_music_layer(key: String, target_db: float, duration: float) -> void:
 	if _is_headless_runtime():
 		player.volume_db = target_db
 		return
+	_cancel_music_tween(key)
 	var tween := create_tween()
+	music_tweens[key] = tween
 	tween.tween_property(player, "volume_db", target_db, duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 func _claim_player(priority: int) -> AudioStreamPlayer:
@@ -315,27 +332,41 @@ func _is_headless_runtime() -> bool:
 func _load_custom_sounds() -> void:
 	custom_streams.clear()
 	for sound_name in streams.keys():
-		for extension in ["wav", "ogg", "mp3"]:
-			var custom_path := "res://assets/audio/%s.%s" % [sound_name, extension]
-			if not FileAccess.file_exists(custom_path):
-				continue
-			var custom_stream = _load_wav_stream(custom_path) if extension == "wav" else load(custom_path)
-			if custom_stream != null:
-				custom_streams[sound_name] = custom_stream
-				break
+		var path := "%s/%s.ogg" % [ORIGINAL_AUDIO_DIR, sound_name]
+		var model_path := "%s/%s.ogg" % [MODEL_AUDIO_DIR, _model_sfx_key(sound_name)]
+		if ResourceLoader.exists(model_path):
+			path = model_path
+		if ResourceLoader.exists(path):
+			custom_streams[sound_name] = load(path)
+
+func _model_sfx_key(sound_name: String) -> String:
+	if sound_name in ["click", "hover"]:
+		return "ui_click"
+	if sound_name in ["draw", "play", "spell_draw"]:
+		return "card_play"
+	if sound_name == "reward":
+		return "gold_gain"
+	if sound_name in ["heal", "combo", "victory", "victory_burst", "spell_buff", "power_elf"]:
+		return "heal"
+	if sound_name in ["defeat", "spell_death", "power_undead"]:
+		return "unit_death"
+	if sound_name.begins_with("summon") or sound_name.begins_with("equipment") or sound_name in ["power_human", "spell_summon"]:
+		return "summon"
+	if sound_name.begins_with("hit") or sound_name in ["counter", "impact_heavy", "direct_attack"]:
+		return "sword_hit"
+	return "spell_hit"
 
 func _load_custom_music() -> void:
 	custom_music_streams.clear()
 	for music_name in music_streams.keys():
-		for extension in ["wav", "ogg", "mp3"]:
-			var custom_path := "res://assets/audio/%s.%s" % [music_name, extension]
-			if not FileAccess.file_exists(custom_path):
-				continue
-			var custom_stream = _load_wav_stream(custom_path) if extension == "wav" else load(custom_path)
-			if custom_stream != null:
-				_make_stream_loop(custom_stream)
-				custom_music_streams[music_name] = custom_stream
-				break
+		var path := "%s/%s.ogg" % [ORIGINAL_AUDIO_DIR, music_name]
+		var model_path := "%s/%s.ogg" % [MODEL_AUDIO_DIR, music_name]
+		if ResourceLoader.exists(model_path):
+			path = model_path
+		if ResourceLoader.exists(path):
+			var stream = load(path)
+			_make_stream_loop(stream)
+			custom_music_streams[music_name] = stream
 
 func _load_wav_stream(path: String) -> AudioStreamWAV:
 	var file := FileAccess.open(path, FileAccess.READ)
