@@ -1,6 +1,7 @@
 extends RefCounted
 class_name MapScreen
 
+const Fantasy = preload("res://src/ui/fantasy_components.gd")
 var main: Node
 var map_scroll: ScrollContainer
 var map_canvas: Control
@@ -14,6 +15,9 @@ func _init(_main: Node) -> void:
 	main = _main
 
 func build(body: VBoxContainer, act_data: Dictionary) -> void:
+	if main._layout_viewport_size().x >= 1100 and act_data.get("nodes", []).size() <= 5:
+		_build_reference_map(body, act_data)
+		return
 	if not main._lesson_description().is_empty():
 		body.add_child(main.ui.make_guidance_banner("이번에 배울 것", main._lesson_description(), Color(0.12, 0.2, 0.3, 1.0), true))
 	nodes_data = act_data.get("nodes", [])
@@ -111,7 +115,7 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	var canvas_width: int = 184 + step_count * node_spacing
 	var canvas_height := 198 if compact else 212
 	if vertical_route:
-		canvas_width = maxi(460, viewport_width - 500)
+		canvas_width = maxi(460, viewport_width - 610)
 		canvas_height = 390
 		map_scroll.custom_minimum_size.y = canvas_height
 	map_canvas.custom_minimum_size = Vector2(canvas_width, canvas_height)
@@ -654,7 +658,7 @@ func _make_node_button(index: int, type: String, pos: Vector2) -> Control:
 		style.border_width_top = 5
 		style.border_width_bottom = 5
 	elif index > current_index:
-		btn.modulate = Color(0.8, 0.84, 0.9, 1.0)
+		btn.modulate = Color.WHITE
 	btn.add_theme_stylebox_override("normal", style)
 	
 	var hover = style.duplicate()
@@ -662,13 +666,14 @@ func _make_node_button(index: int, type: String, pos: Vector2) -> Control:
 	btn.add_theme_stylebox_override("hover", hover)
 	
 	var disabled = style.duplicate()
-	disabled.bg_color = Color(0.15, 0.15, 0.15)
+	disabled.bg_color = Color(0.075, 0.105, 0.15)
+	disabled.border_color = Color(0.38, 0.46, 0.58)
 	btn.add_theme_stylebox_override("disabled", disabled)
 
 	btn.text = "%s\n%s" % [icon_text, label_text]
 	btn.add_theme_font_size_override("font_size", 14 if size < 76 else 17)
 	btn.add_theme_color_override("font_color", Color(1.0, 0.96, 0.82, 1.0))
-	btn.add_theme_color_override("font_disabled_color", Color(0.54, 0.56, 0.6, 1.0))
+	btn.add_theme_color_override("font_disabled_color", Color(0.82, 0.86, 0.92, 1.0))
 	btn.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 1.0))
 	btn.add_theme_constant_override("outline_size", 0)
 	
@@ -793,3 +798,39 @@ func _hide_hover_popup() -> void:
 	if hover_popup != null and is_instance_valid(hover_popup):
 		hover_popup.queue_free()
 	hover_popup = null
+
+func _build_reference_map(body: VBoxContainer, act_data: Dictionary) -> void:
+	nodes_data = act_data.get("nodes", [])
+	current_index = int(main.current_run.get("current_node_index", 0))
+	vertical_route = true
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 16)
+	body.add_child(row)
+	var legend := _make_legend_panel(false)
+	legend.custom_minimum_size.x = 220
+	row.add_child(legend)
+	row.add_child(_make_map_panel(false))
+	var details := Fantasy.panel(main, "목적지 정보", 265)
+	row.add_child(details.get_meta("frame"))
+	var art: TextureRect = main._make_card_art_rect(main.card_db.get_card("militia"), Vector2(225, 130))
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	details.add_child(art)
+	var layer: Variant = nodes_data[current_index]
+	var paths: Array = layer if layer is Array else [layer]
+	var node_type := String(paths[0])
+	details.add_child(Fantasy.heading(main, "다음 장소 · " + main._node_type_name(node_type), 19))
+	details.add_child(main._make_label(_node_description(node_type), 14, Color(0.84, 0.88, 0.91)))
+	details.add_child(HSeparator.new())
+	details.add_child(Fantasy.heading(main, "예상 보상", 17))
+	details.add_child(main._make_label(_node_reward_text(node_type), 14, Color(0.95, 0.81, 0.48)))
+	for i in range(paths.size()):
+		details.add_child(Fantasy.action(main, main._node_type_name(String(paths[i])) + " 이동  ❯", Callable(main, "_enter_current_node").bind(i), i == 0))
+	var footer := Fantasy.panel(main, "⚜  원정대")
+	body.add_child(footer.get_meta("frame"))
+	var status := HBoxContainer.new()
+	status.add_theme_constant_override("separation", 24)
+	footer.add_child(status)
+	var hp := Fantasy.heading(main, "HP %d / %d     골드 %d     유물 %d개" % [main.current_run.hp, main.current_run.max_hp, main.current_run.gold, main.current_run.relic_ids.size()], 20)
+	hp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	status.add_child(hp)
+	status.add_child(Fantasy.action(main, "덱 보기 · %d장" % main.current_run.deck_ids.size(), Callable(main, "_show_collection"), false))

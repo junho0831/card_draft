@@ -9,7 +9,7 @@ static func description(run: Dictionary) -> String:
 	if int(run.get("current_node_index", 0)) < int(run.get("lesson_resume_stage", 0)):
 		return ""
 	match stage(run):
-		0: return "1/5 소환과 공격 · 카드를 소환하고 선봉을 처치한 뒤 영웅을 공격하세요. 유닛끼리는 서로 피해를 줍니다."
+		0: return "1/5 소환과 공격 · 카드를 소환하고 선봉을 처치한 뒤 영웅을 공격하세요. 살아남은 적만 반격합니다."
 		1: return "2/5 장비 고르기 · 장비는 아군 한 명을 강화합니다. 다음 전투에서 직접 대상을 골라보세요."
 		2: return "3/5 장비와 2연계 · 장비를 누른 뒤 아군을 고르세요. 같은 연계 표시의 카드를 이어 쓰면 보너스가 생깁니다."
 		3: return "4/5 휴식과 성장 · 체력이 부족하면 회복하고, 여유가 있으면 자주 쓰는 카드를 강화하세요."

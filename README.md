@@ -105,21 +105,9 @@ res://src/core/Main.tscn
 
 ## 효과음
 
-전투 핵심 효과음은 ElevenLabs Text to Sound Effects로 만든 런타임 WAV를 우선 사용한다. 원본 MP3는 `res://assets/audio/source/raw/elevenlabs`, 최종 WAV는 `res://assets/audio`에 둔다. 모든 효과음은 리미터가 있는 `SFX` 버스를 사용하며, 강타·필살기·승리음은 클릭·hover보다 높은 재생 우선순위를 가진다.
+음악은 ACE-Step 1.5, 효과음은 MOSS-SoundEffect v2를 로컬에서 생성한 `assets/audio/local_models_v1`의 Ogg를 우선 사용한다. 메뉴·전투 음악 2개와 효과음 8개를 기존 이벤트에 연결한다. 전투 음악은 완성된 단일 곡의 음량을 상황에 따라 조정하며 이전 합성 레이어를 겹치지 않는다. 모델 라이선스·생성 기록·재생 검증은 [로컬 모델 오디오](docs/local-model-audio.md)에 기록한다. 사람의 청취 평가와 신규 사용자 플레이 검증은 자동 검사와 별개다.
 
-```bash
-ELEVENLABS_API_KEY=... python3 tools/build_elevenlabs_sfx.py
-```
-
-ElevenLabs 적용 대상:
-
-- 카드 조작: `play`, `draw`
-- 공격/소환: `hit_*`, `summon_*`
-- 주문/장비: `spell_*`, `equipment_*`
-- 전투 보상감: `combo`, `counter`, `impact_heavy`, `finisher`, `reward`, `victory_burst`
-- `power_human`, `power_elf`, `power_undead`
-
-`AudioManager`는 `res://assets/audio/{name}.wav`가 있으면 우선 사용하고, 파일이 없으면 fallback 스트림을 사용한다. 전투 BGM은 `battle_base`, `battle_tension`, `battle_lethal`, `battle_low_hp` 네 레이어를 판세에 따라 크로스페이드한다. API 키는 환경변수로만 사용하고 저장하지 않는다.
+첫 학습 전투의 ‘도움 보기’는 위치만 강조한다. 카드를 사용하거나 공격·턴 종료를 대신 실행하지 않는다. 일반 런의 기존 추천 조작은 유지한다. [첫판 경험 기획](docs/first-play-experience.md)을 참조한다.
 
 ## 테스트
 

@@ -37,6 +37,30 @@ func run():
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(Storage.path_for("battle.png"))
 	print("CAPTURE ", viewport, " hand=", battle.hand_box.get_global_rect(), " action=", battle.end_turn_button.get_global_rect())
+	var input = preload("res://tests/godot/ui_input_test.gd").new()
+	var before := JSON.stringify({"mana": battle.player.mana, "hp": battle.player.health, "hand": battle.player.hand})
+	await input.click(battle.detail_toggle_button, self)
+	await create_timer(0.3).timeout
+	assert(battle.detail_overlay.visible, "information opens above the battle")
+	assert(battle.deck_list_label.size.x > 200, "deck text has readable width in information")
+	assert(before == JSON.stringify({"mana": battle.player.mana, "hp": battle.player.health, "hand": battle.player.hand}), "information does not change combat")
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png(Storage.path_for("information.png"))
+	await input.click(input.find_button(battle.detail_overlay, "전투로 돌아가기"), self)
+	assert(not battle.detail_overlay.visible, "information closes")
+	var equipment_slot: int = battle.player.hand[1].get("_hand_slot", 1)
+	await input.click(battle._hand_card_control(equipment_slot), self)
+	if mobile:
+		await input.click(battle._hand_card_control(equipment_slot), self)
+	await create_timer(0.3).timeout
+	assert(not battle.pending_action.is_empty(), "equipment input enters targeting")
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png(Storage.path_for("targeting.png"))
+	await input.click(battle.end_turn_button, self)
+	assert(battle.pending_action.is_empty(), "bottom cancel exits targeting")
+	assert(before == JSON.stringify({"mana": battle.player.mana, "hp": battle.player.health, "hand": battle.player.hand}), "cancel does not spend resources")
+	assert(battle.end_turn_button.get_global_rect().end.y <= viewport.y, "action remains visible")
+	print("PASS battle presentation input checks")
 	main._clear_screen()
 	main.queue_free()
 	await process_frame

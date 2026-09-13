@@ -20,7 +20,7 @@ func run() -> Dictionary:
 	main.player_profile["learning_stage"] = 0
 	await tree.process_frame
 	await tree.process_frame
-	var start = find_button(main.root_box, "NEW  새 런 시작")
+	var start = find_button(main.root_box, "새 런 시작")
 	check(start != null, "new-run button is available for mouse input")
 	if start != null:
 		# Exercise GUI event dispatch: synchronous free during release used to crash.
@@ -60,6 +60,73 @@ func run() -> Dictionary:
 	var field_button: Button = battle.player_field_slots[0].get_child(0)
 	await click(field_button, tree)
 	check(battle.pending_action.is_empty() and battle.player.field[0].attack == 4, "clicking the unit artwork confirms equipment on that unit")
+	for viewport in [Vector2i(1280, 720), Vector2i(390, 844)]:
+		for race in ["human", "elf", "undead"]:
+			tree.root.size = viewport
+			main.set_meta("layout_viewport_override", viewport)
+			main.player_profile["learning_stage"] = 0
+			main.pending_guided_run = true
+			main._init_run(race)
+			main._apply_root_layout()
+			main.run_flow.prepare_battle("normal")
+			battle = main.battle_screen
+			battle.player.hand = [main.card_db.get_card({"human": "knight_spearman", "elf": "elf_ranger", "undead": "bone_soldier"}[race])]
+			battle._ensure_hand_visual_slots()
+			battle._refresh_ui()
+			await tree.process_frame
+			await tree.process_frame
+			await tree.create_timer(0.35).timeout
+			var unchanged: String = JSON.stringify([battle.player, battle.opponent, battle.selected_attacker])
+			await click(battle.recommended_action_button, tree)
+			check(JSON.stringify([battle.player, battle.opponent, battle.selected_attacker]) == unchanged, "help input preserves combat %s %s" % [race, viewport])
+			var index: int = battle._recommended_hand_index()
+			var slot: int = battle.player.hand[index].get("_hand_slot", index)
+			var card_button: Button = battle._hand_card_control(slot)
+			battle.hand_scroll.ensure_control_visible(card_button)
+			await tree.process_frame
+			await click(battle._hand_card_control(slot), tree)
+			if viewport.x < 500:
+				check(battle.player.field.is_empty(), "mobile first tap only previews")
+				await click(battle._hand_card_control(slot), tree)
+			check(not battle.player.field.is_empty(), "manual card input summons %s %s" % [race, viewport])
+			if battle.player.field.is_empty():
+				continue
+			# A ready-unit resume fixture exercises targeting independently of summon sickness.
+			battle.player.field[0].can_attack = true
+			battle._refresh_ui()
+			await tree.process_frame
+			await click(find_button(battle.player_field_slots[0], ""), tree)
+			check(battle.selected_attacker == 0, "manual attacker selection")
+			if OS.get_cmdline_user_args().has("--capture-input") and race == "human":
+				await RenderingServer.frame_post_draw
+				tree.root.get_texture().get_image().save_png(preload("res://src/services/game_storage.gd").path_for("target_%d.png" % viewport.x))
+			await click(find_button(battle.opponent_field_slots[0], ""), tree)
+			check(main.current_run.get("first_play_actions", {}).get("unit_attacked", false), "manual vanguard attack")
+			check(not battle.end_turn_button.get_global_rect().intersects(battle.hand_scroll.get_global_rect()), "action dock does not overlap hand")
+			var turns: int = battle.battle_state.get("player_turn_count", 0)
+			await click(battle.end_turn_button, tree)
+			for wait_frame in range(200):
+				if battle.current_player == "player" and not battle.input_locked:
+					break
+				await tree.create_timer(0.05).timeout
+			check(int(battle.battle_state.get("player_turn_count", 0)) > turns, "manual turn end starts another player turn")
+			await click(find_button(battle.player_field_slots[0], ""), tree)
+			await click(battle.hero_attack_button, tree)
+			check(main.current_run.get("first_play_actions", {}).get("hero_attacked", false), "manual hero attack records actual action")
+			if race == "human":
+				main.current_run.current_node_index = 2
+				battle.player.hand = [main.card_db.get_card("training_sword")]
+				battle.player.mana = 10
+				battle._ensure_hand_visual_slots()
+				battle._refresh_ui()
+				await tree.process_frame
+				var equipment_slot: int = battle.player.hand[0].get("_hand_slot", 0)
+				await click(battle._hand_card_control(equipment_slot), tree)
+				if viewport.x < 500:
+					await click(battle._hand_card_control(equipment_slot), tree)
+				check(not battle.pending_action.is_empty(), "equipment input opens target selection")
+				await click(battle.end_turn_button, tree)
+				check(battle.pending_action.is_empty() and battle.player.mana == 10 and battle.player.hand.size() == 1, "cancel input preserves equipment and mana")
 	main._clear_screen()
 	main.queue_free()
 	await tree.process_frame

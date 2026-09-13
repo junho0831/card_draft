@@ -1,6 +1,9 @@
 extends RefCounted
 class_name ShopScreen
 
+const Fantasy = preload("res://src/ui/fantasy_components.gd")
+var selected_card_id := ""
+var preview_box: VBoxContainer
 var main: Node
 var screen_action_dock: PanelContainer = null
 
@@ -14,6 +17,9 @@ func _is_shop_compact_layout() -> bool:
 	return main._layout_viewport_size().x < 1000.0
 
 func build(body: VBoxContainer) -> void:
+	if main._layout_viewport_size().x >= 1100:
+		_build_reference_shop(body)
+		return
 	var shop_state: Dictionary = main.current_run.get("pending_shop", {})
 	var compact: bool = _is_shop_compact_layout()
 	var phone_portrait: bool = main._is_phone_portrait_layout()
@@ -67,6 +73,8 @@ func build(body: VBoxContainer) -> void:
 		product_row.add_child(_make_shop_relic_product(relic, shop_state, compact))
 
 	if action_dock_layout:
+		if phone_portrait:
+			hub.add_child(_make_shop_service_panel(shop_state, compact))
 		_mount_shop_action_dock(body, shop_state)
 	else:
 		hub.add_child(_make_shop_service_panel(shop_state, compact))
@@ -75,13 +83,19 @@ func _mount_shop_action_dock(body: VBoxContainer, shop_state: Dictionary) -> voi
 	var dock: Dictionary = main.ui.mount_screen_action_dock(
 		main,
 		body,
-		"상점 행동 · 상품을 고르거나 진행",
-		"구매는 상품 카드에서, 정비와 나가기는 여기서 바로 실행합니다.",
+		"상품을 눌러 구매",
+		"정비 서비스는 상품 아래에 있습니다.",
 		Color(0.78, 0.55, 0.2, 1.0),
 		126
 	)
 	screen_action_dock = dock.get("panel") as PanelContainer
 	var actions: BoxContainer = dock.get("actions") as BoxContainer
+	if main._is_phone_portrait_layout():
+		for entry in [["덱 보기", Callable(main, "_show_collection")], ["상점 나가기", Callable(self, "_leave_shop")]]:
+			var button: Button = main.ui.make_dock_action_button(entry[0], "", Color(0.18, 0.42, 0.66), entry[0] == "상점 나가기", 152)
+			button.pressed.connect(entry[1])
+			actions.add_child(button)
+		return
 	var recommended_card := _recommended_shop_card(shop_state)
 	if not recommended_card.is_empty():
 		var buy_button: Button = main.ui.make_dock_action_button("추천 카드 구매 ▶", "%s · 골드 %d" % [String(recommended_card.get("name", "카드")), main.shop_run_service.SHOP_CARD_COST], Color(0.48, 0.32, 0.1, 1.0), true, 224)
@@ -340,3 +354,83 @@ func _leave_shop() -> void:
 	if main.audio_manager != null:
 		main.audio_manager.play_sound("click")
 	main.run_flow.leave_shop()
+
+func _build_reference_shop(body: VBoxContainer) -> void:
+	var state: Dictionary = main.current_run.get("pending_shop", {})
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 16)
+	body.add_child(row)
+	var merchant := VBoxContainer.new()
+	merchant.custom_minimum_size = Vector2(245, 480)
+	merchant.alignment = BoxContainer.ALIGNMENT_END
+	row.add_child(merchant)
+	var speech := Fantasy.panel(main, "바렌 · 전장의 상인")
+	merchant.add_child(speech.get_meta("frame"))
+	speech.add_child(main._make_label("좋은 장비는 더 긴 이야기를
+만들지. 무엇이 필요한가?", 15, Color(0.86, 0.85, 0.78)))
+	var stock := VBoxContainer.new()
+	stock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stock.add_theme_constant_override("separation", 12)
+	row.add_child(stock)
+	stock.add_child(Fantasy.heading(main, "⚜  카드 구매", 21))
+	var cards := HBoxContainer.new()
+	cards.add_theme_constant_override("separation", 10)
+	stock.add_child(cards)
+	for id in state.get("cards", []):
+		var card: Dictionary = main.card_db.get_card(String(id))
+		var stack := VBoxContainer.new()
+		stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cards.add_child(stack)
+		var face := Fantasy.card(main, card, 145, 240)
+		stack.add_child(face)
+		Fantasy.clickable_card(face, _select_shop_card.bind(String(id)))
+		var pick := Fantasy.action(main, "확인 · %d 골드" % main.shop_run_service.SHOP_CARD_COST, _select_shop_card.bind(String(id)), false)
+		pick.add_theme_font_size_override("font_size", 13)
+		pick.custom_minimum_size.y = 38
+		stack.add_child(pick)
+	var services := HBoxContainer.new()
+	services.add_theme_constant_override("separation", 10)
+	stock.add_child(services)
+	var relic: Dictionary = state.get("relic", {})
+	if not relic.is_empty():
+		var relic_box := Fantasy.panel(main, "유물 · " + String(relic.get("name", "")))
+		var relic_frame: Control = relic_box.get_meta("frame")
+		relic_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		services.add_child(relic_frame)
+		relic_box.add_child(main._make_label(String(relic.get("text", "")), 14, Color(0.86, 0.85, 0.92)))
+		var buy_relic := Fantasy.action(main, "%d 골드 · 유물 구매" % main.shop_run_service.SHOP_RELIC_COST, _buy_shop_relic)
+		buy_relic.disabled = int(main.current_run.gold) < main.shop_run_service.SHOP_RELIC_COST or bool(state.get("relic_bought", false))
+		relic_box.add_child(buy_relic)
+	var service_box := Fantasy.panel(main, "서비스", 190)
+	services.add_child(service_box.get_meta("frame"))
+	service_box.add_child(Fantasy.action(main, "카드 제거 · %d" % _shop_remove_cost(), _begin_shop_remove, false))
+	var heal := Fantasy.action(main, "회복 · %d" % main.shop_run_service.SHOP_HEAL_COST, _buy_shop_heal, false)
+	heal.disabled = int(main.current_run.gold) < main.shop_run_service.SHOP_HEAL_COST or int(main.current_run.hp) >= int(main.current_run.max_hp)
+	service_box.add_child(heal)
+	preview_box = Fantasy.panel(main, "선택한 카드", 238)
+	row.add_child(preview_box.get_meta("frame"))
+	var recommended := _recommended_shop_card(state)
+	_select_shop_card(String(recommended.get("id", "")))
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 14)
+	body.add_child(footer)
+	var resources := Fantasy.heading(main, "골드 %d    ·    현재 덱 %d장    ·    보유 유물 %d개" % [main.current_run.gold, main.current_run.deck_ids.size(), main.current_run.relic_ids.size()], 18)
+	resources.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(resources)
+	footer.add_child(Fantasy.action(main, "덱 보기", Callable(main, "_show_collection"), false))
+	footer.add_child(Fantasy.action(main, "나가기  ❯", _leave_shop, false))
+
+func _select_shop_card(card_id: String) -> void:
+	selected_card_id = card_id
+	for child in preview_box.get_children():
+		preview_box.remove_child(child)
+		child.queue_free()
+	var card: Dictionary = main.card_db.get_card(card_id)
+	if card.is_empty():
+		preview_box.add_child(Fantasy.heading(main, "카드를 모두 구매했습니다", 17))
+		return
+	preview_box.add_child(Fantasy.card(main, card, 202, 345, true))
+	preview_box.add_child(main._make_label("구매 시 덱에 추가됩니다.", 13, Color(0.8, 0.83, 0.87)))
+	var buy := Fantasy.action(main, "%d 골드   구매" % main.shop_run_service.SHOP_CARD_COST, _buy_shop_card.bind(card_id))
+	buy.disabled = int(main.current_run.gold) < main.shop_run_service.SHOP_CARD_COST or main.current_run.pending_shop.get("purchased_cards", []).has(card_id)
+	preview_box.add_child(buy)

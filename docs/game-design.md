@@ -117,25 +117,9 @@ battle -> event/shop -> battle/elite -> rest/shop -> boss
 
 전투 사운드는 `도파민 보상`과 `판세 인지`가 목적이다. 버튼 클릭 같은 UI 소리는 작고 짧게 두고, 카드 사용·소환·타격·필살기·승리 순간에 가장 큰 에너지를 준다.
 
-효과음은 ElevenLabs Text to Sound Effects로 만든 30개 런타임 WAV를 우선 사용한다. 원본 MP3는 `assets/audio/source/raw/elevenlabs`, 게임 로드 파일은 `assets/audio/*.wav`에 둔다. `AudioManager.ELEVENLABS_SFX_KEYS`에 포함된 키는 테스트에서 원본과 WAV 로드 여부를 검증한다.
+음악은 ACE-Step 1.5, 효과음은 MOSS-SoundEffect v2를 로컬에서 생성한 `assets/audio/local_models_v1`의 Ogg를 우선 사용한다. 메뉴·전투 음악 2개와 효과음 8개를 기존 이벤트에 연결한다. 전투 음악은 완성된 단일 곡의 음량을 상황에 따라 조정하며 이전 합성 레이어를 겹치지 않는다. 모델 라이선스·생성 기록·재생 검증은 [로컬 모델 오디오](local-model-audio.md)에 기록한다. 사람의 청취 평가와 신규 사용자 플레이 검증은 자동 검사와 별개다.
 
-핵심 매핑:
-
-- 카드 조작: `play`, `draw`
-- 종족 공격: `hit_human`, `hit_elf`, `hit_undead`, `hit_common`
-- 종족 소환: `summon_human`, `summon_elf`, `summon_undead`, `summon_common`
-- 주문/장비: `spell_*`, `equipment_*`
-- 전투 보상감: `combo`, `counter`, `finisher`, `impact_heavy`, `reward`, `victory_burst`
-- 세력 필살기: `power_human`, `power_elf`, `power_undead`
-
-전투 BGM은 4개 레이어를 상황에 따라 크로스페이드한다.
-
-- `battle_base`: 일반 전투
-- `battle_tension`: 적 턴, 보스, 큰 incoming damage
-- `battle_lethal`: 적 체력 낮음 또는 즉시 승리 가능
-- `battle_low_hp`: 플레이어 체력 30% 이하
-
-상황 BGM은 전투 규칙을 바꾸지 않고, 플레이어가 `지금 위험한지`, `지금 끝낼 수 있는지`를 소리로 먼저 느끼게 만드는 보조 장치다.
+첫 학습 전투의 ‘도움 보기’는 위치만 강조한다. 카드를 사용하거나 공격·턴 종료를 대신 실행하지 않는다. 일반 런의 기존 추천 조작은 유지한다. [첫판 경험 기획](first-play-experience.md)을 참조한다.
 
 ## 노드와 메타
 

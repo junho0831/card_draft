@@ -2,12 +2,12 @@ extends RefCounted
 class_name UiStyles
 
 const UI_TOKENS = preload("res://src/ui/styles/ui_tokens.gd")
-const BUTTON_GOLD_PATH := "res://assets/ui/generated/slices/button_gold.png"
-const BUTTON_BLUE_PATH := "res://assets/ui/generated/slices/button_blue.png"
-const BUTTON_RED_PATH := "res://assets/ui/generated/slices/button_red.png"
-const BUTTON_DARK_PATH := "res://assets/ui/generated/slices/button_dark.png"
-const PANEL_GOLD_PATH := "res://assets/ui/generated/slices/panel_gold.png"
-const PANEL_BLUE_PATH := "res://assets/ui/generated/slices/panel_blue.png"
+const BUTTON_GOLD_PATH := "res://assets/ui/fantasy/button_gold.svg"
+const BUTTON_BLUE_PATH := "res://assets/ui/fantasy/button_blue.svg"
+const BUTTON_RED_PATH := "res://assets/ui/fantasy/button_red.svg"
+const BUTTON_DARK_PATH := "res://assets/ui/fantasy/button_dark.svg"
+const PANEL_GOLD_PATH := "res://assets/ui/fantasy/panel_gold.svg"
+const PANEL_BLUE_PATH := "res://assets/ui/fantasy/panel_blue.svg"
 
 const NEUTRAL_BASE := Color(0.035, 0.042, 0.055, 1.0)
 const NEUTRAL_BORDER := Color(0.28, 0.32, 0.4, 1.0)
@@ -69,11 +69,17 @@ static func _panel_texture_for_accent(accent_color: Color) -> Texture2D:
 	return texture if texture != null else _load_texture(PANEL_BLUE_PATH)
 
 static func make_textured_panel_style(bg_color: Color, accent_color: Color, margin: int = 12, gold_bias: bool = false) -> StyleBox:
-	var style := make_style_box(bg_color, Color(0.18, 0.23, 0.29), 1, 8)
+	var style := StyleBoxTexture.new()
+	style.texture = _load_texture(PANEL_GOLD_PATH if gold_bias else PANEL_BLUE_PATH)
+	style.texture_margin_left = 16
+	style.texture_margin_right = 16
+	style.texture_margin_top = 16
+	style.texture_margin_bottom = 16
 	style.content_margin_left = margin
 	style.content_margin_right = margin
 	style.content_margin_top = margin
 	style.content_margin_bottom = margin
+	style.modulate_color = Color(1, 1, 1, minf(bg_color.a, 0.94))
 	return style
 
 static func _button_texture_for_role(role: String, accent_color: Color) -> Texture2D:
@@ -96,10 +102,10 @@ static func _button_texture_for_role(role: String, accent_color: Color) -> Textu
 static func _make_textured_button_style(texture: Texture2D, tint: Color, active: bool = false) -> StyleBoxTexture:
 	var style := StyleBoxTexture.new()
 	style.texture = texture
-	style.texture_margin_left = 76
-	style.texture_margin_top = 42
-	style.texture_margin_right = 76
-	style.texture_margin_bottom = 42
+	style.texture_margin_left = 32
+	style.texture_margin_top = 16
+	style.texture_margin_right = 32
+	style.texture_margin_bottom = 16
 	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.content_margin_left = 18 if active else 15
@@ -167,7 +173,7 @@ static func apply_button(button: Button, base_color: Color) -> void:
 
 static func apply_primary_button(button: Button, base_color: Color = Color(0.16, 0.34, 0.66, 1.0)) -> void:
 	var accent := Color(0.46, 0.7, 1.0, 1.0).lerp(base_color.lightened(0.28), 0.28)
-	_apply_button_styles(button, _button_state_styles(base_color, accent, true))
+	_apply_button_styles(button, _textured_button_state_styles("primary", accent, true))
 	_apply_button_text(button, 17)
 
 static func apply_role_button(
@@ -198,6 +204,6 @@ static func apply_role_button(
 		base = base_override
 	if role != "power" and accent_color != Color(0.42, 0.68, 1.0, 1.0):
 		accent = accent.lerp(accent_color, 0.42)
-	_apply_button_styles(button, _button_state_styles(base, accent, active))
+	_apply_button_styles(button, _textured_button_state_styles(role, accent_color, active))
 	var resolved_font := font_size if font_size > 0 else UI_TOKENS.FONT_ACTION if role in ["primary", "power"] else 16
 	_apply_button_text(button, resolved_font, 0)

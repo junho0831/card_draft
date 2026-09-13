@@ -162,6 +162,7 @@ func _build_base_ui() -> void:
 	interface_theme.default_font_size = 14
 	theme = interface_theme
 	var background := TextureRect.new()
+	background.name = "WorldBackground"
 	background.texture = _create_premium_background()
 	background.modulate = Color.WHITE
 	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -339,6 +340,10 @@ func _apply_root_layout() -> void:
 
 
 func _clear_screen() -> void:
+	var world := get_node_or_null("WorldBackground") as TextureRect
+	if world != null:
+		var backdrop := "merchant_hall_v1" if active_screen == "shop" else ("campaign_valley_v1" if active_screen == "map" else "siege_castle_v1")
+		world.texture = load("res://assets/backgrounds/%s.png" % backdrop)
 	active_screen_controller = null
 	if root_scroll != null:
 		root_scroll.scroll_horizontal = 0
@@ -381,6 +386,9 @@ func _show_main_menu() -> void:
 	active_screen = "main_menu"
 	_clear_screen()
 	var compact := _is_main_menu_compact_layout()
+	if _layout_viewport_size().x >= 1100:
+		preload("res://src/ui/screens/cinematic_menu.gd").new(self).build(root_box)
+		return
 	root_box.add_theme_constant_override("separation", 10)
 	root_box.add_child(_make_main_menu_top_bar(compact))
 	root_box.add_child(_make_main_menu_content(compact))
@@ -725,7 +733,6 @@ func _make_main_menu_top_bar(compact: bool) -> Control:
 		_small_hub_button_config(actions, "설정", "_show_settings", "설정", 46, 44, 10)
 	else:
 		_small_hub_button(actions, "도감", "_show_compendium", "도감")
-		_small_hub_button(actions, "업적", "_show_achievements", "업적")
 		_small_hub_button(actions, "설정", "_show_settings", "설정")
 		if not OS.has_feature("web"):
 			_small_hub_button(actions, "종료", "_quit_game", "종료")

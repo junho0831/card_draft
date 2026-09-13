@@ -229,7 +229,7 @@ func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, de
 	dock.add_child(box)
 	var title_label := make_label(title, 12, accent.lightened(0.28))
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(title_label)
 	var detail_label := make_label(detail, 12, THEME_TEXT)
 	detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -265,7 +265,9 @@ func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, de
 func make_dock_action_button(title: String, detail: String, accent: Color, primary: bool = false, minimum_width: int = 166) -> Button:
 	var button := Button.new()
 	button.text = title if detail.is_empty() else "%s\n%s" % [title, detail]
-	button.custom_minimum_size = Vector2(minimum_width, 56)
+	var phone: bool = Engine.get_main_loop().root.size.x <= 600
+	button.custom_minimum_size = Vector2(mini(minimum_width, 156) if phone else minimum_width, 56)
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	button.focus_mode = Control.FOCUS_NONE
@@ -347,7 +349,7 @@ func make_objective_panel(title: String, objective: String, compact: bool = fals
 	panel.add_child(box)
 	var title_label := make_label(title, 11 if compact else 12, Color(0.48, 0.7, 1.0, 1.0))
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(title_label)
 	var objective_label := make_label(objective, 15 if compact else 17, THEME_TEXT)
 	objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -524,7 +526,8 @@ func make_relic_badge(relic: Dictionary, compact: bool = false, show_text: bool 
 func make_cost_badge(value: String, compact: bool = false) -> PanelContainer:
 	var size := 32 if compact else 38
 	var panel := PanelContainer.new()
-	var style := make_style_box(Color(0.12, 0.32, 0.68, 1.0), Color(0.44, 0.7, 1.0, 1.0), 1, 8)
+	var style := StyleBoxTexture.new()
+	style.texture = preload("res://assets/ui/fantasy/gem_blue.svg")
 	style.content_margin_left = 2
 	style.content_margin_top = 2
 	style.content_margin_right = 2
@@ -540,13 +543,14 @@ func make_cost_badge(value: String, compact: bool = false) -> PanelContainer:
 
 func make_stat_badge(value: String, bg_color: Color, compact: bool = false) -> PanelContainer:
 	var panel := PanelContainer.new()
-	var style := make_style_box(bg_color, bg_color.lightened(0.2), 1, 7)
+	var style := StyleBoxTexture.new()
+	style.texture = load("res://assets/ui/fantasy/gem_red.svg" if bg_color.r > bg_color.b else "res://assets/ui/fantasy/gem_blue.svg")
 	style.content_margin_left = 4
 	style.content_margin_top = 2
 	style.content_margin_right = 4
 	style.content_margin_bottom = 2
 	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(42 if compact else 48, 28 if compact else 32)
+	panel.custom_minimum_size = Vector2(30 if compact else 36, 32 if compact else 38)
 	var label := make_label(value, 13 if compact else 15, Color(1.0, 0.96, 0.86, 1.0))
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.02, 1.0))
@@ -588,6 +592,23 @@ func make_card_art_rect(card: Dictionary, size: Vector2) -> TextureRect:
 
 func card_art_texture(card: Dictionary) -> Texture2D:
 	var art_id := String(card.get("art_id", ""))
+	# Older per-card files were copied from unrelated cells of the sample sheet.
+	# Reuse the matching original illustration until a dedicated painting exists.
+	var matching_sheet_regions := {
+		"small_flame": 9, "fireball": 9, "first_aid": 5, "shield_guard": 1,
+		"bone_soldier": 6, "grave_knight": 7, "undead_king": 7, "necro_lord": 8,
+		"captain_order": 2, "royal_support": 2, "royal_standard": 2,
+		"forest_archer": 4, "elf_ranger": 3, "gale_shot": 4,
+		"elven_insight": 5, "nature_communion": 10, "wind_quiver": 11,
+		"death_mark": 8, "corpse_explosion": 8, "soul_shackle": 8,
+		"bone_armor": 6, "healing_potion": 5, "funeral_fog": 8,
+		"war_horn": 2,
+	}
+	var visual_id := String(card.get("id", art_id)).trim_suffix("_plus")
+	if matching_sheet_regions.has(visual_id):
+		return _make_sheet_art_texture(int(matching_sheet_regions[visual_id]))
+	if art_id == "thief":
+		art_id = "mercenary"
 	if not art_id.is_empty():
 		var path := "res://assets/card_art/cards/%s.png" % art_id
 		if card_art_cache.has(path):

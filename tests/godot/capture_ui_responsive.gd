@@ -213,12 +213,31 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	main.current_run["pending_card_reward"] = {}
 	main.current_run["pending_shop"] = {}
 	main.current_run["pending_event"] = {}
+	# Capture secondary screens too, using only the isolated fixture run.
+	for entry in [
+		["10_collection", "_show_collection", "collection"],
+		["11_compendium", "_show_compendium", "compendium"],
+		["12_meta_upgrade", "_show_meta_upgrade", "meta_upgrade"],
+		["13_settings", "_show_settings", "settings"],
+		["14_ui_guide", "_show_ui_guide", "ui_guide"],
+		["15_achievements", "_show_achievements", "message"],
+	]:
+		main.call(entry[1])
+		await _capture_screen(main, "%s_%s" % [viewport_name, entry[0]], entry[2])
+	main._show_remove_card_screen("상점")
+	await _capture_screen(main, "%s_16_remove_card" % viewport_name, "remove_card")
+	main._show_upgrade_card_screen()
+	await _capture_screen(main, "%s_17_upgrade_card" % viewport_name, "upgrade_card")
 	main.current_run["earned_soul_stones"] = 45
 	main._show_run_result(true)
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
 	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[8]], "run_result")
 
+	main._show_run_result(false, false)
+	await _capture_screen(main, "%s_18_run_defeat" % viewport_name, "run_result")
+	main._show_main_menu()
+	await _capture_screen(main, "%s_19_main_continue" % viewport_name, "main_menu")
 	main._clear_screen()
 	main.queue_free()
 	await _wait_for_capture_frame()

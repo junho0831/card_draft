@@ -18,16 +18,17 @@ func capture(name: String) -> void:
 		await frame()
 	get_root().get_texture().get_image().save_png(Storage.path_for(name + ".png"))
 func run() -> void:
+	var viewport := Vector2i(1280, 720) if OS.get_cmdline_user_args().has("--desktop") else Vector2i(390, 844)
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-	DisplayServer.window_set_size(Vector2i(390, 844))
+	root.size = viewport
 	var main = MAIN.instantiate()
 	main.set_meta("disable_window_mode_changes", true)
-	main.set_meta("layout_viewport_override", Vector2i(1280, 720))
+	main.set_meta("layout_viewport_override", viewport)
 	main.set_meta("disable_timed_battle_fx", true)
 	root.add_child(main)
 	await frame()
-	main.set_meta("layout_viewport_override", Vector2i(390, 844))
-	DisplayServer.window_set_size(Vector2i(390, 844))
+	main.set_meta("layout_viewport_override", viewport)
+	root.size = viewport
 	main._apply_root_layout()
 	main._on_layout_resize_timeout()
 	await frame()

@@ -28,6 +28,38 @@ func run() -> Dictionary:
 	check(not battle._combo_card_preview(main.card_db.get_card("militia")).contains("연계"), "first card preview teaches summoning only")
 	check(battle._combo_candidate_tags(main.card_db.get_card("militia")).is_empty(), "combos wait until lesson three")
 	check(battle._create_battle_objective().is_empty(), "no optional challenges distract from learning")
+	check(battle._recommended_action_text() == "도움 보기", "first battle uses help")
+	var before_help: String = JSON.stringify([battle.player, battle.opponent, battle.selected_attacker, main.current_run])
+	await battle._on_recommended_action_pressed()
+	check(JSON.stringify([battle.player, battle.opponent, battle.selected_attacker, main.current_run]) == before_help, "help never spends cards mana or advances turn")
+	battle.player.hand = [main.card_db.get_card("knight_spearman")]
+	battle._ensure_hand_visual_slots()
+	var card_index: int = 0
+	await battle._on_hand_card_pressed(card_index)
+	check(main.current_run.get("first_play_actions", {}).get("summoned", false), "actual summon records first action")
+	battle.player.field[0].can_attack = true
+	battle._on_player_unit_pressed(0)
+	check(not main.current_run.first_play_actions.get("unit_attacked", false), "selection is not a completed attack")
+	await battle._execute_player_unit_attack(0, 0)
+	check(main.current_run.first_play_actions.get("unit_attacked", false), "actual attack records learning")
+	check(main.current_run.first_play_actions.get("vanguard_defeated", false), "vanguard defeat is recorded")
+	main._save_run()
+	var first_saved: Dictionary = main.run_store.load_or_empty(preload("res://src/services/game_storage.gd").run_path())
+	check(first_saved.first_play_actions == main.current_run.first_play_actions, "first actions survive run storage")
+	main.current_run = first_saved
+	main.run_flow.continue_run()
+	check(main.current_run.first_play_actions.get("unit_attacked", false) and battle.opponent.field.is_empty(), "resume restores board and actual action record")
+	battle.game_over = true
+	check(battle._current_battle_guidance_text() == "전투 종료", "early victory never forces remaining exercises")
+	battle.game_over = false
+	main.current_run.erase("first_play_actions")
+	battle.selected_attacker = -1
+	battle.player.hand.clear()
+	battle.player.field.clear()
+	check(battle._first_play_guidance().contains("턴 종료"), "legacy empty board gives possible action")
+	before_help = JSON.stringify([battle.player, battle.opponent, battle.current_player])
+	await battle._on_recommended_action_pressed()
+	check(JSON.stringify([battle.player, battle.opponent, battle.current_player]) == before_help, "end-turn help does not end turn")
 	main.current_run.active_enemy = {}
 	main.current_run.battle_snapshot = {}
 	main.run_flow.advance_from_current_node()
