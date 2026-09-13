@@ -1358,6 +1358,8 @@ func _play_race_power_feedback() -> void:
 		target = _hero_target_for_player(false)
 	elif main._current_race_id() == "human" and not player.field.is_empty():
 		target = _field_slot_for(player, player.field.size() - 1)
+	if is_instance_valid(battle_fx_layer):
+		battle_fx_layer.play_ultimate(target, color)
 	if _is_battle_cutscene_enabled():
 		_trigger_hype_moment(target, String(meta.get("power_name", "필살기")), color, "", 14.0, 48, true)
 	else:
@@ -3156,7 +3158,7 @@ func _on_hand_card_pressed(index: int, target_unit_id: int = -1) -> void:
 		hand_render_signature = _hand_signature()
 	if not _should_skip_timed_battle_fx():
 		await main.get_tree().process_frame
-	_play_card_resolution_feedback(card, card_type, summoned_index, old_p_hp, old_o_hp)
+	_play_card_resolution_feedback(card, card_type, summoned_index, old_p_hp, old_o_hp, target_unit_id)
 	if flying_card != null and is_instance_valid(flying_card) and battle_fx_layer != null and is_instance_valid(battle_fx_layer):
 		await battle_fx_layer.finish_card(flying_card, card_type, accent, not _is_battle_cutscene_enabled())
 	_apply_damage_juice(old_p_hp, old_o_hp)
@@ -3345,7 +3347,7 @@ func _resolve_breakthrough_damage(
 	return result
 
 
-func _play_card_resolution_feedback(card: Dictionary, card_type: String, summoned_index: int, old_player_hp: int, old_opponent_hp: int) -> void:
+func _play_card_resolution_feedback(card: Dictionary, card_type: String, summoned_index: int, old_player_hp: int, old_opponent_hp: int, target_unit_id: int = -1) -> void:
 	if _should_skip_timed_battle_fx():
 		return
 	var growth: Dictionary = main._build_delta_summary(card)
@@ -3355,9 +3357,11 @@ func _play_card_resolution_feedback(card: Dictionary, card_type: String, summone
 			_play_effect_hit_feedback(_field_slot_for(player, summoned_index), "빌드 활성", Color(0.42, 1.0, 0.62, 1.0))
 		return
 	if card_type == "equipment":
-		_play_slot_pop_feedback(_field_slot_for(player, 0), "강화", Color(1.0, 0.78, 0.24, 1.0))
+		var target_index := _ally_index_by_id(target_unit_id) if target_unit_id >= 0 else 0
+		var equipped_target := _field_slot_for(player, target_index)
+		_play_slot_pop_feedback(equipped_target, "강화", Color(1.0, 0.78, 0.24, 1.0))
 		if bool(growth.get("will_activate", false)):
-			_play_effect_hit_feedback(_field_slot_for(player, 0), "시너지 점화", Color(0.42, 1.0, 0.62, 1.0))
+			_play_effect_hit_feedback(equipped_target, "시너지 점화", Color(0.42, 1.0, 0.62, 1.0))
 		return
 	var opponent_hp_loss = old_opponent_hp - int(opponent.get("health", old_opponent_hp))
 	var player_hp_gain = int(player.get("health", old_player_hp)) - old_player_hp
@@ -3367,7 +3371,8 @@ func _play_card_resolution_feedback(card: Dictionary, card_type: String, summone
 		if bool(growth.get("will_activate", false)):
 			_play_effect_hit_feedback(_hero_target_for_player(false), "빌드 활성", Color(0.42, 1.0, 0.62, 1.0))
 	elif player_hp_gain > 0:
-		_play_effect_hit_feedback(_hero_target_for_player(true), "회복 %d" % player_hp_gain, Color(0.34, 1.0, 0.62, 1.0))
+		# _apply_damage_juice displays the actual heal amount once.
+		return
 	elif _is_build_active("low_hp") and int(player.get("health", 0)) <= int(player.get("max_health", 0)) / 2:
 		_play_effect_hit_feedback(_hero_target_for_player(true), "위험 반격 활성", Color(1.0, 0.36, 0.38, 1.0))
 	elif not opponent.field.is_empty():
@@ -3864,11 +3869,8 @@ func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_inde
 			summary += " / 돌파 %d" % overflow
 		if mana_gain > 0:
 			summary += " / 마나 +1"
-		_play_effect_hit_feedback(defender_target, "유리한 교환", Color(1.0, 0.86, 0.34, 1.0))
-		_trigger_hype_moment(defender_target, "처치!", Color(1.0, 0.86, 0.34, 1.0), "finisher", 12.0, 42, false)
 	elif attack_damage >= 4:
-		_play_effect_hit_feedback(defender_target, "강한 압박", Color(1.0, 0.58, 0.24, 1.0))
-		_trigger_hype_moment(defender_target, "강타 %d" % attack_damage, Color(1.0, 0.58, 0.24, 1.0), "finisher", 8.0, 34, false)
+		_trigger_hype_moment(defender_target, "강타 %d" % attack_damage, Color(1.0, 0.58, 0.24, 1.0), "", 8.0, 34, false)
 	_add_log(summary)
 	input_locked = false
 	_store_battle_snapshot()
@@ -3921,7 +3923,7 @@ func _play_unit_battle_feedback(attacker_side: Dictionary, defender_side: Dictio
 	var defender_unit: Dictionary = defender_side.field[defender_index] if defender_index >= 0 and defender_index < defender_side.field.size() else {}
 	if not _is_battle_cutscene_enabled():
 		_show_damage_number(defender_node, attack_damage)
-		_play_attack_impact_fx(attacker_node, defender_node, attack_damage, false)
+		_play_attack_impact_fx(attacker_node, defender_node, attack_damage, false, _attack_impact_sfx(attacker_unit, attack_damage, false))
 		_play_sfx(_attack_impact_sfx(attacker_unit, attack_damage, false))
 		_show_damage_number(attacker_node, defense_damage, true)
 		if defense_damage > 0:
@@ -3944,7 +3946,7 @@ func _play_hero_attack_feedback(attacker_side: Dictionary, attacker_index: int, 
 	var attacker_unit: Dictionary = attacker_side.field[attacker_index] if attacker_index >= 0 and attacker_index < attacker_side.field.size() else {}
 	if not _is_battle_cutscene_enabled():
 		_show_damage_number(defender_node, damage)
-		_play_attack_impact_fx(attacker_node, defender_node, damage, false)
+		_play_attack_impact_fx(attacker_node, defender_node, damage, false, _hero_attack_sfx(attacker_unit, damage))
 		_play_sfx(_hero_attack_sfx(attacker_unit, damage))
 		if not _should_skip_timed_battle_fx():
 			_spawn_impact_slash(defender_node, false)
@@ -3970,7 +3972,7 @@ func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control
 	await approach.finished
 
 	_show_damage_number(defender_node, damage, counter)
-	_play_attack_impact_fx(attacker_node, defender_node, damage, counter)
+	_play_attack_impact_fx(attacker_node, defender_node, damage, counter, sfx_name)
 	_play_sfx(sfx_name if not sfx_name.is_empty() else _attack_impact_sfx({}, damage, counter))
 	_spawn_impact_slash(defender_node, counter)
 	_flash_target(defender_node, Color(1.0, 0.66, 0.18, 1.0) if counter else Color(1.0, 0.28, 0.22, 1.0), 0.24)
@@ -3998,15 +4000,18 @@ func _attack_impact_sfx(attacker: Dictionary, damage: int, counter: bool) -> Str
 func _hero_attack_sfx(attacker: Dictionary, damage: int) -> String:
 	if damage >= 5:
 		return "impact_heavy"
+	var race_key := _sfx_race_key(attacker)
+	if race_key in ["elf", "undead"]:
+		return "hit_%s" % race_key
 	if damage >= 2:
 		return "direct_attack"
 	return "hit_%s" % _sfx_race_key(attacker)
 
-func _play_attack_impact_fx(attacker: Control, defender: Control, damage: int, counter: bool) -> void:
-	if _should_skip_timed_battle_fx():
+func _play_attack_impact_fx(attacker: Control, defender: Control, damage: int, counter: bool, style: String = "hit_human") -> void:
+	if damage <= 0 or _should_skip_timed_battle_fx():
 		return
 	if battle_fx_layer != null and is_instance_valid(battle_fx_layer):
-		battle_fx_layer.play_attack(attacker, defender, damage, counter)
+		battle_fx_layer.play_attack(attacker, defender, damage, counter, style)
 	_pulse_impact_target(defender, damage >= 4)
 
 func _pulse_impact_target(target: Control, strong: bool) -> void:
@@ -4181,10 +4186,7 @@ func _play_defeat_feedback(target: Control, color: Color) -> void:
 		return
 	_show_outcome_text(target, "처치", color)
 	_spawn_target_glow(target, color, 0.36)
-	target.pivot_offset = target.size * 0.5
-	var tween = target.create_tween()
-	tween.tween_property(target, "scale", Vector2(0.92, 0.92), 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(target, "modulate", Color(0.38, 0.34, 0.34, 0.76), 0.12)
+	# The slot is reused by the next unit; death particles live in the FX layer.
 
 func _flash_target(target: Control, color: Color, duration: float = 0.2) -> void:
 	if target == null or not is_instance_valid(target):
@@ -4257,6 +4259,9 @@ func _cleanup_side_dead(owner: Dictionary, enemy: Dictionary) -> void:
 	for i in range(owner.field.size() - 1, -1, -1):
 		if int(owner.field[i].health) <= 0:
 			var dead_unit: Dictionary = owner.field[i]
+			_play_sfx("unit_death")
+			if not _should_skip_timed_battle_fx() and is_instance_valid(battle_fx_layer):
+				battle_fx_layer.play_death(_field_slot_for(owner, i))
 			owner.field.remove_at(i)
 			if dead_unit.has("id") and String(dead_unit.get("id", "")) != "build_token":
 				var original_card = main.card_db.get_card(String(dead_unit.get("id", "")))
@@ -4542,6 +4547,8 @@ func _spawn_center_banner(text: String, color: Color, font_size: int = 42, durat
 func _trigger_hype_moment(target: Control, text: String, color: Color, sfx_name: String, shake: float = 8.0, font_size: int = 42, center_banner: bool = false) -> void:
 	if not sfx_name.is_empty():
 		_play_sfx(sfx_name)
+	if sfx_name == "finisher" and not _should_skip_timed_battle_fx() and is_instance_valid(battle_fx_layer):
+		battle_fx_layer.play_ultimate(target, color)
 	if shake > 0.0:
 		_shake_screen(shake, 0.18 if shake < 12.0 else 0.24)
 	if target != null and is_instance_valid(target):
@@ -5375,6 +5382,8 @@ func _play_sfx(sfx_name: String) -> void:
 		root.audio_manager.play_sound(sfx_name)
 
 func _update_adaptive_battle_music() -> void:
+	if game_over or battle_finished or main.active_screen != "battle":
+		return
 	var root = Engine.get_main_loop().current_scene
 	if root and root.get("audio_manager") != null and root.audio_manager.has_method("set_battle_music_state"):
 		root.audio_manager.set_battle_music_state(_battle_music_state())
@@ -5447,6 +5456,7 @@ func _apply_damage_juice(old_p_hp: int, old_o_hp: int) -> void:
 		_flash_and_shake(player_info, Color(0.2, 1.0, 0.2, 1.0))
 		_flash_and_shake(player_hero_hp_label, Color(0.2, 1.0, 0.2, 1.0))
 		_play_sfx("heal")
+		_play_heal_fx(true, int(player.health) - old_p_hp)
 
 	if int(opponent.health) < old_o_hp:
 		_flash_and_shake(opponent_info, Color(1.0, 0.2, 0.2, 1.0))
@@ -5456,6 +5466,14 @@ func _apply_damage_juice(old_p_hp: int, old_o_hp: int) -> void:
 		_flash_and_shake(opponent_info, Color(0.2, 1.0, 0.2, 1.0))
 		_flash_and_shake(enemy_hero_hp_label, Color(0.2, 1.0, 0.2, 1.0))
 		_play_sfx("heal")
+		_play_heal_fx(false, int(opponent.health) - old_o_hp)
+
+func _play_heal_fx(is_player_target: bool, amount: int) -> void:
+	if _should_skip_timed_battle_fx() or not is_instance_valid(battle_fx_layer):
+		return
+	var target := _hero_target_for_player(is_player_target)
+	battle_fx_layer.play_heal(target)
+	_spawn_floating_text(target, "+%d" % amount, Color(0.35, 1.0, 0.66), 42, 0.9, Vector2.ZERO)
 
 func _flash_and_shake(node, color: Color) -> void:
 	if node == null or not is_instance_valid(node) or not (node is Control):

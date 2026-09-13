@@ -4,6 +4,7 @@ class_name AudioManager
 const SAMPLE_RATE := 44100
 const SFX_BUS_NAME := &"SFX"
 const BGM_BUS_NAME := &"BGM"
+const MUSIC_MIX_BUS_NAME := &"MusicMix"
 const BATTLE_MUSIC_KEYS := ["battle_base", "battle_tension", "battle_lethal", "battle_low_hp"]
 const ORIGINAL_AUDIO_DIR := "res://assets/audio/original_v1"
 const MODEL_AUDIO_DIR := "res://assets/audio/local_models_v1"
@@ -25,6 +26,9 @@ var current_battle_music_signature := ""
 var rng := RandomNumberGenerator.new()
 var last_sound_at_msec := {}
 var duck_until_msec := 0
+var ambient_key := "menu_theme"
+var ambient_tween: Tween
+var battle_score_key := "battle_base"
 
 func _init() -> void:
 	name = "AudioManager"
@@ -44,7 +48,7 @@ func _ready() -> void:
 	_load_custom_music()
 	_setup_battle_music_players()
 	menu_music_player = AudioStreamPlayer.new()
-	menu_music_player.bus = BGM_BUS_NAME
+	menu_music_player.bus = MUSIC_MIX_BUS_NAME
 	menu_music_player.volume_db = -18.0
 	var menu_path := ORIGINAL_AUDIO_DIR + "/menu_theme.ogg"
 	if ResourceLoader.exists(MODEL_AUDIO_DIR + "/menu_theme.ogg"):
@@ -56,11 +60,43 @@ func _ready() -> void:
 	add_child(menu_music_player)
 	_play_menu_music()
 
+func set_screen_music(screen: String) -> void:
+	if screen == "battle":
+		return
+	if current_battle_music_mode != "stopped":
+		stop_battle_music()
+	var key := "exploration" if screen in ["map", "shop", "rest", "event", "reward", "remove_card", "upgrade_card"] else "menu_theme"
+	var path := "%s/%s.ogg" % [MODEL_AUDIO_DIR, key]
+	if not ResourceLoader.exists(path) or not is_instance_valid(menu_music_player):
+		return
+	if ambient_key != key:
+		ambient_key = key
+		if ambient_tween != null and ambient_tween.is_valid():
+			ambient_tween.kill()
+		menu_music_player.stop()
+		menu_music_player.stream = load(path)
+		_make_stream_loop(menu_music_player.stream)
+		menu_music_player.volume_db = -40.0
+		if not _is_headless_runtime():
+			ambient_tween = create_tween()
+			ambient_tween.tween_property(menu_music_player, "volume_db", -10.0, 0.6)
+	_play_menu_music()
+
+func _process(delta: float) -> void:
+	var bus := AudioServer.get_bus_index(MUSIC_MIX_BUS_NAME)
+	if bus < 0:
+		return
+	var target_db := -5.0 if Time.get_ticks_msec() < duck_until_msec else 0.0
+	var speed := 60.0 if target_db < 0 else 10.0
+	AudioServer.set_bus_volume_db(bus, move_toward(AudioServer.get_bus_volume_db(bus), target_db, delta * speed))
+
 func _play_menu_music() -> void:
 	if not _is_headless_runtime() and is_instance_valid(menu_music_player) and menu_music_player.stream != null and not menu_music_player.playing:
 		menu_music_player.play()
 
 func _exit_tree() -> void:
+	if ambient_tween != null and ambient_tween.is_valid():
+		ambient_tween.kill()
 	for key in music_tweens.keys():
 		_cancel_music_tween(key)
 	if is_instance_valid(menu_music_player):
@@ -132,6 +168,9 @@ func _ensure_sfx_bus() -> void:
 func _ensure_bgm_bus() -> void:
 	var bus_index := _ensure_bus(BGM_BUS_NAME)
 	AudioServer.set_bus_volume_db(bus_index, -3.0)
+	var mix_bus := _ensure_bus(MUSIC_MIX_BUS_NAME)
+	AudioServer.set_bus_send(mix_bus, BGM_BUS_NAME)
+	AudioServer.set_bus_volume_db(mix_bus, 0.0)
 
 func _ensure_bus(bus_name: StringName) -> int:
 	var bus_index := AudioServer.get_bus_index(bus_name)
@@ -156,10 +195,17 @@ func set_battle_music_state(state: Dictionary) -> void:
 	]
 	current_battle_music_mode = mode
 	current_battle_music_signature = signature
-	if _is_headless_runtime():
-		return
 	if music_players.is_empty():
 		_setup_battle_music_players()
+	var score_key := "boss_theme" if bool(state.get("boss", false)) and ResourceLoader.exists(MODEL_AUDIO_DIR + "/boss_theme.ogg") else "battle_base"
+	if score_key != battle_score_key and music_players.has("battle_base"):
+		battle_score_key = score_key
+		var score_player: AudioStreamPlayer = music_players["battle_base"]
+		score_player.stop()
+		score_player.stream = load("%s/%s.ogg" % [MODEL_AUDIO_DIR, score_key])
+		_make_stream_loop(score_player.stream)
+	if _is_headless_runtime():
+		return
 	_ensure_battle_music_playing()
 	var targets := _battle_music_layer_targets(mode, state)
 	for key in BATTLE_MUSIC_KEYS:
@@ -189,7 +235,7 @@ func _setup_battle_music_players() -> void:
 		if not music_streams.has(key):
 			continue
 		var player := AudioStreamPlayer.new()
-		player.bus = BGM_BUS_NAME
+		player.bus = MUSIC_MIX_BUS_NAME
 		player.volume_db = -80.0
 		player.stream = custom_music_streams.get(key, music_streams[key])
 		add_child(player)
@@ -286,7 +332,7 @@ func _sound_priority(sound_name: String) -> int:
 		return 4
 	if sound_name.begins_with("summon_") or sound_name.begins_with("hit_") or sound_name.begins_with("spell_") or sound_name.begins_with("equipment_"):
 		return 3
-	if sound_name in ["combo", "counter", "hit", "summon", "spell", "reward", "victory", "defeat"]:
+	if sound_name in ["unit_death", "combo", "counter", "hit", "summon", "spell", "reward", "victory", "defeat"]:
 		return 3
 	if sound_name in ["play", "draw", "heal"]:
 		return 2
@@ -308,6 +354,8 @@ func _duck_duration_msec(sound_name: String) -> int:
 
 func _minimum_gap_msec(sound_name: String) -> int:
 	match sound_name:
+		"unit_death":
+			return 90
 		"hit", "counter":
 			return 85
 		"impact_heavy":
@@ -340,6 +388,14 @@ func _load_custom_sounds() -> void:
 			custom_streams[sound_name] = load(path)
 
 func _model_sfx_key(sound_name: String) -> String:
+	if sound_name == "hit_elf":
+		return "sword_hit"
+	if sound_name in ["impact_heavy", "direct_attack", "hit_undead"]:
+		return "heavy_hit"
+	if sound_name in ["finisher", "power_human", "power_elf", "power_undead"]:
+		return "ultimate"
+	if sound_name == "unit_death":
+		return "unit_death"
 	if sound_name in ["click", "hover"]:
 		return "ui_click"
 	if sound_name in ["draw", "play", "spell_draw"]:
@@ -430,6 +486,7 @@ func _read_u32_le(bytes: PackedByteArray, offset: int) -> int:
 	return int(bytes[offset]) | (int(bytes[offset + 1]) << 8) | (int(bytes[offset + 2]) << 16) | (int(bytes[offset + 3]) << 24)
 
 func _generate_all_sounds() -> void:
+	streams["unit_death"] = _generate_weapon_hit()
 	streams["click"] = _generate_rune_click()
 	streams["draw"] = _generate_card_draw()
 	streams["play"] = _generate_card_play_slam()
@@ -471,6 +528,7 @@ func _generate_all_sounds() -> void:
 	streams["equipment_common"] = _generate_equipment_sig("common")
 
 	sound_volume_db = {
+		"unit_death": -10.0,
 		"hover": -18.0,
 		"click": -8.0,
 		"draw": -6.8,

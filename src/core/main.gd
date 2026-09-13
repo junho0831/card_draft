@@ -340,6 +340,8 @@ func _apply_root_layout() -> void:
 
 
 func _clear_screen() -> void:
+	if audio_manager != null:
+		audio_manager.set_screen_music(active_screen)
 	var world := get_node_or_null("WorldBackground") as TextureRect
 	if world != null:
 		var backdrop := "merchant_hall_v1" if active_screen == "shop" else ("campaign_valley_v1" if active_screen == "map" else "siege_castle_v1")

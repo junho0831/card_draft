@@ -1,0 +1,17 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "A massive iron war hammer strikes a metal shield with one deep crushing impact and a brief resonant metallic rattle. Powerful isolated close-up impact, no speech or music.",
+  "seed": 20260912,
+  "steps": 24,
+  "seconds": 3,
+  "elapsed_seconds": 708.6909050300019,
+  "sha256": "342bfe83e703bec8f81cd2f93a2af5d2ee4ebf17d09f7ae41ce0c73733c05551",
+  "file": "heavy_hit.ogg",
+  "output_seconds": 1.5,
+  "output_peak": 0.6473709940910339,
+  "trim_start_seconds": 0.43,
+  "output_sha256": "ac139e62fb891675081de45cd0c2e49579a6bf85fd2d6e33bb87d1bcd74efe89",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

@@ -1,0 +1,17 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "A short magical energy surge rises into one immense thunderous explosion with shimmering sparks and a low rumbling tail. Isolated fantasy ultimate ability, no speech or music.",
+  "seed": 20260913,
+  "steps": 24,
+  "seconds": 3,
+  "elapsed_seconds": 639.629141582991,
+  "sha256": "27eb139f0b2c34d76989d622142b5f739b25bac486b59036ad1634d44104d5ca",
+  "file": "ultimate.ogg",
+  "output_seconds": 2.5,
+  "output_peak": 0.6528317928314209,
+  "trim_start_seconds": 0.0,
+  "output_sha256": "02fa3df155a6b1b64baacb9ceaac8e8d4bbedbf178d041371c3915fd6b20591f",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

@@ -35,7 +35,7 @@ func run() -> void:
 		printerr("FAIL menu music overlaps battle")
 		quit(1)
 		return
-	for key in ["draw", "play", "summon_human", "equipment_elf", "hit_human", "spell_fire", "heal", "combo", "finisher", "victory_burst"]:
+	for key in ["draw", "play", "summon_human", "equipment_elf", "hit_human", "hit_elf", "impact_heavy", "unit_death", "spell_fire", "heal", "combo", "finisher", "victory_burst"]:
 		manager.play_sound(key)
 		await create_timer(0.75).timeout
 	manager.stop_battle_music()
@@ -52,7 +52,14 @@ func run() -> void:
 				printerr("FAIL old music stem plays over generated score")
 				quit(1)
 				return
-	manager.stop_battle_music()
+	manager.set_battle_music_state({"mode": "tension", "boss": true})
+	await create_timer(1.0).timeout
+	assert(String(manager.music_players["battle_base"].stream.resource_path).ends_with("battle_base.ogg"), "boss uses available battle score")
+	manager.set_screen_music("map")
+	await create_timer(0.8).timeout
+	assert(manager.menu_music_player.playing and not manager.music_players["battle_base"].playing, "exploration replaces combat")
+	assert(String(manager.menu_music_player.stream.resource_path).ends_with("exploration.ogg"), "exploration score must play")
+	manager.set_screen_music("main_menu")
 	await create_timer(1.0).timeout
 	recorder.set_recording_active(false)
 	var recording := recorder.get_recording()
@@ -64,7 +71,7 @@ func run() -> void:
 	if saved != OK:
 		quit(1)
 		return
-	print("PASS original menu, battle transition, 10 SFX and return; engine recording saved")
+	print("PASS generated menu, battle, boss, exploration, 13 SFX and return; engine recording saved")
 	manager.queue_free()
 	await process_frame
 	quit()

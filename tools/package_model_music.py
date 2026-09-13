@@ -12,7 +12,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--generation-dir', type=Path, required=True)
     parser.add_argument('--output-dir', type=Path, required=True)
-    parser.add_argument('--name', choices=['menu_theme', 'battle_base'], required=True)
+    parser.add_argument('--name', choices=['menu_theme', 'battle_base', 'exploration', 'boss_theme'], required=True)
     args = parser.parse_args()
     record = json.loads((args.generation_dir / 'generation.json').read_text())
     if not record.get('success') or len(record.get('audios', [])) != 1:
@@ -40,15 +40,19 @@ def main():
     fade = np.linspace(0, 1, n)[:, None]
     joined = samples[-n:] * (1 - fade) + samples[:n] * fade
     loop = np.concatenate([samples[n:-n], joined])
-    with tempfile.TemporaryDirectory(prefix='music-loop-') as temp:
+    with tempfile.TemporaryDirectory(prefix='.music-loop-', dir=args.output_dir) as temp:
         edited = Path(temp) / 'loop.wav'
+        candidate = Path(temp) / target.name
         sf.write(edited, loop, rate, subtype='FLOAT')
         subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(edited),
                         '-af', 'loudnorm=I=-18:TP=-2:LRA=11', '-ar', '48000',
-                        '-codec:a', 'libvorbis', '-q:a', '5', str(target)], check=True)
-    decoded, decoded_rate = sf.read(target, always_2d=True)
-    if len(decoded) != len(loop) or decoded_rate != rate:
-        raise SystemExit('Encoded loop length does not match edited source')
+                        '-codec:a', 'libvorbis', '-q:a', '5', str(candidate)], check=True)
+        decoded, decoded_rate = sf.read(candidate, always_2d=True)
+        if len(decoded) != len(loop) or decoded_rate != rate:
+            raise SystemExit('Encoded loop length does not match edited source')
+        if not np.isfinite(decoded).all() or not 0.03 < np.max(np.abs(decoded)) < 1.0:
+            raise SystemExit('Invalid encoded music')
+        candidate.replace(target)
     record['output_seconds'] = len(decoded) / decoded_rate
     record['output_peak'] = float(np.max(np.abs(decoded)))
     record['loop_boundary_jump'] = float(np.max(np.abs(decoded[0] - decoded[-1])))

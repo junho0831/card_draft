@@ -16,15 +16,24 @@ func _ready() -> void:
 	if ResourceLoader.exists(HEAVY_IMPACT_TEXTURE_PATH):
 		heavy_impact_texture = ResourceLoader.load(HEAVY_IMPACT_TEXTURE_PATH, "Texture2D") as Texture2D
 
-func play_attack(attacker: Control, defender: Control, damage: int, counter: bool = false) -> void:
+func play_attack(attacker: Control, defender: Control, damage: int, counter: bool = false, style: String = "hit_human") -> void:
 	if defender == null or not is_instance_valid(defender):
 		return
 	var strong := damage >= 4
 	var color := Color(1.0, 0.68, 0.22, 1.0) if counter else Color(1.0, 0.25, 0.16, 1.0)
 	var center := _control_center(defender)
 	var source := _control_center(attacker) if attacker != null and is_instance_valid(attacker) else center
-	_spawn_screen_flash(color, 0.18 if strong else 0.09, 0.24 if strong else 0.16)
-	_spawn_travel_streak(source, center, color, strong)
+	if style == "hit_elf":
+		color = Color(0.42, 0.95, 0.66)
+	elif style == "hit_undead":
+		color = Color(0.7, 0.42, 1.0)
+	# Ordinary hits stay local; large impacts alone illuminate the screen.
+	if strong:
+		_spawn_screen_flash(color, 0.12, 0.20)
+	if style == "hit_elf":
+		_spawn_card_arc_trail(source, (source + center) * 0.5 + Vector2(0, -55), center, color, 0.22)
+	else:
+		_spawn_travel_streak(source, center, color, strong)
 	_spawn_impact_core(center, color, strong)
 	_spawn_impact_texture(center, strong, counter)
 	_spawn_ring(center, color, 48.0 if strong else 34.0, 0.36 if strong else 0.28)
@@ -32,6 +41,53 @@ func play_attack(attacker: Control, defender: Control, damage: int, counter: boo
 	_spawn_sparks(center, color, 16 if strong else 8, 0.48 if strong else 0.34)
 	if strong:
 		_spawn_frame_pulse(color, 0.38)
+
+func play_heal(target: Control) -> void:
+	if not is_instance_valid(target):
+		return
+	var center := _control_center(target)
+	var color := Color(0.35, 1.0, 0.66)
+	_spawn_ring(center, color, 36.0, 0.6)
+	for i in range(6 if _viewport_size().x < 600 else 10):
+		var mote := ColorRect.new()
+		mote.size = Vector2(4, 12)
+		mote.color = color.lightened(float(i % 3) * 0.15)
+		mote.position = center + Vector2(rng.randf_range(-36, 36), rng.randf_range(0, 28))
+		mote.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(mote)
+		var tween := mote.create_tween()
+		tween.tween_property(mote, "position:y", mote.position.y - 90, 0.65).set_trans(Tween.TRANS_SINE)
+		tween.parallel().tween_property(mote, "modulate:a", 0.0, 0.5).set_delay(0.15)
+		tween.tween_callback(Callable(self, "_free_if_valid").bind(mote))
+
+func play_death(target: Control) -> void:
+	if not is_instance_valid(target):
+		return
+	var center := _control_center(target)
+	# Independent fragments survive a field refresh; never tween a reused slot.
+	for i in range(6 if _viewport_size().x < 600 else 12):
+		var fragment := ColorRect.new()
+		fragment.size = Vector2(rng.randf_range(4, 10), rng.randf_range(8, 18))
+		fragment.position = center + Vector2(rng.randf_range(-26, 26), rng.randf_range(-22, 22))
+		fragment.color = Color(0.55, 0.49, 0.40)
+		fragment.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(fragment)
+		var tween := fragment.create_tween()
+		tween.tween_property(fragment, "position", fragment.position + Vector2(rng.randf_range(-55, 55), 85), 0.48).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.parallel().tween_property(fragment, "rotation", rng.randf_range(-3, 3), 0.48)
+		tween.parallel().tween_property(fragment, "modulate:a", 0.0, 0.35).set_delay(0.13)
+		tween.tween_callback(Callable(self, "_free_if_valid").bind(fragment))
+
+func play_ultimate(target: Control, accent: Color) -> void:
+	if not is_instance_valid(target):
+		return
+	var center := _control_center(target)
+	_spawn_ring(center, accent, 90, 0.6)
+	_spawn_ring(center, accent.lightened(0.4), 55, 0.4)
+	var compact := _viewport_size().x < 600
+	_spawn_radial_burst(center, accent, 12 if compact else 20, true)
+	_spawn_sparks(center, accent, 12 if compact else 22, 0.7)
+	_spawn_frame_pulse(accent, 0.5)
 
 func _spawn_impact_texture(center: Vector2, strong: bool, counter: bool) -> void:
 	if heavy_impact_texture == null:

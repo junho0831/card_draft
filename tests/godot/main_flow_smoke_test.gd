@@ -57,7 +57,7 @@ func _test_boots_to_main_menu(main: Node) -> void:
 		_assert_true(main.audio_manager.streams.has(sound_name), "audio manager provides card identity sound: %s" % sound_name)
 	var all_model_sfx_loaded := true
 	for sound_name in main.audio_manager.authored_sfx_keys():
-		_assert_true(ResourceLoader.exists("res://assets/audio/original_v1/%s.ogg" % sound_name), "original SFX resource exists: %s" % sound_name)
+		_assert_true(ResourceLoader.exists("res://assets/audio/local_models_v1/%s.ogg" % main.audio_manager._model_sfx_key(sound_name)), "generated SFX resource exists: %s" % sound_name)
 		var sound_path := String(main.audio_manager.custom_streams.get(sound_name).resource_path)
 		all_model_sfx_loaded = all_model_sfx_loaded and sound_path.begins_with("res://assets/audio/local_models_v1/")
 		_assert_true(sound_path.begins_with("res://assets/audio/original_v1/") or sound_path.begins_with("res://assets/audio/local_models_v1/"), "SFX is loaded from a documented production directory: %s" % sound_name)
@@ -79,6 +79,31 @@ func _test_boots_to_main_menu(main: Node) -> void:
 			_assert_true(float(targets["battle_base"]) > -80.0, "generated score remains audible: %s" % mode)
 			for layer in ["battle_tension", "battle_lethal", "battle_low_hp"]:
 				_assert_eq(float(targets[layer]), -80.0, "unrelated old stems stay silent under generated score: %s/%s" % [mode, layer])
+	for spec in [["hit_elf", "sword_hit"], ["impact_heavy", "heavy_hit"], ["finisher", "ultimate"], ["unit_death", "unit_death"]]:
+		_assert_true(String(main.audio_manager.custom_streams[spec[0]].resource_path).ends_with("/%s.ogg" % spec[1]), "distinct generated effect: %s" % spec[0])
+	main.audio_manager.set_screen_music("map")
+	_assert_eq(main.audio_manager.ambient_key, "exploration", "map chooses exploration score")
+	var exploration_stream = main.audio_manager.menu_music_player.stream
+	main.audio_manager.set_screen_music("shop")
+	_assert_true(main.audio_manager.menu_music_player.stream == exploration_stream, "adjacent exploration screens retain the same stream")
+	main.audio_manager.set_battle_music_state({"boss": true})
+	_assert_true(String(main.audio_manager.music_players["battle_base"].stream.resource_path).ends_with("/battle_base.ogg"), "boss uses available battle score")
+	main.audio_manager.set_battle_music_state({"boss": false})
+	_assert_true(String(main.audio_manager.music_players["battle_base"].stream.resource_path).ends_with("/battle_base.ogg"), "normal battle restores normal score")
+	main.audio_manager.set_screen_music("main_menu")
+	_assert_eq(main.audio_manager.current_battle_music_mode, "stopped", "leaving battle stops combat music")
+	_assert_eq(main.audio_manager.ambient_key, "menu_theme", "menu restores menu score")
+	var mix_bus := AudioServer.get_bus_index(&"MusicMix")
+	_assert_eq(String(AudioServer.get_bus_send(mix_bus)), "BGM", "ducking retains user BGM bus as parent")
+	var bgm_bus := AudioServer.get_bus_index(&"BGM")
+	var user_bgm_db := AudioServer.get_bus_volume_db(bgm_bus)
+	main.audio_manager.duck_until_msec = Time.get_ticks_msec() + 1000
+	main.audio_manager._process(0.1)
+	_assert_eq(AudioServer.get_bus_volume_db(mix_bus), -5.0, "impact briefly ducks music")
+	_assert_eq(AudioServer.get_bus_volume_db(bgm_bus), user_bgm_db, "ducking preserves user volume")
+	main.audio_manager.duck_until_msec = 0
+	main.audio_manager._process(0.6)
+	_assert_eq(AudioServer.get_bus_volume_db(mix_bus), 0.0, "music mix recovers after impact")
 	var sfx_bus := AudioServer.get_bus_index(&"SFX")
 	_assert_true(sfx_bus >= 0, "audio manager creates a dedicated SFX bus")
 	_assert_true(sfx_bus >= 0 and AudioServer.get_bus_effect_count(sfx_bus) > 0, "SFX bus includes a limiter")
@@ -285,6 +310,7 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	_assert_eq(String(battle._card_play_sfx({"type": "spell", "race": "언데드", "build_tags": ["death"]})), "spell_death", "death-tag spells use death audio")
 	_assert_eq(String(battle._card_play_sfx({"type": "equipment", "race": "중립", "build_tags": ["buff"]})), "equipment_common", "common equipment cards use common equipment audio")
 	_assert_eq(String(battle._attack_impact_sfx({"race": "엘프"}, 2, false)), "hit_elf", "elf attackers use elf hit audio")
+	_assert_eq(String(battle._hero_attack_sfx({"race": "엘프"}, 2)), "hit_elf", "elf hero attacks retain archery identity")
 	_assert_true(battle._card_exhausts_after_play(main.card_db.get_card("world_tree_ritual")), "pure self-setup ritual spells exhaust instead of cycling forever")
 	_assert_true(not battle._card_exhausts_after_play(main.card_db.get_card("nature_communion")), "ritual spells with card draw keep normal discard cycling")
 	_assert_true(not battle._card_exhausts_after_play({"id": "new_setup_attack", "type": "spell", "text": "효과", "build_tags": ["buff"]}), "non-ritual setup spells are not exhausted by id or tag alone")

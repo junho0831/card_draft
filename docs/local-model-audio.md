@@ -73,3 +73,7 @@ xvfb-run -a godot --path /tmp/card-draft-model-pack-check \
   -s res://tests/godot/capture_original_audio.gd -- \
   --test-data-dir=/tmp/card-draft-model-pack-audio-check --expect-model-pack
 ```
+
+## 2026-09-13 사운드 확장
+
+탐험곡 `exploration`, 중량 타격 `heavy_hit`, 필살기 `ultimate`를 추가했다. 총 BGM 3곡과 효과음 10종이며, 생성이 끝나지 않은 보스곡·활 소리는 포함하지 않았다. Python은 생성 모델 실행과 편집·인코딩에 사용한다. 손으로 주파수를 조합한 합성음으로 대체하지 않았다. 연결 및 검증 범위는 [사운드와 애니메이션](audio-and-animation.md)을 참고한다.

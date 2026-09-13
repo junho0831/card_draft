@@ -105,7 +105,7 @@ res://src/core/Main.tscn
 
 ## 효과음
 
-음악은 ACE-Step 1.5, 효과음은 MOSS-SoundEffect v2를 로컬에서 생성한 `assets/audio/local_models_v1`의 Ogg를 우선 사용한다. 메뉴·전투 음악 2개와 효과음 8개를 기존 이벤트에 연결한다. 전투 음악은 완성된 단일 곡의 음량을 상황에 따라 조정하며 이전 합성 레이어를 겹치지 않는다. 모델 라이선스·생성 기록·재생 검증은 [로컬 모델 오디오](docs/local-model-audio.md)에 기록한다. 사람의 청취 평가와 신규 사용자 플레이 검증은 자동 검사와 별개다.
+음악은 ACE-Step 1.5, 효과음은 MOSS-SoundEffect v2를 로컬에서 생성한 `assets/audio/local_models_v1`의 Ogg를 우선 사용한다. 메뉴·탐험·전투 음악 3개와 효과음 10개를 기존 이벤트에 연결한다. 전투 음악은 완성된 단일 곡의 음량을 상황에 따라 조정하며 이전 합성 레이어를 겹치지 않는다. 모델 라이선스·생성 기록·재생 검증은 [로컬 모델 오디오](docs/local-model-audio.md)에 기록한다. 사람의 청취 평가와 신규 사용자 플레이 검증은 자동 검사와 별개다.
 
 첫 학습 전투의 ‘도움 보기’는 위치만 강조한다. 카드를 사용하거나 공격·턴 종료를 대신 실행하지 않는다. 일반 런의 기존 추천 조작은 유지한다. [첫판 경험 기획](docs/first-play-experience.md)을 참조한다.
 
@@ -184,3 +184,5 @@ godot --headless --path . -s res://tests/godot/playthrough_probe.gd -- --test-da
 학습 런은 기존 구성과 단계별 개방을 유지한다. 보상은 실제 덱·유물 점수로 결정하므로 다른 전략을 섞을 수 있다. 이어하기는 저장된 구성을 사용하며 기존 런을 자동 변환하지 않는다.
 
 정의는 `data/starting_strategies.json`, 비교 결과와 구성 보정 사유는 [시작 전략 비교](docs/starting-strategy-comparison.md), 실행 명령은 [실행과 테스트](docs/run-and-test.md)를 참고한다.
+
+사운드 연결과 전투 연출, 검증 범위는 [사운드와 애니메이션](docs/audio-and-animation.md)을 참고한다.
