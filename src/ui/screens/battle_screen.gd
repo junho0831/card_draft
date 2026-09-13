@@ -40,6 +40,7 @@ var opponent_field_box: HBoxContainer
 var hero_attack_button: Button
 var race_power_button: Button
 var recommended_action_button: Button
+var battle_action_caption_label: Label
 var detail_toggle_button: Button
 var detail_panel: PanelContainer
 var tutorial_panel: PanelContainer
@@ -411,14 +412,14 @@ func _recommended_action_state() -> Dictionary:
 			return {
 				"kind": "end_turn",
 				"text": "턴 넘기기",
-				"guidance": "더 할 행동이 없습니다. 아래 큰 버튼을 눌러 턴을 넘기세요.",
+				"guidance": "더 할 행동이 없습니다. '여기 눌러 턴 넘기기' 버튼을 누르세요.",
 			}
 		var selected_target = _recommended_attack_target_index(selected)
 		if not _enemy_vanguard_blocks_hero() and int(opponent.get("health", 0)) <= _predict_hero_attack_damage(selected, player, false):
 			return {
 				"kind": "hero_attack_selected",
 				"text": "%s 영웅 공격" % String(selected.get("name", "유닛")),
-				"guidance": "아래 큰 승리 버튼을 누르세요. %s가 적 영웅을 쓰러뜨립니다." % String(selected.get("name", "유닛")),
+				"guidance": "'여기 눌러 승리하기' 버튼을 누르세요. %s가 적 영웅을 쓰러뜨립니다." % String(selected.get("name", "유닛")),
 				"outcome": "victory",
 			}
 		if selected_target != -1:
@@ -426,14 +427,14 @@ func _recommended_action_state() -> Dictionary:
 			return {
 				"kind": "unit_attack_selected",
 				"text": "%s -> %s" % [String(selected.get("name", "유닛")), String(target.get("name", "적 유닛"))],
-				"guidance": "아래 큰 버튼을 누르면 %s · %s" % [String(target.get("name", "적 유닛")), _attack_payoff_text(selected, selected_target)],
+				"guidance": "'여기 누르기' 버튼을 누르면 %s · %s" % [String(target.get("name", "적 유닛")), _attack_payoff_text(selected, selected_target)],
 				"target_index": selected_target,
 			}
 		var selected_damage := _predict_hero_attack_damage(selected, player, false)
 		return {
 			"kind": "hero_attack_selected",
 			"text": "%s -> 적 영웅 · 피해 %d" % [String(selected.get("name", "유닛")), selected_damage],
-			"guidance": "아래 큰 버튼을 누르면 %s가 적 영웅에게 %d 피해를 줍니다." % [String(selected.get("name", "유닛")), selected_damage],
+			"guidance": "'여기 누르기' 버튼을 누르면 %s가 적 영웅에게 %d 피해를 줍니다." % [String(selected.get("name", "유닛")), selected_damage],
 		}
 
 	var race_power_state := _recommended_race_power_state()
@@ -448,7 +449,7 @@ func _recommended_action_state() -> Dictionary:
 			return {
 				"kind": "hero_attack_direct",
 				"text": "%s 영웅 공격" % String(ready_attacker.get("name", "유닛")),
-				"guidance": "아래 큰 승리 버튼을 누르세요. 공격자와 대상은 자동으로 선택됩니다.",
+				"guidance": "'여기 눌러 승리하기' 버튼을 누르세요. 공격자와 대상은 자동으로 선택됩니다.",
 				"attacker_index": ready_attacker_index,
 				"outcome": "victory",
 			}
@@ -457,7 +458,7 @@ func _recommended_action_state() -> Dictionary:
 			return {
 				"kind": "unit_attack_direct",
 				"text": "%s -> %s" % [String(ready_attacker.get("name", "유닛")), String(ready_enemy.get("name", "적 유닛"))],
-				"guidance": "아래 큰 버튼을 누르면 추천 공격을 바로 실행합니다 · %s" % _attack_payoff_text(ready_attacker, ready_target),
+				"guidance": "금색 '여기 누르기' 버튼을 누르면 추천 공격을 바로 실행합니다 · %s" % _attack_payoff_text(ready_attacker, ready_target),
 				"attacker_index": ready_attacker_index,
 				"target_index": ready_target,
 			}
@@ -465,7 +466,7 @@ func _recommended_action_state() -> Dictionary:
 		return {
 			"kind": "hero_attack_direct",
 			"text": "%s -> 적 영웅 · 피해 %d" % [String(ready_attacker.get("name", "유닛")), ready_damage],
-			"guidance": "아래 큰 버튼을 누르면 공격자와 적 영웅이 자동 선택됩니다.",
+			"guidance": "금색 '여기 누르기' 버튼을 누르면 공격자와 적 영웅이 자동 선택됩니다.",
 			"attacker_index": ready_attacker_index,
 		}
 
@@ -475,13 +476,13 @@ func _recommended_action_state() -> Dictionary:
 		var card_type = String(recommended_card.get("type", ""))
 		var card_id = _base_card_id(String(recommended_card.get("id", "")))
 		var result_preview := _card_result_preview(recommended_card)
-		var guidance = "아래 큰 버튼을 누르면 %s 카드를 사용합니다 · %s" % [String(recommended_card.get("name", "카드")), result_preview]
+		var guidance = "금색 '여기 누르기' 버튼을 누르면 %s 카드를 사용합니다 · %s" % [String(recommended_card.get("name", "카드")), result_preview]
 		if card_type == "unit":
-			guidance = "아래 큰 버튼을 눌러 %s을 소환하세요 · %s" % [String(recommended_card.get("name", "유닛")), result_preview]
+			guidance = "금색 '여기 누르기' 버튼을 눌러 %s을 소환하세요 · %s" % [String(recommended_card.get("name", "유닛")), result_preview]
 		elif _direct_damage_preview(recommended_card) > 0 and not opponent.field.is_empty():
-			guidance = "아래 큰 버튼으로 피해 카드를 바로 사용하세요 · %s" % result_preview
+			guidance = "금색 '여기 누르기' 버튼으로 피해 카드를 바로 사용하세요 · %s" % result_preview
 		elif card_id in ["first_aid", "healing_potion", "moonwell", "vampiric_strike"]:
-			guidance = "아래 큰 버튼으로 회복 카드를 바로 사용하세요 · %s" % result_preview
+			guidance = "금색 '여기 누르기' 버튼으로 회복 카드를 바로 사용하세요 · %s" % result_preview
 		return {
 			"kind": "play_card",
 			"text": "%s 사용" % String(recommended_card.get("name", "카드")),
@@ -492,7 +493,7 @@ func _recommended_action_state() -> Dictionary:
 	return {
 		"kind": "end_turn",
 		"text": "턴 넘기기",
-		"guidance": "이번 턴 행동이 끝났습니다. 아래 큰 버튼을 눌러 턴을 넘기세요.",
+		"guidance": "이번 턴 행동이 끝났습니다. '여기 눌러 턴 넘기기' 버튼을 누르세요.",
 	}
 
 func _enemy_strategy_text() -> String:
@@ -629,11 +630,11 @@ func _battle_guidance_mode() -> String:
 func _battle_guidance_mode_title() -> String:
 	match _battle_guidance_mode():
 		GUIDANCE_MODE_AUTO:
-			return "자동 안내 · 첫 전투"
+			return "지금 할 일"
 		GUIDANCE_MODE_GUIDED:
-			return "직접 플레이 · 대상 선택"
+			return "지금 누를 곳"
 		_:
-			return "전술 힌트"
+			return "추천 위치"
 
 func _manual_battle_guidance_text(state: Dictionary) -> String:
 	var kind := String(state.get("kind", "end_turn"))
@@ -693,7 +694,7 @@ func _current_battle_guidance_text() -> String:
 		return lesson_hint
 	var state := _recommended_action_state()
 	if _battle_guidance_mode() == GUIDANCE_MODE_AUTO:
-		return String(state.get("guidance", "아래 큰 다음 행동 버튼을 누르세요."))
+		return String(state.get("guidance", "금색 '여기 누르기' 버튼을 누르세요."))
 	return _manual_battle_guidance_text(state)
 
 func _current_battle_focus_text() -> String:
@@ -824,12 +825,12 @@ func _battle_tutorial_content() -> Dictionary:
 	match stage:
 		0:
 			return {
-				"title": "처음에는 큰 '다음 행동' 버튼만 누르세요",
-				"compact": "다음 행동: 추천 실행 · 직접 조작도 가능",
+				"title": "처음에는 금색 주 버튼만 누르세요",
+				"compact": "금색 주 버튼이 추천 카드와 공격 대상을 자동으로 고릅니다.",
 				"lines": [
-					"화면 아래의 가장 밝고 큰 다음 행동 버튼을 누르면 추천 행동이 즉시 실행됩니다.",
+					"전투 상단의 금색 주 버튼을 누르면 추천 행동이 즉시 실행됩니다.",
 					"직접 고르고 싶을 때만 내 유닛을 누른 뒤 붉게 표시된 적을 누르세요.",
-					"초반에는 카드 전체를 다 읽지 않아도 됩니다. 큰 버튼만 따라가도 전투가 진행됩니다.",
+					"초반에는 카드 전체를 다 읽지 않아도 됩니다. 금색 주 버튼만 따라가도 전투가 진행됩니다.",
 				],
 			}
 		1:
@@ -962,6 +963,7 @@ func _make_battle_content_root(tight: bool) -> VBoxContainer:
 	box.custom_minimum_size = Vector2(content_width, 0)
 	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
 	box.add_theme_constant_override("separation", 6 if tight else 10)
 	root_box.add_child(box)
 	return box
@@ -977,6 +979,7 @@ func _add_field_lane(parent: VBoxContainer, lane: HBoxContainer, lane_height: in
 	lane_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	lane_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	lane_scroll.follow_focus = true
+	lane_scroll.mouse_filter = Control.MOUSE_FILTER_PASS
 	lane_scroll.add_child(lane)
 	parent.add_child(lane_scroll)
 
@@ -1258,7 +1261,7 @@ func _recommended_race_power_state() -> Dictionary:
 	return {
 		"kind": "race_power",
 		"text": "%s 사용" % String(meta.get("power_name", "필살기")),
-		"guidance": "아래 큰 버튼을 눌러 %s을 사용하세요 · 전투당 1회" % String(meta.get("power_name", "필살기")),
+		"guidance": "빛나는 필살기 버튼을 눌러 %s을 사용하세요 · 전투당 1회" % String(meta.get("power_name", "필살기")),
 	}
 
 func _on_race_power_pressed(target_unit_id: int = -1) -> void:
@@ -1530,7 +1533,7 @@ func _make_top_status_bar(compact: bool) -> PanelContainer:
 	detail_toggle_button.focus_mode = Control.FOCUS_NONE
 	detail_toggle_button.custom_minimum_size = Vector2(44 if tight else 54, 44 if mobile else (24 if tight else 28))
 	detail_toggle_button.set_meta("header_toggle", true)
-	_style_battle_button(detail_toggle_button, Color(0.07, 0.09, 0.12, 0.92), Color(0.24, 0.42, 0.62, 0.9), false)
+	_style_detail_action_button(detail_toggle_button, true)
 	detail_toggle_button.add_theme_font_size_override("font_size", 10 if tight else 11)
 	detail_toggle_button.pressed.connect(Callable(self, "_toggle_battle_details"))
 	actions.add_child(detail_toggle_button)
@@ -1931,28 +1934,43 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	var race_meta: Dictionary = main._current_race_meta()
 	var race_color: Color = race_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
 	var guidance_mode := _battle_guidance_mode()
+	var action_accent := Color(1.0, 0.74, 0.24, 1.0) if guidance_mode != GUIDANCE_MODE_HINT else Color(0.42, 0.68, 1.0, 1.0)
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", BATTLE_STYLES.make_action_dock_style(race_color, 4 if phone_stack else (6 if wide_tight else 10)))
+	panel.add_theme_stylebox_override("panel", BATTLE_STYLES.make_action_dock_style(action_accent, 6 if phone_stack else (8 if wide_tight else 12)))
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var box: BoxContainer = VBoxContainer.new() if mobile else HBoxContainer.new()
-	box.add_theme_constant_override("separation", 4 if phone_stack else (6 if tight else 8))
+	var box: BoxContainer = VBoxContainer.new() if mobile else (HBoxContainer.new() if wide_tight else VBoxContainer.new())
+	box.add_theme_constant_override("separation", 6 if phone_stack else (8 if tight else 10))
 	panel.add_child(box)
-	if not tight and not wide_tight and not phone_stack:
-		var title: Label = main._make_label(_battle_guidance_mode_title(), 12 if tight else (14 if compact else 15), Color(0.82, 0.9, 1.0, 1.0))
-		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		box.add_child(title)
+	battle_action_caption_label = main._make_label("지금은 금색 주 버튼만 보면 됩니다", 12 if mobile else (12 if tight else (14 if compact else 15)), Color(1.0, 0.88, 0.52, 1.0))
+	battle_action_caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	battle_action_caption_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if mobile or phone_stack else TextServer.AUTOWRAP_OFF
+	battle_action_caption_label.clip_text = not mobile and not phone_stack
+	battle_action_caption_label.custom_minimum_size = Vector2(0 if not wide_tight else 168, 0)
+	battle_action_caption_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL if not wide_tight else Control.SIZE_SHRINK_CENTER
+	battle_action_caption_label.add_theme_constant_override("outline_size", 3)
+	battle_action_caption_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.72))
+	box.add_child(battle_action_caption_label)
+	if tight and not wide_tight and not phone_stack:
+		var mode_description := "버튼을 누르면 추천 행동이 바로 실행됩니다."
+		if guidance_mode == GUIDANCE_MODE_GUIDED:
+			mode_description = "공격자는 안내가 고르고, 마지막 대상은 직접 누릅니다."
+		elif guidance_mode == GUIDANCE_MODE_HINT:
+			mode_description = "추천 위치만 비춥니다. 행동은 직접 선택합니다."
+		var sub: Label = main._make_label(mode_description, 10, Color(0.66, 0.72, 0.8, 1.0))
+		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		box.add_child(sub)
 
 	recommended_action_button = Button.new()
 	recommended_action_button.text = "다음 행동"
-	var primary_height := 58 if mobile else (50 if phone_stack else (50 if wide_tight else (58 if tight else (64 if compact else 72))))
+	var primary_height := 66 if mobile else (58 if phone_stack else (56 if wide_tight else (64 if tight else (70 if compact else 78))))
 	if guidance_mode == GUIDANCE_MODE_HINT:
-		primary_height = mini(primary_height, 54)
+		primary_height = mini(primary_height, 58)
 	recommended_action_button.custom_minimum_size = Vector2(0 if phone_stack else (320 if vertical_stack else 0), primary_height)
 	recommended_action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if vertical_stack:
 		recommended_action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if phone_stack else Control.SIZE_SHRINK_CENTER
-	_style_battle_button(recommended_action_button, Color(0.07, 0.16, 0.32, 0.98), Color(0.42, 0.68, 1.0, 1.0), true, "primary")
-	recommended_action_button.add_theme_font_size_override("font_size", 14 if mobile else 16)
+	_style_recommended_action_button(recommended_action_button, "play_card", "", guidance_mode)
+	recommended_action_button.add_theme_font_size_override("font_size", 14 if mobile else (15 if phone_stack else (16 if tight else 20)))
 	recommended_action_button.pressed.connect(Callable(self, "_on_recommended_action_pressed"))
 	box.add_child(recommended_action_button)
 
@@ -1967,8 +1985,8 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	race_power_button.tooltip_text = "전투당 1회 · %s" % String(race_meta.get("power_text", ""))
 	race_power_button.custom_minimum_size = Vector2(0, 48 if mobile else (42 if phone_stack else (44 if wide_tight else (46 if tight else (50 if compact else 54)))))
 	race_power_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_style_battle_button(race_power_button, race_color.darkened(0.56), race_color, false, "power")
-	race_power_button.add_theme_font_size_override("font_size", 12 if mobile else 14)
+	_style_race_power_action_button(race_power_button, race_color, false, true)
+	race_power_button.add_theme_font_size_override("font_size", 12 if mobile else (10 if tight else 12))
 	race_power_button.pressed.connect(Callable(self, "_on_race_power_pressed"))
 	secondary_parent.add_child(race_power_button)
 
@@ -1976,8 +1994,8 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	end_turn_button.text = "턴 넘기기"
 	end_turn_button.custom_minimum_size = Vector2(0, 48 if mobile else (38 if phone_stack else (40 if wide_tight else (44 if tight else (46 if compact else 50)))))
 	end_turn_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_style_battle_button(end_turn_button, Color(0.08, 0.1, 0.13, 0.92), Color(0.24, 0.34, 0.44, 0.9), false, "turn")
-	end_turn_button.add_theme_font_size_override("font_size", 14 if mobile else 16)
+	_style_end_turn_action_button(end_turn_button, false)
+	end_turn_button.add_theme_font_size_override("font_size", 14 if mobile else (11 if tight else 13))
 	end_turn_button.pressed.connect(Callable(self, "_on_end_turn_pressed"))
 	secondary_parent.add_child(end_turn_button)
 
@@ -1999,7 +2017,7 @@ func _make_detail_toggle_row(compact: bool) -> HBoxContainer:
 	detail_toggle_button = Button.new()
 	detail_toggle_button.text = "상세 정보"
 	detail_toggle_button.custom_minimum_size = Vector2(108 if phone_row else (124 if tight else 144), 28 if phone_row else (30 if tight else 34))
-	_style_battle_button(detail_toggle_button, Color(0.07, 0.09, 0.12, 0.92), Color(0.24, 0.34, 0.44, 0.9), false)
+	_style_detail_action_button(detail_toggle_button, phone_row)
 	detail_toggle_button.add_theme_font_size_override("font_size", 9 if phone_row else (10 if tight else 12))
 	detail_toggle_button.pressed.connect(Callable(self, "_toggle_battle_details"))
 	row.add_child(detail_toggle_button)
@@ -2131,25 +2149,49 @@ func _recommended_action_text() -> String:
 	var state := _recommended_action_state()
 	var kind := String(state.get("kind", "end_turn"))
 	if kind == "wait":
-		return "상대 행동을 기다리는 중"
+		return "대기 중\n상대 턴"
 	if kind == "end_turn":
-		return "턴 넘기기"
+		return "턴 넘기기\n이번 턴 종료"
 	var guidance_mode := _battle_guidance_mode()
 	if guidance_mode == GUIDANCE_MODE_GUIDED:
 		match kind:
 			"hero_attack_direct", "unit_attack_direct":
-				return "1단계 · %s 선택" % String(state.get("text", "추천 공격자"))
+				return "1단계\n빛나는 아군"
 			"hero_attack_selected", "unit_attack_selected":
-				return "2단계 · 대상 위치 다시 보기"
+				return "2단계\n붉은 대상"
 			"play_card":
-				return "추천 카드 위치 보기 · %s" % String(state.get("text", "카드"))
+				return "카드 사용\n금색 카드"
 			"race_power":
-				return "세력 필살기 위치 보기"
+				return "필살기\n빛나는 버튼"
 	if guidance_mode == GUIDANCE_MODE_HINT:
-		return "힌트 위치 보기 · %s" % String(state.get("text", "추천 행동"))
+		return "힌트 보기\n추천 위치"
 	if String(state.get("outcome", "")) == "victory":
-		return "지금 눌러 승리하기 · %s" % String(state.get("text", "적 영웅 공격"))
-	return "다음 행동 · %s" % String(state.get("text", "추천 행동"))
+		return "승리 공격\n적 영웅"
+	return "주 행동\n%s" % String(state.get("text", "추천 행동"))
+
+func _battle_action_caption_text(state: Dictionary) -> String:
+	var kind := String(state.get("kind", "end_turn"))
+	if kind == "wait":
+		return "상대 행동 중"
+	if kind == "end_turn":
+		return "이번 턴은 끝났습니다"
+	if kind == "race_power":
+		return "빛나는 필살기를 누르세요"
+	if _battle_guidance_mode() == GUIDANCE_MODE_HINT:
+		return "추천 위치만 다시 보여줍니다"
+	if _battle_guidance_mode() == GUIDANCE_MODE_GUIDED:
+		match kind:
+			"hero_attack_direct", "unit_attack_direct":
+				return "1단계: 빛나는 아군을 누르세요"
+			"hero_attack_selected", "unit_attack_selected":
+				return "2단계: 붉은 대상을 누르세요"
+			"play_card":
+				return "금색 카드가 지금 쓸 카드입니다"
+	if kind == "play_card":
+		return "금색 주 버튼으로 카드를 바로 사용"
+	if kind in ["hero_attack_direct", "unit_attack_direct", "hero_attack_selected", "unit_attack_selected"]:
+		return "금색 주 버튼으로 추천 공격 실행"
+	return "지금은 금색 주 버튼만 보면 됩니다"
 
 func _show_recommendation_route_feedback(source: Control, target: Control, source_text: String, target_text: String) -> void:
 	if source != null and is_instance_valid(source):
@@ -2335,10 +2377,92 @@ func _make_modern_style(bg_color: Color, border_color: Color, border_width: int 
 	return BATTLE_STYLES.make_modern_style(bg_color, border_color, border_width, radius, margin)
 
 func _make_battle_surface(bg_color: Color, accent_color: Color, border_width: int = 1, radius: int = 8, margin: int = 10) -> PanelContainer:
-	return BATTLE_STYLES.make_battle_surface(bg_color, accent_color, border_width, radius, margin)
+	var panel := BATTLE_STYLES.make_battle_surface(bg_color, accent_color, border_width, radius, margin)
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	return panel
 
 func _style_battle_button(button: Button, bg_color: Color, accent_color: Color, active: bool = false, role: String = "action") -> void:
 	BATTLE_STYLES.apply_battle_button(button, bg_color, accent_color, active, role)
+
+func _make_button_flat_style(bg_color: Color, border_color: Color, border_width: int, radius: int, margin_x: int, margin_y: int, shadow_size: int = 5) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg_color
+	style.border_color = border_color
+	style.border_width_left = border_width
+	style.border_width_top = border_width
+	style.border_width_right = border_width
+	style.border_width_bottom = border_width
+	style.corner_radius_top_left = radius
+	style.corner_radius_top_right = radius
+	style.corner_radius_bottom_left = radius
+	style.corner_radius_bottom_right = radius
+	style.content_margin_left = margin_x
+	style.content_margin_right = margin_x
+	style.content_margin_top = margin_y
+	style.content_margin_bottom = margin_y
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.44)
+	style.shadow_size = shadow_size
+	style.shadow_offset = Vector2(0, maxi(1, shadow_size / 3))
+	return style
+
+func _apply_custom_button_style(button: Button, bg_color: Color, border_color: Color, font_color: Color, border_width: int, radius: int, margin_x: int, margin_y: int, shadow_size: int, outline_size: int = 2) -> void:
+	var normal := _make_button_flat_style(bg_color, border_color, border_width, radius, margin_x, margin_y, shadow_size)
+	var hover: StyleBoxFlat = normal.duplicate()
+	hover.bg_color = bg_color.lightened(0.08)
+	hover.border_color = border_color.lightened(0.16)
+	var pressed: StyleBoxFlat = normal.duplicate()
+	pressed.bg_color = bg_color.darkened(0.1)
+	pressed.content_margin_top = margin_y + 3
+	pressed.content_margin_bottom = maxi(1, margin_y - 1)
+	pressed.shadow_size = maxi(1, shadow_size - 3)
+	var disabled: StyleBoxFlat = normal.duplicate()
+	disabled.bg_color = Color(bg_color.r * 0.62, bg_color.g * 0.62, bg_color.b * 0.62, bg_color.a * 0.78)
+	disabled.border_color = Color(border_color.r * 0.5, border_color.g * 0.5, border_color.b * 0.5, 0.72)
+	disabled.shadow_size = 1
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("disabled", disabled)
+	button.add_theme_color_override("font_color", font_color)
+	button.add_theme_color_override("font_hover_color", font_color.lightened(0.08))
+	button.add_theme_color_override("font_pressed_color", font_color.darkened(0.06))
+	button.add_theme_color_override("font_disabled_color", Color(0.52, 0.56, 0.62, 1.0))
+	button.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.78))
+	button.add_theme_constant_override("outline_size", outline_size)
+	button.focus_mode = Control.FOCUS_NONE
+	button.clip_text = true
+
+func _style_recommended_action_button(button: Button, kind: String, outcome: String, guidance_mode: String) -> void:
+	if kind == "wait":
+		_apply_custom_button_style(button, Color(0.075, 0.085, 0.1, 0.92), Color(0.22, 0.26, 0.32, 0.86), Color(0.74, 0.78, 0.84, 1.0), 1, 8, 18, 13, 2, 1)
+		return
+	if outcome == "victory":
+		_apply_custom_button_style(button, Color(0.48, 0.095, 0.045, 1.0), Color(1.0, 0.78, 0.24, 1.0), Color(1.0, 0.98, 0.88, 1.0), 3, 8, 22, 15, 11, 4)
+		return
+	if guidance_mode == GUIDANCE_MODE_HINT and kind != "end_turn":
+		_apply_custom_button_style(button, Color(0.045, 0.075, 0.105, 0.98), Color(0.38, 0.68, 1.0, 0.95), Color(0.88, 0.95, 1.0, 1.0), 2, 8, 20, 13, 6, 2)
+		return
+	if kind == "end_turn":
+		_apply_custom_button_style(button, Color(0.055, 0.22, 0.34, 1.0), Color(0.38, 0.78, 1.0, 1.0), Color(0.9, 0.98, 1.0, 1.0), 3, 8, 22, 15, 10, 3)
+		return
+	_apply_custom_button_style(button, Color(0.42, 0.25, 0.055, 1.0), Color(1.0, 0.78, 0.26, 1.0), Color(1.0, 0.98, 0.86, 1.0), 3, 8, 22, 15, 12, 4)
+
+func _style_race_power_action_button(button: Button, race_color: Color, recommended: bool, enabled: bool) -> void:
+	if not enabled:
+		_apply_custom_button_style(button, Color(0.05, 0.055, 0.065, 0.82), Color(0.16, 0.18, 0.22, 0.8), Color(0.58, 0.6, 0.64, 1.0), 1, 7, 13, 8, 1, 1)
+		return
+	var bg := Color(0.1, 0.055, 0.16, 0.96).lerp(race_color.darkened(0.48), 0.42)
+	var border := race_color.lightened(0.16) if recommended else race_color.darkened(0.08)
+	_apply_custom_button_style(button, bg, border, Color(0.96, 0.92, 1.0, 1.0), 2 if recommended else 1, 7, 14, 9, 7 if recommended else 3, 2)
+
+func _style_end_turn_action_button(button: Button, recommended: bool) -> void:
+	if recommended:
+		_apply_custom_button_style(button, Color(0.035, 0.19, 0.3, 0.98), Color(0.34, 0.72, 1.0, 1.0), Color(0.9, 0.98, 1.0, 1.0), 2, 7, 15, 9, 7, 2)
+	else:
+		_apply_custom_button_style(button, Color(0.055, 0.065, 0.078, 0.92), Color(0.2, 0.25, 0.31, 0.86), Color(0.7, 0.74, 0.8, 1.0), 1, 7, 14, 8, 2, 1)
+
+func _style_detail_action_button(button: Button, compact: bool = false) -> void:
+	_apply_custom_button_style(button, Color(0.035, 0.043, 0.052, 0.9), Color(0.18, 0.24, 0.31, 0.84), Color(0.76, 0.82, 0.9, 1.0), 1, 6, 10 if compact else 12, 5 if compact else 7, 1, 1)
 
 func _make_battle_badge(text: String, bg_color: Color, accent_color: Color, font_size: int = 11) -> PanelContainer:
 	var panel = _make_battle_surface(bg_color, accent_color, 1, 6, 5)
@@ -2424,7 +2548,7 @@ func _render_build_chips() -> void:
 
 		# Synergy tag tooltip hover integration
 		var meta: Dictionary = main._build_tag_meta().get(tag, {})
-		panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		panel.mouse_filter = Control.MOUSE_FILTER_PASS
 		panel.mouse_entered.connect(func():
 			if panel == null or not is_instance_valid(panel):
 				return
@@ -2543,6 +2667,7 @@ func _build_battle_ui() -> void:
 	hero_attack_button = null
 	race_power_button = null
 	recommended_action_button = null
+	battle_action_caption_label = null
 	detail_toggle_button = null
 	detail_panel = null
 	opponent_hero_target = null
@@ -2583,9 +2708,16 @@ func _build_battle_ui() -> void:
 	tutorial_panel = _make_battle_tutorial_panel(compact)
 	battle_root.add_child(tutorial_panel)
 
+	var top_action_panel = _make_battle_action_panel(compact)
+	top_action_panel.custom_minimum_size = Vector2(0, 0)
+	top_action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_action_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	battle_root.add_child(top_action_panel)
+
 	var center_column = VBoxContainer.new()
 	center_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	center_column.mouse_filter = Control.MOUSE_FILTER_PASS
 	center_column.add_theme_constant_override("separation", 5 if tight else 6)
 	battle_root.add_child(center_column)
 
@@ -2596,6 +2728,7 @@ func _build_battle_ui() -> void:
 	center_column.add_child(board_panel)
 	var board_box = VBoxContainer.new()
 	board_box.add_theme_constant_override("separation", 2 if tight else 4)
+	board_box.mouse_filter = Control.MOUSE_FILTER_PASS
 	board_panel.add_child(board_box)
 
 	opponent_gauge_info = main._make_label("", 12 if tight else (12 if not compact else 12), Color(0.78, 0.82, 0.9, 1.0))
@@ -2681,23 +2814,17 @@ func _build_battle_ui() -> void:
 
 	var bottom_row: BoxContainer = VBoxContainer.new()
 	bottom_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom_row.mouse_filter = Control.MOUSE_FILTER_PASS
 	bottom_row.add_theme_constant_override("separation", 8 if tight else 10)
 	center_column.add_child(bottom_row)
-	var bottom_action_panel = _make_battle_action_panel(compact)
-	bottom_action_panel.z_index = 200
-	bottom_action_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bottom_action_panel.offset_left = 10
-	bottom_action_panel.offset_right = -10
-	bottom_action_panel.offset_top = -128 if mobile else -76
-	bottom_action_panel.offset_bottom = -8
-	main.modal_layer.add_child(bottom_action_panel)
 
-	var hand_panel: PanelContainer = main.ui.make_surface_panel(Color(0.025, 0.035, 0.05, 0.6), Color(0.18, 0.26, 0.36, 0.5), 1, 8, 8)
+	var hand_panel: PanelContainer = main.ui.make_surface_panel(Color(0.045, 0.055, 0.072, 1.0), Color(0.18, 0.26, 0.36, 1.0), 1, 8, 8)
 	hand_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	PRESENTATION.open_surface(hand_panel, 2)
 	bottom_row.add_child(hand_panel)
 	var hand_box_wrap: BoxContainer = VBoxContainer.new()
 	hand_box_wrap.add_theme_constant_override("separation", 4 if tight else 6)
+	hand_box_wrap.mouse_filter = Control.MOUSE_FILTER_PASS
 	hand_panel.add_child(hand_box_wrap)
 	var hand_header: BoxContainer = VBoxContainer.new() if wide_tight else HBoxContainer.new()
 	if wide_tight:
@@ -2705,12 +2832,13 @@ func _build_battle_ui() -> void:
 		hand_header.custom_minimum_size.x = 0
 		hand_header.alignment = BoxContainer.ALIGNMENT_CENTER
 	hand_header.add_theme_constant_override("separation", 8)
+	hand_header.mouse_filter = Control.MOUSE_FILTER_PASS
 	hand_box_wrap.add_child(hand_header)
 	var hand_title: Label = main._make_label("내 손패", 14, Color(0.92, 0.95, 1.0, 1.0))
 	hand_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hand_title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	hand_header.add_child(hand_title)
-	var hand_hint_text := "한 번 눌러 확대 · 다시 눌러 사용" if touch_hand else "카드를 눌러 사용 · 가로로 스크롤"
+	var hand_hint_text := "금색 카드: 한 번 확인 · 한 번 더 사용" if touch_hand else "금색 카드를 누르세요"
 	var hand_hint: Label = main._make_label(hand_hint_text, 10 if tight else (11 if compact else 12), Color(0.76, 0.82, 0.9, 1.0))
 	hand_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if wide_tight else HORIZONTAL_ALIGNMENT_RIGHT
 	hand_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2734,7 +2862,8 @@ func _build_battle_ui() -> void:
 	dock_space.custom_minimum_size.y = 130 if mobile else 72
 	battle_root.add_child(dock_space)
 
-
+	if compact:
+		battle_root.add_child(_make_detail_toggle_row(compact))
 	detail_panel = _make_battle_detail_panel(compact)
 	battle_root.add_child(detail_panel)
 	detail_overlay = PRESENTATION.make_detail_overlay(main.modal_layer, detail_panel, Callable(self, "_toggle_battle_details"))
@@ -5168,6 +5297,16 @@ func _refresh_action_buttons() -> void:
 			detail_toggle_button.text = "닫기" if battle_detail_visible else "정보"
 		else:
 			detail_toggle_button.text = "상세 닫기" if battle_detail_visible else "상세 정보"
+	if battle_action_caption_label != null and is_instance_valid(battle_action_caption_label):
+		battle_action_caption_label.text = _battle_action_caption_text(recommended_state)
+		var caption_color := Color(1.0, 0.88, 0.52, 1.0)
+		if recommended_kind == "wait":
+			caption_color = Color(0.68, 0.74, 0.82, 1.0)
+		elif _battle_guidance_mode() == GUIDANCE_MODE_HINT:
+			caption_color = Color(0.72, 0.86, 1.0, 1.0)
+		elif recommended_kind == "end_turn":
+			caption_color = Color(0.72, 0.9, 1.0, 1.0)
+		battle_action_caption_label.add_theme_color_override("font_color", caption_color)
 	if race_power_button != null and is_instance_valid(race_power_button):
 		var race_meta: Dictionary = main._current_race_meta()
 		var race_color: Color = race_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
@@ -5175,35 +5314,21 @@ func _refresh_action_buttons() -> void:
 		var can_use_power := _can_use_race_power()
 		var power_recommended := recommended_kind == "race_power"
 		race_power_button.disabled = not can_use_power
-		race_power_button.text = _race_power_button_text()
+		race_power_button.text = "여기 누르기 · %s" % _race_power_button_text() if power_recommended else _race_power_button_text()
 		if power_used:
 			race_power_button.tooltip_text = "이번 전투에서 이미 사용했습니다."
 		elif main._current_race_id() == "undead" and player.field.is_empty():
 			race_power_button.tooltip_text = "희생할 아군 유닛을 먼저 소환하세요."
 		else:
 			race_power_button.tooltip_text = "전투당 1회 · %s" % String(race_meta.get("power_text", ""))
-		if can_use_power:
-			_style_battle_button(race_power_button, race_color.darkened(0.64), race_color.darkened(0.12), power_recommended, "power")
-			race_power_button.modulate = Color.WHITE if power_recommended else Color(0.72, 0.74, 0.78, 0.9)
-		else:
-			_style_battle_button(race_power_button, Color(0.07, 0.08, 0.1, 0.84), Color(0.24, 0.28, 0.34, 0.8), false, "power")
-			race_power_button.modulate = Color(0.58, 0.6, 0.64, 0.76)
+		_style_race_power_action_button(race_power_button, race_color, power_recommended, can_use_power)
+		race_power_button.modulate = Color.WHITE if power_recommended else (Color(0.78, 0.8, 0.84, 0.92) if can_use_power else Color(0.58, 0.6, 0.64, 0.76))
 	if recommended_action_button != null:
 		recommended_action_button.disabled = _is_player_input_locked() or recommended_kind in ["wait", "select_target"]
 		recommended_action_button.text = _recommended_action_text()
+		recommended_action_button.tooltip_text = String(recommended_state.get("guidance", "지금 추천된 행동입니다."))
 		recommended_action_button.modulate = Color.WHITE
-		if _battle_guidance_mode() == GUIDANCE_MODE_HINT and recommended_kind != "end_turn":
-			_style_battle_button(recommended_action_button, Color(0.055, 0.08, 0.11, 0.94), Color(0.3, 0.48, 0.68, 0.9), false, "action")
-		elif _battle_guidance_mode() == GUIDANCE_MODE_GUIDED and recommended_kind != "end_turn":
-			_style_battle_button(recommended_action_button, Color(0.065, 0.12, 0.18, 0.98), Color(0.34, 0.68, 1.0, 1.0), true, "primary")
-		elif String(recommended_state.get("outcome", "")) == "victory":
-			_style_battle_button(recommended_action_button, Color(0.25, 0.075, 0.035, 0.99), Color(1.0, 0.72, 0.2, 1.0), true, "primary")
-		elif recommended_kind == "end_turn":
-			_style_battle_button(recommended_action_button, Color(0.07, 0.16, 0.25, 0.98), Color(0.28, 0.68, 1.0, 1.0), true, "primary")
-		elif recommended_kind in ["wait", "select_target"]:
-			_style_battle_button(recommended_action_button, Color(0.08, 0.1, 0.13, 0.82), Color(0.28, 0.34, 0.42, 0.8), false, "primary")
-		else:
-			_style_battle_button(recommended_action_button, Color(0.12, 0.085, 0.035, 0.98), Color(0.94, 0.72, 0.28, 1.0), true, "primary")
+		_style_recommended_action_button(recommended_action_button, recommended_kind, String(recommended_state.get("outcome", "")), _battle_guidance_mode())
 	if hero_attack_button != null:
 		var vanguard_blocking := _enemy_vanguard_blocks_hero()
 		var can_attack_hero: bool = not _is_player_input_locked() and selected_attacker != -1 and not vanguard_blocking
@@ -5227,12 +5352,8 @@ func _refresh_action_buttons() -> void:
 	if end_turn_button != null:
 		end_turn_button.disabled = _is_player_input_locked()
 		end_turn_button.text = "선택 취소" if not pending_action.is_empty() else "턴 종료"
-		if recommended_kind == "end_turn":
-			_style_battle_button(end_turn_button, Color(0.08, 0.16, 0.24, 0.96), Color(0.22, 0.62, 0.95, 1.0), true, "turn")
-			end_turn_button.modulate = Color.WHITE
-		else:
-			_style_battle_button(end_turn_button, Color(0.08, 0.1, 0.13, 0.92), Color(0.24, 0.34, 0.44, 0.9), false, "turn")
-			end_turn_button.modulate = Color(0.7, 0.72, 0.76, 0.88)
+		_style_end_turn_action_button(end_turn_button, recommended_kind == "end_turn")
+		end_turn_button.modulate = Color.WHITE if recommended_kind == "end_turn" else Color(0.7, 0.72, 0.76, 0.88)
 
 func _refresh_ui() -> void:
 	_ensure_battle_unit_ids()

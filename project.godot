@@ -14,13 +14,12 @@ config/name="card_draft"
 config/tags=PackedStringArray("tcg")
 run/main_scene="res://src/core/Main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
-config/icon="res://icon.svg"
+config/icon="res://assets/store/app_icon_1024.png"
 
 [display]
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
-window/size/mode=0
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
@@ -29,6 +28,11 @@ window/handheld/orientation=4
 
 common/default_scroll_deadzone=8
 theme/custom="res://assets/ui/main_theme.tres"
+
+[input_devices]
+
+pointing/emulate_mouse_from_touch=true
+pointing/emulate_touch_from_mouse=true
 
 [physics]
 

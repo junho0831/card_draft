@@ -358,6 +358,7 @@ func make_objective_panel(title: String, objective: String, compact: bool = fals
 
 func make_surface_panel(bg_color: Color, border_color: Color = Color(0.32, 0.35, 0.4, 1.0), border_width: int = 1, radius: int = 10, margins: int = 12) -> PanelContainer:
 	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	var surface_base := Color(THEME_PANEL.r, THEME_PANEL.g, THEME_PANEL.b, bg_color.a)
 	var surface_color := surface_base.lerp(bg_color, 0.24)
 	var surface_border := THEME_BORDER.lerp(border_color, 0.34)
@@ -376,6 +377,7 @@ func make_surface_panel(bg_color: Color, border_color: Color = Color(0.32, 0.35,
 
 func make_fantasy_card_panel(tint: Color, margins: int = 10) -> PanelContainer:
 	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	var style := make_style_box(Color(0.045, 0.055, 0.07, 0.98), tint, 2, 8)
 	style.content_margin_left = margins
 	style.content_margin_top = margins
@@ -472,6 +474,7 @@ func make_race_rules_style(card: Dictionary, margin: int = 6) -> StyleBoxFlat:
 
 func make_race_card_panel(card: Dictionary, margins: int = 10, border_width: int = 2, emphasis: float = 0.0) -> PanelContainer:
 	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.add_theme_stylebox_override("panel", make_race_card_style(card, Color(0.0, 0.0, 0.0, 0.0), border_width, margins, emphasis))
 	return panel
 

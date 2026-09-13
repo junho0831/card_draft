@@ -206,11 +206,13 @@ func _build_base_ui() -> void:
 	add_child(modal_layer)
 
 	root_center = CenterContainer.new()
+	root_center.mouse_filter = Control.MOUSE_FILTER_PASS
 	root_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root_center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root_scroll.add_child(root_center)
 
 	root_box = VBoxContainer.new()
+	root_box.mouse_filter = Control.MOUSE_FILTER_PASS
 	root_box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	root_box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root_box.add_theme_constant_override("separation", 12)
@@ -229,6 +231,30 @@ func _build_base_ui() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
 		_on_window_size_changed()
+
+func _input(event: InputEvent) -> void:
+	if active_screen != "battle":
+		return
+	if root_scroll == null or not is_instance_valid(root_scroll):
+		return
+	if battle_screen != null and bool(battle_screen.get("is_dragging_hand_card")):
+		return
+	if event is InputEventScreenDrag:
+		var drag := event as InputEventScreenDrag
+		_scroll_root_from_drag(drag.relative)
+	elif event is InputEventMouseMotion:
+		var motion := event as InputEventMouseMotion
+		if (motion.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+			_scroll_root_from_drag(motion.relative)
+
+func _scroll_root_from_drag(relative: Vector2) -> void:
+	if absf(relative.y) < 2.0 or absf(relative.y) < absf(relative.x) * 1.15:
+		return
+	var scroll_bar := root_scroll.get_v_scroll_bar()
+	var max_scroll := maxi(0, int(ceil(scroll_bar.max_value - scroll_bar.page)))
+	if max_scroll <= 0:
+		return
+	root_scroll.scroll_vertical = clampi(root_scroll.scroll_vertical - int(round(relative.y)), 0, max_scroll)
 
 func _on_window_size_changed() -> void:
 	_apply_root_layout()
@@ -391,10 +417,149 @@ func _show_main_menu() -> void:
 	if _layout_viewport_size().x >= 1100:
 		preload("res://src/ui/screens/cinematic_menu.gd").new(self).build(root_box)
 		return
-	root_box.add_theme_constant_override("separation", 10)
-	root_box.add_child(_make_main_menu_top_bar(compact))
-	root_box.add_child(_make_main_menu_content(compact))
-	root_box.add_child(_make_main_menu_footer(compact))
+	root_box.add_theme_constant_override("separation", 12)
+	root_box.add_child(_make_app_home_screen(compact))
+
+func _make_app_home_screen(compact: bool) -> Control:
+	var phone_portrait := _is_phone_portrait_layout()
+	var panel: PanelContainer = ui.make_surface_panel(Color(0.026, 0.033, 0.044, 1.0), Color(0.43, 0.34, 0.16, 1.0), 1, 8, 14 if compact else 18)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var root := VBoxContainer.new()
+	root.mouse_filter = Control.MOUSE_FILTER_PASS
+	root.add_theme_constant_override("separation", 14 if compact else 18)
+	panel.add_child(root)
+
+	var header := HBoxContainer.new()
+	header.mouse_filter = Control.MOUSE_FILTER_PASS
+	header.add_theme_constant_override("separation", 12)
+	root.add_child(header)
+	header.add_child(_make_art_rect(8, Vector2(48, 48) if compact else Vector2(58, 58)))
+	var title_box := VBoxContainer.new()
+	title_box.mouse_filter = Control.MOUSE_FILTER_PASS
+	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_box.add_theme_constant_override("separation", 4)
+	header.add_child(title_box)
+	var title := _make_label("Card Draft", 25 if compact else 32, Color(0.98, 0.98, 0.94, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title_box.add_child(title)
+	var subtitle := _make_label("한 판씩 완성하는 카드 전투", 13 if compact else 15, Color(0.86, 0.9, 0.95, 1.0))
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title_box.add_child(subtitle)
+
+	var resource_grid := GridContainer.new()
+	resource_grid.columns = 4 if not phone_portrait else 2
+	resource_grid.mouse_filter = Control.MOUSE_FILTER_PASS
+	resource_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	resource_grid.add_theme_constant_override("h_separation", 8)
+	resource_grid.add_theme_constant_override("v_separation", 8)
+	root.add_child(resource_grid)
+	resource_grid.add_child(ui.make_stat_tile("카드", str(card_defs.size()), Color(0.11, 0.14, 0.18, 1.0), true))
+	resource_grid.add_child(ui.make_stat_tile("골드", _format_large_number(int(player_profile.get("gold", 0))), Color(0.18, 0.15, 0.08, 1.0), true))
+	resource_grid.add_child(ui.make_stat_tile("영혼석", _format_large_number(int(player_profile.get("soul_stones", 0))), Color(0.09, 0.16, 0.2, 1.0), true))
+	resource_grid.add_child(ui.make_stat_tile("기록", "%d" % _recent_runs().size(), Color(0.12, 0.16, 0.13, 1.0), true))
+
+	var hero: PanelContainer = ui.make_surface_panel(Color(0.05, 0.06, 0.072, 1.0), Color(0.62, 0.46, 0.18, 1.0), 1, 8, 12)
+	hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.add_child(hero)
+	var hero_box: BoxContainer = VBoxContainer.new() if phone_portrait else HBoxContainer.new()
+	hero_box.mouse_filter = Control.MOUSE_FILTER_PASS
+	hero_box.add_theme_constant_override("separation", 14)
+	hero.add_child(hero_box)
+
+	var action_box := VBoxContainer.new()
+	action_box.mouse_filter = Control.MOUSE_FILTER_PASS
+	action_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	action_box.add_theme_constant_override("separation", 12)
+	hero_box.add_child(action_box)
+	var status_chip: PanelContainer = ui.make_chip(_home_status_text(), Color(0.14, 0.17, 0.1, 1.0), Color(1.0, 0.9, 0.62, 1.0), 13 if compact else 14)
+	action_box.add_child(status_chip)
+	var headline := _make_label(_home_headline_text(), 22 if compact else 28, Color(0.98, 0.97, 0.92, 1.0))
+	headline.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	action_box.add_child(headline)
+	var body := _make_label(_main_menu_next_action_text().replace("다음 행동: ", ""), 14 if compact else 16, Color(0.82, 0.87, 0.94, 1.0))
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	action_box.add_child(body)
+	var primary_title := "이어하기" if not current_run.is_empty() else "새 런 시작"
+	var primary_detail := "진행 중인 노드로 이동" if not current_run.is_empty() else "인간 기본 덱으로 바로 시작"
+	var primary_method := "_continue_run" if not current_run.is_empty() else "_start_new_run"
+	var primary := _make_home_action_button(primary_title, primary_detail, primary_method, Color(0.17, 0.31, 0.56, 1.0), true)
+	action_box.add_child(primary)
+
+	var quick_grid := GridContainer.new()
+	quick_grid.columns = 2
+	quick_grid.mouse_filter = Control.MOUSE_FILTER_PASS
+	quick_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	quick_grid.add_theme_constant_override("h_separation", 8)
+	quick_grid.add_theme_constant_override("v_separation", 8)
+	action_box.add_child(quick_grid)
+	quick_grid.add_child(_make_home_action_button("카드", "보유 카드", "_show_collection", Color(0.12, 0.15, 0.2, 1.0), false))
+	quick_grid.add_child(_make_home_action_button("강화", "영구 보너스", "_show_meta_upgrade", Color(0.12, 0.18, 0.14, 1.0), false))
+	quick_grid.add_child(_make_home_action_button("도감", "카드/유물", "_show_compendium", Color(0.16, 0.14, 0.2, 1.0), false))
+	quick_grid.add_child(_make_home_action_button("설정", "소리/화면", "_show_settings", Color(0.13, 0.15, 0.18, 1.0), false))
+
+	if not phone_portrait:
+		var art_panel: PanelContainer = ui.make_surface_panel(Color(0.04, 0.048, 0.058, 1.0), Color(0.3, 0.36, 0.48, 1.0), 1, 8, 10)
+		art_panel.custom_minimum_size = Vector2(280, 0)
+		hero_box.add_child(art_panel)
+		var art_box := VBoxContainer.new()
+		art_box.mouse_filter = Control.MOUSE_FILTER_PASS
+		art_box.add_theme_constant_override("separation", 8)
+		art_panel.add_child(art_box)
+		art_box.add_child(ui.make_chip(_hero_build_name(), Color(0.1, 0.13, 0.16, 1.0), Color(0.78, 0.86, 1.0, 1.0), 13))
+		var hero_card: Dictionary = cards_by_id.get("flame_swordsman", {})
+		var art: TextureRect = _make_card_art_rect(hero_card, Vector2(300, 320)) if not hero_card.is_empty() else _make_art_rect(8, Vector2(300, 320))
+		art_box.add_child(art)
+
+	var route := _make_home_route_panel(compact)
+	root.add_child(route)
+	return panel
+
+func _home_status_text() -> String:
+	if current_run.is_empty():
+		return "대기 중"
+	return "Act %d 진행 중" % int(current_run.get("act", 1))
+
+func _home_headline_text() -> String:
+	if current_run.is_empty():
+		return "오늘의 덱을 시작하세요"
+	return "%s 이어서 플레이" % String(_current_act().get("name", "현재 런"))
+
+func _make_home_action_button(title: String, detail: String, callback_method: String, color: Color, primary: bool) -> Button:
+	var button := Button.new()
+	button.text = "%s\n%s" % [title, detail]
+	button.custom_minimum_size = Vector2(0, 78 if primary else 58)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.focus_mode = Control.FOCUS_NONE
+	if primary:
+		ui.style_primary_button(button, color)
+	else:
+		ui.style_flat_button(button, color, color.lightened(0.35), 14, 1)
+	button.pressed.connect(Callable(self, callback_method))
+	return button
+
+func _make_home_route_panel(compact: bool) -> Control:
+	var panel: PanelContainer = ui.make_surface_panel(Color(0.045, 0.052, 0.062, 1.0), Color(0.18, 0.22, 0.28, 1.0), 1, 8, 12)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+	box.add_theme_constant_override("separation", 10)
+	panel.add_child(box)
+	var title := _make_label("진행 흐름", 16 if compact else 18, Color(0.98, 0.94, 0.82, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	box.add_child(title)
+	var route := GridContainer.new()
+	route.columns = 4
+	route.mouse_filter = Control.MOUSE_FILTER_PASS
+	route.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	route.add_theme_constant_override("h_separation", 8)
+	route.add_theme_constant_override("v_separation", 8)
+	box.add_child(route)
+	var node_types: Array = ["battle", "event", "shop", "boss"]
+	for node_type in node_types:
+		route.add_child(ui.make_chip(_node_type_name(String(node_type)), Color(0.1, 0.12, 0.15, 1.0), Color(0.9, 0.94, 1.0, 1.0), 12 if compact else 13))
+	return panel
 
 func _lesson_stage() -> int:
 	return Onboarding.stage(current_run)
