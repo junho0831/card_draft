@@ -146,3 +146,81 @@ static func make_field_slot_style(bg_color: Color, border_color: Color, border_w
 	style.shadow_size = 4
 	style.shadow_offset = Vector2(0, 2)
 	return style
+
+
+static func add_active_outline(frame: Control, color: Color) -> void:
+	var outline := Panel.new()
+	outline.name = "ActiveOutline"
+	outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	outline.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	outline.z_index = 2
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color.TRANSPARENT
+	style.draw_center = false
+	style.set_border_width_all(2)
+	style.border_color = color
+	style.set_corner_radius_all(7)
+	style.shadow_color = Color(color, 0.38)
+	style.shadow_size = 6
+	outline.add_theme_stylebox_override("panel", style)
+	frame.add_child(outline)
+
+
+static func make_button_flat_style(bg_color: Color, border_color: Color, border_width: int, radius: int, margin_x: int, margin_y: int, shadow_size: int = 5) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg_color
+	style.border_color = border_color
+	style.border_width_left = border_width
+	style.border_width_top = border_width
+	style.border_width_right = border_width
+	style.border_width_bottom = border_width
+	style.corner_radius_top_left = radius
+	style.corner_radius_top_right = radius
+	style.corner_radius_bottom_left = radius
+	style.corner_radius_bottom_right = radius
+	style.content_margin_left = margin_x
+	style.content_margin_right = margin_x
+	style.content_margin_top = margin_y
+	style.content_margin_bottom = margin_y
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.44)
+	style.shadow_size = shadow_size
+	style.shadow_offset = Vector2(0, maxi(1, shadow_size / 3))
+	return style
+
+
+static func apply_custom_button_style(button: Button, bg_color: Color, border_color: Color, font_color: Color, border_width: int, radius: int, margin_x: int, margin_y: int, shadow_size: int, outline_size: int = 2) -> void:
+	var normal := make_button_flat_style(bg_color, border_color, border_width, radius, margin_x, margin_y, shadow_size)
+	var hover: StyleBoxFlat = normal.duplicate()
+	hover.bg_color = bg_color.lightened(0.08)
+	hover.border_color = border_color.lightened(0.16)
+	var pressed: StyleBoxFlat = normal.duplicate()
+	pressed.bg_color = bg_color.darkened(0.1)
+	pressed.content_margin_top = margin_y + 3
+	pressed.content_margin_bottom = maxi(1, margin_y - 1)
+	pressed.shadow_size = maxi(1, shadow_size - 3)
+	var disabled: StyleBoxFlat = normal.duplicate()
+	disabled.bg_color = Color(bg_color.r * 0.62, bg_color.g * 0.62, bg_color.b * 0.62, bg_color.a * 0.78)
+	disabled.border_color = Color(border_color.r * 0.5, border_color.g * 0.5, border_color.b * 0.5, 0.72)
+	disabled.shadow_size = 1
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("disabled", disabled)
+	button.add_theme_color_override("font_color", font_color)
+	button.add_theme_color_override("font_hover_color", font_color.lightened(0.08))
+	button.add_theme_color_override("font_pressed_color", font_color.darkened(0.06))
+	button.add_theme_color_override("font_disabled_color", Color(0.52, 0.56, 0.62, 1.0))
+	button.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.78))
+	button.add_theme_constant_override("outline_size", outline_size)
+	button.focus_mode = Control.FOCUS_NONE
+	button.clip_text = true
+
+
+static func make_card_frame(border_color: Color, margin: int = 7) -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = load("res://assets/ui/fantasy/panel_gold.svg" if border_color.r > border_color.b else "res://assets/ui/fantasy/panel_blue.svg")
+	style.modulate_color = border_color.lightened(0.25)
+	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+		style.set_texture_margin(side, 12)
+		style.set_content_margin(side, margin)
+	return style

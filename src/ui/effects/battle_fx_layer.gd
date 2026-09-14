@@ -442,6 +442,10 @@ func show_drag_target_line(start_pos: Vector2, target_pos: Vector2, accent: Colo
 			var angle := TAU * float(point_index) / 24.0
 			ring.add_point(Vector2(cos(angle), sin(angle)) * 24.0)
 		drag_target_reticle.add_child(ring)
+		var arrow := Polygon2D.new()
+		arrow.name = "Arrow"
+		arrow.polygon = PackedVector2Array([Vector2(0, 0), Vector2(-18, -9), Vector2(-18, 9)])
+		drag_target_reticle.add_child(arrow)
 		add_child(drag_target_reticle)
 	
 	var line_color := accent if is_valid else Color(0.85, 0.25, 0.25, 0.8)
@@ -458,6 +462,9 @@ func show_drag_target_line(start_pos: Vector2, target_pos: Vector2, accent: Colo
 	
 	drag_target_reticle.position = target_pos
 	drag_target_reticle.visible = true
+	var arrow_node := drag_target_reticle.get_node("Arrow") as Polygon2D
+	arrow_node.rotation = (target_pos - control_point).angle()
+	arrow_node.color = line_color
 	var ring_node := drag_target_reticle.get_node_or_null("Ring") as Line2D
 	if ring_node != null:
 		ring_node.default_color = line_color

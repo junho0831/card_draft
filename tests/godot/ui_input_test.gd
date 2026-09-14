@@ -57,7 +57,7 @@ func run() -> Dictionary:
 	await battle._on_hand_card_pressed(0)
 	await tree.process_frame
 	await tree.process_frame
-	var field_button: Button = battle.player_field_slots[0].get_child(0)
+	var field_button: Button = find_button(battle.player_field_slots[0], "")
 	await click(field_button, tree)
 	check(battle.pending_action.is_empty() and battle.player.field[0].attack == 4, "clicking the unit artwork confirms equipment on that unit")
 	for viewport in [Vector2i(1280, 720), Vector2i(390, 844)]:

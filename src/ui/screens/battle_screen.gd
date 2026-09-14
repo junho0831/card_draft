@@ -7,6 +7,8 @@ const HAND_SLOT_PREFERENCE = [1, 3, 5, 7, 9, 0, 2, 4, 6, 8]
 const START_HAND = 5
 const STARTING_MAX_MANA = 1
 const TURN_TIME_SECONDS = 0.0
+const SnapshotCodec = preload("res://src/battle/battle_snapshot_codec.gd")
+const LayoutPolicy = preload("res://src/ui/layout_policy.gd")
 const EnemyPolicy = preload("res://src/battle/battle_enemy_policy.gd")
 var pending_action: Dictionary = {}
 var reference_health_bars: Dictionary = {}
@@ -101,6 +103,8 @@ var drag_preview_card: Control = null
 
 
 func _show_hover_popup(node: Control, title_text: String, description_text: String, accent_color: Color) -> void:
+	if _uses_touch_hand_selection():
+		return
 	if _should_skip_timed_battle_fx():
 		return
 	_hide_hover_popup()
@@ -195,36 +199,10 @@ func _save_run() -> void:
 	main._save_run()
 
 func _serialize_side(side: Dictionary) -> Dictionary:
-	return {
-		"name": String(side.get("name", "")),
-		"health": int(side.get("health", 0)),
-		"max_health": int(side.get("max_health", 0)),
-		"mana": int(side.get("mana", 0)),
-		"max_mana": int(side.get("max_mana", 0)),
-		"deck": (side.get("deck", []) as Array).duplicate(true),
-		"discard_pile": (side.get("discard_pile", []) as Array).duplicate(true),
-		"hand": (side.get("hand", []) as Array).duplicate(true),
-		"field": (side.get("field", []) as Array).duplicate(true),
-		"corpse_explosion_stacks": int(side.get("corpse_explosion_stacks", 0)),
-		"curses": int(side.get("curses", 0)),
-		"ritual_stacks": int(side.get("ritual_stacks", 0)),
-	}
+	return SnapshotCodec.side(side)
 
 func _restore_side(snapshot: Dictionary, fallback_name: String) -> Dictionary:
-	return {
-		"name": String(snapshot.get("name", fallback_name)),
-		"health": int(snapshot.get("health", 0)),
-		"max_health": int(snapshot.get("max_health", 0)),
-		"mana": int(snapshot.get("mana", 0)),
-		"max_mana": int(snapshot.get("max_mana", 0)),
-		"deck": (snapshot.get("deck", []) as Array).duplicate(true),
-		"discard_pile": (snapshot.get("discard_pile", []) as Array).duplicate(true),
-		"hand": (snapshot.get("hand", []) as Array).duplicate(true),
-		"field": (snapshot.get("field", []) as Array).duplicate(true),
-		"corpse_explosion_stacks": int(snapshot.get("corpse_explosion_stacks", 0)),
-		"curses": int(snapshot.get("curses", 0)),
-		"ritual_stacks": int(snapshot.get("ritual_stacks", 0)),
-	}
+	return SnapshotCodec.side(snapshot, fallback_name)
 
 func _store_battle_snapshot() -> void:
 	_ensure_battle_unit_ids()
@@ -241,28 +219,7 @@ func _store_battle_snapshot() -> void:
 		"turn_timer_left": 0.0 if turn_timer == null or turn_timer.is_stopped() else turn_timer.time_left,
 		"strategy_metrics": Dictionary(battle_state.get("strategy_metrics", {})).duplicate(true),
 		"battle_objective": Dictionary(battle_state.get("battle_objective", {})).duplicate(true),
-		"battle_state_flags": {
-			"player_turn_count": int(battle_state.get("player_turn_count", 0)),
-			"next_battle_unit_id": int(battle_state.get("next_battle_unit_id", 1)),
-			"holy_shield_ready": bool(battle_state.get("holy_shield_ready", false)),
-			"draw_combo_mana_claimed": bool(battle_state.get("draw_combo_mana_claimed", false)),
-			"ai_phase": String(battle_state.get("ai_phase", "cards")),
-			"cards_played_this_turn": int(battle_state.get("cards_played_this_turn", 0)),
-			"combo_tag": String(battle_state.get("combo_tag", "")),
-			"combo_streak": int(battle_state.get("combo_streak", 0)),
-			"combo_finisher_used": bool(battle_state.get("combo_finisher_used", false)),
-			"combo_finisher_tag": String(battle_state.get("combo_finisher_tag", "")),
-			"mana_crystal_bonus": bool(battle_state.get("mana_crystal_bonus", false)),
-			"first_card_discount_available": bool(battle_state.get("first_card_discount_available", false)),
-			"necromancer_ring_used": bool(battle_state.get("necromancer_ring_used", false)),
-			"second_chance_used": bool(battle_state.get("second_chance_used", false)),
-			"summon_build_started": bool(battle_state.get("summon_build_started", false)),
-			"boss_turn_count": int(battle_state.get("boss_turn_count", 0)),
-			"race_power_used": bool(battle_state.get("race_power_used", false)),
-			"breakthrough_mana_claimed": bool(battle_state.get("breakthrough_mana_claimed", false)),
-			"breakthrough_count": int(battle_state.get("breakthrough_count", 0)),
-			"breakthrough_damage": int(battle_state.get("breakthrough_damage", 0)),
-		},
+		"battle_state_flags": SnapshotCodec.flags(battle_state),
 	}
 	_save_run()
 
@@ -273,31 +230,11 @@ func _restore_battle_snapshot(snapshot: Dictionary) -> void:
 	_reset_battle_state()
 	current_player = String(snapshot.get("current_player", "player"))
 	selected_attacker = int(snapshot.get("selected_attacker", -1))
-	input_locked = bool(snapshot.get("input_locked", false))
 	var flags: Dictionary = snapshot.get("battle_state_flags", {})
 	pending_action.clear()
 	input_locked = current_player == "opponent"
-	battle_state["player_turn_count"] = int(flags.get("player_turn_count", 0))
-	battle_state["next_battle_unit_id"] = int(flags.get("next_battle_unit_id", 1))
-	battle_state["draw_combo_mana_claimed"] = bool(flags.get("draw_combo_mana_claimed", false))
-	battle_state["holy_shield_ready"] = bool(flags.get("holy_shield_ready", false))
-	battle_state["ai_phase"] = String(flags.get("ai_phase", "cards"))
+	battle_state.merge(SnapshotCodec.flags(flags), true)
 	_ensure_battle_unit_ids()
-	battle_state["cards_played_this_turn"] = int(flags.get("cards_played_this_turn", 0))
-	battle_state["combo_tag"] = String(flags.get("combo_tag", ""))
-	battle_state["combo_streak"] = int(flags.get("combo_streak", 0))
-	battle_state["combo_finisher_used"] = bool(flags.get("combo_finisher_used", false))
-	battle_state["combo_finisher_tag"] = String(flags.get("combo_finisher_tag", ""))
-	battle_state["mana_crystal_bonus"] = bool(flags.get("mana_crystal_bonus", false))
-	battle_state["first_card_discount_available"] = bool(flags.get("first_card_discount_available", false))
-	battle_state["necromancer_ring_used"] = bool(flags.get("necromancer_ring_used", false))
-	battle_state["second_chance_used"] = bool(flags.get("second_chance_used", false))
-	battle_state["summon_build_started"] = bool(flags.get("summon_build_started", false))
-	battle_state["boss_turn_count"] = int(flags.get("boss_turn_count", 0))
-	battle_state["race_power_used"] = bool(flags.get("race_power_used", false))
-	battle_state["breakthrough_mana_claimed"] = bool(flags.get("breakthrough_mana_claimed", false))
-	battle_state["breakthrough_count"] = int(flags.get("breakthrough_count", 0))
-	battle_state["breakthrough_damage"] = int(flags.get("breakthrough_damage", 0))
 	battle_state["strategy_metrics"] = Dictionary(snapshot.get("strategy_metrics", {})).duplicate(true)
 	var restored_objective: Dictionary = snapshot.get("battle_objective", {})
 	if not restored_objective.is_empty():
@@ -388,7 +325,7 @@ func _attack_payoff_text(attacker: Dictionary, target_index: int) -> String:
 		return "전장 정리"
 	var prediction := _predict_unit_attack(attacker, opponent.field[target_index], player, opponent)
 	if not bool(prediction.get("lethal", false)):
-		return "유리한 교환"
+		return "피해 %d · 반격 %d" % [int(prediction.get("damage", 0)), int(prediction.get("counter", 0))]
 	var overflow := int(prediction.get("overflow", 0))
 	if overflow > 0:
 		return "처치 · 영웅 돌파 %d" % overflow
@@ -427,14 +364,14 @@ func _recommended_action_state() -> Dictionary:
 			return {
 				"kind": "unit_attack_selected",
 				"text": "%s -> %s" % [String(selected.get("name", "유닛")), String(target.get("name", "적 유닛"))],
-				"guidance": "'여기 누르기' 버튼을 누르면 %s · %s" % [String(target.get("name", "적 유닛")), _attack_payoff_text(selected, selected_target)],
+				"guidance": "적 유닛을 누르면 %s · %s" % [String(target.get("name", "적 유닛")), _attack_payoff_text(selected, selected_target)],
 				"target_index": selected_target,
 			}
 		var selected_damage := _predict_hero_attack_damage(selected, player, false)
 		return {
 			"kind": "hero_attack_selected",
 			"text": "%s -> 적 영웅 · 피해 %d" % [String(selected.get("name", "유닛")), selected_damage],
-			"guidance": "'여기 누르기' 버튼을 누르면 %s가 적 영웅에게 %d 피해를 줍니다." % [String(selected.get("name", "유닛")), selected_damage],
+			"guidance": "적 영웅 영역을 누르면 %s가 %d 피해를 줍니다." % [String(selected.get("name", "유닛")), selected_damage],
 		}
 
 	var race_power_state := _recommended_race_power_state()
@@ -458,7 +395,7 @@ func _recommended_action_state() -> Dictionary:
 			return {
 				"kind": "unit_attack_direct",
 				"text": "%s -> %s" % [String(ready_attacker.get("name", "유닛")), String(ready_enemy.get("name", "적 유닛"))],
-				"guidance": "금색 '여기 누르기' 버튼을 누르면 추천 공격을 바로 실행합니다 · %s" % _attack_payoff_text(ready_attacker, ready_target),
+				"guidance": "금색 주 행동 버튼을 누르면 추천 공격을 바로 실행합니다 · %s" % _attack_payoff_text(ready_attacker, ready_target),
 				"attacker_index": ready_attacker_index,
 				"target_index": ready_target,
 			}
@@ -466,7 +403,7 @@ func _recommended_action_state() -> Dictionary:
 		return {
 			"kind": "hero_attack_direct",
 			"text": "%s -> 적 영웅 · 피해 %d" % [String(ready_attacker.get("name", "유닛")), ready_damage],
-			"guidance": "금색 '여기 누르기' 버튼을 누르면 공격자와 적 영웅이 자동 선택됩니다.",
+			"guidance": "금색 주 행동 버튼을 누르면 공격자와 적 영웅이 자동 선택됩니다.",
 			"attacker_index": ready_attacker_index,
 		}
 
@@ -476,13 +413,13 @@ func _recommended_action_state() -> Dictionary:
 		var card_type = String(recommended_card.get("type", ""))
 		var card_id = _base_card_id(String(recommended_card.get("id", "")))
 		var result_preview := _card_result_preview(recommended_card)
-		var guidance = "금색 '여기 누르기' 버튼을 누르면 %s 카드를 사용합니다 · %s" % [String(recommended_card.get("name", "카드")), result_preview]
+		var guidance = "금색 주 행동 버튼을 누르면 %s 카드를 사용합니다 · %s" % [String(recommended_card.get("name", "카드")), result_preview]
 		if card_type == "unit":
-			guidance = "금색 '여기 누르기' 버튼을 눌러 %s을 소환하세요 · %s" % [String(recommended_card.get("name", "유닛")), result_preview]
+			guidance = "금색 주 행동 버튼을 눌러 %s을 소환하세요 · %s" % [String(recommended_card.get("name", "유닛")), result_preview]
 		elif _direct_damage_preview(recommended_card) > 0 and not opponent.field.is_empty():
-			guidance = "금색 '여기 누르기' 버튼으로 피해 카드를 바로 사용하세요 · %s" % result_preview
+			guidance = "금색 피해 카드를 눌러 사용하세요 · %s" % result_preview
 		elif card_id in ["first_aid", "healing_potion", "moonwell", "vampiric_strike"]:
-			guidance = "금색 '여기 누르기' 버튼으로 회복 카드를 바로 사용하세요 · %s" % result_preview
+			guidance = "금색 주 행동 버튼으로 회복 카드를 바로 사용하세요 · %s" % result_preview
 		return {
 			"kind": "play_card",
 			"text": "%s 사용" % String(recommended_card.get("name", "카드")),
@@ -694,7 +631,7 @@ func _current_battle_guidance_text() -> String:
 		return lesson_hint
 	var state := _recommended_action_state()
 	if _battle_guidance_mode() == GUIDANCE_MODE_AUTO:
-		return String(state.get("guidance", "금색 '여기 누르기' 버튼을 누르세요."))
+		return String(state.get("guidance", "금색 주 행동 버튼을 누르세요."))
 	return _manual_battle_guidance_text(state)
 
 func _current_battle_focus_text() -> String:
@@ -920,11 +857,11 @@ func _is_portrait_battle_layout() -> bool:
 
 func _is_mobile_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	return viewport_size.x <= 600.0 and viewport_size.y > viewport_size.x
+	return LayoutPolicy.is_mobile_portrait(viewport_size)
 
 func _uses_touch_hand_selection() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	return viewport_size.y > viewport_size.x and viewport_size.x <= 900.0
+	return bool(main.touch_input_active) or LayoutPolicy.is_touch_portrait(viewport_size)
 
 func _is_wide_tight_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
@@ -1734,7 +1671,7 @@ func _hero_attack_target_badge_text() -> String:
 		var damage := _predict_hero_attack_damage(_selected_player_attacker(), player, false)
 		if int(opponent.get("health", 0)) <= damage:
 			return "클릭하면 승리"
-		return "지금 클릭 · 피해 %d" % damage
+		return "HP %d → %d" % [int(opponent.health), maxi(0, int(opponent.health) - damage)]
 	if not _ready_player_attacker_indexes().is_empty() and not _is_player_input_locked():
 		var attacker_index := _recommended_ready_attacker_index()
 		if attacker_index >= 0 and attacker_index < player.field.size():
@@ -1962,7 +1899,7 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 
 	recommended_action_button = Button.new()
 	recommended_action_button.text = "다음 행동"
-	var primary_height := 66 if mobile else (58 if phone_stack else (56 if wide_tight else (64 if tight else (70 if compact else 78))))
+	var primary_height := 48 if mobile else (58 if phone_stack else (56 if wide_tight else (64 if tight else (70 if compact else 78))))
 	if guidance_mode == GUIDANCE_MODE_HINT:
 		primary_height = mini(primary_height, 58)
 	recommended_action_button.custom_minimum_size = Vector2(0 if phone_stack else (320 if vertical_stack else 0), primary_height)
@@ -2170,6 +2107,8 @@ func _recommended_action_text() -> String:
 	return "주 행동\n%s" % String(state.get("text", "추천 행동"))
 
 func _battle_action_caption_text(state: Dictionary) -> String:
+	if main.Onboarding.first_battle(main.current_run):
+		return "도움은 누를 위치만 알려줍니다"
 	var kind := String(state.get("kind", "end_turn"))
 	if kind == "wait":
 		return "상대 행동 중"
@@ -2364,15 +2303,6 @@ func _build_stat_chip_tags() -> Array[Dictionary]:
 func _card_accent_color(card: Dictionary) -> Color:
 	return main.ui.card_race_color(card)
 
-func _make_race_card_style(_card: Dictionary, _bg_color: Color, border_color: Color, _border_width: int = 2, margin: int = 7, _emphasis: float = 0.0) -> StyleBoxTexture:
-	var style := StyleBoxTexture.new()
-	style.texture = load("res://assets/ui/fantasy/panel_gold.svg" if border_color.r > border_color.b else "res://assets/ui/fantasy/panel_blue.svg")
-	style.modulate_color = border_color.lightened(0.25)
-	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
-		style.set_texture_margin(side, 12)
-		style.set_content_margin(side, margin)
-	return style
-
 func _make_modern_style(bg_color: Color, border_color: Color, border_width: int = 1, radius: int = 8, margin: int = 10) -> StyleBoxFlat:
 	return BATTLE_STYLES.make_modern_style(bg_color, border_color, border_width, radius, margin)
 
@@ -2384,85 +2314,40 @@ func _make_battle_surface(bg_color: Color, accent_color: Color, border_width: in
 func _style_battle_button(button: Button, bg_color: Color, accent_color: Color, active: bool = false, role: String = "action") -> void:
 	BATTLE_STYLES.apply_battle_button(button, bg_color, accent_color, active, role)
 
-func _make_button_flat_style(bg_color: Color, border_color: Color, border_width: int, radius: int, margin_x: int, margin_y: int, shadow_size: int = 5) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg_color
-	style.border_color = border_color
-	style.border_width_left = border_width
-	style.border_width_top = border_width
-	style.border_width_right = border_width
-	style.border_width_bottom = border_width
-	style.corner_radius_top_left = radius
-	style.corner_radius_top_right = radius
-	style.corner_radius_bottom_left = radius
-	style.corner_radius_bottom_right = radius
-	style.content_margin_left = margin_x
-	style.content_margin_right = margin_x
-	style.content_margin_top = margin_y
-	style.content_margin_bottom = margin_y
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.44)
-	style.shadow_size = shadow_size
-	style.shadow_offset = Vector2(0, maxi(1, shadow_size / 3))
-	return style
-
-func _apply_custom_button_style(button: Button, bg_color: Color, border_color: Color, font_color: Color, border_width: int, radius: int, margin_x: int, margin_y: int, shadow_size: int, outline_size: int = 2) -> void:
-	var normal := _make_button_flat_style(bg_color, border_color, border_width, radius, margin_x, margin_y, shadow_size)
-	var hover: StyleBoxFlat = normal.duplicate()
-	hover.bg_color = bg_color.lightened(0.08)
-	hover.border_color = border_color.lightened(0.16)
-	var pressed: StyleBoxFlat = normal.duplicate()
-	pressed.bg_color = bg_color.darkened(0.1)
-	pressed.content_margin_top = margin_y + 3
-	pressed.content_margin_bottom = maxi(1, margin_y - 1)
-	pressed.shadow_size = maxi(1, shadow_size - 3)
-	var disabled: StyleBoxFlat = normal.duplicate()
-	disabled.bg_color = Color(bg_color.r * 0.62, bg_color.g * 0.62, bg_color.b * 0.62, bg_color.a * 0.78)
-	disabled.border_color = Color(border_color.r * 0.5, border_color.g * 0.5, border_color.b * 0.5, 0.72)
-	disabled.shadow_size = 1
-	button.add_theme_stylebox_override("normal", normal)
-	button.add_theme_stylebox_override("hover", hover)
-	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_stylebox_override("disabled", disabled)
-	button.add_theme_color_override("font_color", font_color)
-	button.add_theme_color_override("font_hover_color", font_color.lightened(0.08))
-	button.add_theme_color_override("font_pressed_color", font_color.darkened(0.06))
-	button.add_theme_color_override("font_disabled_color", Color(0.52, 0.56, 0.62, 1.0))
-	button.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.78))
-	button.add_theme_constant_override("outline_size", outline_size)
-	button.focus_mode = Control.FOCUS_NONE
-	button.clip_text = true
-
 func _style_recommended_action_button(button: Button, kind: String, outcome: String, guidance_mode: String) -> void:
 	if kind == "wait":
-		_apply_custom_button_style(button, Color(0.075, 0.085, 0.1, 0.92), Color(0.22, 0.26, 0.32, 0.86), Color(0.74, 0.78, 0.84, 1.0), 1, 8, 18, 13, 2, 1)
+		BATTLE_STYLES.apply_custom_button_style(button, Color(0.075, 0.085, 0.1, 0.92), Color(0.22, 0.26, 0.32, 0.86), Color(0.74, 0.78, 0.84, 1.0), 1, 8, 18, 13, 2, 1)
 		return
 	if outcome == "victory":
-		_apply_custom_button_style(button, Color(0.48, 0.095, 0.045, 1.0), Color(1.0, 0.78, 0.24, 1.0), Color(1.0, 0.98, 0.88, 1.0), 3, 8, 22, 15, 11, 4)
+		BATTLE_STYLES.apply_custom_button_style(button, Color(0.48, 0.095, 0.045, 1.0), Color(1.0, 0.78, 0.24, 1.0), Color(1.0, 0.98, 0.88, 1.0), 3, 8, 22, 15, 11, 4)
 		return
 	if guidance_mode == GUIDANCE_MODE_HINT and kind != "end_turn":
-		_apply_custom_button_style(button, Color(0.045, 0.075, 0.105, 0.98), Color(0.38, 0.68, 1.0, 0.95), Color(0.88, 0.95, 1.0, 1.0), 2, 8, 20, 13, 6, 2)
+		BATTLE_STYLES.apply_custom_button_style(button, Color(0.045, 0.075, 0.105, 0.98), Color(0.38, 0.68, 1.0, 0.95), Color(0.88, 0.95, 1.0, 1.0), 2, 8, 20, 13, 6, 2)
 		return
 	if kind == "end_turn":
-		_apply_custom_button_style(button, Color(0.055, 0.22, 0.34, 1.0), Color(0.38, 0.78, 1.0, 1.0), Color(0.9, 0.98, 1.0, 1.0), 3, 8, 22, 15, 10, 3)
+		BATTLE_STYLES.apply_custom_button_style(button, Color(0.055, 0.22, 0.34, 1.0), Color(0.38, 0.78, 1.0, 1.0), Color(0.9, 0.98, 1.0, 1.0), 3, 8, 22, 15, 10, 3)
 		return
-	_apply_custom_button_style(button, Color(0.42, 0.25, 0.055, 1.0), Color(1.0, 0.78, 0.26, 1.0), Color(1.0, 0.98, 0.86, 1.0), 3, 8, 22, 15, 12, 4)
+	BATTLE_STYLES.apply_custom_button_style(button, Color(0.42, 0.25, 0.055, 1.0), Color(1.0, 0.78, 0.26, 1.0), Color(1.0, 0.98, 0.86, 1.0), 3, 8, 22, 15, 12, 4)
 
 func _style_race_power_action_button(button: Button, race_color: Color, recommended: bool, enabled: bool) -> void:
 	if not enabled:
-		_apply_custom_button_style(button, Color(0.05, 0.055, 0.065, 0.82), Color(0.16, 0.18, 0.22, 0.8), Color(0.58, 0.6, 0.64, 1.0), 1, 7, 13, 8, 1, 1)
+		BATTLE_STYLES.apply_custom_button_style(button, Color(0.05, 0.055, 0.065, 0.82), Color(0.16, 0.18, 0.22, 0.8), Color(0.58, 0.6, 0.64, 1.0), 1, 7, 13, 8, 1, 1)
 		return
 	var bg := Color(0.1, 0.055, 0.16, 0.96).lerp(race_color.darkened(0.48), 0.42)
 	var border := race_color.lightened(0.16) if recommended else race_color.darkened(0.08)
-	_apply_custom_button_style(button, bg, border, Color(0.96, 0.92, 1.0, 1.0), 2 if recommended else 1, 7, 14, 9, 7 if recommended else 3, 2)
+	BATTLE_STYLES.apply_custom_button_style(button, bg, border, Color(0.96, 0.92, 1.0, 1.0), 2 if recommended else 1, 7, 14, 9, 7 if recommended else 3, 2)
 
 func _style_end_turn_action_button(button: Button, recommended: bool) -> void:
+	if not _is_player_input_locked() and pending_action.is_empty() and not recommended:
+		BATTLE_STYLES.apply_custom_button_style(button, Color(0.19, 0.13, 0.035), Color(0.92, 0.72, 0.28), Color(1.0, 0.94, 0.76), 2, 7, 14, 8, 4, 1)
+		return
 	if recommended:
-		_apply_custom_button_style(button, Color(0.035, 0.19, 0.3, 0.98), Color(0.34, 0.72, 1.0, 1.0), Color(0.9, 0.98, 1.0, 1.0), 2, 7, 15, 9, 7, 2)
+		BATTLE_STYLES.apply_custom_button_style(button, Color(0.035, 0.22, 0.12, 0.98), Color(0.3, 1.0, 0.58, 1.0), Color(0.9, 0.98, 1.0, 1.0), 2, 7, 15, 9, 7, 2)
 	else:
-		_apply_custom_button_style(button, Color(0.055, 0.065, 0.078, 0.92), Color(0.2, 0.25, 0.31, 0.86), Color(0.7, 0.74, 0.8, 1.0), 1, 7, 14, 8, 2, 1)
+		BATTLE_STYLES.apply_custom_button_style(button, Color(0.055, 0.065, 0.078, 0.92), Color(0.2, 0.25, 0.31, 0.86), Color(0.7, 0.74, 0.8, 1.0), 1, 7, 14, 8, 2, 1)
 
 func _style_detail_action_button(button: Button, compact: bool = false) -> void:
-	_apply_custom_button_style(button, Color(0.035, 0.043, 0.052, 0.9), Color(0.18, 0.24, 0.31, 0.84), Color(0.76, 0.82, 0.9, 1.0), 1, 6, 10 if compact else 12, 5 if compact else 7, 1, 1)
+	BATTLE_STYLES.apply_custom_button_style(button, Color(0.035, 0.043, 0.052, 0.9), Color(0.18, 0.24, 0.31, 0.84), Color(0.76, 0.82, 0.9, 1.0), 1, 6, 10 if compact else 12, 5 if compact else 7, 1, 1)
 
 func _make_battle_badge(text: String, bg_color: Color, accent_color: Color, font_size: int = 11) -> PanelContainer:
 	var panel = _make_battle_surface(bg_color, accent_color, 1, 6, 5)
@@ -2712,7 +2597,24 @@ func _build_battle_ui() -> void:
 	top_action_panel.custom_minimum_size = Vector2(0, 0)
 	top_action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_action_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	battle_root.add_child(top_action_panel)
+	if mobile:
+		top_action_panel.set_meta("screen_action_dock", true)
+		main.modal_layer.add_child(top_action_panel)
+		top_action_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		top_action_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		top_action_panel.offset_left = 6
+		top_action_panel.offset_right = -6
+		top_action_panel.offset_top = -156
+		top_action_panel.offset_bottom = -12
+		main.mobile_bottom_inset = 160.0
+		main._apply_root_layout()
+		top_action_panel.resized.connect(func():
+			if is_instance_valid(top_action_panel) and top_action_panel.is_inside_tree():
+				main.mobile_bottom_inset = maxf(160.0, top_action_panel.size.y + 16.0)
+				main._apply_root_layout()
+		)
+	else:
+		battle_root.add_child(top_action_panel)
 
 	var center_column = VBoxContainer.new()
 	center_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2838,7 +2740,7 @@ func _build_battle_ui() -> void:
 	hand_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hand_title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	hand_header.add_child(hand_title)
-	var hand_hint_text := "금색 카드: 한 번 확인 · 한 번 더 사용" if touch_hand else "금색 카드를 누르세요"
+	var hand_hint_text := "좌우로 밀기 · 눌러 확인 · 다시 눌러 사용" if touch_hand else "금색 카드를 누르세요"
 	var hand_hint: Label = main._make_label(hand_hint_text, 10 if tight else (11 if compact else 12), Color(0.76, 0.82, 0.9, 1.0))
 	hand_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if wide_tight else HORIZONTAL_ALIGNMENT_RIGHT
 	hand_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2859,10 +2761,10 @@ func _build_battle_ui() -> void:
 	hand_scroll.add_child(hand_box)
 	hand_box_wrap.add_child(hand_scroll)
 	var dock_space := Control.new()
-	dock_space.custom_minimum_size.y = 130 if mobile else 72
+	dock_space.custom_minimum_size.y = 4 if mobile else 72
 	battle_root.add_child(dock_space)
 
-	if compact:
+	if compact and not mobile:
 		battle_root.add_child(_make_detail_toggle_row(compact))
 	detail_panel = _make_battle_detail_panel(compact)
 	battle_root.add_child(detail_panel)
@@ -3054,6 +2956,9 @@ func _draw_cards(side: Dictionary, count: int) -> void:
 
 
 func _on_hand_card_gui_input(event: InputEvent, card_index: int) -> void:
+	# Mobile swipes belong to scrolling; taps retain preview / confirm behavior.
+	if _uses_touch_hand_selection():
+		return
 	if input_locked or game_over or current_player != "player":
 		return
 	if card_index < 0 or card_index >= player.hand.size():
@@ -3143,6 +3048,14 @@ func _update_hand_card_drag(current_pos: Vector2, card_index: int) -> void:
 	if target_node != null and is_instance_valid(target_node):
 		target_pos = target_node.get_global_transform_with_canvas() * (target_node.size * 0.5)
 	
+	if _requires_ally_target(card):
+		# Do not point at an arbitrary ally while the pointer is between targets.
+		target_pos = current_pos
+		for i in range(player.field.size()):
+			var ally_slot := _field_slot_for(player, i)
+			if ally_slot != null and ally_slot.get_global_rect().has_point(current_pos):
+				target_pos = ally_slot.get_global_rect().get_center()
+				break
 	var is_valid_drop := playable and (current_pos.y < (start_pos.y - 50.0) or current_pos.distance_to(target_pos) < 120.0)
 	var accent := _card_accent_color(card)
 	
@@ -3555,6 +3468,20 @@ func _selected_player_attacker() -> Dictionary:
 		return {}
 	return player.field[selected_attacker]
 
+func _show_target_connection(target: Control, ally: bool) -> void:
+	if _is_player_input_locked() or battle_fx_layer == null or not is_instance_valid(battle_fx_layer):
+		return
+	var source: Control = null
+	if ally and not pending_action.is_empty():
+		source = _hand_card_control(int(pending_action.get("hand_slot", -1)))
+		if source == null:
+			source = player_hero_target
+	elif not ally and selected_attacker != -1 and pending_action.is_empty():
+		source = _field_slot_for(player, selected_attacker)
+	if source == null or not is_instance_valid(source):
+		return
+	battle_fx_layer.show_drag_target_line(source.get_global_rect().get_center(), target.get_global_rect().get_center(), Color(0.3, 1.0, 0.65) if ally else Color(1.0, 0.45, 0.3), true)
+
 func _predict_unit_attack(attacker: Dictionary, defender: Dictionary, attacker_side: Dictionary, defender_side: Dictionary) -> Dictionary:
 	if attacker.is_empty() or defender.is_empty():
 		return {}
@@ -3573,6 +3500,8 @@ func _predict_unit_attack(attacker: Dictionary, defender: Dictionary, attacker_s
 	return {
 		"damage": attack_damage,
 		"counter": counter_damage,
+		"attacker_health": maxi(0, int(attacker.get("health", 0)) - counter_damage),
+		"defender_health": maxi(0, defender_health - attack_damage),
 		"lethal": lethal,
 		"overflow": int(momentum_preview.get("overflow", 0)),
 		"mana_gain": int(momentum_preview.get("mana_gain", 0)),
@@ -3778,6 +3707,8 @@ func _on_player_unit_pressed(index: int) -> void:
 	if not bool(player.field[index].can_attack):
 		_add_log("이 유닛은 이번 턴 공격할 수 없습니다.")
 		return
+	selected_hand_slot = -1
+	_clear_card_board_preview()
 	selected_attacker = index
 	_add_log("%s 선택: 적 카드 또는 적 영웅을 클릭하세요." % player.field[index].name)
 	_refresh_ui()
@@ -3863,11 +3794,8 @@ func _show_direct_attack_target_hint() -> void:
 		return
 	if _enemy_vanguard_blocks_hero():
 		var vanguard_target := _field_slot_for(opponent, 0)
-		_show_slot_overlay_text(vanguard_target, "여기를 클릭", Color(1.0, 0.52, 0.22, 1.0))
 		_spawn_target_glow(vanguard_target, Color(1.0, 0.52, 0.22, 1.0), 0.9)
 		return
-	var hint_text := "클릭하면 승리" if int(opponent.get("health", 0)) <= _predict_hero_attack_damage(_selected_player_attacker(), player, false) else "여기를 클릭"
-	_show_slot_overlay_text(opponent_hero_target, hint_text, Color(1.0, 0.34, 0.26, 1.0))
 	_spawn_target_glow(opponent_hero_target, Color(1.0, 0.34, 0.26, 1.0), 0.9)
 
 
@@ -4831,6 +4759,8 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 		if frame == null or not is_instance_valid(frame):
 			return
 		var card_def: Dictionary = main.card_db.get_card(String(unit.get("id", "")))
+		if not _uses_touch_hand_selection():
+			_show_target_connection(frame, is_player_field)
 		var description := _compact_unit_hover_text(unit, card_def, is_player_field)
 		_show_hover_popup(frame, String(unit.get("name", "유닛")), description, race_border)
 	)
@@ -4838,42 +4768,38 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 		if frame == null or not is_instance_valid(frame):
 			return
 		_hide_hover_popup()
+		if battle_fx_layer != null and is_instance_valid(battle_fx_layer):
+			battle_fx_layer.clear_drag_target_line()
 	)
 	var card_state := "default"
-	var slot_bg = Color(0.025, 0.03, 0.04, 0.94)
 
 	if is_player_field and not pending_action.is_empty():
 		card_state = "target"
-		slot_bg = Color(0.025, 0.15, 0.10, 0.98)
 	elif is_player_field and index == selected_attacker:
 		card_state = "selected"
-		slot_bg = Color(0.04, 0.08, 0.14, 0.98)
 	elif is_recommended_source:
 		card_state = "recommended"
-		slot_bg = Color(0.095, 0.072, 0.025, 0.98)
 	elif is_recommended_target:
 		card_state = "target"
-		slot_bg = Color(0.1, 0.028, 0.025, 0.98)
 	elif is_player_field and bool(unit.get("can_attack", false)) and not _is_player_input_locked():
 		card_state = "playable"
-		slot_bg = Color(0.02, 0.07, 0.05, 0.96)
 	elif not is_player_field and selected_attacker != -1 and not _is_player_input_locked():
 		card_state = "target"
-		slot_bg = Color(0.08, 0.03, 0.03, 0.96)
 	elif is_player_field and is_disabled:
 		card_state = "disabled"
 	var slot_border: Color = Color(0.3, 1.0, 0.65) if is_player_field and not pending_action.is_empty() else main.ui.card_state_accent(unit, card_state)
-	var slot_border_width: int = main.ui.card_state_border_width(card_state)
 
-	var normal_style = _make_race_card_style(unit, slot_bg, slot_border, slot_border_width, 5, 0.1 if not is_disabled else 0.0)
-	var hover_style = _make_race_card_style(unit, slot_bg.lightened(0.08) if not is_disabled else slot_bg, slot_border.lightened(0.12), slot_border_width + 1, 5, 0.18)
-	var pressed_style = _make_race_card_style(unit, slot_bg.darkened(0.12), slot_border, slot_border_width, 5, 0.04)
-	var disabled_style = _make_race_card_style(unit, slot_bg, slot_border.darkened(0.3) if is_disabled and is_player_field else slot_border, slot_border_width, 5, 0.0)
+	var normal_style = BATTLE_STYLES.make_card_frame(slot_border, 5)
+	var hover_style = BATTLE_STYLES.make_card_frame(slot_border.lightened(0.12), 5)
+	var pressed_style = BATTLE_STYLES.make_card_frame(slot_border, 5)
+	var disabled_style = BATTLE_STYLES.make_card_frame(slot_border.darkened(0.3) if is_disabled and is_player_field else slot_border, 5)
 
 	frame.add_theme_stylebox_override("normal", normal_style)
 	frame.add_theme_stylebox_override("hover", hover_style)
 	frame.add_theme_stylebox_override("pressed", pressed_style)
 	frame.add_theme_stylebox_override("disabled", disabled_style)
+	if not is_disabled and card_state in ["target", "selected", "playable", "recommended"]:
+		BATTLE_STYLES.add_active_outline(frame, slot_border)
 
 	var slot = VBoxContainer.new()
 	slot.custom_minimum_size = content_size
@@ -4916,7 +4842,7 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	art_container.add_child(health_badge)
 
 	# One short state label; selection borders carry the same meaning on every viewport.
-	if not main.Onboarding.first_battle(main.current_run):
+	if not main.Onboarding.first_battle(main.current_run) or selected_attacker != -1:
 		var state_text := ""
 		if is_player_field and not pending_action.is_empty():
 			state_text = "대상 선택"
@@ -4926,8 +4852,8 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 			state_text = "공격 가능"
 		elif not is_player_field and selected_attacker != -1 and not _is_player_input_locked():
 			var prediction := _predict_unit_attack(_selected_player_attacker(), unit, player, opponent)
-			state_text = "처치" if bool(prediction.get("lethal", false)) else "%d 피해 · 반격 %d" % [int(prediction.get("damage", 0)), int(prediction.get("counter", 0))]
-			frame.tooltip_text = _attack_prediction_text(prediction)
+			state_text = "적 HP %d → %d\n내 HP %d → %d" % [int(unit.health), int(prediction.defender_health), int(_selected_player_attacker().health), int(prediction.attacker_health)]
+			frame.tooltip_text = _attack_prediction_text(prediction) + " · 타격 직후 기준, 후속 사망·장비 효과 별도"
 		if not state_text.is_empty():
 			var badge := _make_battle_badge(state_text, Color(0.03, 0.07, 0.12, 0.96), slot_border, 9)
 			badge.position = Vector2(4, 25 if is_vanguard or not equipment_names.is_empty() else 4)
@@ -4984,21 +4910,21 @@ func _render_hand() -> void:
 		var frame_size := _battle_hand_card_size()
 		var content_size = Vector2(frame_size.x - 12.0, frame_size.y - 12.0)
 		frame.custom_minimum_size = frame_size
-		var card_state := "selected" if is_touch_selected else ("recommended" if is_recommended else ("playable" if playable else "disabled"))
+		var card_state := "disabled" if not playable else ("selected" if is_touch_selected else ("recommended" if is_recommended else "playable"))
 		var hand_border: Color = main.ui.card_state_accent(card, card_state)
-		var hand_border_width: int = main.ui.card_state_border_width(card_state)
-		var hand_bg = Color(0.09, 0.075, 0.035, 1.0) if is_touch_selected else (Color(0.055, 0.075, 0.11, 1.0) if is_recommended else Color(0.05, 0.058, 0.072, 1.0))
-		frame.add_theme_stylebox_override("normal", _make_race_card_style(card, hand_bg, hand_border, hand_border_width, 7, 0.18 if is_touch_selected or is_recommended else (0.08 if playable else 0.0)))
-		frame.add_theme_stylebox_override("hover", _make_race_card_style(card, Color(0.07, 0.082, 0.105, 1.0), accent.lightened(0.22), 3, 7, 0.2))
-		frame.add_theme_stylebox_override("pressed", _make_race_card_style(card, Color(0.035, 0.042, 0.055, 1.0), accent, 2, 7, 0.04))
+		frame.add_theme_stylebox_override("normal", BATTLE_STYLES.make_card_frame(hand_border, 7))
+		frame.add_theme_stylebox_override("hover", BATTLE_STYLES.make_card_frame(accent.lightened(0.22), 7))
+		frame.add_theme_stylebox_override("pressed", BATTLE_STYLES.make_card_frame(accent, 7))
 		frame.add_theme_color_override("font_color", Color(1, 1, 1, 0))
 		frame.pressed.connect(Callable(self, "_on_hand_card_pressed").bind(i))
 		frame.gui_input.connect(Callable(self, "_on_hand_card_gui_input").bind(i))
 		frame.set_meta("hand_slot", hand_slot)
 		if not playable:
-			frame.modulate = Color(0.66, 0.68, 0.73, 1.0)
+			frame.modulate = Color(0.43, 0.45, 0.49, 1.0)
 		elif recommended_index != -1 and not is_recommended:
 			frame.modulate = Color.WHITE
+		if playable:
+			BATTLE_STYLES.add_active_outline(frame, hand_border)
 		frame.set_meta("base_modulate", frame.modulate)
 		var card_box = VBoxContainer.new()
 		card_box.custom_minimum_size = content_size
@@ -5053,6 +4979,8 @@ func _render_hand() -> void:
 
 		frame.pivot_offset = Vector2(frame_size.x / 2.0, frame_size.y)
 		frame.mouse_entered.connect(func():
+			if _uses_touch_hand_selection():
+				return
 			if frame == null or not is_instance_valid(frame):
 				return
 			var base_pos: Vector2 = frame.get_meta("base_position", Vector2.ZERO)
@@ -5077,6 +5005,8 @@ func _render_hand() -> void:
 			_show_hover_popup(frame, String(card.get("name", "카드")), description, accent)
 		)
 		frame.mouse_exited.connect(func():
+			if _uses_touch_hand_selection():
+				return
 			if frame == null or not is_instance_valid(frame):
 				return
 			var base_pos: Vector2 = frame.get_meta("base_position", Vector2.ZERO)
@@ -5183,7 +5113,12 @@ func _layout_hand_cards() -> void:
 
 
 func _restore_touch_hand_selection() -> void:
-	if not _uses_touch_hand_selection() or selected_hand_slot < 0 or hand_box == null or not is_instance_valid(hand_box):
+	# A queued hand refresh may arrive after leaving the battle or freeing Main.
+	if not is_instance_valid(main) or main.is_queued_for_deletion() or not main.is_inside_tree():
+		return
+	if not is_instance_valid(hand_box) or hand_box.is_queued_for_deletion() or not hand_box.is_inside_tree():
+		return
+	if selected_hand_slot < 0 or not _uses_touch_hand_selection():
 		return
 	var selected_card: Dictionary = {}
 	for card_data in player.hand:
@@ -5350,12 +5285,30 @@ func _refresh_action_buttons() -> void:
 			var badge_accent = Color(1.0, 0.52, 0.22, 1.0) if vanguard_blocking else (Color(1.0, 0.32, 0.26, 1.0) if can_attack_hero or recommended_hero_target else Color(0.72, 0.18, 0.16, 1.0))
 			opponent_hero_target_badge.add_theme_stylebox_override("panel", _make_modern_style(Color(0.13, 0.045, 0.05, 0.96) if can_attack_hero or recommended_hero_target else Color(0.08, 0.1, 0.13, 0.92), badge_accent, 2 if can_attack_hero or recommended_hero_target else 1, 6, 5))
 	if end_turn_button != null:
-		end_turn_button.disabled = _is_player_input_locked()
-		end_turn_button.text = "선택 취소" if not pending_action.is_empty() else "턴 종료"
-		_style_end_turn_action_button(end_turn_button, recommended_kind == "end_turn")
-		end_turn_button.modulate = Color.WHITE if recommended_kind == "end_turn" else Color(0.7, 0.72, 0.76, 0.88)
+		var phase := _turn_action_state()
+		end_turn_button.disabled = bool(phase.disabled)
+		end_turn_button.text = String(phase.text)
+		end_turn_button.tooltip_text = String(phase.hint)
+		_style_end_turn_action_button(end_turn_button, bool(phase.exhausted))
+		end_turn_button.modulate = Color.WHITE
+
+func _turn_action_state() -> Dictionary:
+	if game_over:
+		return {"text": "전투 종료", "hint": "결과 확인 중", "disabled": true, "exhausted": false}
+	if current_player != "player":
+		return {"text": "상대 턴", "hint": "상대 행동이 끝나면 내 턴입니다", "disabled": true, "exhausted": false}
+	if input_locked:
+		return {"text": "행동 처리 중", "hint": "효과가 끝날 때까지 기다리세요", "disabled": true, "exhausted": false}
+	if not pending_action.is_empty():
+		return {"text": "선택 취소", "hint": "카드와 마나를 소비하지 않고 돌아갑니다", "disabled": false, "exhausted": false}
+	var available := not _ready_player_attacker_indexes().is_empty() or _can_use_race_power()
+	for card in player.hand:
+		available = available or _can_play_card(player, card, "player")
+	return {"text": "내 턴 · 턴 종료" if available else "턴 종료", "hint": "카드 사용과 공격을 자유롭게 섞을 수 있습니다" if available else "사용 가능한 카드·공격·필살기가 없습니다", "disabled": false, "exhausted": not available}
 
 func _refresh_ui() -> void:
+	if battle_fx_layer != null and is_instance_valid(battle_fx_layer) and not is_dragging_hand_card:
+		battle_fx_layer.clear_drag_target_line()
 	_ensure_battle_unit_ids()
 	_hide_hover_popup()
 	_refresh_timer_label()
@@ -5375,7 +5328,7 @@ func _refresh_ui() -> void:
 		if next_player_signature != player_field_signature:
 			_render_field(player_field_box, player, true)
 			player_field_signature = next_player_signature
-	if hand_box != null and not input_locked:
+	if hand_box != null:
 		var next_signature: String = _hand_signature()
 		var layout_width: float = hand_box.size.x
 		if next_signature != hand_render_signature:
@@ -5648,6 +5601,7 @@ func _begin_ally_selection(action: Dictionary) -> void:
 
 func _cancel_ally_selection() -> void:
 	pending_action.clear()
+	selected_hand_slot = -1
 	player_field_signature = ""
 	_clear_card_board_preview()
 	_refresh_ui()

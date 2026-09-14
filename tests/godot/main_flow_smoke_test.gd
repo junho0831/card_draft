@@ -114,8 +114,12 @@ func _test_content_scaling(main: Node) -> void:
 	main.player_profile["settings"]["ui_scale_mode"] = "auto"
 	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/mode", "")), "canvas_items", "project uses Canvas Items stretch mode")
 	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/aspect", "")), "expand", "project uses Expand stretch aspect")
-	_assert_eq(int(ProjectSettings.get_setting("display/window/handheld/orientation", -1)), DisplayServer.SCREEN_SENSOR_LANDSCAPE, "mobile app stays in sensor landscape orientation")
+	_assert_eq(int(ProjectSettings.get_setting("display/window/handheld/orientation", -1)), DisplayServer.SCREEN_PORTRAIT, "mobile app starts in portrait orientation")
 	_assert_eq(main._layout_size_for_physical_size(Vector2(390, 844)), Vector2(390, 844), "phone layout keeps native logical pixels")
+	main.touch_input_active = true
+	_assert_true(is_equal_approx(main._layout_size_for_physical_size(Vector2(1080, 2340)).x, 390.0), "Android high density screen uses phone layout width")
+	_assert_true(is_equal_approx(main._layout_size_for_physical_size(Vector2(1440, 3120)).x, 390.0), "higher density phone preserves control size")
+	main.touch_input_active = false
 	_assert_eq(main._layout_size_for_physical_size(Vector2(800, 1280)), Vector2(800, 1280), "tablet layout keeps native logical pixels")
 	var full_hd_layout: Vector2 = main._layout_size_for_physical_size(Vector2(1920, 1080))
 	_assert_true(is_equal_approx(full_hd_layout.x, 1324.1379) and is_equal_approx(full_hd_layout.y, 744.8276), "full HD uses the roomy desktop UI scale")
@@ -281,10 +285,10 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	battle._refresh_action_buttons()
 	var direct_attack: Dictionary = battle._recommended_action_state()
 	_assert_eq(String(direct_attack.get("kind", "")), "hero_attack_selected", "selected attacker exposes direct hero attack")
-	_assert_true(String(direct_attack.get("guidance", "")).contains("큰 버튼") and String(direct_attack.get("guidance", "")).contains("피해"), "direct attack guidance points to the single primary action and its result")
+	_assert_true(String(direct_attack.get("guidance", "")).contains("적 영웅 영역") and String(direct_attack.get("guidance", "")).contains("피해"), "direct attack guidance names the hero target and damage")
 	_assert_true(not bool(battle.hero_attack_button.disabled), "enemy hero target becomes clickable after selecting an attacker")
-	_assert_true(String(battle.opponent_hero_target_badge_label.text).contains("클릭") and String(battle.opponent_hero_target_badge_label.text).contains("피해"), "enemy hero badge names the click result")
-	_assert_true(String(battle.recommended_action_button.text).begins_with("다음 행동"), "primary action button is explicitly labeled as the next action")
+	_assert_eq(String(battle.opponent_hero_target_badge_label.text), "HP 10 → %d" % (10 - battle._predict_hero_attack_damage(battle.player.field[0], battle.player, false)), "enemy hero badge shows health before and after attack")
+	_assert_true(String(battle.recommended_action_button.text).begins_with("주 행동"), "primary action button is explicitly labeled")
 	battle.opponent["health"] = 1
 	battle._refresh_action_buttons()
 	var lethal_attack: Dictionary = battle._recommended_action_state()
@@ -352,7 +356,7 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	main.current_run["current_node_index"] = 4
 	battle._refresh_ui()
 	_assert_eq(String(battle._battle_guidance_mode()), "hint", "boss battle reduces recommendation to a positional hint")
-	_assert_true(String(battle.recommended_action_button.text).begins_with("힌트 위치 보기"), "boss recommendation is labeled as a hint")
+	_assert_true(String(battle.recommended_action_button.text).begins_with("힌트 보기"), "boss recommendation is labeled as a hint")
 	battle._on_recommended_action_pressed()
 	_assert_eq(int(battle.selected_attacker), -1, "hint mode does not select or execute an attacker")
 	_assert_eq(int(battle.opponent.get("health", 0)), guided_enemy_health, "hint mode leaves combat state unchanged")

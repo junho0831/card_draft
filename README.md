@@ -186,3 +186,20 @@ godot --headless --path . -s res://tests/godot/playthrough_probe.gd -- --test-da
 정의는 `data/starting_strategies.json`, 비교 결과와 구성 보정 사유는 [시작 전략 비교](docs/starting-strategy-comparison.md), 실행 명령은 [실행과 테스트](docs/run-and-test.md)를 참고한다.
 
 사운드 연결과 전투 연출, 검증 범위는 [사운드와 애니메이션](docs/audio-and-animation.md)을 참고한다.
+
+### 모바일 터치 조작
+
+- 카드·버튼 위에서 밀어도 목록이 스크롤됩니다. 손패·전열은 좌우로, 긴 화면은 위아래로 이동합니다.
+- 모바일에서는 카드를 끌어서 사용하지 않습니다. 한 번 눌러 확인한 뒤 다시 눌러 사용합니다. 장비 대상 선택과 취소는 유지합니다.
+- 스크롤로 판정된 동작은 손을 떼어도 카드나 버튼을 실행하지 않습니다.
+- 실제 휴대폰에서의 손가락 조작감은 별도 확인이 필요합니다. Godot 입력 이벤트 검사는 아래 명령으로 실행합니다.
+
+```bash
+xvfb-run -a godot --path . -s res://tests/godot/touch_scroll_test.gd -- --test-data-dir=/tmp/card-draft-touch-test
+```
+
+2026-09-13 검증: Godot 4.6.3 회귀 검사 1,343개 통과. 390×844 실제 GUI 입력으로 버튼 중앙 스와이프, 터치/마우스 중복 방지, 손패의 가로·세로 이동, 카드·마나 보존을 검사했다. 기존 종료 시 리소스 경고는 남아 있다.
+
+모바일 우선 배치 기준과 작은 화면 검증 명령은 [모바일 조작 기준](docs/mobile-controls.md)을 참고한다. 전투와 공통 화면의 하단 액션은 콘텐츠와 분리하고, 모바일 버튼은 최소 44px(전투 주요 버튼 48px) 높이를 확보한다.
+
+코드 책임 분리와 검증 범위: [리팩토링 기록](docs/refactoring-2026-09-14.md).

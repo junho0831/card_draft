@@ -6,6 +6,7 @@ const CARD_RACE_STYLES = preload("res://src/ui/styles/card_race_styles.gd")
 const UI_TOKENS = preload("res://src/ui/styles/ui_tokens.gd")
 const CARD_VIEW = preload("res://src/ui/components/card_view.gd")
 
+var mobile_layout := false
 var card_art_sheet: Texture2D
 var card_art_cols := 4
 var card_art_rows := 3
@@ -46,6 +47,7 @@ func responsive_width(viewport_width: float, preferred_width: int) -> float:
 	return min(float(preferred_width), max(MIN_RESPONSIVE_WIDTH, viewport_width - (SCREEN_MARGIN * 2.0 + 12.0)))
 
 func apply_root_layout(root: Control, viewport_size: Vector2) -> void:
+	mobile_layout = viewport_size.x <= 600.0
 	var margin := 6.0 if viewport_size.x <= 600.0 else SCREEN_MARGIN
 	var available_width := maxf(300.0, viewport_size.x - margin * 2.0)
 	var target_width := available_width
@@ -217,12 +219,21 @@ func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, de
 	var dock := make_surface_panel(Color(0.025, 0.034, 0.048, 0.99), accent.darkened(0.12), 2, 8, 8)
 	dock.set_meta("screen_action_dock", true)
 	dock.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	dock.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	dock.offset_left = 6
 	dock.offset_top = -float(dock_height + 6)
 	dock.offset_right = -6
 	dock.offset_bottom = -6
 	dock.mouse_filter = Control.MOUSE_FILTER_STOP
 	main.modal_layer.add_child(dock)
+	if mobile_layout:
+		main.mobile_bottom_inset = float(dock_height + 12)
+		main._apply_root_layout()
+		dock.resized.connect(func():
+			if is_instance_valid(dock) and dock.is_inside_tree():
+				main.mobile_bottom_inset = maxf(float(dock_height + 12), dock.size.y + 12.0)
+				main._apply_root_layout()
+		)
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)
@@ -251,7 +262,7 @@ func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, de
 	action_scroll.add_child(actions)
 
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, dock_height + 8)
+	spacer.custom_minimum_size = Vector2(0, 4 if mobile_layout else dock_height + 8)
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(spacer)
 	return {
@@ -572,6 +583,8 @@ func style_flat_button(button: Button, base_color: Color, accent_color: Color = 
 	_apply_hover_feedback(button)
 
 func style_button(button: Button, base_color: Color) -> void:
+	if mobile_layout:
+		button.custom_minimum_size.y = maxf(button.custom_minimum_size.y, 44.0)
 	UI_STYLES.apply_role_button(button, "secondary", base_color.lightened(0.34), base_color, 16)
 	_apply_hover_feedback(button)
 

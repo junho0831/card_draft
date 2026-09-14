@@ -1,5 +1,7 @@
 extends Control
 
+const LayoutPolicy = preload("res://src/ui/layout_policy.gd")
+
 const MAX_MANA := 10
 const MAX_FIELD := 5
 const START_HAND := 4
@@ -68,6 +70,9 @@ var pending_guided_run := false
 var pending_race_selection_id := "human"
 
 var root_box: VBoxContainer
+var touch_input_active := OS.has_feature("mobile")
+var touch_scroll_router = preload("res://src/ui/touch_scroll_router.gd").new()
+var mobile_bottom_inset := 0.0
 var root_scroll: ScrollContainer
 var root_center: CenterContainer
 var modal_layer: Control
@@ -184,6 +189,7 @@ func _build_base_ui() -> void:
 	add_child(bottom_fade)
 
 	var top_shadow := ColorRect.new()
+	top_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_shadow.color = Color(0.0, 0.0, 0.0, 0.2)
 	top_shadow.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	top_shadow.offset_bottom = 92
@@ -233,28 +239,13 @@ func _notification(what: int) -> void:
 		_on_window_size_changed()
 
 func _input(event: InputEvent) -> void:
-	if active_screen != "battle":
+	if event is InputEventScreenTouch and event.device != -1 and not touch_input_active:
+		touch_input_active = true
+		call_deferred("_on_window_size_changed")
+	if not (touch_input_active or _layout_viewport_size().x <= 900):
 		return
-	if root_scroll == null or not is_instance_valid(root_scroll):
-		return
-	if battle_screen != null and bool(battle_screen.get("is_dragging_hand_card")):
-		return
-	if event is InputEventScreenDrag:
-		var drag := event as InputEventScreenDrag
-		_scroll_root_from_drag(drag.relative)
-	elif event is InputEventMouseMotion:
-		var motion := event as InputEventMouseMotion
-		if (motion.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
-			_scroll_root_from_drag(motion.relative)
-
-func _scroll_root_from_drag(relative: Vector2) -> void:
-	if absf(relative.y) < 2.0 or absf(relative.y) < absf(relative.x) * 1.15:
-		return
-	var scroll_bar := root_scroll.get_v_scroll_bar()
-	var max_scroll := maxi(0, int(ceil(scroll_bar.max_value - scroll_bar.page)))
-	if max_scroll <= 0:
-		return
-	root_scroll.scroll_vertical = clampi(root_scroll.scroll_vertical - int(round(relative.y)), 0, max_scroll)
+	if touch_scroll_router.handle(event, self):
+		get_viewport().set_input_as_handled()
 
 func _on_window_size_changed() -> void:
 	_apply_root_layout()
@@ -359,13 +350,15 @@ func _apply_root_layout() -> void:
 		root_scroll.offset_left = outer_margin
 		root_scroll.offset_top = outer_margin
 		root_scroll.offset_right = -outer_margin
-		root_scroll.offset_bottom = -outer_margin
+		root_scroll.offset_bottom = -outer_margin - mobile_bottom_inset
 		if root_center != null:
 			root_center.custom_minimum_size = Vector2(maxf(300.0, viewport_size.x - outer_margin * 2.0), 0.0)
 	ui.apply_root_layout(root_box, viewport_size)
 
 
 func _clear_screen() -> void:
+	mobile_bottom_inset = 0.0
+	_apply_root_layout()
 	if audio_manager != null:
 		audio_manager.set_screen_music(active_screen)
 	var world := get_node_or_null("WorldBackground") as TextureRect
@@ -2322,17 +2315,14 @@ func _is_main_menu_compact_layout() -> bool:
 
 func _is_phone_portrait_layout() -> bool:
 	var viewport_size: Vector2 = _layout_viewport_size()
-	return viewport_size.x <= 900.0 and viewport_size.y > viewport_size.x
+	return LayoutPolicy.is_touch_portrait(viewport_size)
 
 func _is_mobile_phone_layout() -> bool:
 	var viewport_size: Vector2 = _layout_viewport_size()
-	return viewport_size.x <= 600.0 and viewport_size.y > viewport_size.x
+	return LayoutPolicy.is_mobile_portrait(viewport_size)
 
 func _is_compact_layout_for(width_breakpoint: float = 860.0, height_breakpoint: float = 0.0) -> bool:
-	var viewport_size: Vector2 = _layout_viewport_size()
-	if viewport_size.x < width_breakpoint:
-		return true
-	return height_breakpoint > 0.0 and viewport_size.y < height_breakpoint
+	return LayoutPolicy.is_compact(_layout_viewport_size(), width_breakpoint, height_breakpoint)
 
 func _physical_viewport_size() -> Vector2:
 	if has_meta("layout_viewport_override"):
@@ -2358,9 +2348,7 @@ func _physical_viewport_size() -> Vector2:
 	return BASE_VIEWPORT_SIZE
 
 func _native_canvas_scale_for_physical_size(physical_size: Vector2) -> float:
-	if physical_size.x <= 0.0 or physical_size.y <= 0.0:
-		return 1.0
-	return minf(physical_size.x / BASE_VIEWPORT_SIZE.x, physical_size.y / BASE_VIEWPORT_SIZE.y)
+	return LayoutPolicy.native_scale(physical_size, BASE_VIEWPORT_SIZE)
 
 func _content_scale_factor_for_physical_size(physical_size: Vector2) -> float:
 	var native_scale := _native_canvas_scale_for_physical_size(physical_size)
@@ -2381,13 +2369,7 @@ func _ui_scale_multiplier() -> float:
 	return 1.0
 
 func _render_scale_for_physical_size(physical_size: Vector2) -> float:
-	var native_scale := _native_canvas_scale_for_physical_size(physical_size)
-	if native_scale < 1.0:
-		return 1.0
-	var automatic_scale := clampf(native_scale, 1.0, MAX_AUTO_UI_SCALE)
-	if physical_size.x >= 1600.0 and physical_size.x >= physical_size.y:
-		automatic_scale = maxf(automatic_scale, 1.0)
-	return clampf(automatic_scale * _ui_scale_multiplier(), 0.95, MAX_AUTO_UI_SCALE * 1.08)
+	return LayoutPolicy.render_scale(physical_size, BASE_VIEWPORT_SIZE, touch_input_active, _ui_scale_multiplier(), MAX_AUTO_UI_SCALE)
 
 func _layout_size_for_physical_size(physical_size: Vector2) -> Vector2:
 	return physical_size / _render_scale_for_physical_size(physical_size)

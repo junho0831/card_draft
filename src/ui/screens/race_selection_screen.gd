@@ -37,6 +37,8 @@ func build(body: VBoxContainer) -> void:
 	))
 
 	var learning := CheckButton.new()
+	if phone:
+		learning.custom_minimum_size.y = 48
 	learning_toggle = learning
 	learning.text = "단계별로 배우기" if int(main.player_profile.get("learning_stage", 0)) == 0 else "단계별 안내 이어서 배우기"
 	if int(main.player_profile.get("learning_stage", 0)) >= 5:
@@ -47,6 +49,8 @@ func build(body: VBoxContainer) -> void:
 	body.add_child(learning)
 	var skip := Button.new()
 	skip.text = "바로 시작 · 전략 고르기"
+	if phone:
+		skip.custom_minimum_size.y = 48
 	skip.pressed.connect(func():
 		learning.set_pressed_no_signal(false)
 		_set_guided_mode(false)
