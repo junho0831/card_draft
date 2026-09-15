@@ -10,6 +10,8 @@ const TURN_TIME_SECONDS = 0.0
 const SnapshotCodec = preload("res://src/battle/battle_snapshot_codec.gd")
 const LayoutPolicy = preload("res://src/ui/layout_policy.gd")
 const EnemyPolicy = preload("res://src/battle/battle_enemy_policy.gd")
+const LANDSCAPE_VIEW = preload("res://src/ui/components/landscape_battle_view.gd")
+var landscape_view: Control
 var pending_action: Dictionary = {}
 var reference_health_bars: Dictionary = {}
 var reference_mana_label: Label
@@ -830,9 +832,9 @@ func _make_battle_tutorial_panel(compact: bool) -> PanelContainer:
 	var dismiss = Button.new()
 	dismiss.text = "확인"
 	dismiss.focus_mode = Control.FOCUS_NONE
-	dismiss.custom_minimum_size = Vector2(64 if mobile or tight else 76, 38 if mobile else (26 if tight else 30))
+	dismiss.custom_minimum_size = Vector2(76 if mobile else (64 if tight else 76), 48 if mobile else (26 if tight else 30))
 	_style_battle_button(dismiss, Color(0.08, 0.12, 0.18, 0.96), Color(0.34, 0.52, 0.76, 1.0), false)
-	dismiss.add_theme_font_size_override("font_size", 10 if tight else 11)
+	dismiss.add_theme_font_size_override("font_size", 16 if mobile else (10 if tight else 11))
 	dismiss.pressed.connect(Callable(self, "_dismiss_battle_tutorial"))
 	row.add_child(dismiss)
 	return panel
@@ -855,9 +857,12 @@ func _is_portrait_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
 	return viewport_size.y > viewport_size.x
 
+func _is_landscape_phone() -> bool:
+	return LayoutPolicy.is_mobile_landscape(main._layout_viewport_size())
+
 func _is_mobile_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	return LayoutPolicy.is_mobile_portrait(viewport_size)
+	return LayoutPolicy.is_mobile_portrait(viewport_size) or LayoutPolicy.is_mobile_landscape(viewport_size)
 
 func _uses_touch_hand_selection() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
@@ -1163,7 +1168,9 @@ func _apply_build_on_ally_died(enemy_state: Dictionary) -> void:
 func _race_power_button_text() -> String:
 	var meta: Dictionary = main._current_race_meta()
 	if bool(battle_state.get("race_power_used", false)):
-		return "필살기 사용 완료"
+		return "필살기\n사용 완료" if _is_mobile_battle_layout() else "필살기 사용 완료"
+	if _is_mobile_battle_layout():
+		return "필살기\n%s" % String(meta.get("power_name", ""))
 	return "필살기 · %s\n%s" % [String(meta.get("power_name", "")), String(meta.get("power_short", "전투당 1회"))]
 
 func _can_use_race_power() -> bool:
@@ -1468,10 +1475,10 @@ func _make_top_status_bar(compact: bool) -> PanelContainer:
 	detail_toggle_button = Button.new()
 	detail_toggle_button.text = "정보"
 	detail_toggle_button.focus_mode = Control.FOCUS_NONE
-	detail_toggle_button.custom_minimum_size = Vector2(44 if tight else 54, 44 if mobile else (24 if tight else 28))
+	detail_toggle_button.custom_minimum_size = Vector2(60 if mobile else (44 if tight else 54), 48 if mobile else (24 if tight else 28))
 	detail_toggle_button.set_meta("header_toggle", true)
 	_style_detail_action_button(detail_toggle_button, true)
-	detail_toggle_button.add_theme_font_size_override("font_size", 10 if tight else 11)
+	detail_toggle_button.add_theme_font_size_override("font_size", 16 if mobile else (10 if tight else 11))
 	detail_toggle_button.pressed.connect(Callable(self, "_toggle_battle_details"))
 	actions.add_child(detail_toggle_button)
 	actions.add_child(_make_exit_button("메뉴", "_show_main_menu", Color(0.08, 0.12, 0.18, 0.96), tight, compact, mobile))
@@ -1485,11 +1492,11 @@ func _make_exit_button(text: String, callback_method: String, color: Color, tigh
 	var button = Button.new()
 	button.text = text
 	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = Vector2(54 if mobile else (44 if tight else (54 if compact else 62)), 44 if mobile else (24 if tight else 28))
+	button.custom_minimum_size = Vector2(60 if mobile else (44 if tight else (54 if compact else 62)), 48 if mobile else (24 if tight else 28))
 	var role := "danger" if callback_method == "_abandon_run" else "action"
 	var accent := Color(0.9, 0.28, 0.26, 1.0) if role == "danger" else Color(0.34, 0.42, 0.52, 0.9)
 	_style_battle_button(button, color, accent, false, role)
-	button.add_theme_font_size_override("font_size", 10 if tight else 11)
+	button.add_theme_font_size_override("font_size", 16 if mobile else (10 if tight else 11))
 	button.pressed.connect(Callable(main, callback_method))
 	return button
 
@@ -1875,7 +1882,8 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", BATTLE_STYLES.make_action_dock_style(action_accent, 6 if phone_stack else (8 if wide_tight else 12)))
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var box: BoxContainer = VBoxContainer.new() if mobile else (HBoxContainer.new() if wide_tight else VBoxContainer.new())
+	var landscape_phone := mobile and not portrait
+	var box: BoxContainer = HBoxContainer.new() if landscape_phone else (VBoxContainer.new() if mobile else (HBoxContainer.new() if wide_tight else VBoxContainer.new()))
 	box.add_theme_constant_override("separation", 6 if phone_stack else (8 if tight else 10))
 	panel.add_child(box)
 	battle_action_caption_label = main._make_label("지금은 금색 주 버튼만 보면 됩니다", 12 if mobile else (12 if tight else (14 if compact else 15)), Color(1.0, 0.88, 0.52, 1.0))
@@ -1887,7 +1895,8 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	battle_action_caption_label.add_theme_constant_override("outline_size", 3)
 	battle_action_caption_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.72))
 	box.add_child(battle_action_caption_label)
-	if tight and not wide_tight and not phone_stack:
+	battle_action_caption_label.visible = not landscape_phone
+	if tight and not wide_tight and not phone_stack and not landscape_phone:
 		var mode_description := "버튼을 누르면 추천 행동이 바로 실행됩니다."
 		if guidance_mode == GUIDANCE_MODE_GUIDED:
 			mode_description = "공격자는 안내가 고르고, 마지막 대상은 직접 누릅니다."
@@ -1899,20 +1908,20 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 
 	recommended_action_button = Button.new()
 	recommended_action_button.text = "다음 행동"
-	var primary_height := 48 if mobile else (58 if phone_stack else (56 if wide_tight else (64 if tight else (70 if compact else 78))))
+	var primary_height := 56 if mobile else (58 if phone_stack else (56 if wide_tight else (64 if tight else (70 if compact else 78))))
 	if guidance_mode == GUIDANCE_MODE_HINT:
 		primary_height = mini(primary_height, 58)
-	recommended_action_button.custom_minimum_size = Vector2(0 if phone_stack else (320 if vertical_stack else 0), primary_height)
+	recommended_action_button.custom_minimum_size = Vector2(0 if mobile else (320 if vertical_stack else 0), primary_height)
 	recommended_action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if vertical_stack:
+	if vertical_stack and not landscape_phone:
 		recommended_action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if phone_stack else Control.SIZE_SHRINK_CENTER
 	_style_recommended_action_button(recommended_action_button, "play_card", "", guidance_mode)
-	recommended_action_button.add_theme_font_size_override("font_size", 14 if mobile else (15 if phone_stack else (16 if tight else 20)))
+	recommended_action_button.add_theme_font_size_override("font_size", 18 if mobile else (15 if phone_stack else (16 if tight else 20)))
 	recommended_action_button.pressed.connect(Callable(self, "_on_recommended_action_pressed"))
 	box.add_child(recommended_action_button)
 
 	var secondary_parent: BoxContainer = box
-	if mobile:
+	if mobile and not landscape_phone:
 		secondary_parent = HBoxContainer.new()
 		secondary_parent.add_theme_constant_override("separation", 6 if tight else 8)
 		box.add_child(secondary_parent)
@@ -1920,19 +1929,19 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	race_power_button = Button.new()
 	race_power_button.text = _race_power_button_text()
 	race_power_button.tooltip_text = "전투당 1회 · %s" % String(race_meta.get("power_text", ""))
-	race_power_button.custom_minimum_size = Vector2(0, 48 if mobile else (42 if phone_stack else (44 if wide_tight else (46 if tight else (50 if compact else 54)))))
+	race_power_button.custom_minimum_size = Vector2(0, 56 if mobile else (42 if phone_stack else (44 if wide_tight else (46 if tight else (50 if compact else 54)))))
 	race_power_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_race_power_action_button(race_power_button, race_color, false, true)
-	race_power_button.add_theme_font_size_override("font_size", 12 if mobile else (10 if tight else 12))
+	race_power_button.add_theme_font_size_override("font_size", 16 if mobile else (10 if tight else 12))
 	race_power_button.pressed.connect(Callable(self, "_on_race_power_pressed"))
 	secondary_parent.add_child(race_power_button)
 
 	end_turn_button = Button.new()
 	end_turn_button.text = "턴 넘기기"
-	end_turn_button.custom_minimum_size = Vector2(0, 48 if mobile else (38 if phone_stack else (40 if wide_tight else (44 if tight else (46 if compact else 50)))))
+	end_turn_button.custom_minimum_size = Vector2(0, 56 if mobile else (38 if phone_stack else (40 if wide_tight else (44 if tight else (46 if compact else 50)))))
 	end_turn_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_end_turn_action_button(end_turn_button, false)
-	end_turn_button.add_theme_font_size_override("font_size", 14 if mobile else (11 if tight else 13))
+	end_turn_button.add_theme_font_size_override("font_size", 18 if mobile else (11 if tight else 13))
 	end_turn_button.pressed.connect(Callable(self, "_on_end_turn_pressed"))
 	secondary_parent.add_child(end_turn_button)
 
@@ -2081,6 +2090,8 @@ func _recommended_attack_target_index(attacker: Dictionary) -> int:
 	return -1
 
 func _recommended_action_text() -> String:
+	if _is_landscape_phone():
+		return "도움 보기"
 	if main.Onboarding.first_battle(main.current_run):
 		return "도움 보기"
 	var state := _recommended_action_state()
@@ -2192,6 +2203,9 @@ func _on_recommended_action_pressed() -> void:
 	if _is_player_input_locked():
 		return
 	var state = _recommended_action_state()
+	if _is_landscape_phone():
+		landscape_view.show_help()
+		return
 	if main.Onboarding.first_battle(main.current_run):
 		_show_first_play_help(state)
 		return
@@ -2338,7 +2352,7 @@ func _style_race_power_action_button(button: Button, race_color: Color, recommen
 	BATTLE_STYLES.apply_custom_button_style(button, bg, border, Color(0.96, 0.92, 1.0, 1.0), 2 if recommended else 1, 7, 14, 9, 7 if recommended else 3, 2)
 
 func _style_end_turn_action_button(button: Button, recommended: bool) -> void:
-	if not _is_player_input_locked() and pending_action.is_empty() and not recommended:
+	if not _is_landscape_phone() and not _is_player_input_locked() and pending_action.is_empty() and not recommended:
 		BATTLE_STYLES.apply_custom_button_style(button, Color(0.19, 0.13, 0.035), Color(0.92, 0.72, 0.28), Color(1.0, 0.94, 0.76), 2, 7, 14, 8, 4, 1)
 		return
 	if recommended:
@@ -2532,6 +2546,7 @@ func _player_has_available_action() -> bool:
 	return false
 
 func _build_battle_ui() -> void:
+	landscape_view = null
 	reference_health_bars.clear()
 	reference_mana_label = null
 	var compact = _is_compact_layout()
@@ -2541,6 +2556,7 @@ func _build_battle_ui() -> void:
 	var mobile = _is_mobile_battle_layout()
 	var touch_hand = _uses_touch_hand_selection()
 	battle_fx_layer = BATTLE_FX_LAYER.new()
+	battle_fx_layer.set_meta("compact_landscape", _is_landscape_phone())
 	main.modal_layer.add_child(battle_fx_layer)
 	root_box.add_theme_constant_override("separation", 5 if tight else 8)
 	battle_detail_visible = false
@@ -2597,20 +2613,21 @@ func _build_battle_ui() -> void:
 	top_action_panel.custom_minimum_size = Vector2(0, 0)
 	top_action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_action_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	if mobile:
+	if mobile and not _is_landscape_phone():
 		top_action_panel.set_meta("screen_action_dock", true)
 		main.modal_layer.add_child(top_action_panel)
 		top_action_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 		top_action_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		top_action_panel.offset_left = 6
 		top_action_panel.offset_right = -6
-		top_action_panel.offset_top = -156
+		var dock_minimum := 160.0 if portrait else 88.0
+		top_action_panel.offset_top = -dock_minimum + 4
 		top_action_panel.offset_bottom = -12
-		main.mobile_bottom_inset = 160.0
+		main.mobile_bottom_inset = dock_minimum
 		main._apply_root_layout()
 		top_action_panel.resized.connect(func():
 			if is_instance_valid(top_action_panel) and top_action_panel.is_inside_tree():
-				main.mobile_bottom_inset = maxf(160.0, top_action_panel.size.y + 16.0)
+				main.mobile_bottom_inset = maxf(dock_minimum, top_action_panel.size.y + 16.0)
 				main._apply_root_layout()
 		)
 	else:
@@ -2770,6 +2787,11 @@ func _build_battle_ui() -> void:
 	battle_root.add_child(detail_panel)
 	detail_overlay = PRESENTATION.make_detail_overlay(main.modal_layer, detail_panel, Callable(self, "_toggle_battle_details"))
 
+	if _is_landscape_phone():
+		landscape_view = LANDSCAPE_VIEW.new()
+		main.modal_layer.add_child(landscape_view)
+		landscape_view.setup(self, battle_root, top_action_panel)
+		main.modal_layer.move_child(detail_overlay, -1)
 	_initialize_battle_runtime_ui()
 
 func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
@@ -3105,7 +3127,10 @@ func _finish_hand_card_drag(release_pos: Vector2, card_index: int) -> void:
 	else:
 		_render_hand()
 
-func _on_hand_card_pressed(index: int, target_unit_id: int = -1) -> void:
+func _on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed: bool = false) -> void:
+	if _is_landscape_phone() and target_unit_id < 0 and not confirmed and is_instance_valid(landscape_view):
+		landscape_view.show_card(index)
+		return
 	is_dragging_hand_card = false
 	drag_candidate_index = -1
 	if drag_preview_card != null and is_instance_valid(drag_preview_card):
@@ -3120,7 +3145,7 @@ func _on_hand_card_pressed(index: int, target_unit_id: int = -1) -> void:
 		return
 	var card: Dictionary = player.hand[index]
 	var hand_slot := int(card.get("_hand_slot", index))
-	if target_unit_id < 0 and _uses_touch_hand_selection() and selected_hand_slot != hand_slot:
+	if target_unit_id < 0 and not confirmed and _uses_touch_hand_selection() and selected_hand_slot != hand_slot:
 		selected_hand_slot = hand_slot
 		_render_hand()
 		hand_render_signature = _hand_signature()
@@ -3433,9 +3458,9 @@ func _play_slot_pop_feedback(target: Control, text: String, color: Color) -> voi
 	_show_slot_overlay_text(target, text, color)
 	_spawn_target_glow(target, color, 0.48)
 	var tween = target.create_tween()
-	tween.tween_property(target, "scale", original_scale * 1.2, 0.11).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(target, "modulate", original_modulate, 0.22)
-	tween.tween_property(target, "scale", original_scale, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(target, "scale", original_scale * 1.08 if _is_landscape_phone() else original_scale * 1.2, 0.08 if _is_landscape_phone() else 0.11).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(target, "modulate", original_modulate, 0.08 if _is_landscape_phone() else 0.22)
+	tween.tween_property(target, "scale", original_scale, 0.1 if _is_landscape_phone() else 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_shake_target(target, 7.0)
 
 func _play_effect_hit_feedback(target: Control, text: String, color: Color) -> void:
@@ -4034,17 +4059,17 @@ func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control
 	_spawn_impact_slash(defender_node, counter)
 	_flash_target(defender_node, Color(1.0, 0.66, 0.18, 1.0) if counter else Color(1.0, 0.28, 0.22, 1.0), 0.24)
 	_shake_target(defender_node, 12.0 if damage < 3 else 18.0)
-	var hit_stop := 0.035 if counter else (0.07 if damage >= 4 else 0.045)
+	var hit_stop := 0.015 if _is_landscape_phone() else (0.035 if counter else (0.07 if damage >= 4 else 0.045))
 	await main.get_tree().create_timer(hit_stop).timeout
 
 	var recoil_direction: Vector2 = -lunge_offset.normalized()
 	var recoil_position: Vector2 = Vector2(start_pos) + recoil_direction * (10.0 if damage >= 4 else 6.0)
 	var recoil = attacker_node.create_tween()
-	recoil.tween_property(attacker_node, "position", recoil_position, 0.055).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	recoil.parallel().tween_property(attacker_node, "scale", Vector2(0.94, 0.94), 0.055)
-	recoil.tween_property(attacker_node, "position", start_pos, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	recoil.parallel().tween_property(attacker_node, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	recoil.parallel().tween_property(attacker_node, "rotation", start_rotation, 0.15)
+	recoil.tween_property(attacker_node, "position", recoil_position, 0.025 if _is_landscape_phone() else 0.055).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	recoil.parallel().tween_property(attacker_node, "scale", Vector2(0.94, 0.94), 0.025 if _is_landscape_phone() else 0.055)
+	recoil.tween_property(attacker_node, "position", start_pos, 0.06 if _is_landscape_phone() else 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	recoil.parallel().tween_property(attacker_node, "scale", Vector2.ONE, 0.06 if _is_landscape_phone() else 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	recoil.parallel().tween_property(attacker_node, "rotation", start_rotation, 0.06 if _is_landscape_phone() else 0.15)
 	await recoil.finished
 
 func _attack_impact_sfx(attacker: Dictionary, damage: int, counter: bool) -> String:
@@ -4710,6 +4735,8 @@ func _make_empty_field_slot(compact: bool, is_next_summon_slot: bool = false, is
 	return placeholder
 
 func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> Control:
+	if is_instance_valid(landscape_view):
+		return landscape_view.field_slot(side, index, is_player_field)
 	var compact = _is_compact_layout()
 	var tight = _is_tight_battle_layout()
 	var portrait = _is_portrait_battle_layout()
@@ -4876,7 +4903,7 @@ func _render_field(container: HBoxContainer, side: Dictionary, is_player_field: 
 		player_field_slots.clear()
 	else:
 		opponent_field_slots.clear()
-	var visible_slots: int = maxi(3, (side.get("field", []) as Array).size()) if _is_mobile_battle_layout() else MAX_FIELD
+	var visible_slots: int = maxi(3, (side.get("field", []) as Array).size()) if _is_mobile_battle_layout() and not _is_landscape_phone() else MAX_FIELD
 	for i in range(min(MAX_FIELD, visible_slots)):
 		var slot = _build_field_slot(side, i, is_player_field)
 		container.add_child(slot)
@@ -4895,6 +4922,9 @@ func _render_hand() -> void:
 	_ensure_hand_visual_slots()
 	var recommended_index = _recommended_hand_index()
 	_clear_container(hand_box)
+	if is_instance_valid(landscape_view):
+		landscape_view.render_hand()
+		return
 	for i in range(player.hand.size()):
 		var card: Dictionary = player.hand[i]
 		var hand_slot: int = int(card.get("_hand_slot", i))
@@ -5094,12 +5124,13 @@ func _layout_hand_cards() -> void:
 	var count := hand_box.get_child_count()
 	var card_size: Vector2 = hand_box.get_child(0).custom_minimum_size
 	var available: float = minf(hand_scroll.size.x if is_instance_valid(hand_scroll) else hand_box.size.x, main._layout_viewport_size().x - 52.0)
-	var track_width := float(count) * (card_size.x + 10.0) + 10.0
+	var gap := 8.0 if _is_landscape_phone() else 10.0
+	var track_width := float(count) * (card_size.x + gap) + gap
 	var start_x := maxf(10.0, (available - track_width) * 0.5)
 	for i in range(count):
 		var card: Control = hand_box.get_child(i)
 		var selected := _uses_touch_hand_selection() and int(card.get_meta("hand_slot", -1)) == selected_hand_slot
-		var position := Vector2(start_x + i * (card_size.x + 10.0), 4.0 if selected else 10.0)
+		var position := Vector2(start_x + i * (card_size.x + gap), 0.0 if _is_landscape_phone() else (4.0 if selected else 10.0))
 		card.position = position
 		card.rotation_degrees = 0
 		card.scale = Vector2.ONE
@@ -5108,7 +5139,7 @@ func _layout_hand_cards() -> void:
 		card.set_meta("base_rotation", 0.0)
 		card.set_meta("base_scale", Vector2.ONE)
 		card.set_meta("base_z_index", i)
-	hand_box.custom_minimum_size = Vector2(track_width, card_size.y + 24.0)
+	hand_box.custom_minimum_size = Vector2(track_width, card_size.y + (4.0 if _is_landscape_phone() else 24.0))
 	last_hand_layout_width = hand_box.custom_minimum_size.x
 
 
@@ -5249,7 +5280,7 @@ func _refresh_action_buttons() -> void:
 		var can_use_power := _can_use_race_power()
 		var power_recommended := recommended_kind == "race_power"
 		race_power_button.disabled = not can_use_power
-		race_power_button.text = "여기 누르기 · %s" % _race_power_button_text() if power_recommended else _race_power_button_text()
+		race_power_button.text = "여기 누르기 · %s" % _race_power_button_text() if power_recommended and not _is_mobile_battle_layout() else _race_power_button_text()
 		if power_used:
 			race_power_button.tooltip_text = "이번 전투에서 이미 사용했습니다."
 		elif main._current_race_id() == "undead" and player.field.is_empty():
@@ -5304,7 +5335,7 @@ func _turn_action_state() -> Dictionary:
 	var available := not _ready_player_attacker_indexes().is_empty() or _can_use_race_power()
 	for card in player.hand:
 		available = available or _can_play_card(player, card, "player")
-	return {"text": "내 턴 · 턴 종료" if available else "턴 종료", "hint": "카드 사용과 공격을 자유롭게 섞을 수 있습니다" if available else "사용 가능한 카드·공격·필살기가 없습니다", "disabled": false, "exhausted": not available}
+	return {"text": "내 턴 · 턴 종료" if available and not _is_mobile_battle_layout() else "턴 종료", "hint": "카드 사용과 공격을 자유롭게 섞을 수 있습니다" if available else "사용 가능한 카드·공격·필살기가 없습니다", "disabled": false, "exhausted": not available}
 
 func _refresh_ui() -> void:
 	if battle_fx_layer != null and is_instance_valid(battle_fx_layer) and not is_dragging_hand_card:
@@ -5315,6 +5346,8 @@ func _refresh_ui() -> void:
 	_refresh_status_labels()
 	_refresh_battle_dashboard()
 	_refresh_action_buttons()
+	if is_instance_valid(landscape_view):
+		landscape_view.refresh_labels()
 	_update_adaptive_battle_music()
 	if bool(main.get_meta("disable_battle_ui_rerender", false)):
 		return
@@ -5342,6 +5375,12 @@ func _refresh_ui() -> void:
 		deck_render_signature = next_deck_signature
 
 func rebuild_layout() -> void:
+	if is_instance_valid(landscape_view):
+		landscape_view.close_detail()
+	if is_instance_valid(landscape_view) or _is_landscape_phone():
+		pending_action.clear()
+		selected_hand_slot = -1
+		selected_attacker = -1
 	var timer_was_running: bool = turn_timer != null and is_instance_valid(turn_timer) and not turn_timer.is_stopped()
 	var timer_left: float = float(turn_timer.time_left) if timer_was_running else 0.0
 	var saved_log: String = "" if log_label == null or not is_instance_valid(log_label) else log_label.text
@@ -5412,6 +5451,7 @@ func _add_log(message: String) -> void:
 	log_label.text = "\n".join(output)
 
 func _shake_screen(intensity: float, duration: float) -> void:
+	if _is_landscape_phone(): return
 	if main.root_scroll == null or not is_instance_valid(main.root_scroll):
 		return
 	var root_offsets := Vector4(

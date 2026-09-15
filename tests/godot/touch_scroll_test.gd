@@ -13,7 +13,7 @@ func _init() -> void:
 		return
 	call_deferred("run")
 func run() -> void:
-	root.size = Vector2i(320, 568) if OS.get_cmdline_user_args().has("--small-phone") else Vector2i(390, 844)
+	root.size = Vector2i(844, 390) if OS.get_cmdline_user_args().has("--landscape") else Vector2i(320, 568) if OS.get_cmdline_user_args().has("--small-phone") else Vector2i(390, 844)
 	var surface := Surface.new()
 	surface.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(surface)
@@ -92,27 +92,33 @@ func gameplay() -> void:
 	main.set_meta("disable_timed_battle_fx", true)
 	root.add_child(main)
 	current_scene = main
+	main.touch_input_active = true
 	main.pending_guided_run = false
 	main._init_run("human", "human_elite")
 	main.run_flow.prepare_battle("normal")
 	var battle = main.battle_screen
 	battle.player.hand.clear()
-	for i in range(7):
+	for i in range(10):
 		battle.player.hand.append(main.card_db.get_card("trainee_swordsman").duplicate(true))
 	battle._ensure_hand_visual_slots()
 	battle._refresh_ui()
 	await create_timer(0.5).timeout
 	var before: String = JSON.stringify([battle.player.hand, battle.player.field, battle.player.mana])
-	main.root_scroll.ensure_control_visible(battle.hand_scroll)
+	var landscape := OS.get_cmdline_user_args().has("--landscape")
+	if not landscape:
+		main.root_scroll.ensure_control_visible(battle.hand_scroll)
 	await process_frame
 	await process_frame
 	var visible_hand: Rect2 = battle.hand_scroll.get_global_rect().intersection(main.root_scroll.get_global_rect())
 	var point: Vector2 = visible_hand.get_center()
 	var footer_before: Vector2 = battle.end_turn_button.global_position
-	assert(battle.end_turn_button.size.y >= 48, "mobile turn button has a usable touch target")
+	for button in [battle.recommended_action_button, battle.end_turn_button, battle.race_power_button]:
+		assert(button.size.y >= (52 if landscape else 56), "mobile battle actions have larger touch targets")
+		assert(button.get_theme_font_size("font_size") >= 16, "mobile battle actions remain readable")
+	assert(battle.detail_toggle_button.get_theme_font_size("font_size") >= 16, "header action is readable")
 	print("MOBILE FOOTER ", battle.end_turn_button.get_global_rect(), " viewport ", main._layout_viewport_size())
 	assert(battle.end_turn_button.get_global_rect().end.y <= main._layout_viewport_size().y, "footer fits phone viewport")
-	assert(not main.root_scroll.get_global_rect().intersects(battle.end_turn_button.get_global_rect()), "footer has separate space from scroll content")
+	assert(not battle.hand_scroll.get_global_rect().intersects(battle.end_turn_button.get_global_rect()) if landscape else not main.root_scroll.get_global_rect().intersects(battle.end_turn_button.get_global_rect()), "footer has separate space from scroll content")
 	await mouse(point, true)
 	var motion := InputEventMouseMotion.new()
 	motion.position = point - Vector2(100, 0)
@@ -149,7 +155,8 @@ func gameplay() -> void:
 	for node in main.root_box.find_children("*", "Button", true, false):
 		if node.text == "바로 시작 · 전략 고르기":
 			assert(node.size.y >= 48, "quick-start action is finger sized")
-	assert(main.mobile_bottom_inset > 0, "selection reserves its own action dock")
+	if not OS.get_cmdline_user_args().has("--landscape"):
+		assert(main.mobile_bottom_inset > 0, "selection reserves its own action dock")
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(Storage.path_for("mobile-selection.png"))
 	print("PASS mobile selection touch target and dock reservation")

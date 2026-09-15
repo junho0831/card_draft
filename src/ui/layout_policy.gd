@@ -7,6 +7,9 @@ const TOUCH_PORTRAIT_WIDTH := 900.0
 static func is_mobile_portrait(size: Vector2) -> bool:
 	return size.x <= MOBILE_WIDTH and size.y > size.x
 
+static func is_mobile_landscape(size: Vector2) -> bool:
+	return size.x > size.y and size.y <= 500.0 and size.x <= 1000.0
+
 static func is_touch_portrait(size: Vector2) -> bool:
 	return size.x <= TOUCH_PORTRAIT_WIDTH and size.y > size.x
 
@@ -19,8 +22,8 @@ static func native_scale(physical: Vector2, base: Vector2) -> float:
 	return minf(physical.x / base.x, physical.y / base.y)
 
 static func render_scale(physical: Vector2, base: Vector2, touch: bool, multiplier: float, maximum: float) -> float:
-	if touch and physical.y > physical.x:
-		return maxf(1.0, physical.x / PHONE_LOGICAL_WIDTH) * multiplier
+	if touch:
+		return maxf(1.0, minf(physical.x, physical.y) / PHONE_LOGICAL_WIDTH) * multiplier
 	var native := native_scale(physical, base)
 	if native < 1.0:
 		return 1.0

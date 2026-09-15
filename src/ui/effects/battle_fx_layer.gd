@@ -28,7 +28,7 @@ func play_attack(attacker: Control, defender: Control, damage: int, counter: boo
 	elif style == "hit_undead":
 		color = Color(0.7, 0.42, 1.0)
 	# Ordinary hits stay local; large impacts alone illuminate the screen.
-	if strong:
+	if strong and not get_meta("compact_landscape", false):
 		_spawn_screen_flash(color, 0.12, 0.20)
 	if style == "hit_elf":
 		_spawn_card_arc_trail(source, (source + center) * 0.5 + Vector2(0, -55), center, color, 0.22)
@@ -73,9 +73,9 @@ func play_death(target: Control) -> void:
 		fragment.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(fragment)
 		var tween := fragment.create_tween()
-		tween.tween_property(fragment, "position", fragment.position + Vector2(rng.randf_range(-55, 55), 85), 0.48).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		tween.parallel().tween_property(fragment, "rotation", rng.randf_range(-3, 3), 0.48)
-		tween.parallel().tween_property(fragment, "modulate:a", 0.0, 0.35).set_delay(0.13)
+		tween.tween_property(fragment, "position", fragment.position + Vector2(rng.randf_range(-55, 55), 85), 0.18 if get_meta("compact_landscape", false) else 0.48).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.parallel().tween_property(fragment, "rotation", rng.randf_range(-3, 3), 0.18 if get_meta("compact_landscape", false) else 0.48)
+		tween.parallel().tween_property(fragment, "modulate:a", 0.0, 0.18 if get_meta("compact_landscape", false) else 0.35).set_delay(0.0 if get_meta("compact_landscape", false) else 0.13)
 		tween.tween_callback(Callable(self, "_free_if_valid").bind(fragment))
 
 func play_ultimate(target: Control, accent: Color) -> void:
@@ -160,8 +160,8 @@ func fly_card(
 	card_visual.rotation_degrees = -4.0 * direction
 	card_visual.modulate.a = 0.92
 
-	var lift_duration := 0.045 if quick else 0.1
-	var travel_duration := 0.14 if quick else (0.34 if action_kind == "spell" else 0.29)
+	var lift_duration := 0.03 if get_meta("compact_landscape", false) else (0.045 if quick else 0.1)
+	var travel_duration := 0.1 if get_meta("compact_landscape", false) else (0.14 if quick else (0.34 if action_kind == "spell" else 0.29))
 	var lift := card_visual.create_tween()
 	lift.set_parallel(true)
 	lift.tween_property(card_visual, "position", lift_center - card_visual.size * 0.5, lift_duration).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
@@ -194,7 +194,7 @@ func finish_card(card_visual: Control, action_kind: String, accent: Color, quick
 		_spawn_screen_flash(impact_color, 0.08 if quick else 0.14, 0.16 if quick else 0.24)
 		_spawn_radial_burst(center, impact_color, 8 if quick else 14, not quick)
 
-	var finish_duration := 0.07 if quick else 0.14
+	var finish_duration := 0.05 if get_meta("compact_landscape", false) else (0.07 if quick else 0.14)
 	var final_scale := card_visual.scale * (Vector2(1.28, 1.28) if action_kind == "spell" else Vector2(0.72, 0.72))
 	if action_kind == "equipment":
 		final_scale = card_visual.scale * Vector2(0.34, 0.34)

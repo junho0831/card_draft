@@ -1,6 +1,7 @@
 extends RefCounted
 class_name UiFactory
 
+const LayoutPolicy = preload("res://src/ui/layout_policy.gd")
 const UI_STYLES = preload("res://src/ui/styles/ui_styles.gd")
 const CARD_RACE_STYLES = preload("res://src/ui/styles/card_race_styles.gd")
 const UI_TOKENS = preload("res://src/ui/styles/ui_tokens.gd")
@@ -47,7 +48,7 @@ func responsive_width(viewport_width: float, preferred_width: int) -> float:
 	return min(float(preferred_width), max(MIN_RESPONSIVE_WIDTH, viewport_width - (SCREEN_MARGIN * 2.0 + 12.0)))
 
 func apply_root_layout(root: Control, viewport_size: Vector2) -> void:
-	mobile_layout = viewport_size.x <= 600.0
+	mobile_layout = viewport_size.x <= 600.0 or LayoutPolicy.is_mobile_landscape(viewport_size)
 	var margin := 6.0 if viewport_size.x <= 600.0 else SCREEN_MARGIN
 	var available_width := maxf(300.0, viewport_size.x - margin * 2.0)
 	var target_width := available_width
@@ -580,21 +581,31 @@ func make_action_button_style(bg_color: Color, accent_color: Color, active: bool
 
 func style_flat_button(button: Button, base_color: Color, accent_color: Color = Color(0.42, 0.68, 1.0, 1.0), font_size: int = 16, outline_size: int = 0) -> void:
 	UI_STYLES.apply_flat_button(button, base_color, accent_color, font_size, outline_size)
+	_apply_mobile_action_metrics(button)
 	_apply_hover_feedback(button)
 
 func style_button(button: Button, base_color: Color) -> void:
 	if mobile_layout:
-		button.custom_minimum_size.y = maxf(button.custom_minimum_size.y, 44.0)
+		button.custom_minimum_size.y = maxf(button.custom_minimum_size.y, 56.0)
 	UI_STYLES.apply_role_button(button, "secondary", base_color.lightened(0.34), base_color, 16)
 	_apply_hover_feedback(button)
 
 func style_primary_button(button: Button, base_color: Color = Color(0.16, 0.34, 0.66, 1.0)) -> void:
 	UI_STYLES.apply_role_button(button, "primary", base_color.lightened(0.34), base_color, UI_TOKENS.FONT_ACTION)
+	_apply_mobile_action_metrics(button, 18)
 	_apply_hover_feedback(button)
 
 func style_role_button(button: Button, role: String, accent_color: Color = Color(0.42, 0.68, 1.0, 1.0), base_color: Color = Color(0.0, 0.0, 0.0, 0.0), font_size: int = -1) -> void:
 	UI_STYLES.apply_role_button(button, role, accent_color, base_color, font_size)
+	_apply_mobile_action_metrics(button, 18 if role == "primary" else 16)
 	_apply_hover_feedback(button)
+
+func _apply_mobile_action_metrics(button: Button, minimum_font: int = 16) -> void:
+	if not mobile_layout:
+		return
+	button.custom_minimum_size.y = maxf(button.custom_minimum_size.y, 56.0)
+	button.add_theme_font_size_override("font_size", maxi(button.get_theme_font_size("font_size"), minimum_font))
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 func make_card_frame() -> PanelContainer:
 	var frame := make_fantasy_card_panel(Color(0.42, 0.62, 0.9, 1.0), 10)
@@ -629,7 +640,7 @@ func card_art_texture(card: Dictionary) -> Texture2D:
 		var path := "res://assets/card_art/cards/%s.png" % art_id
 		if card_art_cache.has(path):
 			return card_art_cache[path]
-		if FileAccess.file_exists(path):
+		if ResourceLoader.exists(path, "Texture2D"):
 			var texture := ResourceLoader.load(path) as Texture2D
 			if texture != null:
 				card_art_cache[path] = texture

@@ -114,7 +114,7 @@ func _test_content_scaling(main: Node) -> void:
 	main.player_profile["settings"]["ui_scale_mode"] = "auto"
 	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/mode", "")), "canvas_items", "project uses Canvas Items stretch mode")
 	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/aspect", "")), "expand", "project uses Expand stretch aspect")
-	_assert_eq(int(ProjectSettings.get_setting("display/window/handheld/orientation", -1)), DisplayServer.SCREEN_PORTRAIT, "mobile app starts in portrait orientation")
+	_assert_eq(int(ProjectSettings.get_setting("display/window/handheld/orientation", -1)), DisplayServer.SCREEN_SENSOR, "mobile app follows landscape and portrait rotation")
 	_assert_eq(main._layout_size_for_physical_size(Vector2(390, 844)), Vector2(390, 844), "phone layout keeps native logical pixels")
 	main.touch_input_active = true
 	_assert_true(is_equal_approx(main._layout_size_for_physical_size(Vector2(1080, 2340)).x, 390.0), "Android high density screen uses phone layout width")

@@ -30,6 +30,8 @@ func run() -> Dictionary:
 	var high_density := Vector2(1080, 2340)
 	var scale := Layout.render_scale(high_density, Vector2(1280, 720), true, 1.0, 1.5)
 	check(is_equal_approx(high_density.x / scale, 390.0), "Android physical resolution becomes phone logical width")
+	var landscape := Vector2(2340, 1080)
+	check(is_equal_approx(Layout.render_scale(landscape, Vector2(1280, 720), true, 1.0, 1.5), scale), "rotating Android preserves readable button scale")
 	check(Layout.is_mobile_portrait(Vector2(390, 844)) and not Layout.is_mobile_portrait(Vector2(844, 390)), "mobile layout does not leak into landscape")
 	check(Layout.is_touch_portrait(Vector2(800, 1200)) and not Layout.is_mobile_portrait(Vector2(800, 1200)), "portrait tablet retains distinct card confirmation and phone layout thresholds")
 	return {"count": count, "failures": failures}

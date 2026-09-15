@@ -235,6 +235,9 @@ func _build_base_ui() -> void:
 	add_child(layout_resize_timer)
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and active_screen == "battle" and battle_screen != null:
+		if is_instance_valid(battle_screen.landscape_view):
+			battle_screen.landscape_view.handle_back()
 	if what == NOTIFICATION_RESIZED:
 		_on_window_size_changed()
 
@@ -785,10 +788,10 @@ func _small_hub_button(parent: Node, title: String, callback_method: String, ico
 
 func _small_hub_button_config(parent: Node, title: String, callback_method: String, icon_text: String, width: int = 58, height: int = 62, font_size: int = 13) -> Button:
 	var button := Button.new()
-	button.text = "%s\n%s" % [icon_text, title]
+	button.text = title if ui.mobile_layout else "%s\n%s" % [icon_text, title]
 	button.custom_minimum_size = Vector2(width, height)
 	ui.style_flat_button(button, Color(0.08, 0.11, 0.16, 1.0), Color(0.44, 0.6, 0.82, 1.0), font_size, 2)
-	button.add_theme_font_size_override("font_size", font_size)
+	button.add_theme_font_size_override("font_size", maxi(font_size, 16) if ui.mobile_layout else font_size)
 	button.pressed.connect(Callable(self, callback_method))
 	parent.add_child(button)
 	return button

@@ -26,7 +26,7 @@ func build(body: VBoxContainer) -> void:
 	var stacked: bool = viewport_size.x < 1100.0
 	var short: bool = viewport_size.y <= 760.0 and viewport_size.x > viewport_size.y
 	var compact: bool = stacked or short
-	var phone: bool = main._is_mobile_phone_layout()
+	var phone: bool = main.ui.mobile_layout
 	var mobile_portrait: bool = main._is_phone_portrait_layout()
 
 	body.add_child(main.ui.make_guidance_banner(
@@ -38,7 +38,8 @@ func build(body: VBoxContainer) -> void:
 
 	var learning := CheckButton.new()
 	if phone:
-		learning.custom_minimum_size.y = 48
+		learning.custom_minimum_size.y = 56
+		learning.add_theme_font_size_override("font_size", 16)
 	learning_toggle = learning
 	learning.text = "단계별로 배우기" if int(main.player_profile.get("learning_stage", 0)) == 0 else "단계별 안내 이어서 배우기"
 	if int(main.player_profile.get("learning_stage", 0)) >= 5:
@@ -50,7 +51,8 @@ func build(body: VBoxContainer) -> void:
 	var skip := Button.new()
 	skip.text = "바로 시작 · 전략 고르기"
 	if phone:
-		skip.custom_minimum_size.y = 48
+		skip.custom_minimum_size.y = 56
+		skip.add_theme_font_size_override("font_size", 16)
 	skip.pressed.connect(func():
 		learning.set_pressed_no_signal(false)
 		_set_guided_mode(false)
@@ -338,12 +340,14 @@ func _render_strategies() -> void:
 			box.add_child(label)
 		var choose := Button.new()
 		choose.text = ("✓ 선택됨 · " if selected else "이 전략 선택 · ") + String(strategy.name)
-		choose.custom_minimum_size.y = 44
+		choose.custom_minimum_size.y = 56 if main.ui.mobile_layout else 44
+		choose.add_theme_font_size_override("font_size", 16)
 		choose.pressed.connect(_choose_strategy.bind(String(strategy.id)))
 		box.add_child(choose)
 		var expand := Button.new()
 		expand.text = "덱 10장 접기" if expanded_strategy_id == String(strategy.id) else "덱 10장 펼쳐보기"
-		expand.custom_minimum_size.y = 44
+		expand.custom_minimum_size.y = 56 if main.ui.mobile_layout else 44
+		expand.add_theme_font_size_override("font_size", 16)
 		expand.pressed.connect(_toggle_strategy_deck.bind(String(strategy.id)))
 		box.add_child(expand)
 		if expanded_strategy_id == String(strategy.id):
