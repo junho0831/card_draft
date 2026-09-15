@@ -232,7 +232,10 @@ func _viewport_size() -> Vector2:
 
 func _control_center(control: Control) -> Vector2:
 	var canvas_center := control.get_global_transform_with_canvas() * (control.size * 0.5)
-	return get_global_transform_with_canvas().affine_inverse() * canvas_center
+	var local_center := get_global_transform_with_canvas().affine_inverse() * canvas_center
+	if bool(get_meta("compact_landscape", false)):
+		local_center = local_center.clamp(Vector2.ZERO, size)
+	return local_center
 
 func _set_card_curve_progress(
 	progress: float,

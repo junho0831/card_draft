@@ -36,6 +36,7 @@ func run():
 	battle._ensure_hand_visual_slots()
 	battle._refresh_ui()
 	await create_timer(1).timeout
+	if landscape: await verify_focus(main, battle)
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(Storage.path_for("battle.png"))
 	print("CAPTURE ", viewport, " hand=", battle.hand_box.get_global_rect(), " action=", battle.end_turn_button.get_global_rect())
@@ -95,6 +96,9 @@ func run():
 	var exchange: Dictionary = battle._predict_unit_attack(battle.player.field[0], strong_enemy, battle.player, battle.opponent)
 	assert(exchange.defender_health == 6 and exchange.attacker_health == 2, "nonlethal exchange predicts both health values")
 	assert(state_before == JSON.stringify([battle.player, battle.opponent, battle.battle_state]), "prediction is read only")
+	if landscape:
+		battle.landscape_view.board_scroll.scroll_vertical = 10000
+		await process_frame
 	await input.click(find_button(battle._field_slot_for(battle.player, 0)), self)
 	await create_timer(0.2).timeout
 	await RenderingServer.frame_post_draw
@@ -103,7 +107,9 @@ func run():
 		var rendered_enemy := find_button(battle.opponent_field_slots[0])
 		assert(rendered_enemy.has_meta("attack_prediction"), "compact target renders health prediction")
 		assert(rendered_enemy.get_meta("attack_prediction").defender_health == prediction.defender_health, "displayed prediction uses combat calculation")
-		assert(rendered_enemy.get_node("EnemyPrediction").text == "적3→0" and find_button(battle._field_slot_for(battle.player, 0)).get_node("OwnPrediction").text == "내4→4", "both resulting health values are visible labels")
+		assert(rendered_enemy.get_node("CombatPrediction").text == "적0 · 내4", "both resulting health values are visible labels")
+		assert(rendered_enemy.get_node("CombatPrediction").position.y >= 120, "preview stays below portrait and name")
+		assert(not find_button(battle._field_slot_for(battle.player, 0)).has_node("OwnPrediction"), "no arbitrary target prediction on ally")
 	if not mobile:
 		var enemy_button := find_button(battle._field_slot_for(battle.opponent, 0))
 		var motion := InputEventMouseMotion.new()
@@ -114,6 +120,9 @@ func run():
 		assert(battle.battle_fx_layer.drag_line != null, "hovering an attack target shows the connection")
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(Storage.path_for("attack-arrow.png"))
+	if landscape:
+		battle.landscape_view.board_scroll.scroll_vertical = 0
+		await process_frame
 	await input.click(find_button(battle._field_slot_for(battle.opponent, 0)), self)
 	await create_timer(0.3).timeout
 	assert(battle.opponent.field.is_empty(), "actual lethal attack removes the predicted target")
@@ -122,7 +131,13 @@ func run():
 	battle.player.field[0].can_attack = true
 	battle._refresh_ui()
 	await process_frame
+	if landscape:
+		battle.landscape_view.board_scroll.scroll_vertical = 10000
+		await process_frame
 	await input.click(find_button(battle._field_slot_for(battle.player, 0)), self)
+	if landscape:
+		battle.landscape_view.board_scroll.scroll_vertical = 0
+		await process_frame
 	await input.click(find_button(battle._field_slot_for(battle.opponent, 0)), self)
 	await create_timer(0.3).timeout
 	assert(battle.opponent.field[0].health == exchange.defender_health, "actual nonlethal enemy health matches preview")
@@ -165,6 +180,8 @@ func run():
 		assert(battle.landscape_view.handle_back(), "back closes card detail")
 		battle.selected_attacker = 0
 		assert(battle.landscape_view.handle_back() and battle.current_player == "player", "back cancels attacker without ending turn")
+		battle.landscape_view.board_scroll.scroll_vertical = 10000
+		await process_frame
 		var field_button = find_button(battle.player_field_slots[0])
 		var hold := InputEventMouseButton.new()
 		hold.button_index = MOUSE_BUTTON_LEFT
@@ -187,11 +204,23 @@ func run():
 		for lane in [battle.player_field_slots, battle.opponent_field_slots]:
 			assert(lane.size() == 5, "all five slots visible")
 			for slot in lane:
-				assert(Rect2(Vector2.ZERO, viewport).encloses(slot.get_global_rect()), "entire field remains onscreen")
+				assert(slot.size.y == 144, "large field card retains readable portrait")
 		assert(battle.hand_scroll.get_global_rect().end.y <= viewport.y, "hand remains onscreen with full fields")
 		assert(main.root_scroll.get_v_scroll_bar().max_value <= main.root_scroll.get_v_scroll_bar().page, "landscape has no page scrolling")
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(Storage.path_for("full-board.png"))
+		battle.player.field[0].can_attack = true
+		battle.selected_attacker = 0
+		var before_preview := JSON.stringify([battle.player, battle.opponent])
+		battle._refresh_ui()
+		for i in range(battle.opponent.field.size()):
+			var enemy := find_button(battle.opponent_field_slots[i])
+			var expected: Dictionary = battle._predict_unit_attack(battle.player.field[0], battle.opponent.field[i], battle.player, battle.opponent)
+			assert(enemy.get_node("CombatPrediction").text == "적%d · 내%d" % [expected.defender_health, expected.attacker_health], "each target has its own result")
+			assert(enemy.get_node("Illustration").get_rect().end.y <= enemy.get_node("CardName").position.y, "portrait does not overlap name")
+		assert(before_preview == JSON.stringify([battle.player, battle.opponent]), "multi-target preview does not mutate sides")
+		battle.landscape_view.handle_back()
+		assert(not find_button(battle.opponent_field_slots[0]).has_node("CombatPrediction"), "cancel restores ordinary stats")
 		for card_id in ["training_sword", "corpse_explosion"]:
 			battle.player.hand = [main.card_db.get_card(card_id).duplicate(true)]
 			battle.player.mana = 10
@@ -204,6 +233,9 @@ func run():
 			await input.click(battle._hand_card_control(int(battle.player.hand[0].get("_hand_slot", 0))), self)
 			await input.click(battle.landscape_view.confirm_button, self)
 			assert(not battle.pending_action.is_empty() and battle.player.hand.size() == 1, "targeted card waits without consumption")
+			if landscape:
+				battle.landscape_view.board_scroll.scroll_vertical = 10000
+				await process_frame
 			await input.click(find_button(battle.player_field_slots[0]), self)
 			await create_timer(0.3).timeout
 			assert(battle.player.hand.is_empty() and battle.pending_action.is_empty(), "target confirmation uses exactly one card")
@@ -227,3 +259,54 @@ func find_button(node: Node) -> Button:
 		if found != null:
 			return found
 	return null
+
+func verify_focus(main, battle) -> void:
+	var view = battle.landscape_view
+	var scroll: ScrollContainer = view.board_scroll
+	var state := JSON.stringify([battle.player, battle.opponent, battle.battle_state])
+	var hand_rect: Rect2 = battle.hand_scroll.get_global_rect()
+	var button_rect: Rect2 = battle.end_turn_button.get_global_rect()
+	assert(scroll.get_v_scroll_bar().max_value > scroll.get_v_scroll_bar().page, "only battlefield overflows vertically")
+	await view.focus_targets([{"player": false, "unit_id": 93}], true)
+	assert(scroll.scroll_vertical == 0, "enemy target aligns at upper edge")
+	await view.focus_targets([{"player": true, "unit_id": 91}], true)
+	var bottom := scroll.scroll_vertical
+	assert(bottom > 0, "ally target scrolls into view")
+	await view.focus_targets([{"player": true, "unit_id": 91}], true)
+	assert(scroll.scroll_vertical == bottom, "visible target causes no extra movement")
+	assert(hand_rect == battle.hand_scroll.get_global_rect() and button_rect == battle.end_turn_button.get_global_rect(), "hand and actions remain fixed")
+	battle._refresh_ui()
+	await process_frame
+	assert(view.resolve_focus({"player": true, "unit_id": 91}) == battle.player_field_slots[0], "unit ID resolves after rerender")
+	assert(scroll.scroll_vertical == bottom, "rerender preserves manual position")
+	main.set_meta("disable_timed_battle_fx", false)
+	view.focus_targets([{"player": false, "unit_id": 93}])
+	await create_timer(0.04).timeout
+	main.touch_scroll_router._begin_gesture(scroll.get_global_rect().get_center(), main)
+	assert(main.touch_scroll_router.tap_blocked, "touch during auto movement cannot click a unit")
+	var interrupted := scroll.scroll_vertical
+	await view.focus_targets([{"player": true, "unit_id": 91}])
+	await create_timer(0.22).timeout
+	assert(scroll.scroll_vertical == interrupted, "held finger cancels and suppresses following")
+	main.touch_scroll_router._end_gesture()
+	main.set_meta("disable_timed_battle_fx", true)
+	await view.focus_targets([{"player": false, "unit_id": 93}], true)
+	assert(scroll.scroll_vertical == 0, "next action resumes follow after release")
+	await view.focus_targets([{"player": true, "unit_id": -999}], true)
+	assert(scroll.scroll_vertical > 0, "removed target falls back to its hero")
+	assert(state == JSON.stringify([battle.player, battle.opponent, battle.battle_state]), "camera never mutates battle or save state")
+	await view.focus_targets([{"player": false, "hero": true}], true)
+	main.touch_scroll_router._begin_gesture(Vector2(750, 50), main)
+	battle._focus_battle_targets([{"player": true, "unit_id": 91}])
+	main.touch_scroll_router._end_gesture()
+	await process_frame
+	await process_frame
+	assert(scroll.scroll_vertical > 0, "Android release ordering still follows confirmed action")
+	main.set_meta("disable_timed_battle_fx", false)
+	battle._focus_battle_targets([{"player": false, "unit_id": 93}])
+	await create_timer(0.02).timeout
+	battle.rebuild_layout()
+	await create_timer(0.3).timeout
+	assert(not battle.landscape_view.focus_pending, "layout replacement leaves no pending camera request")
+	main.set_meta("disable_timed_battle_fx", true)
+	print("PASS battlefield focus, interruption, stable dock and ID resolution")

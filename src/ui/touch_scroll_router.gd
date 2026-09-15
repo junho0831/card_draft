@@ -1,5 +1,14 @@
 extends RefCounted
 ## Own a swipe before child buttons/card handlers can interpret it as a click.
+signal gesture_started(point: Vector2)
+signal swipe_started
+signal gesture_ended
+var tap_blocked := false
+
+func block_current_tap() -> void:
+	tap_blocked = true
+	suppress_mouse = true
+
 const SWIPE_THRESHOLD := 12.0
 var finger := -1
 var origin := Vector2.ZERO
@@ -14,6 +23,10 @@ func handle(event: InputEvent, surface: Control) -> bool:
 		if event is InputEventMouseButton and event.pressed and finger == -1:
 			suppress_mouse = false
 		return suppress_mouse
+	if event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and event.pressed:
+		gesture_started.emit(event.position)
+		gesture_ended.emit()
+		return false
 	var pressed := false
 	var released := false
 	var moving := false
@@ -52,6 +65,7 @@ func handle(event: InputEvent, surface: Control) -> bool:
 	return false
 
 func _begin_gesture(point: Vector2, surface: Control) -> bool:
+	tap_blocked = false
 	suppress_mouse = false
 	swiping = false
 	selected = null
@@ -62,16 +76,18 @@ func _begin_gesture(point: Vector2, surface: Control) -> bool:
 		if hit is ScrollContainer:
 			candidates.append(hit)
 		hit = hit.get_parent() as Control
-	return false
+	gesture_started.emit(point)
+	return tap_blocked
 
 func _end_gesture() -> bool:
-	var consumed := swiping
+	var consumed := swiping or tap_blocked
 	if is_instance_valid(selected):
 		selected.propagate_notification(Control.NOTIFICATION_SCROLL_END)
 	finger = -1
 	selected = null
 	swiping = false
 	candidates.clear()
+	gesture_ended.emit()
 	return consumed
 
 func _move_gesture(point: Vector2, relative: Vector2) -> bool:
@@ -91,6 +107,7 @@ func _move_gesture(point: Vector2, relative: Vector2) -> bool:
 		if selected == null:
 			return false
 		swiping = true
+		swipe_started.emit()
 		suppress_mouse = true
 		selected.propagate_notification(Control.NOTIFICATION_SCROLL_BEGIN)
 	if is_instance_valid(selected):

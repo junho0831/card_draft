@@ -760,6 +760,8 @@ func _effective_battle_tutorial_stage() -> int:
 	return maxi(_battle_tutorial_stage(), _battle_progression_stage())
 
 func _battle_tutorial_content() -> Dictionary:
+	if _is_landscape_phone():
+		return {"compact": "카드 확인 후 사용 · 아군 선택 후 적 공격", "title": "직접 조작하기", "lines": ["손패를 눌러 효과를 확인한 뒤 사용을 누르세요.", "아군을 고르면 적 아래에 공격 후 체력이 표시됩니다. 적을 누르면 공격합니다.", "도움 보기는 설명만 표시합니다. 대상 선택은 취소할 수 있습니다."], "detail": "손패를 눌러 확인한 뒤 사용하세요. 아군을 고른 뒤 적을 누르면 공격합니다. 도움 보기는 설명만 표시합니다."}
 	var stage := _effective_battle_tutorial_stage()
 	match stage:
 		0:
@@ -1220,6 +1222,9 @@ func _on_race_power_pressed(target_unit_id: int = -1) -> void:
 	pending_action.clear()
 	input_locked = true
 	selected_attacker = -1
+	_refresh_ui()
+	if main._current_race_id() != "elf":
+		await _focus_battle_targets([{"player": true, "unit_id": target_unit_id}] if target_unit_id >= 0 else [{"player": true, "hero": true}])
 	battle_state["race_power_used"] = true
 	var old_player_hp := int(player.get("health", 0))
 	var old_opponent_hp := int(opponent.get("health", 0))
@@ -2795,6 +2800,8 @@ func _build_battle_ui() -> void:
 	_initialize_battle_runtime_ui()
 
 func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
+	if not is_player_turn:
+		await _focus_battle_targets([{"player": false, "hero": true}])
 	turn_timer.stop()
 	side.max_mana = min(MAX_MANA, int(side.max_mana) + 1)
 	side.mana = side.max_mana
@@ -2827,6 +2834,8 @@ func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
 		battle_state["ai_phase"] = "cards"
 	_refresh_ui()
 	_store_battle_snapshot()
+	if is_player_turn:
+		await _focus_battle_targets([{"player": true, "hero": true}])
 	await _show_turn_banner("내 턴!" if is_player_turn else "적 턴!", is_player_turn)
 
 
@@ -3179,6 +3188,9 @@ func _on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed: bool
 	var flying_card: Control = null
 	input_locked = true
 	_refresh_ui()
+	await _focus_card_action(card, true, target_unit_id)
+	source = _hand_card_control(hand_slot)
+	target = _field_slot_for(player, _ally_index_by_id(target_unit_id)) if target_unit_id >= 0 else _card_action_target(card, true)
 	if not _should_skip_timed_battle_fx() and battle_fx_layer != null and is_instance_valid(battle_fx_layer) and source != null and target != null:
 		var flight_visual := _make_card_action_visual(card, cost, source.size)
 		source.modulate = Color(source.modulate.r, source.modulate.g, source.modulate.b, 0.14)
@@ -3874,6 +3886,7 @@ func _execute_player_hero_attack(attacker_index: int) -> void:
 	damage = main.relic_service.mitigate_hero_damage(main.current_run, battle_state, damage, false)
 	input_locked = true
 	_refresh_ui()
+	await _focus_battle_targets([_focus_unit(player, attacker_index), {"player": false, "hero": true}])
 	if _is_battle_cutscene_enabled():
 		await _play_hero_cutscene(attacker, opponent.name, damage, player, attacker_index, false)
 	else:
@@ -3920,6 +3933,9 @@ func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_inde
 
 	input_locked = true
 	_refresh_ui()
+	await _focus_battle_targets([_focus_unit(attacker_side, attacker_index), _focus_unit(defender_side, defender_index)])
+	attacker_target = _field_slot_for(attacker_side, attacker_index)
+	defender_target = _field_slot_for(defender_side, defender_index)
 
 	if _is_battle_cutscene_enabled():
 		await _play_unit_battle_feedback(attacker_side, defender_side, attacker_index, defender_index, attack_damage, defense_damage)
@@ -4455,6 +4471,7 @@ func _run_ai_play_cards() -> void:
 		if index < 0:
 			return
 		var card: Dictionary = opponent.hand[index]
+		await _focus_card_action(card, false)
 		opponent.mana -= int(card.get("cost", 0))
 		opponent.hand.remove_at(index)
 		if String(card.get("type", "")) != "unit" and not _card_exhausts_after_play(card):
@@ -4495,6 +4512,7 @@ func _run_ai_hero_attack(index: int) -> void:
 	var damage = _calculate_damage(unit, false, opponent, int(unit.attack))
 	input_locked = true
 	_refresh_ui()
+	await _focus_battle_targets([_focus_unit(opponent, index), {"player": true, "hero": true}])
 	if _is_battle_cutscene_enabled():
 		await _play_hero_cutscene(unit, player.name, damage, opponent, index, true)
 	else:
@@ -4590,7 +4608,12 @@ func _spawn_floating_text(target: Control, text: String, color: Color, font_size
 	lbl.z_index = 100
 	lbl.rotation_degrees = randf_range(-12, 12)
 
-	main.modal_layer.add_child(lbl)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if is_instance_valid(landscape_view) and is_instance_valid(battle_fx_layer):
+		battle_fx_layer.add_child(lbl)
+		lbl.add_theme_font_size_override("font_size", mini(font_size, 32))
+	else:
+		main.modal_layer.add_child(lbl)
 	lbl.global_position = target.global_position + target.size / 2.0 - Vector2(80, 24) + center_offset
 
 	var tween: Tween = main.create_tween()
@@ -5376,6 +5399,7 @@ func _refresh_ui() -> void:
 
 func rebuild_layout() -> void:
 	if is_instance_valid(landscape_view):
+		landscape_view.cancel_focus()
 		landscape_view.close_detail()
 	if is_instance_valid(landscape_view) or _is_landscape_phone():
 		pending_action.clear()
@@ -5813,3 +5837,44 @@ func _show_first_play_help(state: Dictionary) -> void:
 			target = end_turn_button
 	if target != null and is_instance_valid(target):
 		_spawn_target_glow(target, Color(1.0, 0.82, 0.3), 0.72)
+
+func _focus_battle_targets(targets: Array) -> void:
+	if is_instance_valid(landscape_view):
+		var view: Control = landscape_view
+		# Android may emit the emulated button release before ScreenTouch release.
+		await main.get_tree().process_frame
+		if not is_instance_valid(view): return
+		view.focus_targets(targets)
+		# BattleScreen survives layout rebuilds; never await a freed view's coroutine.
+		while is_instance_valid(view) and view.focus_pending:
+			await main.get_tree().process_frame
+
+func _focus_unit(side: Dictionary, index: int) -> Dictionary:
+	if index < 0 or index >= side.field.size():
+		return {"player": side == player, "hero": true}
+	return {"player": side == player, "unit_id": int(side.field[index].get("battle_unit_id", -1))}
+
+func _focus_card_action(card: Dictionary, ally: bool, target_id: int = -1) -> void:
+	if not is_instance_valid(landscape_view): return
+	var id := _base_card_id(String(card.get("id", "")))
+	if id in ["elven_insight", "nature_communion", "dark_bargain", "mana_surge", "ancient_oath"]: return
+	if target_id >= 0:
+		await _focus_battle_targets([{"player": ally, "unit_id": target_id}])
+		return
+	if id == "royal_support":
+		var owner: Dictionary = player if ally else opponent
+		for i in range(owner.field.size()):
+			if String(owner.field[i].get("race", "")) == "인간":
+				await _focus_battle_targets([_focus_unit(owner, i)])
+				return
+		return
+	var target := _card_action_target(card, ally)
+	var descriptor := {"player": ally, "hero": true}
+	for is_ally in [true, false]:
+		if target == _hero_target_for_player(is_ally):
+			descriptor = {"player": is_ally, "hero": true}
+		for i in range(5):
+			if target == _card_action_field_slot(is_ally, i):
+				var side: Dictionary = player if is_ally else opponent
+				descriptor = _focus_unit(side, i) if i < side.field.size() else {"player": is_ally, "slot": i}
+	await _focus_battle_targets([descriptor])
