@@ -5,6 +5,7 @@ var failures: Array[String] = []
 var count := 0
 
 class DummyView extends Control:
+	var hand_size := Vector2(80, 112)
 	func refresh_labels() -> void:
 		pass
 

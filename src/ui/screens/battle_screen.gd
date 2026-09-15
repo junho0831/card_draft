@@ -2678,9 +2678,10 @@ func _build_battle_ui() -> void:
 	battle_focus_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	battle_focus_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	battle_focus_panel.add_child(battle_focus_label)
-	var enemy_row := HBoxContainer.new()
-	enemy_row.add_theme_constant_override("separation", 20)
+	var enemy_row: HBoxContainer
 	if wide_tight:
+		enemy_row = HBoxContainer.new()
+		enemy_row.add_theme_constant_override("separation", 20)
 		board_box.add_child(enemy_row)
 		var enemy_hero = _make_hero_target(opponent, ENEMY_HERO_ART, true, compact)
 		enemy_row.add_child(enemy_hero)
@@ -3790,6 +3791,9 @@ func _on_player_unit_pressed(index: int) -> void:
 	_refresh_ui()
 	_show_direct_attack_target_hint()
 	_store_battle_snapshot()
+	# Only reveal the legal destination; selecting does not execute an attack.
+	var target := _focus_unit(opponent, 0) if _enemy_vanguard_blocks_hero() else {"player": false, "hero": true}
+	await _focus_battle_targets([target])
 
 
 func _ready_player_attacker_indexes() -> Array[int]:
@@ -5131,7 +5135,11 @@ func _deck_signature() -> String:
 	return "%d|%d|%s" % [player.deck.size(), player.discard_pile.size(), _compact_deck_summary(player.deck, 5)]
 
 func _layout_hand_cards() -> void:
-	if not is_instance_valid(hand_box) or hand_box.get_child_count() == 0:
+	if not is_instance_valid(hand_box):
+		return
+	if hand_box.get_child_count() == 0:
+		if is_instance_valid(landscape_view):
+			hand_box.custom_minimum_size = Vector2(0, landscape_view.hand_size.y + 4)
 		return
 	var count := hand_box.get_child_count()
 	var card_size: Vector2 = hand_box.get_child(0).custom_minimum_size

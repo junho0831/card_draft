@@ -43,8 +43,7 @@ func run() -> Dictionary:
 			check(owner.field[1].impact_profile == card.impact_profile, "attack profile persists " + card.id)
 		var upgraded: Dictionary = db.get_card(String(card.id) + "_plus")
 		check(not upgraded.is_empty(), "upgrade available " + card.id)
-		var encoded = JSON.parse_string(JSON.stringify(owner))
-		check(encoded.field.size() == owner.field.size(), "unit state serializes " + card.id)
+		# Actual snapshot round-trip and death effects are covered by frontier_battle_test.
 	for race in races: check(races[race] == 25, "25 per faction " + race)
 	var owner := side(); var enemy := side()
 	play("ember_gate_sentinel", owner, enemy)

@@ -29,6 +29,7 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	var viewport_size: Vector2 = main._layout_viewport_size()
 	var portrait_flow: bool = viewport_size.y > viewport_size.x
 	var phone_portrait: bool = main._is_phone_portrait_layout()
+	var fixed_actions: bool = compact or phone_portrait
 	if not phone_portrait:
 		body.add_child(_make_map_status_strip(compact))
 	if compact:
@@ -40,9 +41,9 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	hub.add_theme_constant_override("separation", 10)
 	body.add_child(hub)
 
-	if portrait_flow:
+	if portrait_flow or compact:
 		hub.add_child(_make_map_panel(compact))
-		hub.add_child(_make_objective_panel(compact, act_data, not phone_portrait))
+		hub.add_child(_make_objective_panel(compact, act_data, not fixed_actions))
 		hub.add_child(_make_legend_panel(compact))
 	else:
 		hub.add_child(_make_legend_panel(compact))
@@ -50,7 +51,7 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 		hub.add_child(_make_objective_panel(compact, act_data, true))
 
 	body.add_child(_make_build_direction_panel(compact))
-	if phone_portrait:
+	if fixed_actions:
 		_mount_map_action_dock(body)
 
 func _is_map_compact_layout() -> bool:
@@ -234,6 +235,7 @@ func _make_objective_panel(compact: bool, act_data: Dictionary, include_actions:
 	return panel
 
 func _mount_map_action_dock(body: VBoxContainer) -> void:
+	var landscape: bool = main._layout_viewport_size().x > main._layout_viewport_size().y
 	var current_layer: Variant = nodes_data[current_index]
 	var current_type := _current_node_type()
 	var dock: Dictionary = main.ui.mount_screen_action_dock(
@@ -242,8 +244,10 @@ func _mount_map_action_dock(body: VBoxContainer) -> void:
 		"지금 할 일 · 다음 장소로 진입",
 		"버튼을 누르면 %s 화면으로 바로 이동합니다." % main._node_type_name(current_type),
 		_node_color(current_type),
-		126
+		96 if landscape else 126
 	)
+	if landscape:
+		dock.detail_label.hide()
 	screen_action_dock = dock.get("panel") as PanelContainer
 	var actions: BoxContainer = dock.get("actions") as BoxContainer
 	var path_indices: Array[int] = [0]
@@ -263,7 +267,7 @@ func _mount_map_action_dock(body: VBoxContainer) -> void:
 		var recommended := path_index == recommended_path_index
 		var button: Button = main.ui.make_dock_action_button(
 			("추천 · " if recommended else "") + "%s 진입 ▶" % main._node_type_name(path_type),
-			_node_reward_text(path_type),
+			"" if landscape else _node_reward_text(path_type),
 			_node_color(path_type),
 			recommended,
 			230

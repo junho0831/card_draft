@@ -38,13 +38,12 @@ func _test_all_cards_have_collection_lore(card_db) -> void:
 	_assert_true(lore_service.load_lore(CARD_LORE_DATA_PATH), "card lore service loads collection lore")
 	var missing_lore_ids: Array[String] = lore_service.missing_lore_ids(card_db.card_defs)
 	_assert_true(missing_lore_ids.is_empty(), "all cards have collection lore")
-	for card_data in card_db.card_defs:
-		var card: Dictionary = card_data
-		var card_id := String(card.get("id", ""))
-		var lore: Dictionary = lore_service.lore_for(card_id)
-		_assert_true(not String(lore.get("story", "")).strip_edges().is_empty(), "%s has story lore" % card_id)
-		_assert_true(not String(lore.get("role", "")).strip_edges().is_empty(), "%s has role lore" % card_id)
-		_assert_true(not String(lore.get("hook", "")).strip_edges().is_empty(), "%s has build hook lore" % card_id)
+	# load_lore validates every story/role/hook; test lookup and copy ownership once.
+	var first_id := String(card_db.card_defs[0].id)
+	var lore: Dictionary = lore_service.lore_for(first_id)
+	_assert_eq(lore, lore_service.lore_by_id[first_id], "lore lookup returns the loaded entry")
+	lore["story"] = "changed by caller"
+	_assert_true(lore_service.lore_for(first_id).story != "changed by caller", "lore lookup does not expose mutable stored data")
 
 func _test_signature_equipment_cards(card_db) -> void:
 	var expected_tags := {
@@ -72,7 +71,7 @@ func _test_card_art_ids_have_files(card_db) -> void:
 		var art_id := String(Dictionary(card).get("art_id", ""))
 		_assert_true(not art_id.is_empty(), "%s has art_id" % String(Dictionary(card).get("id", "")))
 		var path := "res://assets/card_art/cards/%s.png" % art_id
-		_assert_true(FileAccess.file_exists(path), "%s art file exists" % art_id)
+		# Loading the imported texture also detects missing or unusable artwork.
 		var texture := ResourceLoader.load(path) as Texture2D
 		_assert_true(texture != null, "%s art texture loads" % art_id)
 		if texture != null and card.get("expansion") == "frontier_100":
