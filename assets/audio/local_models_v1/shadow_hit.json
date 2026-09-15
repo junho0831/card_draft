@@ -1,0 +1,18 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "cpu_threads": 2,
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "A short dark magical impact: a hollow rushing breath collapsing into a dry low thump and a brief rattling decay. No voice, no music, isolated sound effect.",
+  "seed": 20260916,
+  "steps": 50,
+  "seconds": 3,
+  "elapsed_seconds": 1438.1945996000431,
+  "sha256": "f16bda95fe1de0a98cdb484adae0ee9d94f5e2c35b9fb6b6f93dd10b921b8304",
+  "file": "shadow_hit.ogg",
+  "output_seconds": 1.3,
+  "output_peak": 0.6574170589447021,
+  "trim_start_seconds": 0.0,
+  "output_sha256": "23b7bef4f2b9a8dbff2f4eed290c46ac9dbc3f1452daf79d0aa8958f35e8fe0e",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-LENGTHS = {'arrow_hit': 1.0, 'heavy_hit': 1.5, 'ultimate': 2.5, 'sword_hit': 1.2, 'card_play': 0.6, 'summon': 1.4, 'heal': 2.0,
+LENGTHS = {'ice_hit': 1.2, 'shadow_hit': 1.3, 'lightning_hit': 1.0, 'arrow_hit': 1.0, 'heavy_hit': 1.5, 'ultimate': 2.5, 'sword_hit': 1.2, 'card_play': 0.6, 'summon': 1.4, 'heal': 2.0,
            'spell_hit': 1.5, 'unit_death': 1.8, 'gold_gain': 1.3, 'ui_click': 0.25}
 
 

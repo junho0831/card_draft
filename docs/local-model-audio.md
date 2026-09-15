@@ -77,3 +77,13 @@ xvfb-run -a godot --path /tmp/card-draft-model-pack-check \
 ## 2026-09-13 사운드 확장
 
 탐험곡 `exploration`, 중량 타격 `heavy_hit`, 필살기 `ultimate`를 추가했다. 총 BGM 3곡과 효과음 10종이며, 생성이 끝나지 않은 보스곡·활 소리는 포함하지 않았다. Python은 생성 모델 실행과 편집·인코딩에 사용한다. 손으로 주파수를 조합한 합성음으로 대체하지 않았다. 연결 및 검증 범위는 [사운드와 애니메이션](audio-and-animation.md)을 참고한다.
+
+## 변경 원정 효과음 — 2026-09-15
+
+`ice_hit`, `shadow_hit`, `lightning_hit`를 50스텝, 시드 20260915~20260917로 생성했다. 총 BGM 3곡·효과음 13종이다. `arrow_hit`는 두 번의 50스텝 생성에서도 최대 진폭/RMS가 각각 약 0.0214/0.000209, 0.0231/0.000228로 신호 기준에 미달해 배포하지 않았다. 화살·바람은 기존 생성 무기 충돌음을 공유하며, 새 화살 음원을 만들었다고 기록하지 않는다.
+
+```bash
+python tools/generate_local_sfx.py --model-root <MOSS-TTS-checkout> --output-dir <masters> --keys ice_hit shadow_hit lightning_hit --threads 2 --steps 50 --seed 20260915 --skip-existing
+```
+
+최종 파일 검사: 16개 음원, 총 2,633,958바이트 통과. 엔진 Master 재생 녹음은 18.19초, 최대 진폭 0.6123, RMS 0.1090이다. 이는 자동 신호 검사와 엔진 출력 확인이며, 실제 휴대폰 청취 평가는 아니다.

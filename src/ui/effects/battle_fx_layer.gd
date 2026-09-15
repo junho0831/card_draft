@@ -19,6 +19,10 @@ func _ready() -> void:
 func play_attack(attacker: Control, defender: Control, damage: int, counter: bool = false, style: String = "hit_human") -> void:
 	if defender == null or not is_instance_valid(defender):
 		return
+	var profile := preload("res://src/battle/card_impact_profiles.gd").get_profile(style)
+	if not profile.is_empty():
+		_play_profile_impact(attacker, defender, damage, profile)
+		return
 	var strong := damage >= 4
 	var color := Color(1.0, 0.68, 0.22, 1.0) if counter else Color(1.0, 0.25, 0.16, 1.0)
 	var center := _control_center(defender)
@@ -480,3 +484,55 @@ func clear_drag_target_line() -> void:
 		drag_target_reticle.queue_free()
 		drag_target_reticle = null
 
+
+func _play_profile_impact(attacker: Control, defender: Control, damage: int, profile: Dictionary) -> void:
+	var center := _control_center(defender)
+	var source := _control_center(attacker) if is_instance_valid(attacker) else center - Vector2(50, 0)
+	var color := Color(String(profile.color))
+	var strong := damage >= 4
+	var radius := 40.0 if strong else 28.0
+	match String(profile.motif):
+		"slash":
+			_motif_line([center + Vector2(-radius, radius), center + Vector2(radius, -radius)], color, 7.0)
+			_spawn_sparks(center, color, 8, 0.24)
+		"pierce":
+			var direction := (center - source).normalized()
+			_motif_line([center - direction * 75, center + direction * 18], color, 4.0)
+			_spawn_ring(center, color, radius * 0.65, 0.2)
+		"bolt":
+			_motif_line([source, source.lerp(center, 0.35) + Vector2(12,-18), source.lerp(center, 0.6) + Vector2(-18,12), center], color, 5.0)
+			_spawn_radial_burst(center, Color.WHITE, 6, false)
+		"shards":
+			for i in range(7):
+				var direction := Vector2.RIGHT.rotated(float(i) * TAU / 7.0)
+				_motif_line([center + direction * 8, center + direction * radius], color, 5.0)
+		"implosion":
+			var ring := Line2D.new()
+			ring.position = center
+			ring.width = 4
+			ring.default_color = color
+			for i in range(25): ring.add_point(Vector2.RIGHT.rotated(float(i) * TAU / 24) * radius)
+			add_child(ring)
+			var tween := ring.create_tween()
+			tween.tween_property(ring, "scale", Vector2(0.1,0.1), 0.24)
+			tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.24)
+			tween.tween_callback(ring.queue_free)
+		"halo":
+			_spawn_ring(center, color, radius, 0.35)
+			_spawn_ring(center, Color.WHITE, radius * 0.65, 0.25)
+			_motif_line([center - Vector2(0,radius), center + Vector2(0,radius)], color, 4.0)
+		_:
+			_spawn_impact_core(center, color, strong)
+			_spawn_radial_burst(center, color, 12 if strong else 8, strong)
+			_spawn_ring(center, color, radius, 0.3)
+
+func _motif_line(points: Array, color: Color, width: float) -> void:
+	var line := Line2D.new()
+	line.width = width
+	line.default_color = color
+	line.antialiased = true
+	for point in points: line.add_point(point)
+	add_child(line)
+	var tween := line.create_tween()
+	tween.tween_property(line, "modulate:a", 0.0, 0.25)
+	tween.tween_callback(line.queue_free)

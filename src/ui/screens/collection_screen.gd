@@ -15,7 +15,7 @@ func build(body: VBoxContainer) -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.add_child(list)
 	list.add_child(main._make_label("카드 %d종 | 보유 카드는 밝게, 미보유 카드는 어둡게 표시됩니다." % main.card_defs.size(), 14, Color(0.82, 0.88, 0.95, 1.0)))
-	list.add_child(main.ui.make_filter_bar(["전체", "보유", "미보유", "인간", "엘프", "언데드", "공용"], main.collection_filter, self, "_set_collection_filter", compact))
+	list.add_child(main.ui.make_filter_bar(["전체", "보유", "미보유", "인간", "엘프", "언데드", "공용", "변경 원정"], main.collection_filter, self, "_set_collection_filter", compact))
 	var filtered_cards := _filtered_collection_cards()
 	var columns := 2 if compact else 4
 	var row: HBoxContainer = null
@@ -44,7 +44,9 @@ func _filtered_collection_cards() -> Array:
 			continue
 		if main.collection_filter == "미보유" and owned > 0:
 			continue
-		if race_filter not in ["전체", "보유", "미보유"] and String(card.get("race", "")) != race_filter:
+		if main.collection_filter == "변경 원정" and card.get("expansion") != "frontier_100":
+			continue
+		if race_filter not in ["전체", "보유", "미보유", "변경 원정"] and String(card.get("race", "")) != race_filter:
 			continue
 		filtered.append(card)
 	return filtered
@@ -53,9 +55,10 @@ func _make_collection_card(card: Dictionary, compact: bool) -> Control:
 	var owned := int(main.player_profile["owned_cards"].get(String(card.get("id", "")), 0))
 	var panel = main.ui.make_race_card_panel(card, 10, 3 if owned > 0 else 2, 0.08 if owned > 0 else 0.0)
 	panel.custom_minimum_size = Vector2(170 if compact else 220, 0)
-	if owned <= 0:
-		panel.modulate = Color(0.45, 0.45, 0.5, 1.0)
-	panel.add_child(main.ui.make_card_face(main, card, "collection", {
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 8)
+	panel.add_child(content)
+	var face: Control = main.ui.make_card_face(main, card, "collection", {
 		"compact": compact,
 		"suffix": "x%d" % owned,
 		"art_size": Vector2(132, 92) if compact else Vector2(150, 108),
@@ -65,7 +68,15 @@ func _make_collection_card(card: Dictionary, compact: bool) -> Control:
 		"detail_text": _collection_lore_text(card),
 		"detail_font": 10 if compact else 11,
 		"rules_min_height": 78 if compact else 92,
-	}))
+	})
+	if owned <= 0:
+		face.modulate = Color(0.45, 0.45, 0.5, 1.0)
+	content.add_child(face)
+	var inspect := Button.new()
+	inspect.text = "크게 보기"
+	inspect.custom_minimum_size.y = 48
+	inspect.pressed.connect(_inspect_card.bind(card))
+	content.add_child(inspect)
 	return panel
 
 func _collection_lore_text(card: Dictionary) -> String:
@@ -83,3 +94,36 @@ func _collection_lore_text(card: Dictionary) -> String:
 	if lines.is_empty():
 		return String(card.get("text", ""))
 	return "\n".join(lines)
+
+func _inspect_card(card: Dictionary) -> void:
+	main._clear_modal()
+	var overlay := ColorRect.new()
+	overlay.color = Color(0.015, 0.025, 0.04, 0.97)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	main.modal_layer.add_child(overlay)
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	box.offset_left = 24
+	box.offset_right = -24
+	box.offset_top = 16
+	box.offset_bottom = -16
+	overlay.add_child(box)
+	var close := Button.new()
+	close.text = "닫기"
+	close.custom_minimum_size.y = 48
+	close.pressed.connect(main._clear_modal)
+	box.add_child(close)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(scroll)
+	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(column)
+	var face := preload("res://src/ui/components/card_inspection_view.gd").make_face(main, card)
+	var viewer := preload("res://src/ui/components/card_inspection_view.gd").new()
+	viewer.setup(face, Vector2(300, 470))
+	viewer.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	column.add_child(viewer)
+	var description: Label = main._make_label("좌우로 기울이기 · 위아래로 스크롤\n\n" + _collection_lore_text(card), 16, Color(0.9, 0.92, 0.96))
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(description)

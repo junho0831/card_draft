@@ -42,7 +42,8 @@ func run() -> Dictionary:
 		check(main.root_scroll.scroll_vertical > 0, "quick start scrolls to the newly revealed strategies")
 		var old_panel = main.root_box.get_child(0)
 		main._show_main_menu()
-		check(is_instance_valid(old_panel) and old_panel.is_queued_for_deletion() and not old_panel.is_inside_tree(), "screen teardown detaches immediately and defers destruction")
+		check(is_instance_valid(old_panel) and old_panel.is_queued_for_deletion() and not old_panel.visible, "screen teardown hides immediately while button dispatch completes")
+	await tree.process_frame
 	main.pending_guided_run = false
 	main.set_meta("disable_timed_battle_fx", true)
 	main._init_run("human", "human_elite")
@@ -142,7 +143,7 @@ func find_button(node: Node, prefix: String) -> Button:
 			return found
 	return null
 
-func click(button: Button, tree) -> void:
+func click(button: Control, tree) -> void:
 	if button == null:
 		check(false, "expected clickable control exists")
 		return

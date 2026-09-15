@@ -35,7 +35,7 @@ func run() -> void:
 		printerr("FAIL menu music overlaps battle")
 		quit(1)
 		return
-	for key in ["draw", "play", "summon_human", "equipment_elf", "hit_human", "hit_elf", "impact_heavy", "unit_death", "spell_fire", "heal", "combo", "finisher", "victory_burst"]:
+	for key in ["draw", "play", "summon_human", "equipment_elf", "hit_human", "hit_elf", "impact_heavy", "unit_death", "spell_fire", "heal", "combo", "finisher", "victory_burst", "impact_arrow", "impact_ice", "impact_shadow", "impact_lightning"]:
 		manager.play_sound(key)
 		await create_timer(0.75).timeout
 	manager.stop_battle_music()
@@ -71,7 +71,7 @@ func run() -> void:
 	if saved != OK:
 		quit(1)
 		return
-	print("PASS generated menu, battle, boss, exploration, 13 SFX and return; engine recording saved")
+	print("PASS generated menu, battle, boss, exploration, 17 SFX events and return; engine recording saved")
 	manager.queue_free()
 	await process_frame
 	quit()

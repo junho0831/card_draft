@@ -60,7 +60,7 @@ func _test_signature_equipment_cards(card_db) -> void:
 		var card: Dictionary = card_data
 		if String(card.get("type", "")) == "equipment":
 			equipment_count += 1
-	_assert_eq(equipment_count, 7, "card pool contains the generic and six signature equipment cards")
+	_assert_eq(equipment_count, 27, "card pool contains seven original and twenty frontier equipment cards")
 	for card_id in expected_tags:
 		var card: Dictionary = card_db.get_card(String(card_id))
 		_assert_eq(String(card.get("type", "")), "equipment", "%s is equipment" % card_id)
@@ -75,6 +75,8 @@ func _test_card_art_ids_have_files(card_db) -> void:
 		_assert_true(FileAccess.file_exists(path), "%s art file exists" % art_id)
 		var texture := ResourceLoader.load(path) as Texture2D
 		_assert_true(texture != null, "%s art texture loads" % art_id)
+		if texture != null and card.get("expansion") == "frontier_100":
+			_assert_true(maxi(texture.get_width(), texture.get_height()) <= 768, "%s uses the mobile texture size limit" % art_id)
 
 func _test_build_upgraded_unit(card_db) -> void:
 	var deck: Array = card_db.build_deck_from_ids(["militia_plus"])

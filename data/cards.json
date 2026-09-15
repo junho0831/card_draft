@@ -702,5 +702,2755 @@
             "death",
             "draw"
         ]
+    },
+    {
+        "id": "ember_gate_sentinel",
+        "name": "잿불 관문병",
+        "type": "unit",
+        "race": "인간",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "ember_gate_sentinel",
+        "text": "소환 시 앞 적에게 피해 1",
+        "starter": false,
+        "build_tags": [
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_damage",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal",
+        "attack": 2,
+        "health": 2
+    },
+    {
+        "id": "banner_page",
+        "name": "깃발 시종",
+        "type": "unit",
+        "race": "인간",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "banner_page",
+        "text": "소환 시 앞 아군 공격 +1",
+        "starter": false,
+        "build_tags": [
+            "buff",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_buff",
+                "amount": 1,
+                "extra": 0
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal",
+        "attack": 1,
+        "health": 3
+    },
+    {
+        "id": "siege_crossbowman",
+        "name": "공성 석궁수",
+        "type": "unit",
+        "race": "인간",
+        "attr": "바람",
+        "cost": 2,
+        "art": 0,
+        "art_id": "siege_crossbowman",
+        "text": "소환 시 앞 적에게 피해 1",
+        "starter": false,
+        "build_tags": [
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_damage",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "arrow",
+        "attack": 2,
+        "health": 2
+    },
+    {
+        "id": "field_surgeon",
+        "name": "야전 외과의",
+        "type": "unit",
+        "race": "인간",
+        "attr": "빛",
+        "cost": 2,
+        "art": 0,
+        "art_id": "field_surgeon",
+        "text": "소환 시 내 영웅 체력 2 회복",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "heal",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy",
+        "attack": 1,
+        "health": 3
+    },
+    {
+        "id": "ash_lancer",
+        "name": "재의 창기병",
+        "type": "unit",
+        "race": "인간",
+        "attr": "대지",
+        "cost": 3,
+        "art": 0,
+        "art_id": "ash_lancer",
+        "text": "소환 시 즉시 공격 가능",
+        "starter": false,
+        "build_tags": [
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "ready",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal",
+        "attack": 2,
+        "health": 2
+    },
+    {
+        "id": "royal_cartographer",
+        "name": "왕실 지도관",
+        "type": "unit",
+        "race": "인간",
+        "attr": "대지",
+        "cost": 3,
+        "art": 0,
+        "art_id": "royal_cartographer",
+        "text": "소환 시 카드 1장 드로우",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal",
+        "attack": 2,
+        "health": 2
+    },
+    {
+        "id": "iron_chaplain",
+        "name": "강철 군목",
+        "type": "unit",
+        "race": "인간",
+        "attr": "빛",
+        "cost": 2,
+        "art": 0,
+        "art_id": "iron_chaplain",
+        "text": "전열을 오래 지키는 방어 유닛",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [],
+        "death_effects": [],
+        "impact_profile": "holy",
+        "attack": 1,
+        "health": 4
+    },
+    {
+        "id": "sunforge_smith",
+        "name": "태양로 대장장이",
+        "type": "unit",
+        "race": "인간",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "sunforge_smith",
+        "text": "소환 시 앞 아군 공격 +1",
+        "starter": false,
+        "build_tags": [
+            "buff",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_buff",
+                "amount": 1,
+                "extra": 0
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal",
+        "attack": 1,
+        "health": 3
+    },
+    {
+        "id": "breach_captain",
+        "name": "돌파 대장",
+        "type": "unit",
+        "race": "인간",
+        "attr": "대지",
+        "cost": 4,
+        "art": 0,
+        "art_id": "breach_captain",
+        "text": "소환 시 즉시 공격 가능한 1/1 지원병 1장 소환 (빈 칸만)",
+        "starter": false,
+        "build_tags": [
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "tokens",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal",
+        "attack": 2,
+        "health": 3
+    },
+    {
+        "id": "wounded_duelist",
+        "name": "상처 입은 결투가",
+        "type": "unit",
+        "race": "인간",
+        "attr": "암흑",
+        "cost": 2,
+        "art": 0,
+        "art_id": "wounded_duelist",
+        "text": "소환 시 내 영웅 체력 2 잃음",
+        "starter": false,
+        "build_tags": [
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "self_damage",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "blood",
+        "attack": 3,
+        "health": 3
+    },
+    {
+        "id": "cinder_marshal",
+        "name": "불씨 원수",
+        "type": "unit",
+        "race": "인간",
+        "attr": "화염",
+        "cost": 4,
+        "art": 0,
+        "art_id": "cinder_marshal",
+        "text": "소환 시 앞 적에게 피해 2",
+        "starter": false,
+        "build_tags": [
+            "fire",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_damage",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "fire",
+        "attack": 2,
+        "health": 3
+    },
+    {
+        "id": "oathkeeper",
+        "name": "서약 수호자",
+        "type": "unit",
+        "race": "인간",
+        "attr": "빛",
+        "cost": 3,
+        "art": 0,
+        "art_id": "oathkeeper",
+        "text": "사망 시 내 영웅 체력 2 회복",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [],
+        "death_effects": [
+            {
+                "op": "heal",
+                "amount": 2
+            }
+        ],
+        "impact_profile": "holy",
+        "attack": 2,
+        "health": 4
+    },
+    {
+        "id": "supply_rider",
+        "name": "보급 기수",
+        "type": "unit",
+        "race": "인간",
+        "attr": "대지",
+        "cost": 4,
+        "art": 0,
+        "art_id": "supply_rider",
+        "text": "소환 시 카드 1장 드로우; 내 영웅 체력 1 회복",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            },
+            {
+                "op": "heal",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal",
+        "attack": 2,
+        "health": 3
+    },
+    {
+        "id": "veteran_pikewall",
+        "name": "노련한 창벽",
+        "type": "unit",
+        "race": "인간",
+        "attr": "대지",
+        "cost": 4,
+        "art": 0,
+        "art_id": "veteran_pikewall",
+        "text": "소환 시 앞 아군 공격 +1, 체력 +1",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_buff",
+                "amount": 1,
+                "extra": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "stone",
+        "attack": 1,
+        "health": 6
+    },
+    {
+        "id": "dawn_paladin",
+        "name": "새벽 성기사",
+        "type": "unit",
+        "race": "인간",
+        "attr": "빛",
+        "cost": 4,
+        "art": 0,
+        "art_id": "dawn_paladin",
+        "text": "소환 시 내 영웅 체력 2 회복; 앞 아군 체력 +1",
+        "starter": false,
+        "build_tags": [
+            "buff",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "heal",
+                "amount": 2
+            },
+            {
+                "op": "front_buff",
+                "amount": 0,
+                "extra": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy",
+        "attack": 2,
+        "health": 4
+    },
+    {
+        "id": "volley_order",
+        "name": "일제 사격 명령",
+        "type": "spell",
+        "race": "인간",
+        "attr": "바람",
+        "cost": 3,
+        "art": 0,
+        "art_id": "volley_order",
+        "text": "앞 적에게 피해 4",
+        "starter": false,
+        "build_tags": [
+            "fire"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_damage",
+                "amount": 4
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "arrow"
+    },
+    {
+        "id": "last_stand_oath",
+        "name": "결사항전 서약",
+        "type": "spell",
+        "race": "인간",
+        "attr": "빛",
+        "cost": 3,
+        "art": 0,
+        "art_id": "last_stand_oath",
+        "text": "모든 아군 공격 +1, 체력 +1",
+        "starter": false,
+        "build_tags": [
+            "buff",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "all_buff",
+                "amount": 1,
+                "extra": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy"
+    },
+    {
+        "id": "supply_drop",
+        "name": "전선 보급",
+        "type": "spell",
+        "race": "인간",
+        "attr": "바람",
+        "cost": 3,
+        "art": 0,
+        "art_id": "supply_drop",
+        "text": "카드 2장 드로우",
+        "starter": false,
+        "build_tags": [
+            "draw"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "wind"
+    },
+    {
+        "id": "sunlit_triage",
+        "name": "햇살 응급소",
+        "type": "spell",
+        "race": "인간",
+        "attr": "빛",
+        "cost": 2,
+        "art": 0,
+        "art_id": "sunlit_triage",
+        "text": "내 영웅 체력 4 회복; 앞 아군 체력 +1",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "heal",
+                "amount": 4
+            },
+            {
+                "op": "front_buff",
+                "amount": 0,
+                "extra": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy"
+    },
+    {
+        "id": "scorched_advance",
+        "name": "초토화 진군",
+        "type": "spell",
+        "race": "인간",
+        "attr": "화염",
+        "cost": 4,
+        "art": 0,
+        "art_id": "scorched_advance",
+        "text": "모든 적 유닛에게 피해 2 (적 필드가 비면 영웅 피해 2)",
+        "starter": false,
+        "build_tags": [
+            "fire"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "all_damage",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "fire"
+    },
+    {
+        "id": "sentinel_tower_shield",
+        "name": "관문 대형 방패",
+        "type": "equipment",
+        "race": "인간",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "sentinel_tower_shield",
+        "text": "선택한 아군 체력 +4",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 0,
+                "extra": 4
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "stone"
+    },
+    {
+        "id": "sunforge_sabre",
+        "name": "태양로 군도",
+        "type": "equipment",
+        "race": "인간",
+        "attr": "화염",
+        "cost": 3,
+        "art": 0,
+        "art_id": "sunforge_sabre",
+        "text": "선택한 아군 공격 +1; 공격 후 적 영웅 피해 1",
+        "starter": false,
+        "build_tags": [
+            "fire",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 1,
+                "extra": 0
+            },
+            {
+                "op": "gear_hit",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "fire"
+    },
+    {
+        "id": "commanders_spurs",
+        "name": "지휘관의 박차",
+        "type": "equipment",
+        "race": "인간",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "commanders_spurs",
+        "text": "선택한 아군 공격 +2, 체력 +1",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 2,
+                "extra": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal"
+    },
+    {
+        "id": "medics_signet",
+        "name": "의무관 인장",
+        "type": "equipment",
+        "race": "인간",
+        "attr": "빛",
+        "cost": 2,
+        "art": 0,
+        "art_id": "medics_signet",
+        "text": "선택한 아군 공격 +1, 체력 +1; 공격 후 내 영웅 회복 1",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 1,
+                "extra": 1
+            },
+            {
+                "op": "gear_heal",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy"
+    },
+    {
+        "id": "martyrs_plate",
+        "name": "순교자의 판금",
+        "type": "equipment",
+        "race": "인간",
+        "attr": "빛",
+        "cost": 2,
+        "art": 0,
+        "art_id": "martyrs_plate",
+        "text": "선택한 아군 체력 +2; 사망 시 적 영웅 피해 2",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 0,
+                "extra": 2
+            },
+            {
+                "op": "gear_death",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy"
+    },
+    {
+        "id": "dew_scout",
+        "name": "이슬 정찰병",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 3,
+        "art": 0,
+        "art_id": "dew_scout",
+        "text": "소환 시 카드 1장 드로우",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "arrow",
+        "attack": 3,
+        "health": 1
+    },
+    {
+        "id": "thorn_ambusher",
+        "name": "가시 매복자",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "대지",
+        "cost": 3,
+        "art": 0,
+        "art_id": "thorn_ambusher",
+        "text": "소환 시 즉시 공격 가능",
+        "starter": false,
+        "build_tags": [
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "ready",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal",
+        "attack": 3,
+        "health": 1
+    },
+    {
+        "id": "moonwell_keeper",
+        "name": "달샘 관리인",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "빛",
+        "cost": 2,
+        "art": 0,
+        "art_id": "moonwell_keeper",
+        "text": "소환 시 내 영웅 체력 2 회복",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "heal",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy",
+        "attack": 1,
+        "health": 3
+    },
+    {
+        "id": "wind_script_sage",
+        "name": "바람문자 현자",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 4,
+        "art": 0,
+        "art_id": "wind_script_sage",
+        "text": "소환 시 카드 1장 드로우; 의식 +1",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            },
+            {
+                "op": "ritual",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "wind",
+        "attack": 1,
+        "health": 4
+    },
+    {
+        "id": "rootshield_warden",
+        "name": "뿌리방패 감시자",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "rootshield_warden",
+        "text": "전열을 오래 지키는 방어 유닛",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [],
+        "death_effects": [],
+        "impact_profile": "stone",
+        "attack": 2,
+        "health": 3
+    },
+    {
+        "id": "petal_blade_dancer",
+        "name": "꽃잎 검무사",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "petal_blade_dancer",
+        "text": "소환 시 앞 아군 공격 +1",
+        "starter": false,
+        "build_tags": [
+            "buff",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_buff",
+                "amount": 1,
+                "extra": 0
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal",
+        "attack": 1,
+        "health": 3
+    },
+    {
+        "id": "storm_perch_archer",
+        "name": "폭풍 둥지 궁수",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 2,
+        "art": 0,
+        "art_id": "storm_perch_archer",
+        "text": "소환 시 앞 적에게 피해 1",
+        "starter": false,
+        "build_tags": [
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_damage",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "lightning",
+        "attack": 3,
+        "health": 1
+    },
+    {
+        "id": "seed_courier",
+        "name": "씨앗 전령",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 2,
+        "art": 0,
+        "art_id": "seed_courier",
+        "text": "소환 시 의식 +1",
+        "starter": false,
+        "build_tags": [
+            "buff",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "ritual",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "wind",
+        "attack": 1,
+        "health": 2
+    },
+    {
+        "id": "mistpath_hunter",
+        "name": "안개길 사냥꾼",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 4,
+        "art": 0,
+        "art_id": "mistpath_hunter",
+        "text": "소환 시 카드 1장 드로우; 앞 적에게 피해 1",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            },
+            {
+                "op": "front_damage",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "arrow",
+        "attack": 2,
+        "health": 2
+    },
+    {
+        "id": "ancient_bark_guard",
+        "name": "고목 껍질병",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "대지",
+        "cost": 3,
+        "art": 0,
+        "art_id": "ancient_bark_guard",
+        "text": "사망 시 내 영웅 체력 2 회복",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [],
+        "death_effects": [
+            {
+                "op": "heal",
+                "amount": 2
+            }
+        ],
+        "impact_profile": "stone",
+        "attack": 2,
+        "health": 4
+    },
+    {
+        "id": "crystal_pool_seer",
+        "name": "수정못 예언자",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "빛",
+        "cost": 4,
+        "art": 0,
+        "art_id": "crystal_pool_seer",
+        "text": "소환 시 카드 1장 드로우; 내 영웅 체력 1 회복",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            },
+            {
+                "op": "heal",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy",
+        "attack": 2,
+        "health": 3
+    },
+    {
+        "id": "wildfern_beastmaster",
+        "name": "고사리 조련사",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 4,
+        "art": 0,
+        "art_id": "wildfern_beastmaster",
+        "text": "소환 시 즉시 공격 가능한 1/1 지원병 1장 소환 (빈 칸만)",
+        "starter": false,
+        "build_tags": [
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "tokens",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "wind",
+        "attack": 2,
+        "health": 3
+    },
+    {
+        "id": "aurora_stalker",
+        "name": "극광 추적자",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "물",
+        "cost": 4,
+        "art": 0,
+        "art_id": "aurora_stalker",
+        "text": "소환 시 앞 적 공격력 1 감소 (최소 0)",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "weaken",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "ice",
+        "attack": 3,
+        "health": 4
+    },
+    {
+        "id": "bloom_channeler",
+        "name": "개화 영매",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "빛",
+        "cost": 4,
+        "art": 0,
+        "art_id": "bloom_channeler",
+        "text": "소환 시 내 영웅 체력 2 회복; 앞 아군 체력 +1",
+        "starter": false,
+        "build_tags": [
+            "buff",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "heal",
+                "amount": 2
+            },
+            {
+                "op": "front_buff",
+                "amount": 0,
+                "extra": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy",
+        "attack": 2,
+        "health": 4
+    },
+    {
+        "id": "horizon_arrowmaster",
+        "name": "지평선 명궁",
+        "type": "unit",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 4,
+        "art": 0,
+        "art_id": "horizon_arrowmaster",
+        "text": "소환 시 앞 적 피해 1, 이번 턴 카드 3장 이상 사용했다면 3",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "fire"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "combo_damage",
+                "amount": 1,
+                "extra": 3
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "lightning",
+        "attack": 2,
+        "health": 4
+    },
+    {
+        "id": "briar_rain",
+        "name": "찔레비",
+        "type": "spell",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 4,
+        "art": 0,
+        "art_id": "briar_rain",
+        "text": "모든 적 유닛에게 피해 2 (적 필드가 비면 영웅 피해 2)",
+        "starter": false,
+        "build_tags": [
+            "fire"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "all_damage",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "arrow"
+    },
+    {
+        "id": "moonlit_reading",
+        "name": "달빛 독해",
+        "type": "spell",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 4,
+        "art": 0,
+        "art_id": "moonlit_reading",
+        "text": "카드 2장 드로우; 의식 +1",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 2
+            },
+            {
+                "op": "ritual",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "wind"
+    },
+    {
+        "id": "spring_revival",
+        "name": "봄의 재생",
+        "type": "spell",
+        "race": "엘프",
+        "attr": "빛",
+        "cost": 2,
+        "art": 0,
+        "art_id": "spring_revival",
+        "text": "내 영웅 체력 3 회복; 의식 +1",
+        "starter": false,
+        "build_tags": [
+            "buff",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "heal",
+                "amount": 3
+            },
+            {
+                "op": "ritual",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy"
+    },
+    {
+        "id": "windward_oath",
+        "name": "순풍의 맹세",
+        "type": "spell",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 3,
+        "art": 0,
+        "art_id": "windward_oath",
+        "text": "모든 아군 공격 +1; 카드 1장 드로우",
+        "starter": false,
+        "build_tags": [
+            "buff",
+            "draw"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "all_buff",
+                "amount": 1,
+                "extra": 0
+            },
+            {
+                "op": "draw",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "wind"
+    },
+    {
+        "id": "frostseed_burst",
+        "name": "서리씨앗 파열",
+        "type": "spell",
+        "race": "엘프",
+        "attr": "물",
+        "cost": 3,
+        "art": 0,
+        "art_id": "frostseed_burst",
+        "text": "앞 적 피해 2, 이번 턴 카드 3장 이상 사용했다면 5",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "fire"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "combo_damage",
+                "amount": 2,
+                "extra": 5
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "ice"
+    },
+    {
+        "id": "moonstring_bow",
+        "name": "달시위 활",
+        "type": "equipment",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 3,
+        "art": 0,
+        "art_id": "moonstring_bow",
+        "text": "선택한 아군 공격 +1; 공격 후 카드 1장 드로우",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 1,
+                "extra": 0
+            },
+            {
+                "op": "gear_draw",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "arrow"
+    },
+    {
+        "id": "thornweave_cloak",
+        "name": "가시직조 망토",
+        "type": "equipment",
+        "race": "엘프",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "thornweave_cloak",
+        "text": "선택한 아군 체력 +4",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 0,
+                "extra": 4
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "stone"
+    },
+    {
+        "id": "sunseed_pendant",
+        "name": "햇씨앗 목걸이",
+        "type": "equipment",
+        "race": "엘프",
+        "attr": "빛",
+        "cost": 2,
+        "art": 0,
+        "art_id": "sunseed_pendant",
+        "text": "선택한 아군 공격 +1, 체력 +1; 공격 후 내 영웅 회복 1",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 1,
+                "extra": 1
+            },
+            {
+                "op": "gear_heal",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy"
+    },
+    {
+        "id": "stormfeather_quiver",
+        "name": "폭풍깃 화살통",
+        "type": "equipment",
+        "race": "엘프",
+        "attr": "바람",
+        "cost": 2,
+        "art": 0,
+        "art_id": "stormfeather_quiver",
+        "text": "선택한 아군 체력 +1; 공격 후 적 영웅 피해 1",
+        "starter": false,
+        "build_tags": [
+            "fire",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 0,
+                "extra": 1
+            },
+            {
+                "op": "gear_hit",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "lightning"
+    },
+    {
+        "id": "elderwood_spear",
+        "name": "고목의 창",
+        "type": "equipment",
+        "race": "엘프",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "elderwood_spear",
+        "text": "선택한 아군 공격 +2, 체력 +1",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 2,
+                "extra": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal"
+    },
+    {
+        "id": "crypt_bellringer",
+        "name": "납골 종지기",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 2,
+        "art": 0,
+        "art_id": "crypt_bellringer",
+        "text": "소환 시 적 저주 +1",
+        "starter": false,
+        "build_tags": [
+            "death"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "curse",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "shadow",
+        "attack": 1,
+        "health": 2
+    },
+    {
+        "id": "shroud_apprentice",
+        "name": "수의 견습생",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 2,
+        "art": 0,
+        "art_id": "shroud_apprentice",
+        "text": "사망 시 카드 1장 드로우",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "draw"
+        ],
+        "expansion": "frontier_100",
+        "effects": [],
+        "death_effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            }
+        ],
+        "impact_profile": "shadow",
+        "attack": 1,
+        "health": 2
+    },
+    {
+        "id": "marrow_collector",
+        "name": "골수 수집가",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 3,
+        "art": 0,
+        "art_id": "marrow_collector",
+        "text": "사망 시 적 영웅에게 피해 2",
+        "starter": false,
+        "build_tags": [
+            "death"
+        ],
+        "expansion": "frontier_100",
+        "effects": [],
+        "death_effects": [
+            {
+                "op": "hero_damage",
+                "amount": 2
+            }
+        ],
+        "impact_profile": "bone",
+        "attack": 2,
+        "health": 3
+    },
+    {
+        "id": "grave_lamplighter",
+        "name": "무덤 점등사",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 3,
+        "art": 0,
+        "art_id": "grave_lamplighter",
+        "text": "소환 시 카드 1장 드로우",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "shadow",
+        "attack": 2,
+        "health": 2
+    },
+    {
+        "id": "bloodbound_knight",
+        "name": "혈약 기사",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 2,
+        "art": 0,
+        "art_id": "bloodbound_knight",
+        "text": "소환 시 내 영웅 체력 2 잃음",
+        "starter": false,
+        "build_tags": [
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "self_damage",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "blood",
+        "attack": 3,
+        "health": 3
+    },
+    {
+        "id": "ossuary_guard",
+        "name": "납골당 수위",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "ossuary_guard",
+        "text": "전열을 오래 지키는 방어 유닛",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [],
+        "death_effects": [],
+        "impact_profile": "stone",
+        "attack": 1,
+        "health": 4
+    },
+    {
+        "id": "corpse_ferryman",
+        "name": "시체 뱃사공",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 3,
+        "art": 0,
+        "art_id": "corpse_ferryman",
+        "text": "사망 시 내 영웅 체력 2 회복",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [],
+        "death_effects": [
+            {
+                "op": "heal",
+                "amount": 2
+            }
+        ],
+        "impact_profile": "shadow",
+        "attack": 2,
+        "health": 4
+    },
+    {
+        "id": "plague_apothecary",
+        "name": "역병 약제사",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 4,
+        "art": 0,
+        "art_id": "plague_apothecary",
+        "text": "소환 시 모든 적 유닛에게 피해 1 (적 필드가 비면 영웅 피해 1); 적 저주 +1",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "fire"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "all_damage",
+                "amount": 1
+            },
+            {
+                "op": "curse",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "poison",
+        "attack": 1,
+        "health": 4
+    },
+    {
+        "id": "widows_revenant",
+        "name": "미망인의 망령",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 3,
+        "art": 0,
+        "art_id": "widows_revenant",
+        "text": "소환 시 적 저주 +1; 내 영웅 체력 1 회복",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "curse",
+                "amount": 1
+            },
+            {
+                "op": "heal",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "shadow",
+        "attack": 1,
+        "health": 3
+    },
+    {
+        "id": "soul_tax_collector",
+        "name": "영혼 징수관",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 4,
+        "art": 0,
+        "art_id": "soul_tax_collector",
+        "text": "소환 시 카드 1장 드로우; 적 저주 +1",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "draw"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            },
+            {
+                "op": "curse",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "shadow",
+        "attack": 1,
+        "health": 3
+    },
+    {
+        "id": "coffin_breaker",
+        "name": "관 파괴자",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 3,
+        "art": 0,
+        "art_id": "coffin_breaker",
+        "text": "소환 시 즉시 공격 가능",
+        "starter": false,
+        "build_tags": [
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "ready",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "bone",
+        "attack": 2,
+        "health": 2
+    },
+    {
+        "id": "bone_banner_lord",
+        "name": "백골 깃발군주",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 4,
+        "art": 0,
+        "art_id": "bone_banner_lord",
+        "text": "소환 시 즉시 공격 가능한 1/1 지원병 1장 소환 (빈 칸만)",
+        "starter": false,
+        "build_tags": [
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "tokens",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "bone",
+        "attack": 2,
+        "health": 3
+    },
+    {
+        "id": "famine_acolyte",
+        "name": "기근 수행자",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 3,
+        "art": 0,
+        "art_id": "famine_acolyte",
+        "text": "소환 시 내 영웅 체력 2 잃음; 카드 1장 드로우",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "draw"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "self_damage",
+                "amount": 2
+            },
+            {
+                "op": "draw",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "blood",
+        "attack": 2,
+        "health": 3
+    },
+    {
+        "id": "night_vigil_wraith",
+        "name": "밤샘 망령",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "물",
+        "cost": 4,
+        "art": 0,
+        "art_id": "night_vigil_wraith",
+        "text": "소환 시 앞 적 공격력 1 감소 (최소 0)",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "weaken",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "ice",
+        "attack": 3,
+        "health": 4
+    },
+    {
+        "id": "red_moon_executor",
+        "name": "적월 집행자",
+        "type": "unit",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 5,
+        "art": 0,
+        "art_id": "red_moon_executor",
+        "text": "소환 시 앞 적 피해 1, 내 영웅 체력이 절반 이하라면 3",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "death"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "low_damage",
+                "amount": 1,
+                "extra": 3
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "blood",
+        "attack": 3,
+        "health": 4
+    },
+    {
+        "id": "funeral_tithe",
+        "name": "장례 십일조",
+        "type": "spell",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 1,
+        "art": 0,
+        "art_id": "funeral_tithe",
+        "text": "선택한 아군 하나 희생; 카드 2장 드로우",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "draw"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "sacrifice",
+                "amount": 1
+            },
+            {
+                "op": "draw",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "shadow",
+        "target": "ally"
+    },
+    {
+        "id": "marrow_detonation",
+        "name": "골수 폭파",
+        "type": "spell",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 3,
+        "art": 0,
+        "art_id": "marrow_detonation",
+        "text": "선택한 아군 하나 희생; 모든 적 유닛에게 피해 3 (적 필드가 비면 영웅 피해 3)",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "fire"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "sacrifice",
+                "amount": 1
+            },
+            {
+                "op": "all_damage",
+                "amount": 3
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "bone",
+        "target": "ally"
+    },
+    {
+        "id": "crimson_pact",
+        "name": "진홍 계약",
+        "type": "spell",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 2,
+        "art": 0,
+        "art_id": "crimson_pact",
+        "text": "내 영웅 체력 3 잃음; 카드 2장 드로우; 내 영웅 체력 1 회복",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "draw"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "self_damage",
+                "amount": 3
+            },
+            {
+                "op": "draw",
+                "amount": 2
+            },
+            {
+                "op": "heal",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "blood"
+    },
+    {
+        "id": "crypt_miasma",
+        "name": "납골 독기",
+        "type": "spell",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 4,
+        "art": 0,
+        "art_id": "crypt_miasma",
+        "text": "모든 적 유닛에게 피해 2 (적 필드가 비면 영웅 피해 2)",
+        "starter": false,
+        "build_tags": [
+            "fire"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "all_damage",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "poison"
+    },
+    {
+        "id": "restless_muster",
+        "name": "잠들지 못한 소집",
+        "type": "spell",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 3,
+        "art": 0,
+        "art_id": "restless_muster",
+        "text": "내 영웅 체력 2 잃음; 모든 아군 공격 +2",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "self_damage",
+                "amount": 2
+            },
+            {
+                "op": "all_buff",
+                "amount": 2,
+                "extra": 0
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "blood"
+    },
+    {
+        "id": "ribcage_aegis",
+        "name": "늑골 방벽",
+        "type": "equipment",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 2,
+        "art": 0,
+        "art_id": "ribcage_aegis",
+        "text": "선택한 아군 체력 +2; 사망 시 적 영웅 피해 2",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 0,
+                "extra": 2
+            },
+            {
+                "op": "gear_death",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "bone"
+    },
+    {
+        "id": "widows_needle",
+        "name": "미망인의 바늘",
+        "type": "equipment",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 2,
+        "art": 0,
+        "art_id": "widows_needle",
+        "text": "선택한 아군 공격 +1, 체력 +1; 공격 후 내 영웅 회복 1",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 1,
+                "extra": 1
+            },
+            {
+                "op": "gear_heal",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "shadow"
+    },
+    {
+        "id": "soulglass_lantern",
+        "name": "영혼유리 등불",
+        "type": "equipment",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 3,
+        "art": 0,
+        "art_id": "soulglass_lantern",
+        "text": "선택한 아군 공격 +1; 공격 후 카드 1장 드로우",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 1,
+                "extra": 0
+            },
+            {
+                "op": "gear_draw",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "shadow"
+    },
+    {
+        "id": "bloodcourt_sword",
+        "name": "혈정 군검",
+        "type": "equipment",
+        "race": "언데드",
+        "attr": "암흑",
+        "cost": 3,
+        "art": 0,
+        "art_id": "bloodcourt_sword",
+        "text": "선택한 아군 공격 +2; 내 영웅 체력 2 잃음; 공격 후 적 영웅 피해 1",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "fire"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 2,
+                "extra": 0
+            },
+            {
+                "op": "self_damage",
+                "amount": 2
+            },
+            {
+                "op": "gear_hit",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "blood"
+    },
+    {
+        "id": "sepulchral_plate",
+        "name": "묘실 판금",
+        "type": "equipment",
+        "race": "언데드",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "sepulchral_plate",
+        "text": "선택한 아군 체력 +4",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 0,
+                "extra": 4
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "stone"
+    },
+    {
+        "id": "frontier_militiaman",
+        "name": "변경 자경병",
+        "type": "unit",
+        "race": "중립",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "frontier_militiaman",
+        "text": "소환 시 앞 아군 공격 +1",
+        "starter": false,
+        "build_tags": [
+            "buff",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_buff",
+                "amount": 1,
+                "extra": 0
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal",
+        "attack": 1,
+        "health": 4
+    },
+    {
+        "id": "caravan_guard",
+        "name": "대상단 호위",
+        "type": "unit",
+        "race": "중립",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "caravan_guard",
+        "text": "전열을 오래 지키는 방어 유닛",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [],
+        "death_effects": [],
+        "impact_profile": "stone",
+        "attack": 1,
+        "health": 5
+    },
+    {
+        "id": "runestone_scholar",
+        "name": "룬석 학자",
+        "type": "unit",
+        "race": "중립",
+        "attr": "암흑",
+        "cost": 3,
+        "art": 0,
+        "art_id": "runestone_scholar",
+        "text": "소환 시 카드 1장 드로우",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "shadow",
+        "attack": 1,
+        "health": 3
+    },
+    {
+        "id": "cinder_alchemist",
+        "name": "잿불 연금술사",
+        "type": "unit",
+        "race": "중립",
+        "attr": "화염",
+        "cost": 4,
+        "art": 0,
+        "art_id": "cinder_alchemist",
+        "text": "소환 시 앞 적에게 피해 2",
+        "starter": false,
+        "build_tags": [
+            "fire",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_damage",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "fire",
+        "attack": 1,
+        "health": 4
+    },
+    {
+        "id": "frostbound_giant",
+        "name": "빙결 거인",
+        "type": "unit",
+        "race": "중립",
+        "attr": "물",
+        "cost": 4,
+        "art": 0,
+        "art_id": "frostbound_giant",
+        "text": "소환 시 앞 적 공격력 1 감소 (최소 0)",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "weaken",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "ice",
+        "attack": 2,
+        "health": 5
+    },
+    {
+        "id": "wandering_mender",
+        "name": "떠돌이 수선사",
+        "type": "unit",
+        "race": "중립",
+        "attr": "빛",
+        "cost": 2,
+        "art": 0,
+        "art_id": "wandering_mender",
+        "text": "소환 시 내 영웅 체력 2 회복",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "heal",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy",
+        "attack": 1,
+        "health": 4
+    },
+    {
+        "id": "quarry_breaker",
+        "name": "채석장 파쇄꾼",
+        "type": "unit",
+        "race": "중립",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "quarry_breaker",
+        "text": "소환 시 앞 적에게 피해 1",
+        "starter": false,
+        "build_tags": [
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_damage",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "stone",
+        "attack": 1,
+        "health": 3
+    },
+    {
+        "id": "sandstep_mercenary",
+        "name": "모래걸음 용병",
+        "type": "unit",
+        "race": "중립",
+        "attr": "대지",
+        "cost": 3,
+        "art": 0,
+        "art_id": "sandstep_mercenary",
+        "text": "소환 시 즉시 공격 가능",
+        "starter": false,
+        "build_tags": [
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "ready",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal",
+        "attack": 1,
+        "health": 3
+    },
+    {
+        "id": "relic_diver",
+        "name": "유물 잠수부",
+        "type": "unit",
+        "race": "중립",
+        "attr": "빛",
+        "cost": 4,
+        "art": 0,
+        "art_id": "relic_diver",
+        "text": "소환 시 카드 1장 드로우; 내 영웅 체력 1 회복",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            },
+            {
+                "op": "heal",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy",
+        "attack": 1,
+        "health": 4
+    },
+    {
+        "id": "lantern_watchman",
+        "name": "등불 파수꾼",
+        "type": "unit",
+        "race": "중립",
+        "attr": "빛",
+        "cost": 3,
+        "art": 0,
+        "art_id": "lantern_watchman",
+        "text": "사망 시 내 영웅 체력 2 회복",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [],
+        "death_effects": [
+            {
+                "op": "heal",
+                "amount": 2
+            }
+        ],
+        "impact_profile": "holy",
+        "attack": 1,
+        "health": 5
+    },
+    {
+        "id": "emberwing_falconer",
+        "name": "잿날개 매사냥꾼",
+        "type": "unit",
+        "race": "중립",
+        "attr": "바람",
+        "cost": 4,
+        "art": 0,
+        "art_id": "emberwing_falconer",
+        "text": "소환 시 카드 1장 드로우; 앞 적에게 피해 1",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            },
+            {
+                "op": "front_damage",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "arrow",
+        "attack": 1,
+        "health": 3
+    },
+    {
+        "id": "ironroot_colossus",
+        "name": "철뿌리 거상",
+        "type": "unit",
+        "race": "중립",
+        "attr": "대지",
+        "cost": 4,
+        "art": 0,
+        "art_id": "ironroot_colossus",
+        "text": "소환 시 앞 아군 공격 +1, 체력 +1",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_buff",
+                "amount": 1,
+                "extra": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "stone",
+        "attack": 1,
+        "health": 7
+    },
+    {
+        "id": "scarred_pitfighter",
+        "name": "흉터 투기병",
+        "type": "unit",
+        "race": "중립",
+        "attr": "암흑",
+        "cost": 2,
+        "art": 0,
+        "art_id": "scarred_pitfighter",
+        "text": "소환 시 내 영웅 체력 2 잃음",
+        "starter": false,
+        "build_tags": [
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "self_damage",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "blood",
+        "attack": 2,
+        "health": 4
+    },
+    {
+        "id": "stormglass_magus",
+        "name": "폭풍유리 마도사",
+        "type": "unit",
+        "race": "중립",
+        "attr": "바람",
+        "cost": 4,
+        "art": 0,
+        "art_id": "stormglass_magus",
+        "text": "소환 시 앞 적 피해 1, 이번 턴 카드 3장 이상 사용했다면 3",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "fire"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "combo_damage",
+                "amount": 1,
+                "extra": 3
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "lightning",
+        "attack": 1,
+        "health": 5
+    },
+    {
+        "id": "wayfarer_captain",
+        "name": "길잡이 대장",
+        "type": "unit",
+        "race": "중립",
+        "attr": "대지",
+        "cost": 4,
+        "art": 0,
+        "art_id": "wayfarer_captain",
+        "text": "소환 시 즉시 공격 가능한 1/1 지원병 1장 소환 (빈 칸만)",
+        "starter": false,
+        "build_tags": [
+            "summon"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "tokens",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal",
+        "attack": 1,
+        "health": 4
+    },
+    {
+        "id": "flying_embers",
+        "name": "날리는 잿불",
+        "type": "spell",
+        "race": "중립",
+        "attr": "화염",
+        "cost": 3,
+        "art": 0,
+        "art_id": "flying_embers",
+        "text": "앞 적에게 피해 4",
+        "starter": false,
+        "build_tags": [
+            "fire"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "front_damage",
+                "amount": 4
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "fire"
+    },
+    {
+        "id": "emergency_cache",
+        "name": "비상 은닉처",
+        "type": "spell",
+        "race": "중립",
+        "attr": "바람",
+        "cost": 2,
+        "art": 0,
+        "art_id": "emergency_cache",
+        "text": "카드 1장 드로우; 내 영웅 체력 2 회복",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "draw",
+                "amount": 1
+            },
+            {
+                "op": "heal",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "wind"
+    },
+    {
+        "id": "herbal_compress",
+        "name": "약초 찜질",
+        "type": "spell",
+        "race": "중립",
+        "attr": "빛",
+        "cost": 3,
+        "art": 0,
+        "art_id": "herbal_compress",
+        "text": "내 영웅 체력 6 회복",
+        "starter": false,
+        "build_tags": [
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "heal",
+                "amount": 6
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy"
+    },
+    {
+        "id": "united_front",
+        "name": "공동 전선",
+        "type": "spell",
+        "race": "중립",
+        "attr": "빛",
+        "cost": 3,
+        "art": 0,
+        "art_id": "united_front",
+        "text": "모든 아군 체력 +2; 내 영웅 체력 1 회복",
+        "starter": false,
+        "build_tags": [
+            "buff",
+            "low_hp"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "all_buff",
+                "amount": 0,
+                "extra": 2
+            },
+            {
+                "op": "heal",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy"
+    },
+    {
+        "id": "shrapnel_gust",
+        "name": "파편 돌풍",
+        "type": "spell",
+        "race": "중립",
+        "attr": "대지",
+        "cost": 3,
+        "art": 0,
+        "art_id": "shrapnel_gust",
+        "text": "모든 적 유닛에게 피해 1 (적 필드가 비면 영웅 피해 1); 앞 적 공격력 2 감소 (최소 0)",
+        "starter": false,
+        "build_tags": [
+            "fire"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "all_damage",
+                "amount": 1
+            },
+            {
+                "op": "weaken",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "metal"
+    },
+    {
+        "id": "quarry_hammer",
+        "name": "채석 망치",
+        "type": "equipment",
+        "race": "중립",
+        "attr": "대지",
+        "cost": 2,
+        "art": 0,
+        "art_id": "quarry_hammer",
+        "text": "선택한 아군 공격 +1, 체력 +2",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 1,
+                "extra": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "stone"
+    },
+    {
+        "id": "frostglass_shield",
+        "name": "서리유리 방패",
+        "type": "equipment",
+        "race": "중립",
+        "attr": "물",
+        "cost": 2,
+        "art": 0,
+        "art_id": "frostglass_shield",
+        "text": "선택한 아군 체력 +5",
+        "starter": false,
+        "build_tags": [
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 0,
+                "extra": 5
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "ice"
+    },
+    {
+        "id": "travellers_compass",
+        "name": "여행자의 나침반",
+        "type": "equipment",
+        "race": "중립",
+        "attr": "바람",
+        "cost": 3,
+        "art": 0,
+        "art_id": "travellers_compass",
+        "text": "선택한 아군 체력 +1; 공격 후 카드 1장 드로우",
+        "starter": false,
+        "build_tags": [
+            "draw",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 0,
+                "extra": 1
+            },
+            {
+                "op": "gear_draw",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "wind"
+    },
+    {
+        "id": "warmstone_charm",
+        "name": "온돌석 부적",
+        "type": "equipment",
+        "race": "중립",
+        "attr": "빛",
+        "cost": 2,
+        "art": 0,
+        "art_id": "warmstone_charm",
+        "text": "선택한 아군 체력 +2; 공격 후 내 영웅 회복 1",
+        "starter": false,
+        "build_tags": [
+            "low_hp",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 0,
+                "extra": 2
+            },
+            {
+                "op": "gear_heal",
+                "amount": 1
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy"
+    },
+    {
+        "id": "last_light_cuirass",
+        "name": "마지막 빛 흉갑",
+        "type": "equipment",
+        "race": "중립",
+        "attr": "빛",
+        "cost": 2,
+        "art": 0,
+        "art_id": "last_light_cuirass",
+        "text": "선택한 아군 체력 +3; 사망 시 적 영웅 피해 2",
+        "starter": false,
+        "build_tags": [
+            "death",
+            "buff"
+        ],
+        "expansion": "frontier_100",
+        "effects": [
+            {
+                "op": "target_buff",
+                "amount": 0,
+                "extra": 3
+            },
+            {
+                "op": "gear_death",
+                "amount": 2
+            }
+        ],
+        "death_effects": [],
+        "impact_profile": "holy"
     }
 ]

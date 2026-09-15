@@ -11,7 +11,10 @@ import time
 import types
 
 PROMPTS = {
-    'arrow_hit': 'A single bowstring snaps and an arrow whistles quickly into a leather target with a crisp woody thud. Isolated medieval archery impact, no speech or music.',
+    'ice_hit': 'A single icicle spear strikes frozen stone and shatters into sharp glassy ice fragments, with a brief cold airy hiss. Isolated fantasy impact, no voice or music.',
+    'shadow_hit': 'A short dark magical impact: a hollow rushing breath collapsing into a dry low thump and a brief rattling decay. No voice, no music, isolated sound effect.',
+    'lightning_hit': 'One short bright electrical arc snaps into a metal target, a sharp crack followed by brief sizzling sparks. Isolated fantasy lightning hit, no voice or music.',
+    'arrow_hit': 'A single arrow strikes a wooden target. A sharp dry wooden thunk with a brief rustling vibration. Loud clear isolated close-up sound effect, no speech or music.',
     'heavy_hit': 'A massive iron war hammer strikes a metal shield with one deep crushing impact and a brief resonant metallic rattle. Powerful isolated close-up impact, no speech or music.',
     'ultimate': 'A short magical energy surge rises into one immense thunderous explosion with shimmering sparks and a low rumbling tail. Isolated fantasy ultimate ability, no speech or music.',
     'sword_hit': 'A single heavy steel sword strikes a wooden shield. Sharp metallic clang, deep wooden impact, a short natural decay. Isolated close-up sound effect, no speech or music.',
@@ -38,6 +41,7 @@ def main():
     parser.add_argument('--model-root', type=Path, required=True)
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--key', choices=[*PROMPTS, 'all'], default='sword_hit')
+    parser.add_argument('--keys', nargs='+', choices=list(PROMPTS), help='Generate selected effects without reloading the model')
     parser.add_argument('--threads', type=int, default=2, help='CPU worker threads; 2 suits dual-core laptops')
     parser.add_argument('--seed', type=int, default=20260911)
     parser.add_argument('--steps', type=int, default=100)
@@ -72,7 +76,8 @@ def main():
                 use_cache=False, return_dict=True).last_hidden_state
         return torch.nn.functional.pad(hidden, (0, 0, 0, ids.shape[1] - length))
     pipe.text_encoder.forward = types.MethodType(encode_hidden, pipe.text_encoder)
-    keys = list(PROMPTS) if args.key == 'all' else [args.key]
+    keys = args.keys or (list(PROMPTS) if args.key == 'all' else [args.key])
+    failed = []
     for index, key in enumerate(keys):
         seed = args.seed + index
         existing = output / (key + '.wav')
@@ -96,7 +101,13 @@ def main():
                 seed=seed)
         samples = audio[0].detach().float().cpu().numpy().T
         if not usable_audio(samples, pipe.sample_rate):
-            raise SystemExit('Invalid or silent generation; game assets unchanged')
+            failure = {'key': key, 'seed': seed, 'steps': args.steps,
+                       'finite': bool(np.isfinite(samples).all()),
+                       'peak': float(np.max(np.abs(samples))),
+                       'rms': float(np.sqrt(np.mean(samples ** 2)))}
+            print('Rejected generation: ' + json.dumps(failure), flush=True)
+            failed.append(key)
+            continue
         target = output / (key + '.wav')
         sf.write(target, samples, pipe.sample_rate, subtype='PCM_24')
         record = {
@@ -112,6 +123,9 @@ def main():
         (output / (key + '.json')).write_text(
             json.dumps(record, ensure_ascii=False, indent=2) + '\n')
         print(json.dumps(record, ensure_ascii=False), flush=True)
+
+    if failed:
+        raise SystemExit('No assets written for rejected effects: ' + ', '.join(failed))
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@
 - 기본 런 길이: 총 10개 노드, 목표 10–15분
   - 각 Act: `battle -> event/shop -> battle/elite -> rest/shop -> boss`
   - 기존 저장의 지도는 그대로 이어서 진행
-- 스타터 4종 + 런 카드 풀 40장
+- 카드 정의 총 147장: 기존 47장 + [변경 원정 100장](docs/expansion/frontier-100.md)
 - 유물 15개, 이벤트 5개
 - 전투 규칙: 영웅 체력 0 승패, 첫 턴 기본 마나 2, 이후 턴마다 +1, 필드 5칸
 - 빌드 태그: 화염, 드로우, 사망, 버프, 저체력, 소환
@@ -105,7 +105,7 @@ res://src/core/Main.tscn
 
 ## 효과음
 
-음악은 ACE-Step 1.5, 효과음은 MOSS-SoundEffect v2를 로컬에서 생성한 `assets/audio/local_models_v1`의 Ogg를 우선 사용한다. 메뉴·탐험·전투 음악 3개와 효과음 10개를 기존 이벤트에 연결한다. 전투 음악은 완성된 단일 곡의 음량을 상황에 따라 조정하며 이전 합성 레이어를 겹치지 않는다. 모델 라이선스·생성 기록·재생 검증은 [로컬 모델 오디오](docs/local-model-audio.md)에 기록한다. 사람의 청취 평가와 신규 사용자 플레이 검증은 자동 검사와 별개다.
+음악은 ACE-Step 1.5, 효과음은 MOSS-SoundEffect v2를 로컬에서 생성한 `assets/audio/local_models_v1`의 Ogg를 우선 사용한다. 메뉴·탐험·전투 음악 3개와 효과음 13개를 기존 이벤트에 연결한다. 전투 음악은 완성된 단일 곡의 음량을 상황에 따라 조정하며 이전 합성 레이어를 겹치지 않는다. 모델 라이선스·생성 기록·재생 검증은 [로컬 모델 오디오](docs/local-model-audio.md)에 기록한다. 사람의 청취 평가와 신규 사용자 플레이 검증은 자동 검사와 별개다.
 
 첫 학습 전투의 ‘도움 보기’는 위치만 강조한다. 카드를 사용하거나 공격·턴 종료를 대신 실행하지 않는다. 일반 런의 기존 추천 조작은 유지한다. [첫판 경험 기획](docs/first-play-experience.md)을 참조한다.
 
@@ -202,4 +202,6 @@ xvfb-run -a godot --path . -s res://tests/godot/touch_scroll_test.gd -- --test-d
 
 모바일 우선 배치 기준과 작은 화면 검증 명령은 [모바일 조작 기준](docs/mobile-controls.md)을 참고한다. 전투와 공통 화면의 하단 액션은 콘텐츠와 분리하고, 모바일 버튼은 최소 44px(전투 주요 버튼 48px) 높이를 확보한다.
 
-코드 책임 분리와 검증 범위: [리팩토링 기록](docs/refactoring-2026-09-14.md).
+코드 책임 분리와 검증 범위: [리팩토링 기록](docs/refactoring-2026-09-14.md), [전투 실행·연출 수명 분리](docs/battle-refactoring.md).
+
+카드 상세·도감의 입체 미리보기: [2.5D 카드 뷰어](docs/card-inspection.md).

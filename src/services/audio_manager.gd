@@ -1,6 +1,8 @@
 extends Node
 class_name AudioManager
 
+const ImpactProfiles = preload("res://src/battle/card_impact_profiles.gd")
+
 const SAMPLE_RATE := 44100
 const SFX_BUS_NAME := &"SFX"
 const BGM_BUS_NAME := &"BGM"
@@ -26,14 +28,20 @@ var current_battle_music_signature := ""
 var rng := RandomNumberGenerator.new()
 var last_sound_at_msec := {}
 var duck_until_msec := 0
+var force_procedural := false
 var ambient_key := "menu_theme"
 var ambient_tween: Tween
 var battle_score_key := "battle_base"
 
-func _init() -> void:
+func _init(generate_legacy_assets: bool = false) -> void:
+	force_procedural = generate_legacy_assets
 	name = "AudioManager"
 	rng.seed = 916273
 	_generate_all_sounds()
+	for profile in ImpactProfiles.PROFILES:
+		streams["impact_" + profile] = streams.get("hit_human")
+		sound_pitch_jitter["impact_" + profile] = 0.0
+		sound_volume_db["impact_" + profile] = -5.0
 	_generate_all_music()
 
 func _ready() -> void:
@@ -330,7 +338,7 @@ func _sound_priority(sound_name: String) -> int:
 		return 5
 	if sound_name in ["direct_attack", "impact_heavy", "power_human", "power_elf", "power_undead"]:
 		return 4
-	if sound_name.begins_with("summon_") or sound_name.begins_with("hit_") or sound_name.begins_with("spell_") or sound_name.begins_with("equipment_"):
+	if sound_name.begins_with("summon_") or sound_name.begins_with("hit_") or sound_name.begins_with("spell_") or sound_name.begins_with("equipment_") or not ImpactProfiles.get_profile(sound_name).is_empty():
 		return 3
 	if sound_name in ["unit_death", "combo", "counter", "hit", "summon", "spell", "reward", "victory", "defeat"]:
 		return 3
@@ -368,7 +376,7 @@ func _minimum_gap_msec(sound_name: String) -> int:
 			return 260
 		"victory_burst", "victory", "defeat":
 			return 900
-	if sound_name.begins_with("hit_"):
+	if sound_name.begins_with("hit_") or not ImpactProfiles.get_profile(sound_name).is_empty():
 		return 85
 	if sound_name.begins_with("summon_") or sound_name.begins_with("spell_") or sound_name.begins_with("equipment_"):
 		return 120
@@ -388,6 +396,8 @@ func _load_custom_sounds() -> void:
 			custom_streams[sound_name] = load(path)
 
 func _model_sfx_key(sound_name: String) -> String:
+	var profile := ImpactProfiles.get_profile(sound_name)
+	if not profile.is_empty(): return String(profile.sound)
 	if sound_name == "hit_elf":
 		return "sword_hit"
 	if sound_name in ["impact_heavy", "direct_attack", "hit_undead"]:
@@ -485,47 +495,53 @@ func _read_u16_le(bytes: PackedByteArray, offset: int) -> int:
 func _read_u32_le(bytes: PackedByteArray, offset: int) -> int:
 	return int(bytes[offset]) | (int(bytes[offset + 1]) << 8) | (int(bytes[offset + 2]) << 16) | (int(bytes[offset + 3]) << 24)
 
+func _sound_or_generate(sound_name: String, fallback: Callable) -> AudioStream:
+	if not force_procedural:
+		for path in ["%s/%s.ogg" % [MODEL_AUDIO_DIR, _model_sfx_key(sound_name)], "%s/%s.ogg" % [ORIGINAL_AUDIO_DIR, sound_name]]:
+			if ResourceLoader.exists(path): return load(path) as AudioStream
+	return fallback.call()
+
 func _generate_all_sounds() -> void:
-	streams["unit_death"] = _generate_weapon_hit()
-	streams["click"] = _generate_rune_click()
-	streams["draw"] = _generate_card_draw()
-	streams["play"] = _generate_card_play_slam()
-	streams["summon"] = _generate_summon_drop()
-	streams["spell"] = _generate_spell_cast()
-	streams["counter"] = _generate_counter_hit()
-	streams["heal"] = _generate_heal_chord()
-	streams["hit"] = _generate_weapon_hit()
-	streams["combo"] = _generate_combo_burst()
-	streams["finisher"] = _generate_finisher_slam()
-	streams["reward"] = _generate_reward_chime()
-	streams["victory"] = _generate_heavy_fanfare(true)
-	streams["defeat"] = _generate_heavy_fanfare(false)
-	streams["hover"] = _generate_hover_tick()
-	streams["power_human"] = _generate_human_power()
-	streams["power_elf"] = _generate_elf_power()
-	streams["power_undead"] = _generate_undead_power()
-	streams["impact_heavy"] = _generate_heavy_impact()
-	streams["direct_attack"] = _generate_direct_attack()
-	streams["victory_burst"] = _generate_victory_burst()
-	streams["summon_human"] = _generate_race_summon("human")
-	streams["summon_elf"] = _generate_race_summon("elf")
-	streams["summon_undead"] = _generate_race_summon("undead")
-	streams["summon_common"] = _generate_race_summon("common")
-	streams["hit_human"] = _generate_race_hit("human")
-	streams["hit_elf"] = _generate_race_hit("elf")
-	streams["hit_undead"] = _generate_race_hit("undead")
-	streams["hit_common"] = _generate_race_hit("common")
-	streams["spell_fire"] = _generate_build_spell("fire")
-	streams["spell_draw"] = _generate_build_spell("draw")
-	streams["spell_death"] = _generate_build_spell("death")
-	streams["spell_buff"] = _generate_build_spell("buff")
-	streams["spell_summon"] = _generate_build_spell("summon")
-	streams["spell_low_hp"] = _generate_build_spell("low_hp")
-	streams["spell_common"] = _generate_build_spell("common")
-	streams["equipment_human"] = _generate_equipment_sig("human")
-	streams["equipment_elf"] = _generate_equipment_sig("elf")
-	streams["equipment_undead"] = _generate_equipment_sig("undead")
-	streams["equipment_common"] = _generate_equipment_sig("common")
+	streams["unit_death"] = _sound_or_generate("unit_death", Callable(self, "_generate_weapon_hit"))
+	streams["click"] = _sound_or_generate("click", Callable(self, "_generate_rune_click"))
+	streams["draw"] = _sound_or_generate("draw", Callable(self, "_generate_card_draw"))
+	streams["play"] = _sound_or_generate("play", Callable(self, "_generate_card_play_slam"))
+	streams["summon"] = _sound_or_generate("summon", Callable(self, "_generate_summon_drop"))
+	streams["spell"] = _sound_or_generate("spell", Callable(self, "_generate_spell_cast"))
+	streams["counter"] = _sound_or_generate("counter", Callable(self, "_generate_counter_hit"))
+	streams["heal"] = _sound_or_generate("heal", Callable(self, "_generate_heal_chord"))
+	streams["hit"] = _sound_or_generate("hit", Callable(self, "_generate_weapon_hit"))
+	streams["combo"] = _sound_or_generate("combo", Callable(self, "_generate_combo_burst"))
+	streams["finisher"] = _sound_or_generate("finisher", Callable(self, "_generate_finisher_slam"))
+	streams["reward"] = _sound_or_generate("reward", Callable(self, "_generate_reward_chime"))
+	streams["victory"] = _sound_or_generate("victory", Callable(self, "_generate_heavy_fanfare").bind(true))
+	streams["defeat"] = _sound_or_generate("defeat", Callable(self, "_generate_heavy_fanfare").bind(false))
+	streams["hover"] = _sound_or_generate("hover", Callable(self, "_generate_hover_tick"))
+	streams["power_human"] = _sound_or_generate("power_human", Callable(self, "_generate_human_power"))
+	streams["power_elf"] = _sound_or_generate("power_elf", Callable(self, "_generate_elf_power"))
+	streams["power_undead"] = _sound_or_generate("power_undead", Callable(self, "_generate_undead_power"))
+	streams["impact_heavy"] = _sound_or_generate("impact_heavy", Callable(self, "_generate_heavy_impact"))
+	streams["direct_attack"] = _sound_or_generate("direct_attack", Callable(self, "_generate_direct_attack"))
+	streams["victory_burst"] = _sound_or_generate("victory_burst", Callable(self, "_generate_victory_burst"))
+	streams["summon_human"] = _sound_or_generate("summon_human", Callable(self, "_generate_race_summon").bind("human"))
+	streams["summon_elf"] = _sound_or_generate("summon_elf", Callable(self, "_generate_race_summon").bind("elf"))
+	streams["summon_undead"] = _sound_or_generate("summon_undead", Callable(self, "_generate_race_summon").bind("undead"))
+	streams["summon_common"] = _sound_or_generate("summon_common", Callable(self, "_generate_race_summon").bind("common"))
+	streams["hit_human"] = _sound_or_generate("hit_human", Callable(self, "_generate_race_hit").bind("human"))
+	streams["hit_elf"] = _sound_or_generate("hit_elf", Callable(self, "_generate_race_hit").bind("elf"))
+	streams["hit_undead"] = _sound_or_generate("hit_undead", Callable(self, "_generate_race_hit").bind("undead"))
+	streams["hit_common"] = _sound_or_generate("hit_common", Callable(self, "_generate_race_hit").bind("common"))
+	streams["spell_fire"] = _sound_or_generate("spell_fire", Callable(self, "_generate_build_spell").bind("fire"))
+	streams["spell_draw"] = _sound_or_generate("spell_draw", Callable(self, "_generate_build_spell").bind("draw"))
+	streams["spell_death"] = _sound_or_generate("spell_death", Callable(self, "_generate_build_spell").bind("death"))
+	streams["spell_buff"] = _sound_or_generate("spell_buff", Callable(self, "_generate_build_spell").bind("buff"))
+	streams["spell_summon"] = _sound_or_generate("spell_summon", Callable(self, "_generate_build_spell").bind("summon"))
+	streams["spell_low_hp"] = _sound_or_generate("spell_low_hp", Callable(self, "_generate_build_spell").bind("low_hp"))
+	streams["spell_common"] = _sound_or_generate("spell_common", Callable(self, "_generate_build_spell").bind("common"))
+	streams["equipment_human"] = _sound_or_generate("equipment_human", Callable(self, "_generate_equipment_sig").bind("human"))
+	streams["equipment_elf"] = _sound_or_generate("equipment_elf", Callable(self, "_generate_equipment_sig").bind("elf"))
+	streams["equipment_undead"] = _sound_or_generate("equipment_undead", Callable(self, "_generate_equipment_sig").bind("undead"))
+	streams["equipment_common"] = _sound_or_generate("equipment_common", Callable(self, "_generate_equipment_sig").bind("common"))
 
 	sound_volume_db = {
 		"unit_death": -10.0,
@@ -595,6 +611,10 @@ func _generate_all_sounds() -> void:
 	}
 
 func _generate_all_music() -> void:
+	if not force_procedural and ResourceLoader.exists(MODEL_AUDIO_DIR + "/battle_base.ogg"):
+		var score: AudioStream = load(MODEL_AUDIO_DIR + "/battle_base.ogg")
+		for key in BATTLE_MUSIC_KEYS: music_streams[key] = score
+		return
 	music_streams["battle_base"] = _generate_battle_music_loop("base")
 	music_streams["battle_tension"] = _generate_battle_music_loop("tension")
 	music_streams["battle_lethal"] = _generate_battle_music_loop("lethal")

@@ -1,6 +1,7 @@
 extends Control
 ## Landscape-only presentation. Combat remains owned by BattleScreen.
 var battle
+var session
 var card_dialog: Control
 var confirm_button: Button
 var detail_slot := -1
@@ -20,14 +21,14 @@ const PORTRAIT_FOCUS := {
 }
 var board_scroll: ScrollContainer
 var lanes: VBoxContainer
-var focus_tween: Tween
-var focus_generation := 0
-var focus_pending := false
-var pointer_down := false
+var focus_pending: bool:
+	get: return session.focus_pending
 var previous_back_quit := true
 
 func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	battle = owner_battle
+	session = battle.presentation
+	session.attach(self)
 	previous_back_quit = get_tree().quit_on_go_back
 	get_tree().quit_on_go_back = false
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -215,6 +216,8 @@ static func card_kind(card: Dictionary) -> String:
 	var type := String(card.get("type", "unit"))
 	if type == "unit": return "unit"
 	if type == "equipment": return "equipment"
+	for effect in card.get("effects", []):
+		if effect.op in ["front_damage", "all_damage", "combo_damage", "low_damage", "curse", "hero_damage"]: return "damage"
 	var id := String(card.get("id", "")).trim_suffix("_plus")
 	if id in ["small_flame", "gale_shot", "corpse_explosion", "fireball", "death_mark", "plague_spread", "soul_shackle", "funeral_fog", "vampiric_strike"]:
 		return "damage"
@@ -424,22 +427,24 @@ func dialog(title: String, text: String, card: Dictionary = {}) -> HBoxContainer
 	card_dialog.add_child(panel)
 	panel.add_child(label(title, 20))
 	var scroll := ScrollContainer.new()
+	scroll.name = "CardDetailScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
 	var content := HBoxContainer.new()
-	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 20)
-	panel.add_child(content)
+	scroll.add_child(content)
 	if not card.is_empty():
-		var face := tile(card, "", 142, Color(0.7, 0.55, 0.25), 198)
-		face.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content.add_child(face)
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_child(scroll)
+		var face := preload("res://src/ui/components/card_inspection_view.gd").make_face(battle.main, card)
+		var viewer := preload("res://src/ui/components/card_inspection_view.gd").new()
+		viewer.setup(face)
+		content.add_child(viewer)
 	var description := label(text, 18)
+	description.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(description)
+	content.add_child(description)
 	var buttons := HBoxContainer.new()
 	panel.add_child(buttons)
 	panel.move_child(buttons, 0)
@@ -452,11 +457,13 @@ func show_card(index: int) -> void:
 	var card: Dictionary = battle.player.hand[index]
 	var cost: int = battle.main.relic_service.modify_card_cost(battle.main.current_run, battle.battle_state, card, "player")
 	var playable: bool = not battle._is_player_input_locked() and battle._can_play_card(battle.player, card, "player")
-	var info: String = String(card.get("text", "")) + "\n\n" + battle._card_result_preview(card) + "\n" + battle._combo_card_preview(card)
+	var info: String = battle._card_result_preview(card) + "\n\n" + battle._combo_card_preview(card) + "\n\n좌우로 밀어 기울이기 · 위아래로 스크롤"
 	if battle._requires_ally_target(card):
 		info = info.replace("앞 아군", "선택할 아군")
 	if not playable: info += "\n" + battle._unplayable_card_hint(card, cost)
-	var buttons := dialog("%s · 비용 %d" % [card.get("name", "카드"), cost], info, card)
+	var display_card := card.duplicate(true)
+	display_card["cost"] = cost
+	var buttons := dialog("%s · 비용 %d" % [card.get("name", "카드"), cost], info, display_card)
 	var source: Control = battle._hand_card_control(int(card.get("_hand_slot", index)))
 	if is_instance_valid(source) and not source.has_node("SelectionBorder"):
 		outline(source, Color.WHITE, 4, 2, "SelectionBorder")
@@ -537,7 +544,7 @@ func style_rail_button(button: Button, accent: Color) -> void:
 	button.add_theme_color_override("font_color", Color("e1e5e9"))
 
 func _exit_tree() -> void:
-	cancel_focus()
+	session.dispose()
 	get_tree().quit_on_go_back = previous_back_quit
 
 func show_help() -> void:
@@ -545,19 +552,13 @@ func show_help() -> void:
 
 # Camera movement is presentation only; cancelling it never cancels combat.
 func cancel_focus() -> void:
-	focus_pending = false
-	focus_generation += 1
-	if is_instance_valid(focus_tween):
-		focus_tween.kill()
+	session.cancel_focus()
 
 func _gesture_started(point: Vector2) -> void:
-	pointer_down = true
-	if is_instance_valid(focus_tween) and focus_tween.is_running():
-		battle.main.touch_scroll_router.block_current_tap()
-	cancel_focus()
+	session.gesture_started(point)
 
 func _gesture_ended() -> void:
-	pointer_down = false
+	session.gesture_ended()
 
 func _initial_focus() -> void:
 	await get_tree().process_frame
@@ -576,51 +577,7 @@ func resolve_focus(target: Dictionary) -> Control:
 	return battle._hero_target_for_player(ally)
 
 func scroll_for_rect(rect: Rect2) -> int:
-	# Content coordinates stay stable even before ScrollContainer's deferred layout.
-	var top := rect.position.y - lanes.global_position.y
-	var bottom := top + rect.size.y
-	var destination := float(board_scroll.scroll_vertical)
-	if top < destination + 8:
-		destination = top - 8
-	elif bottom > destination + board_scroll.size.y - 8:
-		destination = bottom - board_scroll.size.y + 8
-	var bar := board_scroll.get_v_scroll_bar()
-	return int(clampf(destination, 0, maxf(0, bar.max_value - bar.page)))
+	return session.scroll_for_rect(rect)
 
 func focus_targets(targets: Array, immediate: bool = false) -> void:
-	if pointer_down or not is_inside_tree(): return
-	cancel_focus()
-	focus_pending = true
-	var request := focus_generation
-	await _move_to_targets(targets, immediate)
-	if request == focus_generation: focus_pending = false
-
-func _move_to_targets(targets: Array, immediate: bool = false) -> void:
-	if pointer_down or not is_inside_tree() or not is_instance_valid(board_scroll):
-		return
-	var generation := focus_generation
-	var rects: Array[Rect2] = []
-	for target in targets:
-		var node := resolve_focus(target)
-		if is_instance_valid(node): rects.append(node.get_global_rect())
-	if rects.is_empty(): return
-	var union := rects[0]
-	for rect in rects: union = union.merge(rect)
-	if union.size.y <= board_scroll.size.y - 16:
-		rects = [union]
-	for rect in rects.slice(0, 2):
-		if generation != focus_generation or pointer_down: return
-		# Re-resolve the second target after the first scroll changed global coordinates.
-		if rects.size() > 1:
-			var node := resolve_focus(targets[rects.find(rect)])
-			if is_instance_valid(node): rect = node.get_global_rect()
-		var destination := scroll_for_rect(rect)
-		if destination == board_scroll.scroll_vertical: continue
-		if immediate or battle._should_skip_timed_battle_fx():
-			board_scroll.scroll_vertical = destination
-			continue
-		focus_tween = create_tween()
-		focus_tween.tween_property(board_scroll, "scroll_vertical", destination, 0.12 if rects.size() > 1 else 0.18).set_trans(Tween.TRANS_SINE)
-		# Polling avoids awaiting a killed Tween's never-emitted finished signal.
-		while is_inside_tree() and generation == focus_generation and focus_tween.is_running():
-			await get_tree().process_frame
+	await session.focus(targets, immediate)

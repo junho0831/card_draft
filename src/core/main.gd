@@ -360,6 +360,8 @@ func _apply_root_layout() -> void:
 
 
 func _clear_screen() -> void:
+	if battle_screen != null and battle_screen.presentation != null:
+		battle_screen.presentation.dispose()
 	mobile_bottom_inset = 0.0
 	_apply_root_layout()
 	if audio_manager != null:
@@ -374,14 +376,14 @@ func _clear_screen() -> void:
 		root_scroll.scroll_vertical = 0
 	for child in root_box.get_children():
 		# A button may be dispatching the event that switches screens.
-		root_box.remove_child(child)
+		if child is CanvasItem: child.hide()
 		child.queue_free()
 
 	_clear_modal()
 
 func _clear_modal() -> void:
 	for child in modal_layer.get_children():
-		modal_layer.remove_child(child)
+		if child is CanvasItem: child.hide()
 		child.queue_free()
 
 func _save_profile() -> void:
@@ -407,6 +409,8 @@ func _retain_screen_controller(controller: RefCounted) -> RefCounted:
 	return controller
 
 func _show_main_menu() -> void:
+	if active_screen == "battle" and battle_screen != null:
+		await battle_screen.prepare_to_leave()
 	active_screen = "main_menu"
 	_clear_screen()
 	var compact := _is_main_menu_compact_layout()
@@ -1682,6 +1686,7 @@ func _base_card_id(card_id: String) -> String:
 	return card_id
 
 func _card_effect_summary(card: Dictionary) -> String:
+	if card.has("effects"): return String(card.get("text", ""))
 	if int(card.get("effect_bonus", 0)) > 0 and not String(card.get("text", "")).is_empty():
 		return String(card["text"])
 	var card_id := _base_card_id(String(card.get("id", "")))

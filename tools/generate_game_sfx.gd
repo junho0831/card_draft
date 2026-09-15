@@ -47,7 +47,7 @@ func _init() -> void:
 	call_deferred("_generate")
 
 func _generate() -> void:
-	var audio_manager = AUDIO_MANAGER.new()
+	var audio_manager = AUDIO_MANAGER.new(true)
 	var output_dir := ProjectSettings.globalize_path("res://assets/audio")
 	DirAccess.make_dir_recursive_absolute(output_dir)
 	for sound_name in SOUND_NAMES:

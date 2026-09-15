@@ -18,10 +18,12 @@ static func card_priority(card: Dictionary, tags: Array, has_allies: bool) -> in
 	var type := String(card.get("type", ""))
 	var id := String(card.get("id", "")).trim_suffix("_plus")
 	var damage_card := id in ["small_flame", "fireball", "gale_shot", "funeral_fog", "vampiric_strike", "plague_spread", "death_mark", "soul_shackle", "corpse_explosion"]
+	for effect in card.get("effects", []):
+		if effect.op in ["front_damage", "all_damage", "combo_damage", "low_damage", "curse"]: damage_card = true
 	if tags.any(func(tag): return tag in ["defense", "defensive", "field_test", "spell_resist", "buff"]):
 		if type == "unit":
 			return 200 + int(card.get("health", 0))
-		if has_allies and (type == "equipment" or id in ["captain_order", "battlecry", "nature_blessing"]):
+		if has_allies and (type == "equipment" or id in ["captain_order", "battlecry", "nature_blessing"] or (card.get("effects", []) as Array).any(func(effect): return effect.op == "all_buff")):
 			return 300
 	elif tags.any(func(tag): return tag in ["swarm", "summon_heavy", "death", "revive"]):
 		if type == "unit" or id == "call_of_dead":

@@ -37,7 +37,7 @@ func run() -> void:
 	var attacker_position := attacker.position
 	for style in ["hit_human", "hit_elf", "hit_undead", "impact_heavy"]:
 		# Exercise the actual battle presentation entry point, including recoil.
-		await battle._play_inline_attack_feedback(attacker, defender, 5 if style == "impact_heavy" else 2, true, false, style)
+		await battle.presentation.inline_attack(attacker, defender, 5 if style == "impact_heavy" else 2, true, false, style)
 		await create_timer(0.4).timeout
 	battle._play_heal_fx(true, 3)
 	main.audio_manager.play_sound("heal")

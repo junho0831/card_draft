@@ -1,5 +1,6 @@
 extends RefCounted
 class_name BattleCardEffects
+const Frontier = preload("res://src/battle/frontier_effects.gd")
 
 func _base_card_id(card_id: String) -> String:
 	if card_id.ends_with("_plus"):
@@ -22,6 +23,8 @@ func play_card(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: 
 				"art_id": String(card.get("art_id", "")),
 				"can_attack": false,
 			}
+			unit["impact_profile"] = card.get("impact_profile", "")
+			unit["death_effects"] = card.get("death_effects", []).duplicate(true)
 			var relic_service = context.get("relic_service") if String(context.get("owner_key", "player")) == "player" else null
 			if relic_service != null:
 				relic_service.on_unit_summoned(context.get("run_data", {}), unit, context)
@@ -31,13 +34,19 @@ func play_card(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: 
 				on_unit_summoned.call(owner, unit)
 			if log.is_valid():
 				log.call("%s: %s 소환" % [owner.name, card.name])
-			_resolve_unit_play(owner, enemy, unit, context)
+			if card.has("effects"):
+				Frontier.apply(self, owner, enemy, card, card.effects, context, unit)
+			else:
+				_resolve_unit_play(owner, enemy, unit, context)
 		"spell":
-			_resolve_spell(owner, enemy, card, context)
+			if card.has("effects"): Frontier.apply(self, owner, enemy, card, card.effects, context)
+			else: _resolve_spell(owner, enemy, card, context)
 		"equipment":
-			_resolve_equipment(owner, enemy, card, context)
+			if card.has("effects"): Frontier.apply(self, owner, enemy, card, card.effects, context)
+			else: _resolve_equipment(owner, enemy, card, context)
 
 func on_unit_died(dead_unit: Dictionary, owner: Dictionary, enemy: Dictionary, context: Dictionary) -> void:
+	Frontier.apply(self, owner, enemy, dead_unit, dead_unit.get("death_effects", []), context)
 	var log: Callable = context.get("log", Callable())
 	var draw_cards: Callable = context.get("draw_cards", Callable())
 	if _base_card_id(String(dead_unit.get("id", ""))) == "grave_knight":
@@ -406,7 +415,7 @@ func _deal_frontline_damage(owner: Dictionary, enemy: Dictionary, source: Dictio
 	var calc_damage: Callable = context.get("calculate_damage", Callable())
 	var damage := base_damage
 	if calc_damage.is_valid():
-		damage = int(calc_damage.call(source, false, owner, base_damage))
+		damage = int(calc_damage.call(source, source.get("type", "unit") == "spell", owner, base_damage))
 	if enemy.field.is_empty():
 		enemy.health -= damage
 		if log.is_valid():

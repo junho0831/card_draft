@@ -1,0 +1,1307 @@
+{
+  "purpose": "Same fixed-seed smoke comparison; not a win-rate study",
+  "seeds_used_in_case_order": [
+    20260908,
+    20260909,
+    20260910,
+    20260911,
+    20260912,
+    20260913
+  ],
+  "note": "Legacy probe records seed=0 in each row; actual RNG seeding is 20260908 + case index in playthrough_probe.gd. Battle metrics aggregate both paths per faction.",
+  "before": {
+    "battles": [
+      {
+        "actions": 6,
+        "enemy": "고블린 약탈자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 12,
+        "enemy": "광신도",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 13,
+        "enemy": "강령술사 군주",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 6,
+        "metrics": {
+          "draws": 15,
+          "equipment": 1,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 7,
+        "enemy": "해골 무리",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 8,
+        "enemy": "해골 무리",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 18,
+        "enemy": "국경 수호자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 20,
+          "equipment": 1,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 4
+      },
+      {
+        "actions": 6,
+        "enemy": "고블린 약탈자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 14,
+        "enemy": "타락한 성기사",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 16,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "elite",
+        "turns": 3
+      },
+      {
+        "actions": 14,
+        "enemy": "국경 수호자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 15,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 12,
+        "enemy": "광신도",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 16,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 3
+      },
+      {
+        "actions": 11,
+        "enemy": "피의 집행자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 15,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "elite",
+        "turns": 3
+      },
+      {
+        "actions": 12,
+        "enemy": "언데드 왕",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 3,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 2
+      },
+      {
+        "actions": 15,
+        "enemy": "고블린 약탈자",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 25,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 3
+      },
+      {
+        "actions": 20,
+        "enemy": "산적 궁수",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": -1,
+        "metrics": {
+          "draws": 27,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 3
+      },
+      {
+        "actions": 38,
+        "enemy": "강령술사 군주",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 46,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 5
+      },
+      {
+        "actions": 23,
+        "enemy": "산적 궁수",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": -1,
+        "metrics": {
+          "draws": 34,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 4
+      },
+      {
+        "actions": 26,
+        "enemy": "늑대 무리",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": -15,
+        "metrics": {
+          "draws": 36,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 4
+      },
+      {
+        "actions": 45,
+        "enemy": "언데드 왕",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 52,
+          "equipment": 1,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 5
+      },
+      {
+        "actions": 15,
+        "enemy": "고블린 약탈자",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 25,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 3
+      },
+      {
+        "actions": 47,
+        "enemy": "타락한 성기사",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 9,
+        "metrics": {
+          "draws": 54,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "elite",
+        "turns": 6
+      },
+      {
+        "actions": 55,
+        "enemy": "언데드 왕",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 22,
+        "metrics": {
+          "draws": 68,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 6
+      },
+      {
+        "actions": 6,
+        "enemy": "고블린 약탈자",
+        "finisher": false,
+        "first_turn_win": true,
+        "hp_lost_net": 2,
+        "metrics": {
+          "draws": 7,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 1
+      },
+      {
+        "actions": 8,
+        "enemy": "방패병",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 14,
+        "enemy": "국경 수호자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 15,
+          "equipment": 0,
+          "sacrifices": 2
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 6,
+        "enemy": "고블린 약탈자",
+        "finisher": false,
+        "first_turn_win": true,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 5,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 1
+      },
+      {
+        "actions": 7,
+        "enemy": "광기의 마법사",
+        "finisher": false,
+        "first_turn_win": true,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 5,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 1
+      },
+      {
+        "actions": 14,
+        "enemy": "언데드 왕",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 5,
+        "metrics": {
+          "draws": 15,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 7,
+        "enemy": "고블린 약탈자",
+        "finisher": false,
+        "first_turn_win": true,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 5,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 1
+      },
+      {
+        "actions": 16,
+        "enemy": "피의 집행자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 15,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "elite",
+        "turns": 3
+      },
+      {
+        "actions": 15,
+        "enemy": "국경 수호자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 15,
+          "equipment": 0,
+          "sacrifices": 2
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 8,
+        "enemy": "광신도",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 14,
+        "enemy": "강철 골렘",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 3,
+        "metrics": {
+          "draws": 17,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "elite",
+        "turns": 3
+      },
+      {
+        "actions": 15,
+        "enemy": "국경 수호자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 15,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      }
+    ],
+    "cases": [
+      {
+        "elite": false,
+        "hp": 36,
+        "nodes": 10,
+        "race": "human",
+        "result": "win",
+        "seed": 0,
+        "strategy_id": ""
+      },
+      {
+        "elite": true,
+        "hp": 33,
+        "nodes": 10,
+        "race": "human",
+        "result": "win",
+        "seed": 0,
+        "strategy_id": ""
+      },
+      {
+        "elite": false,
+        "hp": 40,
+        "nodes": 10,
+        "race": "elf",
+        "result": "win",
+        "seed": 0,
+        "strategy_id": ""
+      },
+      {
+        "elite": true,
+        "hp": 0,
+        "nodes": 4,
+        "race": "elf",
+        "result": "loss",
+        "seed": 0,
+        "strategy_id": ""
+      },
+      {
+        "elite": false,
+        "hp": 31,
+        "nodes": 10,
+        "race": "undead",
+        "result": "win",
+        "seed": 0,
+        "strategy_id": ""
+      },
+      {
+        "elite": true,
+        "hp": 37,
+        "nodes": 10,
+        "race": "undead",
+        "result": "win",
+        "seed": 0,
+        "strategy_id": ""
+      }
+    ],
+    "failed": false
+  },
+  "after": {
+    "battles": [
+      {
+        "actions": 6,
+        "enemy": "고블린 약탈자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 12,
+        "enemy": "광신도",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 12,
+        "enemy": "강령술사 군주",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 7,
+        "metrics": {
+          "draws": 15,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 13,
+        "enemy": "방패병",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 15,
+          "equipment": 1,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 3
+      },
+      {
+        "actions": 8,
+        "enemy": "광기의 마법사",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 14,
+        "enemy": "언데드 왕",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 3,
+        "metrics": {
+          "draws": 15,
+          "equipment": 1,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 6,
+        "enemy": "고블린 약탈자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 14,
+        "enemy": "타락한 성기사",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 16,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "elite",
+        "turns": 3
+      },
+      {
+        "actions": 14,
+        "enemy": "국경 수호자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 15,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 7,
+        "enemy": "광기의 마법사",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 11,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 14,
+        "enemy": "피의 집행자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 16,
+          "equipment": 1,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "elite",
+        "turns": 3
+      },
+      {
+        "actions": 15,
+        "enemy": "언데드 왕",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 19,
+          "equipment": 1,
+          "sacrifices": 0
+        },
+        "race": "human",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 15,
+        "enemy": "고블린 약탈자",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 25,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 3
+      },
+      {
+        "actions": 21,
+        "enemy": "산적 궁수",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": -1,
+        "metrics": {
+          "draws": 29,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 3
+      },
+      {
+        "actions": 31,
+        "enemy": "국경 수호자",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 2,
+        "metrics": {
+          "draws": 41,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 4
+      },
+      {
+        "actions": 26,
+        "enemy": "방패병",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": -2,
+        "metrics": {
+          "draws": 31,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 3
+      },
+      {
+        "actions": 22,
+        "enemy": "산적 궁수",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 29,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 3
+      },
+      {
+        "actions": 41,
+        "enemy": "언데드 왕",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 14,
+        "metrics": {
+          "draws": 62,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 5
+      },
+      {
+        "actions": 15,
+        "enemy": "고블린 약탈자",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 25,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 3
+      },
+      {
+        "actions": 47,
+        "enemy": "타락한 성기사",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 9,
+        "metrics": {
+          "draws": 59,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "elite",
+        "turns": 6
+      },
+      {
+        "actions": 29,
+        "enemy": "국경 수호자",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 39,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 4
+      },
+      {
+        "actions": 29,
+        "enemy": "광신도",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 39,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 4
+      },
+      {
+        "actions": 22,
+        "enemy": "피의 집행자",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": -1,
+        "metrics": {
+          "draws": 27,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "elite",
+        "turns": 3
+      },
+      {
+        "actions": 18,
+        "enemy": "국경 수호자",
+        "finisher": true,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 28,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "elf",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 6,
+        "enemy": "고블린 약탈자",
+        "finisher": false,
+        "first_turn_win": true,
+        "hp_lost_net": 2,
+        "metrics": {
+          "draws": 7,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 1
+      },
+      {
+        "actions": 8,
+        "enemy": "방패병",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 18,
+        "enemy": "국경 수호자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 3,
+        "metrics": {
+          "draws": 17,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 10,
+        "enemy": "늑대 무리",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 11,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 8,
+        "enemy": "고블린 약탈자",
+        "finisher": false,
+        "first_turn_win": true,
+        "hp_lost_net": 3,
+        "metrics": {
+          "draws": 8,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 1
+      },
+      {
+        "actions": 14,
+        "enemy": "언데드 왕",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 2,
+        "metrics": {
+          "draws": 16,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 7,
+        "enemy": "고블린 약탈자",
+        "finisher": false,
+        "first_turn_win": true,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 5,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 1
+      },
+      {
+        "actions": 16,
+        "enemy": "피의 집행자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 0,
+        "metrics": {
+          "draws": 15,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "elite",
+        "turns": 3
+      },
+      {
+        "actions": 15,
+        "enemy": "국경 수호자",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 15,
+          "equipment": 0,
+          "sacrifices": 2
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 3
+      },
+      {
+        "actions": 8,
+        "enemy": "광신도",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 1,
+        "metrics": {
+          "draws": 10,
+          "equipment": 0,
+          "sacrifices": 1
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "normal",
+        "turns": 2
+      },
+      {
+        "actions": 17,
+        "enemy": "강철 골렘",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 3,
+        "metrics": {
+          "draws": 22,
+          "equipment": 0,
+          "sacrifices": 2
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "elite",
+        "turns": 4
+      },
+      {
+        "actions": 16,
+        "enemy": "언데드 왕",
+        "finisher": false,
+        "first_turn_win": false,
+        "hp_lost_net": 8,
+        "metrics": {
+          "draws": 22,
+          "equipment": 0,
+          "sacrifices": 0
+        },
+        "race": "undead",
+        "seed": 0,
+        "strategy_id": "",
+        "tier": "boss",
+        "turns": 4
+      }
+    ],
+    "cases": [
+      {
+        "elite": false,
+        "hp": 33,
+        "nodes": 10,
+        "race": "human",
+        "result": "win",
+        "seed": 0,
+        "strategy_id": ""
+      },
+      {
+        "elite": true,
+        "hp": 36,
+        "nodes": 10,
+        "race": "human",
+        "result": "win",
+        "seed": 0,
+        "strategy_id": ""
+      },
+      {
+        "elite": false,
+        "hp": 22,
+        "nodes": 10,
+        "race": "elf",
+        "result": "win",
+        "seed": 0,
+        "strategy_id": ""
+      },
+      {
+        "elite": true,
+        "hp": 31,
+        "nodes": 10,
+        "race": "elf",
+        "result": "win",
+        "seed": 0,
+        "strategy_id": ""
+      },
+      {
+        "elite": false,
+        "hp": 34,
+        "nodes": 10,
+        "race": "undead",
+        "result": "win",
+        "seed": 0,
+        "strategy_id": ""
+      },
+      {
+        "elite": true,
+        "hp": 30,
+        "nodes": 10,
+        "race": "undead",
+        "result": "win",
+        "seed": 0,
+        "strategy_id": ""
+      }
+    ],
+    "failed": false
+  }
+}

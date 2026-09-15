@@ -66,6 +66,9 @@ func _build_upgraded_card(id: String) -> Dictionary:
 		if int(card.get("cost", 0)) >= 2:
 			card["cost"] = int(card["cost"]) - 1
 		else:
+			if card.has("effects"):
+				preload("res://src/battle/frontier_effects.gd").upgrade(card)
+				return card
 			card["effect_bonus"] = 1
 			var texts := {
 				"small_flame": "가장 앞의 적에게 피해 3. 처치하면 카드 1장 드로우",

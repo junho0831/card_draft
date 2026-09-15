@@ -1,0 +1,18 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "cpu_threads": 2,
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "A single icicle spear strikes frozen stone and shatters into sharp glassy ice fragments, with a brief cold airy hiss. Isolated fantasy impact, no voice or music.",
+  "seed": 20260915,
+  "steps": 50,
+  "seconds": 3,
+  "elapsed_seconds": 2427.7945916909957,
+  "sha256": "1fd43e26af7cb20e2377954fa8e34a1b4fc300c89d0ff3b9d48507705b3611a3",
+  "file": "ice_hit.ogg",
+  "output_seconds": 1.2,
+  "output_peak": 0.3962666094303131,
+  "trim_start_seconds": 0.0,
+  "output_sha256": "357958986b824e90e536e8f780a8d10ad4e86d21729972874b0681e2ca8429fc",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

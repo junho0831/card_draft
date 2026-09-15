@@ -1,0 +1,18 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "cpu_threads": 2,
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "One short bright electrical arc snaps into a metal target, a sharp crack followed by brief sizzling sparks. Isolated fantasy lightning hit, no voice or music.",
+  "seed": 20260917,
+  "steps": 50,
+  "seconds": 3,
+  "elapsed_seconds": 879.8364688230213,
+  "sha256": "b10f7a5ddf049b76b0e1dd60eb18aa8b6e017827b433a439a319eb52574c8578",
+  "file": "lightning_hit.ogg",
+  "output_seconds": 1.0,
+  "output_peak": 0.637352466583252,
+  "trim_start_seconds": 0.52,
+  "output_sha256": "d28c0d822139f3dd05c079d72aa2c2353d9d34c098b4b2ad0eec06a8575fafbc",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d"
+}

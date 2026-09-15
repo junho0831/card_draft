@@ -12,6 +12,10 @@ const LayoutPolicy = preload("res://src/ui/layout_policy.gd")
 const EnemyPolicy = preload("res://src/battle/battle_enemy_policy.gd")
 const LANDSCAPE_VIEW = preload("res://src/ui/components/landscape_battle_view.gd")
 var landscape_view: Control
+var presentation
+var attack_executor
+var leaving_battle := false
+var inflight_actions := 0
 var pending_action: Dictionary = {}
 var reference_health_bars: Dictionary = {}
 var reference_mana_label: Label
@@ -192,6 +196,8 @@ const PLAYER_HERO_ART = 8
 
 func _init(main_ref) -> void:
 	main = main_ref
+	presentation = preload("res://src/ui/components/battle_presentation_session.gd").new(self)
+	attack_executor = preload("res://src/battle/battle_attack_executor.gd").new(self)
 	root_box = main.root_box
 
 func _on_turn_timeout() -> void:
@@ -226,6 +232,7 @@ func _store_battle_snapshot() -> void:
 	_save_run()
 
 func _restore_battle_snapshot(snapshot: Dictionary) -> void:
+	leaving_battle = false
 	battle_tier = String(snapshot.get("battle_tier", battle_tier))
 	player = _restore_side(Dictionary(snapshot.get("player", {})), "플레이어")
 	opponent = _restore_side(Dictionary(snapshot.get("opponent", {})), "적")
@@ -280,7 +287,7 @@ func _node_type_name(node_type: String) -> String:
 	return main._node_type_name(node_type)
 
 func _can_play_card(side: Dictionary, card: Dictionary, owner_key: String) -> bool:
-	if _base_card_id(String(card.get("id", ""))) == "corpse_explosion" and side.field.is_empty():
+	if (_base_card_id(String(card.get("id", ""))) == "corpse_explosion" or card.get("target", "") == "ally") and side.field.is_empty():
 		return false
 	var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, owner_key)
 	if cost > int(side.mana):
@@ -845,6 +852,7 @@ func _is_fast_ai_enabled() -> bool:
 	return bool(main.player_profile["settings"]["fast_ai"])
 
 func _should_skip_timed_battle_fx() -> bool:
+	if leaving_battle or (presentation != null and presentation.disposed): return true
 	return DisplayServer.get_name() == "headless" or bool(main.get_meta("disable_timed_battle_fx", false))
 
 func _is_compact_layout() -> bool:
@@ -992,6 +1000,7 @@ func _reset_battle_state() -> void:
 		"log": Callable(self, "_add_log"),
 		"cleanup_dead_units": Callable(self, "_cleanup_dead_units"),
 		"calculate_damage": Callable(self, "_calculate_damage"),
+		"frontier_impact": Callable(self, "_frontier_impact"),
 		"relic_trigger": Callable(self, "_on_relic_trigger"),
 		"relic_service": main.relic_service,
 		"run_data": main.current_run,
@@ -1210,7 +1219,7 @@ func _recommended_race_power_state() -> Dictionary:
 		"guidance": "빛나는 필살기 버튼을 눌러 %s을 사용하세요 · 전투당 1회" % String(meta.get("power_name", "필살기")),
 	}
 
-func _on_race_power_pressed(target_unit_id: int = -1) -> void:
+func _work_on_race_power_pressed(target_unit_id: int = -1) -> void:
 	if not _can_use_race_power():
 		return
 	if main._current_race_id() == "undead":
@@ -2551,6 +2560,8 @@ func _player_has_available_action() -> bool:
 	return false
 
 func _build_battle_ui() -> void:
+	if presentation != null: presentation.dispose()
+	presentation = preload("res://src/ui/components/battle_presentation_session.gd").new(self)
 	landscape_view = null
 	reference_health_bars.clear()
 	reference_mana_label = null
@@ -2901,13 +2912,15 @@ func _show_turn_banner(text: String, is_player: bool) -> void:
 	banner.scale = Vector2(0.88, 0.88)
 	banner.modulate.a = 0.0
 
-	var tween = main.create_tween()
+	var session = presentation
+	var tween = session._tween(banner)
 	tween.tween_property(banner, "scale", Vector2(1.0, 1.0), 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_property(banner, "modulate:a", 1.0, 0.12)
 	tween.tween_interval(1.15)
 	tween.tween_property(banner, "modulate:a", 0.0, 0.16)
 	tween.tween_callback(Callable(self, "_queue_free_if_valid").bind(banner))
-	await tween.finished
+	await session._wait(tween)
+	_queue_free_if_valid(banner)
 
 
 func _discard_hand(side: Dictionary) -> void:
@@ -3136,7 +3149,7 @@ func _finish_hand_card_drag(release_pos: Vector2, card_index: int) -> void:
 	else:
 		_render_hand()
 
-func _on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed: bool = false) -> void:
+func _work_on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed: bool = false) -> void:
 	if _is_landscape_phone() and target_unit_id < 0 and not confirmed and is_instance_valid(landscape_view):
 		landscape_view.show_card(index)
 		return
@@ -3205,7 +3218,9 @@ func _on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed: bool
 		)
 	player.mana -= cost
 	player.hand.remove_at(index)
-	_play_sfx(_card_play_sfx(card))
+	var own_impact: bool = card_type == "spell" and (card.get("effects", []) as Array).any(func(effect): return effect.op in ["front_damage", "all_damage", "hero_damage", "combo_damage", "low_damage"])
+	if not own_impact:
+		_play_sfx(_card_play_sfx(card))
 	_add_log("%s 사용" % String(card.get("name", "카드")))
 	if card_type != "unit" and not _card_exhausts_after_play(card):
 		player.discard_pile.append(card)
@@ -3221,7 +3236,7 @@ func _on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed: bool
 	if card_type == "equipment":
 		_record_strategy_metric("equipment")
 		_record_lesson_action("equipped")
-	if _base_card_id(String(card.get("id", ""))) == "corpse_explosion":
+	if _base_card_id(String(card.get("id", ""))) == "corpse_explosion" or (card.get("effects", []) as Array).any(func(effect): return effect.op == "sacrifice"):
 		_record_strategy_metric("sacrifices")
 	_resolve_card_combo(card)
 	var summoned_index = -1
@@ -3269,6 +3284,19 @@ func _card_action_target(card: Dictionary, player_card: bool) -> Control:
 	if card_type == "equipment":
 		var equipment_target := _card_action_field_slot(player_card, 0)
 		return equipment_target if equipment_target != null else owner_hero
+
+	for effect in card.get("effects", []):
+		var op := String(effect.get("op", ""))
+		if op in ["front_damage", "all_damage", "combo_damage", "low_damage", "weaken"]:
+			var enemy_target := _card_action_field_slot(not player_card, 0)
+			return enemy_target if enemy_target != null else enemy_hero
+		if op in ["hero_damage", "curse"]: return enemy_hero
+		if op in ["front_buff", "all_buff", "target_buff"]:
+			var ally_target := _card_action_field_slot(player_card, 0)
+			return ally_target if ally_target != null else owner_hero
+		if op == "tokens":
+			var token_slot := _card_action_field_slot(player_card, owner_side.field.size())
+			return token_slot if token_slot != null else owner_hero
 
 	var card_id := _base_card_id(String(card.get("id", "")))
 	if card_id == "call_of_dead":
@@ -3331,6 +3359,7 @@ func _battle_effect_context(owner_key: String = "player", target_unit_id: int = 
 		"log": Callable(self, "_add_log"),
 		"cleanup_dead_units": Callable(self, "_cleanup_dead_units"),
 		"calculate_damage": Callable(self, "_calculate_damage"),
+		"frontier_impact": Callable(self, "_frontier_impact"),
 		"resolve_breakthrough": Callable(self, "_resolve_breakthrough_damage"),
 		"on_unit_summoned": Callable(self, "_apply_build_on_unit_summoned"),
 		"relic_trigger": Callable(self, "_on_relic_trigger"),
@@ -3581,6 +3610,8 @@ func _frontline_damage_prediction_text(damage: int) -> String:
 
 
 func _card_heal_preview(card: Dictionary) -> int:
+	for effect in card.get("effects", []):
+		if effect.op == "heal": return int(effect.amount)
 	var card_id = _base_card_id(String(card.get("id", "")))
 	match card_id:
 		"first_aid":
@@ -3594,6 +3625,12 @@ func _card_heal_preview(card: Dictionary) -> int:
 	return 0
 
 func _direct_damage_preview(card: Dictionary) -> int:
+	for effect in card.get("effects", []):
+		if effect.op in ["front_damage", "all_damage", "combo_damage", "low_damage"]:
+			var amount := int(effect.amount)
+			if effect.op == "combo_damage" and int(battle_state.get("cards_played_this_turn", 0)) + 1 >= 3: amount = int(effect.extra)
+			if effect.op == "low_damage" and int(player.health) * 2 <= int(player.max_health): amount = int(effect.extra)
+			return _calculate_damage(card, card.get("type") == "spell", player, amount)
 	var card_id = _base_card_id(String(card.get("id", "")))
 	var base_damage = 0
 	match card_id:
@@ -3602,7 +3639,7 @@ func _direct_damage_preview(card: Dictionary) -> int:
 		"fireball":
 			base_damage = 4
 		"gale_shot":
-			base_damage = 4 if int(battle_state.get("cards_played_this_turn", 0)) >= 3 else 1
+			base_damage = 4 if int(battle_state.get("cards_played_this_turn", 0)) + 1 >= 3 else 1
 		"corpse_explosion":
 			base_damage = 2
 		"plague_spread":
@@ -3612,6 +3649,8 @@ func _direct_damage_preview(card: Dictionary) -> int:
 	return _calculate_damage(card, true, player, base_damage + int(card.get("effect_bonus", 0)))
 
 func _card_result_preview(card: Dictionary) -> String:
+	if card.has("effects"):
+		return ("소환 %d/%d · " % [int(card.attack), int(card.health)] if card.type == "unit" else "") + String(card.text)
 	if int(card.get("effect_bonus", 0)) > 0:
 		return String(card.get("text", ""))
 	var default_summary: String = main._card_effect_summary(card)
@@ -3875,7 +3914,7 @@ func _attack_opponent_hero() -> void:
 	_store_battle_snapshot()
 	_check_no_actions_loss()
 
-func _execute_player_hero_attack(attacker_index: int) -> void:
+func _resolve_player_hero_attack(attacker_index: int) -> void:
 	if attacker_index < 0 or attacker_index >= player.field.size():
 		return
 	if _enemy_vanguard_blocks_hero():
@@ -3904,20 +3943,20 @@ func _execute_player_hero_attack(attacker_index: int) -> void:
 	_add_log("%s -> 적 영웅: %d 피해" % [attacker.name, damage])
 	input_locked = false
 
-func _execute_player_unit_attack(attacker_index: int, defender_index: int) -> void:
+func _resolve_player_unit_attack(attacker_index: int, defender_index: int) -> void:
 	if attacker_index < 0 or attacker_index >= player.field.size():
 		return
 	if defender_index < 0 or defender_index >= opponent.field.size():
 		return
 	var was_vanguard := bool(opponent.field[defender_index].get("is_vanguard", false))
-	await _combat(player, opponent, attacker_index, defender_index)
+	await _resolve_unit_combat(player, opponent, attacker_index, defender_index)
 	_record_first_play_action("unit_attacked")
 	if was_vanguard and not _enemy_vanguard_blocks_hero():
 		_record_first_play_action("vanguard_defeated")
 	_store_battle_snapshot()
 
 
-func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_index: int, defender_index: int) -> void:
+func _resolve_unit_combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_index: int, defender_index: int) -> void:
 	var attacker: Dictionary = attacker_side.field[attacker_index]
 	var defender: Dictionary = defender_side.field[defender_index]
 	var attacker_target := _field_slot_for(attacker_side, attacker_index)
@@ -4015,80 +4054,27 @@ func _hero_target_for_player(is_player_target: bool) -> Control:
 	return target
 
 func _play_unit_battle_feedback(attacker_side: Dictionary, defender_side: Dictionary, attacker_index: int, defender_index: int, attack_damage: int, defense_damage: int) -> void:
-	var attacker_node = _field_slot_for(attacker_side, attacker_index)
-	var defender_node = _field_slot_for(defender_side, defender_index)
-	var attacker_unit: Dictionary = attacker_side.field[attacker_index] if attacker_index >= 0 and attacker_index < attacker_side.field.size() else {}
-	var defender_unit: Dictionary = defender_side.field[defender_index] if defender_index >= 0 and defender_index < defender_side.field.size() else {}
-	if not _is_battle_cutscene_enabled():
-		_show_damage_number(defender_node, attack_damage)
-		_play_attack_impact_fx(attacker_node, defender_node, attack_damage, false, _attack_impact_sfx(attacker_unit, attack_damage, false))
-		_play_sfx(_attack_impact_sfx(attacker_unit, attack_damage, false))
-		_show_damage_number(attacker_node, defense_damage, true)
-		if defense_damage > 0:
-			_play_attack_impact_fx(defender_node, attacker_node, defense_damage, true)
-			_play_sfx(_attack_impact_sfx(defender_unit, defense_damage, true))
-		if not _should_skip_timed_battle_fx():
-			_spawn_impact_slash(defender_node, false)
-			_flash_target(defender_node, Color(1.0, 0.28, 0.22, 1.0), 0.22)
-			if defense_damage > 0:
-				_spawn_impact_slash(attacker_node, true)
-				_flash_target(attacker_node, Color(1.0, 0.66, 0.18, 1.0), 0.22)
-		return
-	await _play_inline_attack_feedback(attacker_node, defender_node, attack_damage, attacker_side == player, false, _attack_impact_sfx(attacker_unit, attack_damage, false))
-	if defense_damage > 0:
-		await _play_inline_attack_feedback(defender_node, attacker_node, defense_damage, defender_side == player, true, _attack_impact_sfx(defender_unit, defense_damage, true))
+	var session = attack_executor.active_presentation if attack_executor.busy else presentation
+	await session.play_attack({
+		"attacker": _focus_unit(attacker_side, attacker_index),
+		"defender": _focus_unit(defender_side, defender_index),
+		"damage": attack_damage, "counter_damage": defense_damage,
+		"attack_sfx": _attack_impact_sfx(attacker_side.field[attacker_index], attack_damage, false),
+		"counter_sfx": _attack_impact_sfx(defender_side.field[defender_index], defense_damage, true),
+	})
 
 func _play_hero_attack_feedback(attacker_side: Dictionary, attacker_index: int, defender_is_player: bool, damage: int) -> void:
-	var attacker_node = _field_slot_for(attacker_side, attacker_index)
-	var defender_node = _hero_target_for_player(defender_is_player)
-	var attacker_unit: Dictionary = attacker_side.field[attacker_index] if attacker_index >= 0 and attacker_index < attacker_side.field.size() else {}
-	if not _is_battle_cutscene_enabled():
-		_show_damage_number(defender_node, damage)
-		_play_attack_impact_fx(attacker_node, defender_node, damage, false, _hero_attack_sfx(attacker_unit, damage))
-		_play_sfx(_hero_attack_sfx(attacker_unit, damage))
-		if not _should_skip_timed_battle_fx():
-			_spawn_impact_slash(defender_node, false)
-			_flash_target(defender_node, Color(1.0, 0.28, 0.22, 1.0), 0.22)
-		return
-	await _play_inline_attack_feedback(attacker_node, defender_node, damage, attacker_side == player, false, _hero_attack_sfx(attacker_unit, damage))
-
-func _play_inline_attack_feedback(attacker_node: Control, defender_node: Control, damage: int, attacker_is_player: bool, counter: bool = false, sfx_name: String = "") -> void:
-	if attacker_node == null or defender_node == null:
-		_show_damage_number(defender_node, damage, counter)
-		return
-	var start_pos = attacker_node.position
-	var start_rotation := attacker_node.rotation
-	var lunge_offset = Vector2(0, -58 if attacker_is_player else 58)
-	if counter:
-		lunge_offset *= 0.72
-	attacker_node.pivot_offset = attacker_node.size * 0.5
-	var approach = attacker_node.create_tween()
-	approach.set_parallel(true)
-	approach.tween_property(attacker_node, "position", start_pos + lunge_offset, 0.085 if not counter else 0.07).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	approach.tween_property(attacker_node, "scale", Vector2(1.17, 1.17) if not counter else Vector2(1.1, 1.1), 0.085).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	approach.tween_property(attacker_node, "rotation", start_rotation + deg_to_rad(-4.5 if attacker_is_player else 4.5), 0.085)
-	await approach.finished
-
-	_show_damage_number(defender_node, damage, counter)
-	_play_attack_impact_fx(attacker_node, defender_node, damage, counter, sfx_name)
-	_play_sfx(sfx_name if not sfx_name.is_empty() else _attack_impact_sfx({}, damage, counter))
-	_spawn_impact_slash(defender_node, counter)
-	_flash_target(defender_node, Color(1.0, 0.66, 0.18, 1.0) if counter else Color(1.0, 0.28, 0.22, 1.0), 0.24)
-	_shake_target(defender_node, 12.0 if damage < 3 else 18.0)
-	var hit_stop := 0.015 if _is_landscape_phone() else (0.035 if counter else (0.07 if damage >= 4 else 0.045))
-	await main.get_tree().create_timer(hit_stop).timeout
-
-	var recoil_direction: Vector2 = -lunge_offset.normalized()
-	var recoil_position: Vector2 = Vector2(start_pos) + recoil_direction * (10.0 if damage >= 4 else 6.0)
-	var recoil = attacker_node.create_tween()
-	recoil.tween_property(attacker_node, "position", recoil_position, 0.025 if _is_landscape_phone() else 0.055).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	recoil.parallel().tween_property(attacker_node, "scale", Vector2(0.94, 0.94), 0.025 if _is_landscape_phone() else 0.055)
-	recoil.tween_property(attacker_node, "position", start_pos, 0.06 if _is_landscape_phone() else 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	recoil.parallel().tween_property(attacker_node, "scale", Vector2.ONE, 0.06 if _is_landscape_phone() else 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	recoil.parallel().tween_property(attacker_node, "rotation", start_rotation, 0.06 if _is_landscape_phone() else 0.15)
-	await recoil.finished
+	var session = attack_executor.active_presentation if attack_executor.busy else presentation
+	await session.play_attack({
+		"attacker": _focus_unit(attacker_side, attacker_index),
+		"defender": {"player": defender_is_player, "hero": true},
+		"damage": damage, "counter_damage": 0,
+		"attack_sfx": _hero_attack_sfx(attacker_side.field[attacker_index], damage),
+	})
 
 func _attack_impact_sfx(attacker: Dictionary, damage: int, counter: bool) -> String:
+	var authored := preload("res://src/battle/card_impact_profiles.gd").key(attacker)
+	if not authored.is_empty(): return authored
 	if counter:
 		return "counter"
 	if damage >= 4:
@@ -4096,6 +4082,8 @@ func _attack_impact_sfx(attacker: Dictionary, damage: int, counter: bool) -> Str
 	return "hit_%s" % _sfx_race_key(attacker)
 
 func _hero_attack_sfx(attacker: Dictionary, damage: int) -> String:
+	var authored := preload("res://src/battle/card_impact_profiles.gd").key(attacker)
+	if not authored.is_empty(): return authored
 	if damage >= 5:
 		return "impact_heavy"
 	var race_key := _sfx_race_key(attacker)
@@ -4372,7 +4360,7 @@ func _cleanup_side_dead(owner: Dictionary, enemy: Dictionary) -> void:
 			_add_log("%s 사망" % String(dead_unit.get("name", "")))
 
 
-func _on_end_turn_pressed() -> void:
+func _work_on_end_turn_pressed() -> void:
 	if not pending_action.is_empty():
 		_cancel_ally_selection()
 		return
@@ -4387,6 +4375,7 @@ func _on_end_turn_pressed() -> void:
 	battle_state["ai_phase"] = "start"
 	selected_attacker = -1
 	await _start_turn(opponent, false)
+	if leaving_battle: return
 	_refresh_ui()
 	_store_battle_snapshot()
 	var ai_wait = 0.5
@@ -4396,9 +4385,9 @@ func _on_end_turn_pressed() -> void:
 	await _run_ai_turn()
 
 
-func _run_ai_turn() -> void:
+func _work_run_ai_turn() -> void:
 	_check_game_over()
-	if game_over:
+	if game_over or leaving_battle:
 		return
 	var phase := String(battle_state.get("ai_phase", "cards"))
 	if phase == "start":
@@ -4406,13 +4395,13 @@ func _run_ai_turn() -> void:
 		phase = "cards"
 	if phase == "cards":
 		await _run_ai_play_cards()
-		if game_over:
+		if game_over or leaving_battle:
 			return
 		battle_state["ai_phase"] = "attacks"
 		_store_battle_snapshot()
 	if String(battle_state.get("ai_phase", "")) == "attacks":
 		await _run_ai_attack_sequence()
-		if game_over:
+		if game_over or leaving_battle:
 			return
 		battle_state["ai_phase"] = "end"
 		_store_battle_snapshot()
@@ -4466,7 +4455,7 @@ func _next_ai_card_index() -> int:
 func _run_ai_play_cards() -> void:
 	if main.Onboarding.first_battle(main.current_run):
 		return
-	while not game_over:
+	while not game_over and not leaving_battle:
 		var index := _next_ai_card_index()
 		if index < 0:
 			return
@@ -4490,7 +4479,7 @@ func _run_ai_play_cards() -> void:
 
 func _run_ai_attack_sequence() -> void:
 	var i = 0
-	while i < opponent.field.size():
+	while i < opponent.field.size() and not leaving_battle:
 		if not bool(opponent.field[i].can_attack):
 			i += 1
 			continue
@@ -4505,7 +4494,7 @@ func _run_ai_attack_sequence() -> void:
 		if i < opponent.field.size() and not bool(opponent.field[i].can_attack):
 			i += 1
 
-func _run_ai_hero_attack(index: int) -> void:
+func _resolve_ai_hero_attack(index: int) -> void:
 	if index >= opponent.field.size():
 		return
 	var unit: Dictionary = opponent.field[index]
@@ -4616,7 +4605,7 @@ func _spawn_floating_text(target: Control, text: String, color: Color, font_size
 		main.modal_layer.add_child(lbl)
 	lbl.global_position = target.global_position + target.size / 2.0 - Vector2(80, 24) + center_offset
 
-	var tween: Tween = main.create_tween()
+	var tween: Tween = lbl.create_tween()
 	tween.tween_property(lbl, "scale", Vector2(1.22, 1.22), 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(lbl, "position:y", lbl.position.y - 76, duration).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_property(lbl, "modulate:a", 0.0, duration).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
@@ -4641,7 +4630,7 @@ func _spawn_center_banner(text: String, color: Color, font_size: int = 42, durat
 	lbl.global_position = viewport * 0.5 - lbl.custom_minimum_size / 2.0 + Vector2(0, -80)
 	lbl.scale = Vector2(0.76, 0.76)
 	lbl.modulate.a = 0.0
-	var tween: Tween = main.create_tween()
+	var tween: Tween = lbl.create_tween()
 	tween.tween_property(lbl, "scale", Vector2(1.0, 1.0), 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_property(lbl, "modulate:a", 1.0, 0.12)
 	tween.tween_interval(max(0.22, duration - 0.28))
@@ -5421,6 +5410,7 @@ func rebuild_layout() -> void:
 	_refresh_ui()
 
 func start_battle() -> void:
+	leaving_battle = false
 	main.active_screen = "battle"
 	main._clear_screen()
 	var enemy: Dictionary = main.current_run.get("active_enemy", {})
@@ -5651,6 +5641,7 @@ func _ally_index_by_id(id: int) -> int:
 	return -1
 
 func _requires_ally_target(card: Dictionary) -> bool:
+	if card.get("target", "") == "ally": return true
 	var id := _base_card_id(String(card.get("id", "")))
 	return (String(card.get("type", "")) == "equipment" and id != "royal_standard") or id == "corpse_explosion"
 
@@ -5839,15 +5830,11 @@ func _show_first_play_help(state: Dictionary) -> void:
 		_spawn_target_glow(target, Color(1.0, 0.82, 0.3), 0.72)
 
 func _focus_battle_targets(targets: Array) -> void:
-	if is_instance_valid(landscape_view):
-		var view: Control = landscape_view
-		# Android may emit the emulated button release before ScreenTouch release.
-		await main.get_tree().process_frame
-		if not is_instance_valid(view): return
-		view.focus_targets(targets)
-		# BattleScreen survives layout rebuilds; never await a freed view's coroutine.
-		while is_instance_valid(view) and view.focus_pending:
-			await main.get_tree().process_frame
+	var session = presentation
+	if session.disposed or not is_instance_valid(landscape_view): return
+	# Finish Android's native release before deciding whether a finger is held.
+	await main.get_tree().process_frame
+	await session.focus(targets)
 
 func _focus_unit(side: Dictionary, index: int) -> Dictionary:
 	if index < 0 or index >= side.field.size():
@@ -5878,3 +5865,64 @@ func _focus_card_action(card: Dictionary, ally: bool, target_id: int = -1) -> vo
 				var side: Dictionary = player if is_ally else opponent
 				descriptor = _focus_unit(side, i) if i < side.field.size() else {"player": is_ally, "slot": i}
 	await _focus_battle_targets([descriptor])
+
+func _execute_player_hero_attack(index: int) -> void:
+	await attack_executor.execute("player", _unit_id_at(player, index), {"kind": "hero"})
+
+func _execute_player_unit_attack(attacker_index: int, target_index: int) -> void:
+	await attack_executor.execute("player", _unit_id_at(player, attacker_index), {"kind": "unit", "id": _unit_id_at(opponent, target_index)})
+
+func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_index: int, defender_index: int) -> void:
+	await attack_executor.execute("player" if attacker_side == player else "opponent", _unit_id_at(attacker_side, attacker_index), {"kind": "unit", "id": _unit_id_at(defender_side, defender_index)})
+
+func _run_ai_hero_attack(index: int) -> void:
+	await attack_executor.execute("opponent", _unit_id_at(opponent, index), {"kind": "hero"})
+
+func _unit_id_at(side: Dictionary, index: int) -> int:
+	_ensure_battle_unit_ids()
+	return int(side.field[index].get("battle_unit_id", -1)) if index >= 0 and index < side.field.size() else -1
+
+func _on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed: bool = false) -> void:
+	if leaving_battle: return
+	inflight_actions += 1
+	await _work_on_hand_card_pressed(index, target_unit_id, confirmed)
+	inflight_actions -= 1
+
+func _on_race_power_pressed(target_unit_id: int = -1) -> void:
+	if leaving_battle: return
+	inflight_actions += 1
+	await _work_on_race_power_pressed(target_unit_id)
+	inflight_actions -= 1
+
+func _on_end_turn_pressed() -> void:
+	if leaving_battle: return
+	inflight_actions += 1
+	await _work_on_end_turn_pressed()
+	inflight_actions -= 1
+
+func _run_ai_turn() -> void:
+	if leaving_battle: return
+	inflight_actions += 1
+	await _work_run_ai_turn()
+	inflight_actions -= 1
+
+func prepare_to_leave() -> void:
+	leaving_battle = true
+	presentation.dispose()
+	while attack_executor.busy or inflight_actions > 0:
+		await main.get_tree().process_frame
+	input_locked = current_player != "player"
+	_store_battle_snapshot()
+
+func _frontier_impact(owner: Dictionary, enemy: Dictionary, card: Dictionary, amount: int, area: bool = false, hero: bool = false) -> void:
+	if _should_skip_timed_battle_fx() or amount <= 0: return
+	var ally: bool = owner == player
+	var source := _hero_target_for_player(ally)
+	var style := preload("res://src/battle/card_impact_profiles.gd").key(card)
+	if style.is_empty(): return
+	_play_sfx(style)
+	if hero or enemy.field.is_empty():
+		_play_attack_impact_fx(source, _hero_target_for_player(not ally), amount, false, style)
+	else:
+		for i in range(enemy.field.size() if area else 1):
+			_play_attack_impact_fx(source, _field_slot_for(enemy, i), amount, false, style)

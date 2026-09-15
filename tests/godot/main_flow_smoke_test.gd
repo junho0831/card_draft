@@ -50,15 +50,25 @@ func _test_boots_to_main_menu(main: Node) -> void:
 	_assert_eq(int(main.player_profile.get("battle_tutorial_stage", -1)), 0, "battle tutorial starts at stage 0")
 	_assert_true(main.audio_manager.streams.has("impact_heavy"), "audio manager provides heavy impact sound")
 	_assert_true(main.audio_manager.streams.has("direct_attack"), "audio manager provides direct attack sound")
+	_assert_true(main.audio_manager.streams.values().all(func(stream): return stream != null and String(stream.resource_path).begins_with("res://assets/audio/local_models_v1/")), "runtime initialization reads existing model audio without synthesizing disposable waveforms")
 	_assert_true(ResourceLoader.exists("res://assets/audio/original_v1/direct_attack.ogg"), "runtime direct attack SFX exists")
 	_assert_true(main.audio_manager.has_authored_sfx("direct_attack"), "audio manager loads direct attack SFX")
 	_assert_true(main.audio_manager.streams.has("victory_burst"), "audio manager provides victory burst sound")
+	for profile in main.audio_manager.ImpactProfiles.PROFILES:
+		var key := "impact_" + String(profile)
+		_assert_eq(main.audio_manager._sound_priority(key), 3, "new impacts have combat priority: " + key)
+		_assert_true(main.audio_manager._minimum_gap_msec(key) >= 85, "new impact overlap is limited: " + key)
 	for sound_name in ["summon_human", "summon_elf", "summon_undead", "summon_common", "hit_human", "hit_elf", "hit_undead", "hit_common", "spell_fire", "spell_draw", "spell_death", "spell_buff", "spell_summon", "spell_low_hp", "spell_common", "equipment_human", "equipment_elf", "equipment_undead", "equipment_common"]:
 		_assert_true(main.audio_manager.streams.has(sound_name), "audio manager provides card identity sound: %s" % sound_name)
 	var all_model_sfx_loaded := true
 	for sound_name in main.audio_manager.authored_sfx_keys():
 		_assert_true(ResourceLoader.exists("res://assets/audio/local_models_v1/%s.ogg" % main.audio_manager._model_sfx_key(sound_name)), "generated SFX resource exists: %s" % sound_name)
-		var sound_path := String(main.audio_manager.custom_streams.get(sound_name).resource_path)
+		var sound_stream = main.audio_manager.custom_streams.get(sound_name)
+		if sound_stream == null:
+			_assert_true(false, "generated SFX stream loads: %s" % sound_name)
+			all_model_sfx_loaded = false
+			continue
+		var sound_path := String(sound_stream.resource_path)
 		all_model_sfx_loaded = all_model_sfx_loaded and sound_path.begins_with("res://assets/audio/local_models_v1/")
 		_assert_true(sound_path.begins_with("res://assets/audio/original_v1/") or sound_path.begins_with("res://assets/audio/local_models_v1/"), "SFX is loaded from a documented production directory: %s" % sound_name)
 		_assert_true(main.audio_manager.has_authored_sfx(sound_name), "audio manager loads original SFX: %s" % sound_name)

@@ -39,7 +39,8 @@ func build(body: VBoxContainer) -> void:
 	search.text_changed.connect(func(_text): _refresh_grid())
 	body.add_child(search)
 	grid = GridContainer.new()
-	grid.columns = 2 if main._layout_viewport_size().x < 600 else 4
+	var card_width := 154 if main._layout_viewport_size().x < 600 else 208
+	grid.columns = clampi(floori((main._layout_viewport_size().x - 38) / float(card_width + 10)), 1, 4)
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 12)
 	body.add_child(grid)
@@ -68,7 +69,7 @@ func _refresh_grid() -> void:
 			continue
 		if not query.is_empty() and not (String(card.get("name", "")) + " " + String(card.get("text", ""))).to_lower().contains(query):
 			continue
-		var face := Fantasy.card(main, card, 154 if grid.columns == 2 else 208, 258)
+		var face := Fantasy.card(main, card, 154 if main._layout_viewport_size().x < 600 else 208, 258)
 		grid.add_child(face)
 		Fantasy.clickable_card(face, _show_detail.bind(card))
 	counter.text = "카드 도감 · %d / %d종" % [grid.get_child_count(), main.card_defs.size()]
@@ -77,7 +78,11 @@ func _show_detail(card: Dictionary) -> void:
 	_close_detail()
 	var content := VBoxContainer.new()
 	main.modal_layer.add_child(content)
-	content.add_child(Fantasy.card(main, card, 270, 420))
+	var viewer := preload("res://src/ui/components/card_inspection_view.gd").new()
+	var face := Fantasy.card(main, card, 270, 420)
+	face.theme = main.theme
+	viewer.setup(face, Vector2(300, 470), Vector2(270, 420))
+	content.add_child(viewer)
 	var lore: Dictionary = main.card_lore_service.lore_for(String(card.get("id", "")))
 	content.add_child(main._make_label(String(lore.get("story", "")), 15, Color(0.86, 0.9, 0.96)))
 	detail_overlay = Presentation.make_detail_overlay(main.modal_layer, content, _close_detail)
