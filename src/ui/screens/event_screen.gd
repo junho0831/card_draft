@@ -102,7 +102,9 @@ func _mount_event_action_dock(body: VBoxContainer, event_data: Dictionary) -> vo
 		var option: Dictionary = option_variant
 		var effect := String(option.get("effect", ""))
 		var primary := effect in ["merchant_card", "merchant_relic", "remove_card", "heal_10", "heal", "upgrade_card", "gain_equipment", "gain_human", "gain_undead"]
-		var button: Button = main.ui.make_dock_action_button(String(option.get("label", "선택")), _effect_preview(effect), _effect_color(effect), primary, 226)
+		var dock_width := 112 if main.ui.mobile_layout else 226
+		var dock_detail := _dock_effect_preview_for_option(option) if main.ui.mobile_layout else _effect_preview(effect)
+		var button: Button = main.ui.make_dock_action_button(String(option.get("label", "선택")), dock_detail, _effect_color(effect), primary, dock_width)
 		button.pressed.connect(Callable(self, "_resolve_event_option").bind(effect))
 		actions.add_child(button)
 
@@ -199,6 +201,34 @@ func _effect_preview_for_option(option: Dictionary) -> String:
 	if preview.is_empty() or label == preview or label.ends_with(preview):
 		return ""
 	return preview
+
+func _dock_effect_preview(effect: String) -> String:
+	match effect:
+		"gamble_small":
+			return "골드 -30 · 50%→+80"
+		"gamble_relic":
+			return "골드 -60 · 30% 유물"
+		"max_hp_trade":
+			return "최대 체력 +5 · 현재 -10"
+		"curse_relic":
+			return "최대 체력 -5 · 유물"
+		"remove_card":
+			return "카드 1장 제거"
+		"heal_10":
+			return "체력 +10"
+		"heal":
+			return "체력 30% 회복"
+		"leave":
+			return "정비 없이 이동"
+		_:
+			return _effect_preview(effect)
+
+func _dock_effect_preview_for_option(option: Dictionary) -> String:
+	var label := String(option.get("label", "")).strip_edges()
+	var detail := _dock_effect_preview(String(option.get("effect", ""))).strip_edges()
+	if detail.is_empty() or label == detail or label.ends_with(detail):
+		return ""
+	return detail
 
 func _effect_icon(effect: String) -> String:
 	if effect in ["merchant_card", "gain_equipment", "gain_human", "gain_undead", "upgrade_card"]:
