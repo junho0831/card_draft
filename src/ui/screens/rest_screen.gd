@@ -22,7 +22,7 @@ func build(body: VBoxContainer) -> void:
 	body.add_child(_make_rest_status_strip(compact, hp, max_hp, heal_amount))
 
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.22, 0.18, 0.11, 1.0), 1, 12, 14)
-	panel.custom_minimum_size = Vector2(0, 300 if compact else 340)
+	panel.custom_minimum_size = Vector2(0, 260 if action_dock_layout else (300 if compact else 340))
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_child(panel)
 
@@ -31,24 +31,26 @@ func build(body: VBoxContainer) -> void:
 	hub.add_theme_constant_override("separation", 12)
 	panel.add_child(hub)
 
-	var story_panel := _make_rest_story_panel(compact, hp, max_hp, heal_amount)
+	var story_panel := _make_rest_story_panel(compact, hp, max_hp, heal_amount, action_dock_layout)
 	if not phone_portrait:
 		hub.add_child(story_panel)
 
-	var action_panel: PanelContainer = main.ui.make_surface_panel(Color(0.08, 0.09, 0.11, 0.96), Color(0.18, 0.2, 0.12, 1.0), 1, 12, 14)
-	action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hub.add_child(action_panel)
-	var list := VBoxContainer.new()
-	list.add_theme_constant_override("separation", 10)
-	action_panel.add_child(list)
-	var title: Label = main._make_label("어떤 행동을 하시겠습니까?", 20 if compact else 22, Color(1.0, 0.88, 0.55, 1.0))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	list.add_child(title)
-	var desc: Label = main._make_label("회복으로 안정성을 챙기거나, 카드 강화를 통해 다음 전투를 준비하세요.", 12 if compact else 14, Color(0.84, 0.88, 0.94, 1.0))
-	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	list.add_child(desc)
+	var action_panel: PanelContainer = null
+	var list: VBoxContainer = null
+	if not action_dock_layout:
+		action_panel = main.ui.make_surface_panel(Color(0.08, 0.09, 0.11, 0.96), Color(0.18, 0.2, 0.12, 1.0), 1, 12, 14)
+		action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hub.add_child(action_panel)
+		list = VBoxContainer.new()
+		list.add_theme_constant_override("separation", 10)
+		action_panel.add_child(list)
+		var title: Label = main._make_label("어떤 행동을 하시겠습니까?", 20 if compact else 22, Color(1.0, 0.88, 0.55, 1.0))
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		list.add_child(title)
+		var desc: Label = main._make_label("회복으로 안정성을 챙기거나, 카드 강화를 통해 다음 전투를 준비하세요.", 12 if compact else 14, Color(0.84, 0.88, 0.94, 1.0))
+		desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		list.add_child(desc)
 	if action_dock_layout:
-		list.add_child(main.ui.make_chip("선택 버튼은 화면 아래에 고정되어 있습니다.", Color(0.08, 0.16, 0.28, 1.0), Color(0.76, 0.9, 1.0, 1.0), 12))
 		if phone_portrait:
 			hub.add_child(story_panel)
 		_mount_rest_action_dock(body, hp, max_hp, heal_amount)
@@ -111,7 +113,7 @@ func _make_rest_status_strip(compact: bool, hp: int, max_hp: int, heal_amount: i
 	row.add_child(main.ui.make_chip("추천 %s" % _rest_guidance_text(hp, max_hp), Color(0.16, 0.18, 0.1, 1.0), Color(0.96, 0.94, 0.82, 1.0), 13 if compact else 14))
 	return panel
 
-func _make_rest_story_panel(compact: bool, hp: int, max_hp: int, heal_amount: int) -> PanelContainer:
+func _make_rest_story_panel(compact: bool, hp: int, max_hp: int, heal_amount: int, dock_layout: bool = false) -> PanelContainer:
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.08, 0.09, 0.11, 0.96), Color(0.22, 0.18, 0.11, 1.0), 1, 12, 14)
 	panel.custom_minimum_size = Vector2(0 if compact else 320, 0)
 	var box := VBoxContainer.new()
@@ -123,15 +125,17 @@ func _make_rest_story_panel(compact: bool, hp: int, max_hp: int, heal_amount: in
 	var title: Label = main._make_label("캠프에 도착했습니다", 22 if compact else 24, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(title)
-	box.add_child(main._make_art_rect(11, Vector2(236, 144) if compact else Vector2(260, 160)))
+	box.add_child(main._make_art_rect(11, Vector2(190, 112) if dock_layout else (Vector2(236, 144) if compact else Vector2(260, 160))))
 	var desc: Label = main._make_label("모닥불 곁에서 숨을 고르고 덱의 핵심 카드를 다듬을 수 있습니다.", 13 if compact else 15, Color(0.86, 0.9, 0.96, 1.0))
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(desc)
 	box.add_child(HSeparator.new())
 	box.add_child(_make_rest_info_row("현재 체력", "%d/%d" % [hp, max_hp], Color(1.0, 0.7, 0.7, 1.0), compact))
 	box.add_child(_make_rest_info_row("회복량", "+%d" % heal_amount, Color(0.72, 0.94, 0.7, 1.0), compact))
-	box.add_child(_make_rest_info_row("추천", "낮으면 휴식 / 높으면 명상", Color(1.0, 0.88, 0.55, 1.0), compact))
-	box.add_child(main.ui.make_chip("다음 전투 전 정비 구간", Color(0.16, 0.16, 0.1, 1.0), Color(0.96, 0.94, 0.82, 1.0), 12 if compact else 13))
+	if not dock_layout:
+		box.add_child(_make_rest_info_row("추천", "낮으면 휴식 / 높으면 명상", Color(1.0, 0.88, 0.55, 1.0), compact))
+	if not dock_layout:
+		box.add_child(main.ui.make_chip("다음 전투 전 정비 구간", Color(0.16, 0.16, 0.1, 1.0), Color(0.96, 0.94, 0.82, 1.0), 12 if compact else 13))
 	return panel
 
 func _make_rest_info_row(title: String, value: String, color: Color, compact: bool) -> Control:

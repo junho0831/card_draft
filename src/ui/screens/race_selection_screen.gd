@@ -174,7 +174,7 @@ func _make_race_card(race_id: String, compact: bool, phone: bool, short: bool) -
 	box.add_child(cards_label)
 
 	var select_button := Button.new()
-	select_button.text = "1. %s 선택" % String(meta.get("name", race_id))
+	select_button.text = "%s 선택" % String(meta.get("name", race_id))
 	select_button.custom_minimum_size = Vector2(0, 56 if short else (64 if compact else 68))
 	select_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	select_button.set_meta("selection_font_size", 17 if compact else 19)
@@ -251,7 +251,7 @@ func _refresh_selection() -> void:
 		_apply_race_panel_style(race_id)
 		var button: Button = race_buttons.get(race_id)
 		if button != null:
-			button.text = "1. 선택됨 · %s" % String(meta.get("name", race_id)) if selected else "1. %s 선택" % String(meta.get("name", race_id))
+			button.text = "✓ 선택됨 · %s" % String(meta.get("name", race_id)) if selected else "%s 선택" % String(meta.get("name", race_id))
 			if selected:
 				main.ui.style_primary_button(button, accent.darkened(0.42))
 			else:
@@ -261,13 +261,13 @@ func _refresh_selection() -> void:
 	var selected_meta: Dictionary = main._race_meta().get(selected_race_id, {})
 	var selected_accent: Color = selected_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
 	if selection_summary != null:
-		selection_summary.text = "1. 선택 완료 · %s · %s · %s 1회" % [
+		selection_summary.text = "세력 선택 완료 · %s · %s · %s 1회" % [
 			String(selected_meta.get("name", "인간")),
 			String(selected_meta.get("builds", "소환 · 버프")),
 			String(selected_meta.get("power_name", "필살기")),
 		]
 	if dock_title_label != null:
-		dock_title_label.text = "2. %s" % String(selected_meta.get("start_text", "인간으로 시작"))
+		dock_title_label.text = "전략 선택 후 시작 · %s" % String(selected_meta.get("start_text", "인간으로 시작"))
 		dock_title_label.add_theme_color_override("font_color", selected_accent.lightened(0.28))
 	if fixed_footer != null:
 		var dock_style: StyleBoxFlat = main.ui.make_style_box(Color(0.025, 0.034, 0.048, 0.99), selected_accent.darkened(0.12), 2, 8)
@@ -277,7 +277,7 @@ func _refresh_selection() -> void:
 		dock_style.content_margin_bottom = 8
 		fixed_footer.add_theme_stylebox_override("panel", dock_style)
 	if start_button != null:
-		start_button.text = "2. %s" % String(selected_meta.get("start_text", "인간으로 시작"))
+		start_button.text = "%s" % String(selected_meta.get("start_text", "인간으로 시작"))
 		main.ui.style_primary_button(start_button, selected_accent.darkened(0.38))
 		start_button.add_theme_font_size_override("font_size", 18)
 		if not main.pending_guided_run:

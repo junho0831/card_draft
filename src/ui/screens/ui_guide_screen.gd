@@ -167,7 +167,11 @@ func build(body: VBoxContainer) -> void:
 
 func _make_guide_panel(panel_data: Dictionary, compact: bool) -> PanelContainer:
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.05, 0.06, 0.075, 0.98), Color(0.24, 0.2, 0.12, 1.0), 1, 10, 10)
-	panel.custom_minimum_size = Vector2(0, 300 if compact else 252)
+	# GridContainer cannot distribute a child with a zero-width minimum reliably
+	# when the guide is wider than the viewport. Give desktop cards a real base
+	# width so all previews render in the grid instead of collapsing into column 1.
+	panel.custom_minimum_size = Vector2(0 if compact else 300, 300 if compact else 252)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
 	panel.add_child(box)
@@ -433,4 +437,8 @@ func _make_tiny_chip(text: String, bg_color: Color, text_color: Color, font_size
 	return chip
 
 func _is_guide_compact_layout() -> bool:
-	return main._is_compact_layout_for(1180.0, 980.0)
+	# A 1280x720 desktop is short, but it still has enough horizontal room for
+	# a multi-column guide. Compacting by height made the first preview stretch
+	# across the whole page and pushed every other screen below the fold.
+	var viewport: Vector2 = main._layout_viewport_size()
+	return main._is_phone_portrait_layout() or viewport.x < 900.0

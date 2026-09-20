@@ -59,7 +59,7 @@ func build(body: VBoxContainer) -> void:
 	choice_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hub.add_child(choice_panel)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
+	box.add_theme_constant_override("separation", 6)
 	choice_panel.add_child(box)
 	var title: Label = main._make_label("무엇을 하시겠습니까?", 22 if compact else 26, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -181,15 +181,24 @@ func _make_option_button(option: Dictionary, compact: bool) -> Button:
 	var effect := String(option.get("effect", ""))
 	var button: Button = main.ui.make_large_action_button(
 		String(option.get("label", "")),
-		_effect_preview(effect),
+		_effect_preview_for_option(option),
 		_effect_icon(effect),
 		_effect_color(effect),
 		compact
 	)
-	button.custom_minimum_size = Vector2(0, 82 if compact else 96)
+	button.custom_minimum_size = Vector2(0, 68 if compact else 70)
 	if effect in ["merchant_relic", "merchant_card", "upgrade_card", "gain_equipment", "gain_human", "gain_undead"]:
 		main.ui.style_primary_button(button, _effect_color(effect))
 	return button
+
+func _effect_preview_for_option(option: Dictionary) -> String:
+	var label := String(option.get("label", "")).strip_edges()
+	var preview := _effect_preview(String(option.get("effect", ""))).strip_edges()
+	# Some event data already includes the effect in its label. Showing it again
+	# in the button made choices look like duplicated lines in the 720p layout.
+	if preview.is_empty() or label == preview or label.ends_with(preview):
+		return ""
+	return preview
 
 func _effect_icon(effect: String) -> String:
 	if effect in ["merchant_card", "gain_equipment", "gain_human", "gain_undead", "upgrade_card"]:
