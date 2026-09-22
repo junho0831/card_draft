@@ -9,6 +9,8 @@ var focus_tween: Tween
 var focus_generation := 0
 var focus_pending := false
 var pointer_down := false
+var interaction_generation := 0
+var return_generation := 0
 var tweens: Array[Tween] = []
 var battle:
 	get: return owner.get_ref()
@@ -24,11 +26,13 @@ func _view_alive() -> bool:
 	return not disposed and is_instance_valid(view) and view.is_inside_tree()
 
 func cancel_focus() -> void:
+	return_generation += 1
 	focus_pending = false
 	focus_generation += 1
 	if is_instance_valid(focus_tween): focus_tween.kill()
 
 func gesture_started(_point: Vector2) -> void:
+	interaction_generation += 1
 	pointer_down = true
 	if is_instance_valid(focus_tween) and focus_tween.is_running():
 		battle.main.touch_scroll_router.block_current_tap()
@@ -108,6 +112,17 @@ func _move_to_targets(targets: Array, immediate: bool = false) -> void:
 		# Polling avoids awaiting a killed Tween's never-emitted finished signal.
 		while _view_alive() and generation == focus_generation and focus_tween.is_running():
 			await tree.process_frame
+
+func return_to_allies(gesture: int) -> void:
+	if not _view_alive(): return
+	var generation := return_generation
+	# Let the outcome remain readable; user gestures/modal opening cancel this return.
+	await tree.create_timer(0.45 if not battle._should_skip_timed_battle_fx() else 0.0).timeout
+	if not _view_alive() or gesture != interaction_generation or generation != return_generation: return
+	if battle.game_over or battle.battle_finished or battle.leaving_battle or battle.current_player != "player": return
+	if is_instance_valid(view.card_dialog) or battle.battle_detail_visible: return
+	var ready: Array[int] = battle._ready_player_attacker_indexes()
+	await focus([battle._focus_unit(battle.player, ready[0]) if not ready.is_empty() else {"player":true, "hero":true}])
 
 func inline_attack(attacker_node: Control, defender_node: Control, damage: int, attacker_is_player: bool, counter: bool = false, sfx_name: String = "") -> void:
 	if disposed or not is_instance_valid(attacker_node) or not is_instance_valid(defender_node): return

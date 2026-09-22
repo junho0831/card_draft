@@ -63,12 +63,14 @@ func run() -> void:
 	var view = battle.landscape_view
 	check(view != null, "uses landscape battle")
 	if view != null:
-		check(view.board_scroll.scroll_vertical == 0, "battle entry starts at enemy lane")
+		check(view.board_scroll.scroll_vertical > 0, "battle entry starts at ally lane")
 		check(battle.opponent_hero_target.size.x >= 104, "enemy hero has a wide touch target")
 		check(view.enemy_hero_hint.mouse_filter == Control.MOUSE_FILTER_IGNORE, "hero hint does not intercept taps")
-		check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "enemy hero fully visible on entry")
+		check(view.board_scroll.get_global_rect().encloses(battle.player_hero_target.get_global_rect()), "ally hero fully visible on entry")
+		await view.focus_targets([{ "player":false, "hero":true }], true)
+		await settle()
 		if not battle.opponent.field.is_empty():
-			check(view.board_scroll.get_global_rect().encloses(battle._card_action_field_slot(false, 0).get_global_rect()), "enemy vanguard fully visible on entry")
+			check(view.board_scroll.get_global_rect().encloses(battle._card_action_field_slot(false, 0).get_global_rect()), "enemy vanguard fully visible after navigating")
 		await capture("battle-entry")
 		check(Rect2(Vector2.ZERO, Vector2(root.size)).encloses(view.ally_lane_button.get_global_rect()), "lane navigation stays on screen")
 		view.show_card(0)
@@ -90,7 +92,7 @@ func run() -> void:
 		# Click the newly added right edge rather than only the portrait center.
 		battle.opponent.field.clear()
 		battle.player.field = [{"id":"militia", "battle_unit_id":9901, "name":"민병대", "race":"인간", "attack":1, "health":3, "max_health":3, "can_attack":true}]
-		battle.selected_attacker = -1
+		battle.selected_attacker = 0
 		battle._refresh_ui()
 		await settle()
 		var hp_before := int(battle.opponent.health)

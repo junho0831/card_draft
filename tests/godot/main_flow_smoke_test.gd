@@ -298,7 +298,7 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	_assert_true(String(direct_attack.get("guidance", "")).contains("적 영웅 영역") and String(direct_attack.get("guidance", "")).contains("피해"), "direct attack guidance names the hero target and damage")
 	_assert_true(not bool(battle.hero_attack_button.disabled), "enemy hero target becomes clickable after selecting an attacker")
 	_assert_eq(String(battle.opponent_hero_target_badge_label.text), "HP 10 → %d" % (10 - battle._predict_hero_attack_damage(battle.player.field[0], battle.player, false)), "enemy hero badge shows health before and after attack")
-	_assert_true(String(battle.recommended_action_button.text).begins_with("주 행동"), "primary action button is explicitly labeled")
+	_assert_true(String(battle.recommended_action_button.text).begins_with("추천 공격 실행"), "primary action button is explicitly labeled")
 	battle.opponent["health"] = 1
 	battle._refresh_action_buttons()
 	var lethal_attack: Dictionary = battle._recommended_action_state()
@@ -318,7 +318,7 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	battle._refresh_ui()
 	_assert_eq(String(battle._battle_guidance_mode()), "guided", "second battle changes recommendation to guided manual targeting")
 	_assert_true(String(battle.recommended_action_button.text).begins_with("1단계"), "guided recommendation names the attacker-selection step")
-	_assert_true(String(battle._manual_battle_guidance_text(battle._recommended_action_state())).contains("자동"), "guided attack hint explains that direct enemy clicks auto-pick the attacker")
+	_assert_true(not String(battle._manual_battle_guidance_text(battle._recommended_action_state())).contains("자동"), "guided attack hint requires explicit attacker selection")
 	_assert_eq(String(battle._card_play_sfx({"type": "unit", "race": "인간", "build_tags": ["summon"]})), "summon_human", "human unit cards use human summon audio")
 	_assert_eq(String(battle._card_play_sfx({"type": "unit", "race": "엘프", "build_tags": ["draw"]})), "summon_elf", "elf unit cards use elf summon audio")
 	_assert_eq(String(battle._card_play_sfx({"type": "spell", "race": "언데드", "build_tags": ["death"]})), "spell_death", "death-tag spells use death audio")
@@ -340,8 +340,8 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	battle.opponent["field"] = [_power_test_unit("자동 대상", 1, 1)]
 	var auto_enemy_health := int(Dictionary(battle.opponent["field"][0]).get("health", 0))
 	await battle._on_opponent_unit_pressed(0)
-	_assert_eq(int(battle.opponent["field"].size()), 0, "clicking an enemy card with no attacker selected auto-executes the best player attack")
-	_assert_eq(int(battle.selected_attacker), -1, "auto enemy attack clears attacker selection after resolving")
+	_assert_eq(int(battle.opponent["field"].size()), 1, "unselected enemy tap only explains attacker selection")
+	_assert_eq(int(battle.selected_attacker), -1, "unselected enemy tap keeps selection empty")
 	_assert_true(auto_enemy_health > 0, "enemy test target starts alive")
 	battle.opponent["field"] = []
 	battle.opponent["health"] = 5
@@ -352,8 +352,8 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	_assert_true(not bool(battle.hero_attack_button.disabled), "enemy hero target remains clickable before selecting an attacker")
 	_assert_true(battle.opponent_field_slots.size() > 0 and battle.opponent_field_slots[0] is Button and not bool((battle.opponent_field_slots[0] as Button).disabled), "empty enemy board slots also act as loose direct-attack hit areas")
 	await battle._attack_opponent_hero()
-	_assert_eq(int(battle.opponent.get("health", 0)), 3, "clicking enemy hero with no attacker selected auto-selects and attacks the hero")
-	_assert_eq(int(battle.selected_attacker), -1, "auto hero attack also clears attacker selection")
+	_assert_eq(int(battle.opponent.get("health", 0)), 5, "unselected hero tap does not consume an attack")
+	_assert_eq(int(battle.selected_attacker), -1, "unselected hero tap keeps selection empty")
 	battle.player = auto_test_player.duplicate(true)
 	battle.opponent = auto_test_opponent.duplicate(true)
 	battle.selected_attacker = -1

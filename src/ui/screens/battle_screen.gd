@@ -96,6 +96,8 @@ var hand_render_signature: String = ""
 var last_hand_layout_width: float = 0.0
 var player_field_signature: String = ""
 var opponent_field_signature: String = ""
+var interaction_hint := ""
+var interaction_hint_until := 0
 var deck_render_signature: String = ""
 var battle_fx_layer: Control
 var battle_objectives = BATTLE_OBJECTIVE_SERVICE.new()
@@ -498,6 +500,7 @@ func _apply_boss_pattern_on_turn_start() -> void:
 					"art": 2,
 					"art_id": "bone_soldier",
 					"can_attack": false,
+					"attack_wait_reason": "summoned",
 				})
 				_add_log("보스 패턴: 언데드 왕이 해골 지원 소환")
 				_record_build_trigger("boss", "해골 소환", _field_slot_for(opponent, opponent.field.size() - 1), Color(0.76, 0.5, 1.0, 1.0), false)
@@ -595,7 +598,7 @@ func _manual_battle_guidance_text(state: Dictionary) -> String:
 			var hero_attacker_name := "아군 유닛"
 			if hero_attacker_index >= 0 and hero_attacker_index < player.field.size():
 				hero_attacker_name = String(Dictionary(player.field[hero_attacker_index]).get("name", hero_attacker_name))
-			return "%s빛나는 %s 선택 -> 붉은 적 영웅 클릭 (바로 적 영웅을 눌러도 자동 선택)" % [prefix, hero_attacker_name]
+			return "%s빛나는 %s 선택 -> 붉은 적 영웅 클릭" % [prefix, hero_attacker_name]
 		"unit_attack_direct":
 			var attacker_index := int(state.get("attacker_index", -1))
 			var target_index := int(state.get("target_index", -1))
@@ -605,7 +608,7 @@ func _manual_battle_guidance_text(state: Dictionary) -> String:
 				attacker_name = String(Dictionary(player.field[attacker_index]).get("name", attacker_name))
 			if target_index >= 0 and target_index < opponent.field.size():
 				target_name = String(Dictionary(opponent.field[target_index]).get("name", target_name))
-			return "%s%s 선택 -> %s 클릭 · 바로 적을 눌러도 자동 공격 · %s" % [prefix, attacker_name, target_name, _attack_payoff_text(Dictionary(player.field[attacker_index]), target_index) if attacker_index >= 0 and attacker_index < player.field.size() else "전장 정리"]
+			return "%s%s 선택 -> %s 클릭 · %s" % [prefix, attacker_name, target_name, _attack_payoff_text(Dictionary(player.field[attacker_index]), target_index) if attacker_index >= 0 and attacker_index < player.field.size() else "전장 정리"]
 		"hero_attack_selected":
 			return "%s공격자는 선택됐습니다. 붉은 적 영웅을 직접 클릭하세요." % prefix
 		"unit_attack_selected":
@@ -636,6 +639,10 @@ func _current_battle_guidance_text() -> String:
 		return "아군을 눌러 대상을 확정하세요 · 취소 가능"
 	if game_over:
 		return "전투 종료"
+	if Time.get_ticks_msec() < interaction_hint_until and not _is_player_input_locked():
+		return interaction_hint
+	if selected_attacker >= 0 and not _is_player_input_locked():
+		return "선택한 아군으로 붉은 대상을 누르면 공격합니다 · 같은 아군을 누르면 취소"
 	if main.Onboarding.first_battle(main.current_run):
 		return _first_play_guidance()
 	var lesson_hint := _equipment_lesson_guidance()
@@ -1153,6 +1160,7 @@ func _spawn_build_token() -> void:
 		"max_health": 1,
 		"art": 0,
 		"can_attack": false,
+		"attack_wait_reason": "summoned",
 	}
 	player.field.append(token)
 	_apply_build_on_unit_summoned(player, token)
@@ -1696,20 +1704,7 @@ func _hero_attack_target_badge_text() -> String:
 		if int(opponent.get("health", 0)) <= damage:
 			return "클릭하면 승리"
 		return "HP %d → %d" % [int(opponent.health), maxi(0, int(opponent.health) - damage)]
-	if not _ready_player_attacker_indexes().is_empty() and not _is_player_input_locked():
-		var attacker_index := _recommended_ready_attacker_index()
-		if attacker_index >= 0 and attacker_index < player.field.size():
-			var damage := _predict_hero_attack_damage(Dictionary(player.field[attacker_index]), player, false)
-			if int(opponent.get("health", 0)) <= damage:
-				return "자동 공격 · 승리"
-			return "자동 공격 · 피해 %d" % damage
-	var recommended_state := _recommended_action_state()
-	if String(recommended_state.get("kind", "")) == "hero_attack_direct":
-		var attacker_index := int(recommended_state.get("attacker_index", -1))
-		if attacker_index >= 0 and attacker_index < player.field.size():
-			var damage := _predict_hero_attack_damage(Dictionary(player.field[attacker_index]), player, false)
-			return "2. 추천 대상 · 승리" if int(opponent.get("health", 0)) <= damage else "2. 추천 대상 · 피해 %d" % damage
-	return "공격할 내 유닛을 먼저 선택"
+	return "공격할 아군 선택"
 
 func _make_board_lane_header(title_text: String, subtitle_text: String, compact: bool, enemy_lane: bool) -> PanelContainer:
 	var tight = _is_tight_battle_layout()
@@ -2060,6 +2055,7 @@ func _make_battle_detail_panel(compact: bool) -> PanelContainer:
 	return panel
 
 func _toggle_battle_details() -> void:
+	if presentation != null: presentation.cancel_focus()
 	battle_detail_visible = not battle_detail_visible
 	if is_instance_valid(detail_overlay):
 		detail_overlay.visible = battle_detail_visible
@@ -2132,6 +2128,8 @@ func _recommended_action_text() -> String:
 		return "힌트 보기\n추천 위치"
 	if String(state.get("outcome", "")) == "victory":
 		return "승리 공격\n적 영웅"
+	if kind in ["hero_attack_direct", "unit_attack_direct", "hero_attack_selected", "unit_attack_selected"]:
+		return "추천 공격 실행\n%s" % String(state.get("text", "추천 공격"))
 	return "주 행동\n%s" % String(state.get("text", "추천 행동"))
 
 func _battle_action_caption_text(state: Dictionary) -> String:
@@ -2827,6 +2825,7 @@ func _start_turn(side: Dictionary, is_player_turn: bool) -> void:
 		battle_state["mana_crystal_bonus"] = false
 	for unit in side.field:
 		unit.can_attack = true
+		unit.erase("attack_wait_reason")
 	_draw_cards(side, max(0, START_HAND - (side.get("hand", []) as Array).size()))
 	if is_player_turn:
 		battle_momentum.reset_player_turn(battle_state)
@@ -3776,6 +3775,42 @@ func _recommended_hand_card() -> Dictionary:
 	return player.hand[index]
 
 
+func _unit_attack_status(unit: Dictionary, index: int = -1) -> Dictionary:
+	if current_player != "player":
+		return {"label":"상대 턴", "reason":"상대 턴입니다"}
+	if bool(unit.get("can_attack", false)):
+		return {"label":"선택됨" if index >= 0 and selected_attacker == index else "공격 가능", "reason":"아군 선택 후 상대를 누르면 공격합니다"}
+	match String(unit.get("attack_wait_reason", "")):
+		"summoned": return {"label":"소환 대기", "reason":"소환한 유닛은 다음 턴에 공격합니다"}
+		"spent": return {"label":"공격 완료", "reason":"이번 턴 공격을 마쳤습니다"}
+	return {"label":"공격 불가", "reason":"이번 턴 공격 불가"}
+
+func _unit_attack_preview_text(unit: Dictionary, prediction: Dictionary) -> String:
+	var result := "적 체력 %d→%d / 내 체력 %d→%d" % [int(unit.health), int(prediction.defender_health), int(_selected_player_attacker().get("health", 0)), int(prediction.attacker_health)]
+	if int(prediction.attacker_health) <= 0: result += " · 내 유닛 사망"
+	elif int(prediction.defender_health) <= 0: result += " · 적 처치"
+	return result
+
+func _show_interaction_hint(message: String, target: Control = null) -> void:
+	interaction_hint = message
+	interaction_hint_until = Time.get_ticks_msec() + 2600
+	_add_log(message)
+	if is_instance_valid(target):
+		_play_effect_hit_feedback(target, message, Color(1.0, 0.65, 0.3))
+	_refresh_ui()
+	var ticket := interaction_hint_until
+	main.get_tree().create_timer(2.6).timeout.connect(func():
+		if is_instance_valid(main) and main.active_screen == "battle" and not leaving_battle and interaction_hint_until == ticket:
+			interaction_hint_until = 0
+			_refresh_ui()
+	)
+
+func _request_attacker_selection() -> void:
+	_show_interaction_hint("공격할 아군을 먼저 선택하세요" if not _ready_player_attacker_indexes().is_empty() else "공격 가능한 아군이 없습니다 · 카드 사용 또는 턴 종료")
+	for index in _ready_player_attacker_indexes():
+		_spawn_target_glow(_field_slot_for(player, index), Color(0.3, 1.0, 0.65), 0.7)
+	await _focus_battle_targets([{"player":true, "hero":true}])
+
 func _on_player_unit_pressed(index: int) -> void:
 	if not pending_action.is_empty():
 		if index >= 0 and index < player.field.size():
@@ -3786,7 +3821,13 @@ func _on_player_unit_pressed(index: int) -> void:
 	if index < 0 or index >= player.field.size():
 		return
 	if not bool(player.field[index].can_attack):
-		_add_log("이 유닛은 이번 턴 공격할 수 없습니다.")
+		_show_interaction_hint(_unit_attack_status(player.field[index], index).reason, _field_slot_for(player, index))
+		return
+	interaction_hint_until = 0
+	if selected_attacker == index:
+		selected_attacker = -1
+		_refresh_ui()
+		_store_battle_snapshot()
 		return
 	selected_hand_slot = -1
 	_clear_card_board_preview()
@@ -3808,68 +3849,6 @@ func _ready_player_attacker_indexes() -> Array[int]:
 	return ready
 
 
-func _best_attacker_for_enemy_target(target_index: int) -> int:
-	if target_index < 0 or target_index >= opponent.field.size():
-		return -1
-	var best_index := -1
-	var best_score := -100000
-	var defender: Dictionary = opponent.field[target_index]
-	for attacker_index in _ready_player_attacker_indexes():
-		var attacker: Dictionary = player.field[attacker_index]
-		var prediction := _predict_unit_attack(attacker, defender, player, opponent)
-		var score := int(prediction.get("damage", 0)) * 10
-		if bool(prediction.get("lethal", false)):
-			score += 1000 + int(defender.get("attack", 0)) * 10
-		score -= int(prediction.get("counter", 0)) * 6
-		score += int(prediction.get("overflow", 0)) * 4
-		score += int(prediction.get("mana_gain", 0)) * 20
-		if bool(Dictionary(defender).get("is_vanguard", false)):
-			score += 150
-		if score > best_score:
-			best_score = score
-			best_index = attacker_index
-	return best_index
-
-
-func _try_auto_select_attacker_for_enemy_target(target_index: int) -> bool:
-	if selected_attacker != -1 or input_locked or game_over or current_player != "player":
-		return false
-	var ready_attackers := _ready_player_attacker_indexes()
-	if ready_attackers.is_empty():
-		_add_log("먼저 공격 가능한 아군 유닛을 준비하세요.")
-		return false
-	var attacker_index := _best_attacker_for_enemy_target(target_index)
-	if attacker_index == -1 and ready_attackers.size() == 1:
-		attacker_index = ready_attackers[0]
-	if attacker_index == -1:
-		return false
-	selected_attacker = attacker_index
-	var attacker_name := String(Dictionary(player.field[attacker_index]).get("name", "아군 유닛"))
-	var target_name := String(Dictionary(opponent.field[target_index]).get("name", "적 유닛"))
-	_add_log("%s 자동 선택 -> %s 공격" % [attacker_name, target_name])
-	_refresh_ui()
-	return true
-
-
-func _try_auto_select_attacker_for_hero() -> bool:
-	if selected_attacker != -1 or input_locked or game_over or current_player != "player":
-		return false
-	if _enemy_vanguard_blocks_hero():
-		_add_log("적 선봉을 먼저 처치해야 영웅을 공격할 수 있습니다.")
-		var vanguard_target := _field_slot_for(opponent, 0)
-		_play_effect_hit_feedback(vanguard_target, "선봉 먼저", Color(1.0, 0.48, 0.24, 1.0))
-		return false
-	var attacker_index := _recommended_ready_attacker_index()
-	if attacker_index == -1:
-		_add_log("영웅을 공격하려면 먼저 공격 가능한 아군 유닛을 선택하세요.")
-		return false
-	selected_attacker = attacker_index
-	var attacker_name := String(Dictionary(player.field[attacker_index]).get("name", "아군 유닛"))
-	_add_log("%s 자동 선택 -> 적 영웅 공격" % attacker_name)
-	_refresh_ui()
-	return true
-
-
 func _show_direct_attack_target_hint() -> void:
 	if main.Onboarding.first_battle(main.current_run):
 		_show_first_play_help(_recommended_action_state())
@@ -3887,6 +3866,15 @@ func _can_click_enemy_hero_area() -> bool:
 	return current_player == "player" and not _is_player_input_locked() and not game_over and not battle_finished
 
 
+func _configure_enemy_field_attack(button: Button) -> void:
+	# Use release activation so the shared touch router can consume a scroll first.
+	button.focus_mode = Control.FOCUS_NONE
+	button.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
+	button.disabled = not _can_click_enemy_hero_area() or not pending_action.is_empty()
+	button.tooltip_text = "아군 선택 후 빈 상대 필드를 눌러 영웅 공격 · 선봉 먼저 처치"
+	button.pressed.connect(Callable(self, "_attack_opponent_hero"))
+
+
 func _on_opponent_unit_pressed(index: int) -> void:
 	if not pending_action.is_empty():
 		return
@@ -3894,7 +3882,8 @@ func _on_opponent_unit_pressed(index: int) -> void:
 		return
 	if index < 0 or index >= opponent.field.size():
 		return
-	if selected_attacker == -1 and not _try_auto_select_attacker_for_enemy_target(index):
+	if selected_attacker == -1:
+		await _request_attacker_selection()
 		return
 	await _execute_player_unit_attack(selected_attacker, index)
 	selected_attacker = -1
@@ -3909,11 +3898,11 @@ func _attack_opponent_hero() -> void:
 		return
 	if input_locked or game_over or current_player != "player":
 		return
-	if selected_attacker == -1 and not _try_auto_select_attacker_for_hero():
+	if selected_attacker == -1:
+		await _request_attacker_selection()
 		return
 	if _enemy_vanguard_blocks_hero():
-		_add_log("적 선봉이 영웅을 보호합니다. 선봉부터 처치하세요.")
-		_play_effect_hit_feedback(_field_slot_for(opponent, 0), "선봉 방어", Color(1.0, 0.48, 0.24, 1.0))
+		_show_interaction_hint("선봉부터 처치하세요", _field_slot_for(opponent, 0))
 		return
 	await _execute_player_hero_attack(selected_attacker)
 	selected_attacker = -1
@@ -3941,6 +3930,7 @@ func _resolve_player_hero_attack(attacker_index: int) -> void:
 	opponent.health -= damage
 	_record_first_play_action("hero_attacked")
 	attacker.can_attack = false
+	attacker["attack_wait_reason"] = "spent"
 	_apply_equipment_attack_triggers(attacker, player, opponent)
 	if damage >= 3:
 		_shake_screen(15.0, 0.3)
@@ -3997,6 +3987,7 @@ func _resolve_unit_combat(attacker_side: Dictionary, defender_side: Dictionary, 
 	if attack_damage >= 3 or defense_damage >= 3:
 		_shake_screen(10.0, 0.2)
 	attacker.can_attack = false
+	attacker["attack_wait_reason"] = "spent"
 	_apply_equipment_attack_triggers(attacker, attacker_side, defender_side)
 	if defender_lethal:
 		_play_defeat_feedback(defender_target, Color(1.0, 0.82, 0.24, 1.0))
@@ -4378,6 +4369,12 @@ func _work_on_end_turn_pressed() -> void:
 		return
 	if input_locked or game_over or current_player != "player":
 		return
+	if selected_attacker >= 0:
+		selected_attacker = -1
+		interaction_hint_until = 0
+		_refresh_ui()
+		_store_battle_snapshot()
+		return
 	_play_sfx("click")
 	input_locked = true
 	selected_hand_slot = -1
@@ -4716,18 +4713,15 @@ func _make_empty_field_slot(compact: bool, is_next_summon_slot: bool = false, is
 	var slot_alpha := 0.22 if is_next_summon_slot else 0.04
 	var border_alpha := 0.38 if is_next_summon_slot else 0.08
 	var placeholder: Control
-	if not is_player_field and not main.Onboarding.first_battle(main.current_run):
+	if not is_player_field:
 		var button := Button.new()
 		button.text = ""
-		button.focus_mode = Control.FOCUS_NONE
-		button.disabled = not _can_click_enemy_hero_area()
-		button.pressed.connect(Callable(self, "_attack_opponent_hero"))
+		_configure_enemy_field_attack(button)
 		var enemy_border := Color(0.4, 0.5, 0.6, 0.08)
 		button.add_theme_stylebox_override("normal", _make_field_slot_style(Color(0.02, 0.025, 0.03, 0.04), enemy_border, 1))
 		button.add_theme_stylebox_override("hover", _make_field_slot_style(Color(0.09, 0.025, 0.028, 0.42), Color(1.0, 0.34, 0.26, 0.92), 2))
 		button.add_theme_stylebox_override("pressed", _make_field_slot_style(Color(0.12, 0.03, 0.032, 0.5), Color(1.0, 0.42, 0.32, 1.0), 2))
 		button.add_theme_stylebox_override("disabled", _make_field_slot_style(Color(0.018, 0.025, 0.035, slot_alpha), Color(0.18, 0.3, 0.42, border_alpha), 1))
-		button.tooltip_text = "빈 적 전장을 눌러도 적 영웅 직접 공격을 시도합니다."
 		placeholder = button
 	else:
 		var panel := PanelContainer.new()
@@ -4739,11 +4733,14 @@ func _make_empty_field_slot(compact: bool, is_next_summon_slot: bool = false, is
 	box.add_theme_constant_override("separation", 3)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	placeholder.add_child(box)
-	var enemy_clickable: bool = false
+	if placeholder is Button:
+		box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var enemy_clickable: bool = not is_player_field and _can_click_enemy_hero_area() and pending_action.is_empty() and not _enemy_vanguard_blocks_hero()
 	var emblem_text := "+" if is_next_summon_slot else ("⌖" if enemy_clickable else "·")
 	var emblem_color := Color(1.0, 0.34, 0.26, 0.64) if enemy_clickable else Color(0.46, 0.64, 0.82, 0.58 if is_next_summon_slot else 0.18)
 	var emblem: Label = main._make_label(emblem_text, 26 if mobile else (22 if tight and portrait else (24 if tight else (26 if compact else 30))), emblem_color)
 	emblem.autowrap_mode = TextServer.AUTOWRAP_OFF
+	emblem.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(emblem)
 	if is_next_summon_slot:
@@ -4752,8 +4749,9 @@ func _make_empty_field_slot(compact: bool, is_next_summon_slot: bool = false, is
 		text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(text)
 	elif enemy_clickable:
-		var text: Label = main._make_label("영웅 공격", 9 if tight and portrait else (10 if tight else (10 if compact else 11)), Color(1.0, 0.58, 0.5, 0.78))
+		var text: Label = main._make_label("영웅 공격" if selected_attacker >= 0 else "아군 먼저 선택", 9 if tight and portrait else (10 if tight else (10 if compact else 11)), Color(1.0, 0.58, 0.5, 0.78))
 		text.autowrap_mode = TextServer.AUTOWRAP_OFF
+		text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(text)
 	return placeholder
@@ -4791,18 +4789,16 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	var recommended_state := _recommended_action_state()
 	var recommended_kind := String(recommended_state.get("kind", ""))
 	var is_recommended_source := is_player_field and selected_attacker == -1 and recommended_kind in ["hero_attack_direct", "unit_attack_direct"] and int(recommended_state.get("attacker_index", -1)) == index
-	var is_recommended_target := not is_player_field and recommended_kind in ["unit_attack_direct", "unit_attack_selected"] and int(recommended_state.get("target_index", -1)) == index
+	var is_recommended_target := not is_player_field and selected_attacker >= 0 and recommended_kind in ["unit_attack_direct", "unit_attack_selected"] and int(recommended_state.get("target_index", -1)) == index
 	if main.Onboarding.first_battle(main.current_run):
 		is_recommended_target = is_recommended_target and selected_attacker != -1
 	if is_player_field:
 		is_disabled = _is_player_input_locked() or (not bool(unit.get("can_attack", false)) and pending_action.is_empty())
-		if not is_disabled:
-			frame.pressed.connect(func(): _on_player_unit_pressed(index))
+		frame.pressed.connect(func(): _on_player_unit_pressed(index))
 	else:
 		is_disabled = _is_player_input_locked() or selected_attacker == -1
-		if not is_disabled:
-			frame.pressed.connect(func(): _on_opponent_unit_pressed(index))
-	frame.disabled = is_disabled
+		frame.pressed.connect(func(): _on_opponent_unit_pressed(index))
+	frame.disabled = _is_player_input_locked()
 
 	# Card border highlights exactly matching the glowing states in screenshots
 	var race_border = _card_accent_color(unit)
@@ -4893,22 +4889,19 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	art_container.add_child(health_badge)
 
 	# One short state label; selection borders carry the same meaning on every viewport.
-	if not main.Onboarding.first_battle(main.current_run) or selected_attacker != -1:
-		var state_text := ""
-		if is_player_field and not pending_action.is_empty():
-			state_text = "대상 선택"
-		elif is_player_field and index == selected_attacker:
-			state_text = "선택됨"
-		elif is_player_field and bool(unit.get("can_attack", false)) and not _is_player_input_locked():
-			state_text = "공격 가능"
-		elif not is_player_field and selected_attacker != -1 and not _is_player_input_locked():
-			var prediction := _predict_unit_attack(_selected_player_attacker(), unit, player, opponent)
-			state_text = "적 HP %d → %d\n내 HP %d → %d" % [int(unit.health), int(prediction.defender_health), int(_selected_player_attacker().health), int(prediction.attacker_health)]
-			frame.tooltip_text = _attack_prediction_text(prediction) + " · 타격 직후 기준, 후속 사망·장비 효과 별도"
-		if not state_text.is_empty():
-			var badge := _make_battle_badge(state_text, Color(0.03, 0.07, 0.12, 0.96), slot_border, 9)
-			badge.position = Vector2(4, 25 if is_vanguard or not equipment_names.is_empty() else 4)
-			art_container.add_child(badge)
+	var state_text := ""
+	if is_player_field and not pending_action.is_empty():
+		state_text = "대상 선택"
+	elif is_player_field:
+		state_text = _unit_attack_status(unit, index).label
+	elif not is_player_field and selected_attacker != -1 and not _is_player_input_locked():
+		var prediction := _predict_unit_attack(_selected_player_attacker(), unit, player, opponent)
+		state_text = _unit_attack_preview_text(unit, prediction).replace(" / ", "\n").replace(" · ", "\n")
+		frame.tooltip_text = _attack_prediction_text(prediction) + " · 타격 직후 기준, 후속 사망·장비 효과 별도"
+	if not state_text.is_empty():
+		var badge := _make_battle_badge(state_text, Color(0.03, 0.07, 0.12, 0.96), slot_border, 9)
+		badge.position = Vector2(4, 25 if is_vanguard or not equipment_names.is_empty() else 4)
+		art_container.add_child(badge)
 
 	if not pending_action.is_empty() and not is_player_field:
 		slot_root.modulate = Color(0.48, 0.48, 0.52)
@@ -5108,6 +5101,7 @@ func _hand_signature() -> String:
 			"1" if playable else "0",
 			"1" if i == recommended_index else "0",
 		])
+	parts.append("pending:%s" % str(not pending_action.is_empty()))
 	parts.append("sel:%d" % selected_attacker)
 	parts.append("hand_sel:%d" % selected_hand_slot)
 	if main.Onboarding.first_battle(main.current_run):
@@ -5128,6 +5122,9 @@ func _field_signature(side: Dictionary, is_player_field: bool) -> String:
 			("1" if bool(unit.get("can_attack", false)) else "0") + ":" + ",".join(unit.get("equipment_names", [])),
 			"1" if bool(unit.get("is_vanguard", false)) else "0",
 		])
+	for unit in side.get("field", []):
+		parts.append(String(unit.get("attack_wait_reason", "")))
+	parts.append("pending:%s" % str(not pending_action.is_empty()))
 	parts.append("sel:%d" % selected_attacker)
 	var recommendation := _recommended_action_state()
 	parts.append("rec:%s:%d:%d" % [
@@ -5327,14 +5324,14 @@ func _refresh_action_buttons() -> void:
 		var vanguard_blocking := _enemy_vanguard_blocks_hero()
 		var can_attack_hero: bool = not _is_player_input_locked() and selected_attacker != -1 and not vanguard_blocking
 		var can_click_hero_area := _can_click_enemy_hero_area()
-		var recommended_hero_target: bool = recommended_kind == "hero_attack_direct" and not vanguard_blocking and not main.Onboarding.first_battle(main.current_run)
+		var recommended_hero_target: bool = false
 		hero_attack_button.disabled = not can_click_hero_area
 		hero_attack_button.text = ""
 		if vanguard_blocking:
 			hero_attack_button.tooltip_text = "클릭하면 선봉 처치 안내를 표시합니다."
 		else:
-			hero_attack_button.tooltip_text = "적 영웅 영역 어디든 클릭하면 공격자가 자동 선택됩니다." if can_click_hero_area else "플레이어 턴에 직접 공격할 수 있습니다."
-		if can_attack_hero or recommended_hero_target or (can_click_hero_area and not _ready_player_attacker_indexes().is_empty() and not main.Onboarding.first_battle(main.current_run)):
+			hero_attack_button.tooltip_text = "아군을 선택한 뒤 적 영웅 또는 빈 상대 필드를 누르면 공격합니다." if can_click_hero_area else "플레이어 턴에 직접 공격할 수 있습니다."
+		if can_attack_hero:
 			_style_battle_button(hero_attack_button, Color(0.13, 0.04, 0.045, 0.98), Color(1.0, 0.32, 0.26, 1.0), true)
 		else:
 			_style_battle_button(hero_attack_button, Color(0.045, 0.06, 0.078, 0.92), Color(0.72, 0.18, 0.16, 1.0), false)
@@ -5360,6 +5357,8 @@ func _turn_action_state() -> Dictionary:
 		return phase
 	if not pending_action.is_empty():
 		return {"text": "선택 취소", "hint": "카드와 마나를 소비하지 않고 돌아갑니다", "disabled": false, "exhausted": false}
+	if selected_attacker >= 0:
+		return {"text":"선택 취소", "hint":"공격하지 않고 아군 선택을 취소합니다", "disabled":false, "exhausted":false}
 	var available := not _ready_player_attacker_indexes().is_empty() or _can_use_race_power()
 	for card in player.hand:
 		available = available or _can_play_card(player, card, "player")
@@ -5886,10 +5885,16 @@ func _focus_card_action(card: Dictionary, ally: bool, target_id: int = -1) -> vo
 	await _focus_battle_targets([descriptor])
 
 func _execute_player_hero_attack(index: int) -> void:
-	await attack_executor.execute("player", _unit_id_at(player, index), {"kind": "hero"})
+	interaction_hint_until = 0
+	var gesture: int = presentation.interaction_generation
+	if await attack_executor.execute("player", _unit_id_at(player, index), {"kind": "hero"}):
+		presentation.return_to_allies(gesture)
 
 func _execute_player_unit_attack(attacker_index: int, target_index: int) -> void:
-	await attack_executor.execute("player", _unit_id_at(player, attacker_index), {"kind": "unit", "id": _unit_id_at(opponent, target_index)})
+	interaction_hint_until = 0
+	var gesture: int = presentation.interaction_generation
+	if await attack_executor.execute("player", _unit_id_at(player, attacker_index), {"kind": "unit", "id": _unit_id_at(opponent, target_index)}):
+		presentation.return_to_allies(gesture)
 
 func _combat(attacker_side: Dictionary, defender_side: Dictionary, attacker_index: int, defender_index: int) -> void:
 	await attack_executor.execute("player" if attacker_side == player else "opponent", _unit_id_at(attacker_side, attacker_index), {"kind": "unit", "id": _unit_id_at(defender_side, defender_index)})

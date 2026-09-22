@@ -365,7 +365,7 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 		stamp(button, "Attack", str(int(card.attack)), Vector2(3, height - 24), Vector2(26, 22), Color(0.48, 0.12, 0.09))
 		stamp(button, "Health", str(int(card.get("health", 0))), Vector2(width - 29, height - 24), Vector2(26, 22), Color(0.08, 0.25, 0.48))
 	if not bottom.is_empty():
-		stamp(button, "Status", bottom, Vector2(3, 3), Vector2(minf(width - 6, 34), 19), Color(0.025, 0.04, 0.06, 0.75), 12)
+		stamp(button, "Status", bottom, Vector2(3, 3), Vector2(width - 6, 19), Color(0.025, 0.04, 0.06, 0.75), 12)
 	outline(button, tint, 1, 2, "TypeBorder")
 	var icon := TextureRect.new()
 	icon.name = "TypeIcon"
@@ -381,7 +381,16 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 	if index >= side.field.size():
 		var empty := field_card({}, "", Color(0.2, 0.27, 0.33))
-		empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if ally:
+			empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		else:
+			battle._configure_enemy_field_attack(empty)
+			empty.modulate.a = 1.0
+			if index == side.field.size():
+				empty.text = "선봉 보호" if battle._enemy_vanguard_blocks_hero() else ("영웅 공격" if battle.selected_attacker >= 0 else "아군 선택")
+				empty.add_theme_font_size_override("font_size", 14)
+			if battle.selected_attacker >= 0 and not empty.disabled and not battle._enemy_vanguard_blocks_hero():
+				outline(empty, Color(1.0, 0.35, 0.3), 4, 1, "TargetBorder")
 		return empty
 	var unit: Dictionary = side.field[index]
 	var ready: bool = not battle._is_player_input_locked() and (bool(unit.get("can_attack", false)) or not battle.pending_action.is_empty()) if ally else not battle._is_player_input_locked() and battle.selected_attacker >= 0
@@ -390,28 +399,32 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 		accent = Color(0.3, 1.0, 0.65) if ally else Color(1.0, 0.35, 0.3)
 	if ally and battle.selected_attacker == index:
 		accent = Color(1.0, 0.8, 0.25)
-	var status := "선봉" if unit.get("is_vanguard", false) else ("◆" if ready and ally else "")
+	var status: String = ("대상 선택" if not battle.pending_action.is_empty() else battle._unit_attack_status(unit, index).label) if ally else ("선봉" if unit.get("is_vanguard", false) else "")
 	var prediction: Dictionary = {}
 	if not ally and ready:
 		var attacker: Dictionary = battle._selected_player_attacker()
 		prediction = battle._predict_unit_attack(attacker, unit, battle.player, battle.opponent)
 	var button := field_card(unit, status, accent)
 	if ally and battle.selected_attacker == index:
-		outline(button, Color.WHITE, 4, 2, "SelectionBorder")
-	elif ready and (not ally or not battle.pending_action.is_empty()):
-		outline(button, Color.WHITE, 4, 1, "TargetBorder")
+		outline(button, Color(1.0, 0.8, 0.25), 4, 2, "SelectionBorder")
+	elif ready:
+		outline(button, Color(0.3, 1.0, 0.65) if ally else Color(1.0, 0.35, 0.3), 4, 1, "TargetBorder")
+	elif ally:
+		button.get_node("Illustration").modulate = Color(0.65, 0.65, 0.65)
 	if not prediction.is_empty():
 		button.set_meta("attack_prediction", prediction)
 		for node_name in ["Attack", "AttackBand", "Health", "HealthBand"]:
 			var node := button.get_node_or_null(node_name)
 			if node != null: node.hide()
-		stamp(button, "CombatPrediction", "적%d · 내%d" % [prediction.defender_health, prediction.attacker_health], Vector2(2, 120), Vector2(unit_width - 4, 24), Color(0.03, 0.08, 0.12, 0.98), 16)
+		stamp(button, "CombatPrediction", "적 %d→%d\n내 %d→%d" % [int(unit.health), int(prediction.defender_health), int(battle._selected_player_attacker().get("health", 0)), int(prediction.attacker_health)], Vector2(2, 26), Vector2(unit_width - 4, 38), Color(0.03, 0.08, 0.12, 0.96), 13)
 		if prediction.defender_health <= 0:
 			button.get_node("CardName").size.x = unit_width - 38
 			stamp(button, "Lethal", "처치", Vector2(unit_width - 34, 102), Vector2(32, 18), Color(0.45, 0.08, 0.05), 12)
-		button.tooltip_text = "공격 후 적 체력 / 내 체력 (장비·사망 효과 별도)"
+		button.tooltip_text = battle._unit_attack_preview_text(unit, prediction) + " (후속 사망·장비 효과 별도)"
+		if int(prediction.attacker_health) <= 0:
+			stamp(button, "AllyLethal", "내 유닛 사망", Vector2(2, 66), Vector2(unit_width - 4, 20), Color(0.45, 0.08, 0.05), 12)
 	button.pressed.connect(func():
-		if button.get_meta("hold_consumed", false) or not ready: return
+		if button.get_meta("hold_consumed", false) or battle._is_player_input_locked(): return
 		if ally: battle._on_player_unit_pressed(index)
 		else: battle._on_opponent_unit_pressed(index)
 	)
@@ -446,7 +459,7 @@ func render_hand() -> void:
 		var button := tile(card, "", hand_size.x, Color(0.25, 0.7, 0.6) if playable else Color(0.3, 0.36, 0.42), hand_size.y)
 		stamp(button, "Cost", str(cost), Vector2(3, 3), Vector2(26, 26), Color(0.06, 0.26, 0.55), 18)
 		if int(card.get("_hand_slot", i)) == battle.selected_hand_slot:
-			outline(button, Color.WHITE, 4, 2, "SelectionBorder")
+			outline(button, Color(1.0, 0.8, 0.25), 4, 2, "SelectionBorder")
 		if playable:
 			stamp(button, "Playable", "◆", Vector2(hand_size.x - 20, 27), Vector2(16, 16), Color(0.03, 0.09, 0.08, 0.8), 12)
 		button.set_meta("hand_slot", int(card.get("_hand_slot", i)))
@@ -470,6 +483,7 @@ func close_detail() -> void:
 	detail_slot = -1
 
 func dialog(title: String, text: String, card: Dictionary = {}) -> HBoxContainer:
+	cancel_focus()
 	close_detail()
 	card_dialog = Control.new()
 	card_dialog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -591,7 +605,7 @@ func refresh_labels() -> void:
 	phase_badge.text = battle._battle_phase_state().badge
 	phase_badge.add_theme_color_override("font_color", Color("9eacbf") if battle.current_player != "player" else Color("f1ce83"))
 	if is_instance_valid(enemy_hero_hint):
-		enemy_hero_hint.text = "선봉 보호" if battle._enemy_vanguard_blocks_hero() else ("눌러 공격" if battle.current_player == "player" and not battle.hero_attack_button.disabled else "적 영웅")
+		enemy_hero_hint.text = "선봉 보호" if battle._enemy_vanguard_blocks_hero() else ("아군 선택" if battle.selected_attacker < 0 else battle._hero_attack_target_badge_text() if battle.current_player == "player" and not battle.hero_attack_button.disabled else "적 영웅")
 	battle.opponent_info.text = "%d/%d" % [battle.opponent.health, battle.opponent.max_health]
 	battle.player_info.text = "%d/%d" % [battle.player.health, battle.player.max_health]
 	for i in range(hero_bars.size()):
@@ -601,15 +615,15 @@ func refresh_labels() -> void:
 	battle.reference_mana_label.add_theme_color_override("font_color", Color("79d4ff"))
 	battle.reference_mana_label.text = "◆ %d/%d" % [battle.player.mana, battle.player.max_mana]
 	enemy_lane_button.text = "적 ↑ %d/%d" % [battle.opponent.health, battle.opponent.max_health]
-	ally_lane_button.text = "아군 ↓ %d/%d" % [battle.player.health, battle.player.max_health]
+	ally_lane_button.text = "아군 ↓\n공격 가능 %d" % battle._ready_player_attacker_indexes().size()
 	center_guidance.text = battle._next_enemy_action_text(true)
-	if battle.main.Onboarding.first_battle(battle.main.current_run):
+	if not battle.pending_action.is_empty() or Time.get_ticks_msec() < battle.interaction_hint_until or battle.main.Onboarding.first_battle(battle.main.current_run):
 		center_guidance.text = battle._current_battle_guidance_text()
-		center_guidance.text = center_guidance.text.replace("손패 카드를 눌러 확인한 뒤 다시 눌러 소환하세요.", "카드를 확인하고 ‘사용’을 눌러 소환하세요.")
-	if not battle.pending_action.is_empty():
-		center_guidance.text = "아군을 눌러 대상 확정 · 선택 취소 가능"
-	elif battle.selected_attacker >= 0:
-		center_guidance.text = "공격 후 체력 · 대상을 누르면 공격"
+	elif battle.current_player == "player" and not battle._is_player_input_locked() and battle._ready_player_attacker_indexes().is_empty():
+		center_guidance.text = "할 수 있는 행동이 없습니다 · 턴 종료" if battle._turn_action_state().exhausted else "카드·필살기 사용 또는 턴 종료"
+	if battle.selected_attacker >= 0 and battle.pending_action.is_empty() and Time.get_ticks_msec() >= battle.interaction_hint_until:
+		center_guidance.text = "공격 후 체력 미리보기 · 붉은 대상을 누르면 공격"
+	center_guidance.text = center_guidance.text.replace("손패 카드를 눌러 확인한 뒤 다시 눌러 소환하세요.", "카드를 확인하고 ‘사용’을 눌러 소환하세요.")
 	center_guidance.tooltip_text = center_guidance.text
 	intent_detail.text = "적 공격 예고\n" + battle._next_enemy_action_text()
 	Styles.apply_compact_button(battle.recommended_action_button, Color("526170"))
@@ -636,9 +650,7 @@ func _gesture_ended() -> void:
 func _initial_focus() -> void:
 	await get_tree().process_frame
 	if is_inside_tree():
-		# Start with the enemy lane fully visible. Following the player hero here
-		# scrolls past the enemy before the player has taken any action.
-		await focus_targets([{"player": false, "hero": true}], true)
+		await focus_targets([{"player": battle.current_player == "player", "hero": true}], true)
 
 func resolve_focus(target: Dictionary) -> Control:
 	var ally := bool(target.get("player", true))

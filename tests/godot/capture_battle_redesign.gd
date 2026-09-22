@@ -107,8 +107,8 @@ func run():
 		var rendered_enemy := find_button(battle.opponent_field_slots[0])
 		assert(rendered_enemy.has_meta("attack_prediction"), "compact target renders health prediction")
 		assert(rendered_enemy.get_meta("attack_prediction").defender_health == prediction.defender_health, "displayed prediction uses combat calculation")
-		assert(rendered_enemy.get_node("CombatPrediction").text == "적0 · 내4", "both resulting health values are visible labels")
-		assert(rendered_enemy.get_node("CombatPrediction").position.y >= 120, "preview stays below portrait and name")
+		assert(rendered_enemy.get_node("CombatPrediction").text == "적 3→0\n내 4→4", "both resulting health values are visible labels")
+		assert(rendered_enemy.get_node("CombatPrediction").get_rect().end.y <= rendered_enemy.get_node("CardName").position.y, "preview does not overlap the name")
 		assert(not find_button(battle._field_slot_for(battle.player, 0)).has_node("OwnPrediction"), "no arbitrary target prediction on ally")
 	if not mobile:
 		var enemy_button := find_button(battle._field_slot_for(battle.opponent, 0))
@@ -216,7 +216,7 @@ func run():
 		for i in range(battle.opponent.field.size()):
 			var enemy := find_button(battle.opponent_field_slots[i])
 			var expected: Dictionary = battle._predict_unit_attack(battle.player.field[0], battle.opponent.field[i], battle.player, battle.opponent)
-			assert(enemy.get_node("CombatPrediction").text == "적%d · 내%d" % [expected.defender_health, expected.attacker_health], "each target has its own result")
+			assert(enemy.get_node("CombatPrediction").text == "적 %d→%d\n내 %d→%d" % [battle.opponent.field[i].health, expected.defender_health, battle.player.field[0].health, expected.attacker_health], "each target has its own result")
 			assert(enemy.get_node("Illustration").get_rect().end.y <= enemy.get_node("CardName").position.y, "portrait does not overlap name")
 		assert(before_preview == JSON.stringify([battle.player, battle.opponent]), "multi-target preview does not mutate sides")
 		battle.landscape_view.handle_back()

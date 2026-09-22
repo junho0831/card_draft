@@ -28,6 +28,7 @@ func deploy_vanguard(side: Dictionary, preferred_card_ids: Array, card_lookup: C
 			"art": int(card.get("art", 0)),
 			"art_id": String(card.get("art_id", "")),
 			"can_attack": false,
+			"attack_wait_reason": "summoned",
 			"is_vanguard": true,
 		}
 		side.field.append(unit)

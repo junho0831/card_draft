@@ -22,6 +22,7 @@ func play_card(owner: Dictionary, enemy: Dictionary, card: Dictionary, context: 
 				"art": int(card.get("art", 0)),
 				"art_id": String(card.get("art_id", "")),
 				"can_attack": false,
+				"attack_wait_reason": "summoned",
 			}
 			unit["impact_profile"] = card.get("impact_profile", "")
 			unit["death_effects"] = card.get("death_effects", []).duplicate(true)

@@ -113,7 +113,7 @@ func run() -> Dictionary:
 			check(int(battle.battle_state.get("player_turn_count", 0)) > turns, "manual turn end starts another player turn")
 			await click(find_button(battle.player_field_slots[0], ""), tree)
 			await click(battle.hero_attack_button, tree)
-			check(main.current_run.get("first_play_actions", {}).get("hero_attacked", false), "manual hero attack records actual action")
+			check(main.current_run.get("first_play_actions", {}).get("hero_attacked", false), "manual hero attack records actual action %s %s selection=%s" % [race, viewport, battle.selected_attacker])
 			if race == "human":
 				main.current_run.current_node_index = 2
 				battle.player.hand = [main.card_db.get_card("training_sword")]
@@ -125,9 +125,9 @@ func run() -> Dictionary:
 				await click(battle._hand_card_control(equipment_slot), tree)
 				if viewport.x < 500:
 					await click(battle._hand_card_control(equipment_slot), tree)
-				check(not battle.pending_action.is_empty(), "equipment input opens target selection")
+				check(not battle.pending_action.is_empty(), "equipment input opens target selection %s" % viewport)
 				await click(battle.end_turn_button, tree)
-				check(battle.pending_action.is_empty() and battle.player.mana == 10 and battle.player.hand.size() == 1, "cancel input preserves equipment and mana")
+				check(battle.pending_action.is_empty() and battle.player.mana == 10 and battle.player.hand.size() == 1, "cancel input preserves equipment and mana %s" % viewport)
 	main._clear_screen()
 	main.queue_free()
 	await tree.process_frame
@@ -147,6 +147,9 @@ func click(button: Control, tree) -> void:
 	if button == null:
 		check(false, "expected clickable control exists")
 		return
+	# Wait for deferred container sizing after turn/state labels change.
+	await tree.process_frame
+	await tree.process_frame
 	var position := button.get_global_rect().get_center()
 	for pressed in [true, false]:
 		var event := InputEventMouseButton.new()
