@@ -78,7 +78,10 @@ func run() -> void:
 		var before: int = battle.player.hand.size()
 		view.close_detail()
 		check(battle.player.hand.size() == before, "closing card detail does not play it")
-		await view.focus_targets([{"player": true, "hero": true}], true)
+		view.session.pointer_down = true
+		view.ally_lane_button.pressed.emit()
+		view.session.pointer_down = false
+		await settle()
 		check(view.board_scroll.scroll_vertical > 0, "action focus can still reach ally lane")
 		await view.focus_targets([{"player": false, "hero": true}], true)
 		check(view.board_scroll.scroll_vertical == 0, "action focus can return to enemy lane")

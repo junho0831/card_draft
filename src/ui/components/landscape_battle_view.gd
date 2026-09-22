@@ -122,14 +122,35 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 		button.custom_minimum_size = Vector2(120, 52)
 		button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		button.add_theme_font_size_override("font_size", 16)
-	enemy_lane_button = action("", func(): await focus_targets([{"player": false, "hero": true}]), 44)
+	enemy_lane_button = action("", func(): _navigate_lane(false), 44)
 	enemy_lane_button.name = "EnemyLaneNavigation"
 	rail.add_child(enemy_lane_button)
-	ally_lane_button = action("", func(): await focus_targets([{"player": true, "hero": true}]), 44)
+	ally_lane_button = action("", func(): _navigate_lane(true), 44)
 	ally_lane_button.name = "AllyLaneNavigation"
 	rail.add_child(ally_lane_button)
 	for navigation in [enemy_lane_button, ally_lane_button]:
 		navigation.add_theme_font_size_override("font_size", 14)
+	board_scroll.get_v_scroll_bar().value_changed.connect(func(_value): _refresh_lane_navigation())
+	call_deferred("_refresh_lane_navigation")
+
+func _navigate_lane(ally: bool) -> void:
+	# Android may dispatch Button.pressed before the touch router sees release.
+	await get_tree().process_frame
+	if is_inside_tree():
+		await focus_targets([{"player": ally, "hero": true}])
+
+func _refresh_lane_navigation() -> void:
+	if not is_instance_valid(enemy_lane_button) or not is_instance_valid(ally_lane_button): return
+	var bar := board_scroll.get_v_scroll_bar()
+	var at_enemy := bar.value <= maxf(0, bar.max_value - bar.page) * 0.5
+	for button in [enemy_lane_button, ally_lane_button]:
+		var active: bool = (button == enemy_lane_button) == at_enemy
+		style_rail_button(button, Color("d5b779") if active else Color("66788e"))
+		var style: StyleBoxFlat = button.get_theme_stylebox("normal").duplicate()
+		style.bg_color = Color(0.17, 0.14, 0.08, 0.98) if active else Color(0.025, 0.04, 0.06, 0.96)
+		style.set_border_width_all(2 if active else 1)
+		button.add_theme_stylebox_override("normal", style)
+		button.tooltip_text = "현재 보고 있는 전열" if active else "눌러서 전열로 이동"
 
 func label(value: String, font_size: int = 16) -> Label:
 	var result := Label.new()
@@ -459,6 +480,7 @@ func dialog(title: String, text: String, card: Dictionary = {}) -> HBoxContainer
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	right.add_child(scroll)
 	var description := label(text, 18)
+	description.add_theme_constant_override("line_spacing", 5)
 	description.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -466,7 +488,9 @@ func dialog(title: String, text: String, card: Dictionary = {}) -> HBoxContainer
 	var buttons := HBoxContainer.new()
 	right.add_child(buttons)
 	buttons.alignment = BoxContainer.ALIGNMENT_END
-	buttons.add_child(action("닫기", close_detail))
+	var close := action("닫기", close_detail)
+	style_rail_button(close, Color("8497ac"))
+	buttons.add_child(close)
 	return buttons
 
 func show_card(index: int) -> void:
@@ -487,10 +511,15 @@ func show_card(index: int) -> void:
 	card_dialog.modulate.a = 0.65
 	card_dialog.create_tween().tween_property(card_dialog, "modulate:a", 1.0, 0.1)
 	detail_slot = int(card.get("_hand_slot", index))
-	confirm_button = action("사용", confirm_card)
+	confirm_button = action("사용 · 마나 %d" % cost, confirm_card)
 	confirm_button.disabled = not playable
-	confirm_button.custom_minimum_size.x = 144
+	confirm_button.custom_minimum_size.x = 164
 	confirm_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	style_rail_button(confirm_button, Color("dfba68"))
+	var primary_style: StyleBoxFlat = confirm_button.get_theme_stylebox("normal").duplicate()
+	primary_style.bg_color = Color(0.22, 0.16, 0.065, 0.98)
+	primary_style.set_border_width_all(2)
+	confirm_button.add_theme_stylebox_override("normal", primary_style)
 	buttons.add_child(confirm_button)
 
 func confirm_card() -> void:

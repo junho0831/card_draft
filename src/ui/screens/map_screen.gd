@@ -121,6 +121,9 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	var visible_map_width: int = max(420 if compact else 520, viewport_width - (20 if phone else (48 if compact else 420)))
 	var min_spacing: int = 60 if compact else 66
 	var max_spacing: int = 116 if compact else 126
+	if phone_landscape:
+		visible_map_width = viewport_width - 32
+		max_spacing = 170
 	var node_spacing: int = clampi(int((visible_map_width - 184) / step_count), min_spacing, max_spacing)
 	var canvas_width: int = 184 + step_count * node_spacing
 	var canvas_height := 198 if compact else 212

@@ -424,12 +424,17 @@ func _show_main_menu() -> void:
 	root_box.add_child(_make_app_home_screen(compact))
 
 func _build_phone_home() -> void:
+	var surface: PanelContainer = ui.make_surface_panel(Color(0.025, 0.035, 0.05, 0.94), Color(0.42, 0.34, 0.19), 1, 8, 12)
+	root_box.add_child(surface)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 10)
+	surface.add_child(content)
 	var title := _make_label("Card Draft · " + _home_status_text(), 22, Color(0.98, 0.94, 0.84))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	root_box.add_child(title)
+	content.add_child(title)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
-	root_box.add_child(row)
+	content.add_child(row)
 	var actions := VBoxContainer.new()
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_theme_constant_override("separation", 10)
@@ -447,7 +452,7 @@ func _build_phone_home() -> void:
 	row.add_child(art)
 	var stats := _make_label("카드 %d · 골드 %s · 영혼석 %s · 기록 %d" % [card_defs.size(), _format_large_number(int(player_profile.get("gold", 0))), _format_large_number(int(player_profile.get("soul_stones", 0))), _recent_runs().size()], 14, Color(0.82, 0.87, 0.94))
 	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	root_box.add_child(stats)
+	content.add_child(stats)
 
 func _make_app_home_screen(compact: bool) -> Control:
 	var phone_portrait := _is_phone_portrait_layout()
