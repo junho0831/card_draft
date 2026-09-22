@@ -10,15 +10,17 @@ var current_index: int
 var hover_popup: PanelContainer = null
 var screen_action_dock: PanelContainer = null
 var vertical_route := false
+var phone_landscape := false
 
 func _init(_main: Node) -> void:
 	main = _main
 
 func build(body: VBoxContainer, act_data: Dictionary) -> void:
+	phone_landscape = main.LayoutPolicy.is_mobile_landscape(main._layout_viewport_size())
 	if main._layout_viewport_size().x >= 1100 and act_data.get("nodes", []).size() <= 5:
 		_build_reference_map(body, act_data)
 		return
-	if not main._lesson_description().is_empty():
+	if not main._lesson_description().is_empty() and not phone_landscape:
 		body.add_child(main.ui.make_guidance_banner("이번에 배울 것", main._lesson_description(), Color(0.12, 0.2, 0.3, 1.0), true))
 	nodes_data = act_data.get("nodes", [])
 	current_index = int(main.current_run.get("current_node_index", 0))
@@ -30,9 +32,9 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	var portrait_flow: bool = viewport_size.y > viewport_size.x
 	var phone_portrait: bool = main._is_phone_portrait_layout()
 	var fixed_actions: bool = compact or phone_portrait
-	if not phone_portrait:
+	if not phone_portrait and not phone_landscape:
 		body.add_child(_make_map_status_strip(compact))
-	if compact:
+	if compact and not phone_landscape:
 		body.add_child(main.ui.make_guidance_banner("다음 행동", _map_primary_guidance_text(), Color(0.2, 0.24, 0.18, 1.0), compact))
 
 	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
@@ -51,6 +53,8 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 		hub.add_child(_make_objective_panel(compact, act_data, true))
 
 	body.add_child(_make_build_direction_panel(compact))
+	if phone_landscape and not main._lesson_description().is_empty():
+		body.add_child(main._make_label(main._lesson_description(), 14, Color(0.85, 0.9, 1.0)))
 	if fixed_actions:
 		_mount_map_action_dock(body)
 
@@ -71,8 +75,10 @@ func _make_map_status_strip(compact: bool) -> PanelContainer:
 
 func _make_map_panel(compact: bool) -> PanelContainer:
 	var phone: bool = bool(main._is_mobile_phone_layout())
-	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.055, 0.065, 0.075, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 12)
+	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.055, 0.065, 0.075, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 4 if phone_landscape else 12)
 	panel.custom_minimum_size = Vector2(0, 286 if phone else (300 if compact else 318))
+	if phone_landscape:
+		panel.custom_minimum_size.y = 0
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
@@ -96,6 +102,9 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	var subtitle: Label = main._make_label(subtitle_text, 13 if compact else 14, Color(0.8, 0.84, 0.9, 1.0))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(subtitle)
+	if phone_landscape:
+		title.text = "HP %d/%d · 골드 %d" % [main.current_run.hp, main.current_run.max_hp, main.current_run.gold]
+		subtitle.hide()
 
 	map_scroll = ScrollContainer.new()
 	map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if phone else ScrollContainer.SCROLL_MODE_DISABLED
@@ -115,6 +124,9 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	var node_spacing: int = clampi(int((visible_map_width - 184) / step_count), min_spacing, max_spacing)
 	var canvas_width: int = 184 + step_count * node_spacing
 	var canvas_height := 198 if compact else 212
+	if phone_landscape:
+		canvas_height = 150
+		map_scroll.custom_minimum_size.y = canvas_height
 	if vertical_route:
 		canvas_width = maxi(460, viewport_width - 610)
 		canvas_height = 390
@@ -244,10 +256,12 @@ func _mount_map_action_dock(body: VBoxContainer) -> void:
 		"지금 할 일 · 다음 장소로 진입",
 		"버튼을 누르면 %s 화면으로 바로 이동합니다." % main._node_type_name(current_type),
 		_node_color(current_type),
-		96 if landscape else 126
+		78 if phone_landscape else (96 if landscape else 126)
 	)
 	if landscape:
 		dock.detail_label.hide()
+	if phone_landscape:
+		dock.title_label.hide()
 	screen_action_dock = dock.get("panel") as PanelContainer
 	var actions: BoxContainer = dock.get("actions") as BoxContainer
 	var path_indices: Array[int] = [0]

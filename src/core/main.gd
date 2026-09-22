@@ -414,11 +414,40 @@ func _show_main_menu() -> void:
 	active_screen = "main_menu"
 	_clear_screen()
 	var compact := _is_main_menu_compact_layout()
+	if LayoutPolicy.is_mobile_landscape(_layout_viewport_size()):
+		_build_phone_home()
+		return
 	if _layout_viewport_size().x >= 1100:
 		preload("res://src/ui/screens/cinematic_menu.gd").new(self).build(root_box)
 		return
 	root_box.add_theme_constant_override("separation", 12)
 	root_box.add_child(_make_app_home_screen(compact))
+
+func _build_phone_home() -> void:
+	var title := _make_label("Card Draft · " + _home_status_text(), 22, Color(0.98, 0.94, 0.84))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	root_box.add_child(title)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 16)
+	root_box.add_child(row)
+	var actions := VBoxContainer.new()
+	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_theme_constant_override("separation", 10)
+	row.add_child(actions)
+	var primary := _make_home_action_button("이어하기" if not current_run.is_empty() else "새 런 시작", "진행 중인 전투와 경로로" if not current_run.is_empty() else "세력과 플레이 방식 선택", "_continue_run" if not current_run.is_empty() else "_start_new_run", Color(0.17, 0.31, 0.56), true)
+	actions.add_child(primary)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	actions.add_child(grid)
+	for entry in [["카드", "보유 카드", "_show_collection"], ["강화", "영구 보너스", "_show_meta_upgrade"], ["도감", "카드 / 유물", "_show_compendium"], ["설정", "소리 / 화면", "_show_settings"]]:
+		grid.add_child(_make_home_action_button(entry[0], entry[1], entry[2], Color(0.12, 0.15, 0.2), false))
+	var art := _make_card_art_rect(cards_by_id.get("flame_swordsman", {}), Vector2(180, 210))
+	row.add_child(art)
+	var stats := _make_label("카드 %d · 골드 %s · 영혼석 %s · 기록 %d" % [card_defs.size(), _format_large_number(int(player_profile.get("gold", 0))), _format_large_number(int(player_profile.get("soul_stones", 0))), _recent_runs().size()], 14, Color(0.82, 0.87, 0.94))
+	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	root_box.add_child(stats)
 
 func _make_app_home_screen(compact: bool) -> Control:
 	var phone_portrait := _is_phone_portrait_layout()
@@ -579,7 +608,21 @@ func _init_run(race_id: String, strategy_id: String = "") -> void:
 func _show_race_selection() -> void:
 	active_screen = "race_selection"
 	_clear_screen()
-	var body: VBoxContainer = _begin_menu_screen("세력 선택", false, "짧은 런의 시작 덱과 전투 필살기를 정합니다.")
+	var body: VBoxContainer
+	var viewport := _layout_viewport_size()
+	if ui.mobile_layout and viewport.x > viewport.y:
+		# The full two-line heading consumes too much of a phone's short viewport.
+		var header := HBoxContainer.new()
+		header.name = "RaceSelectionHeader"
+		root_box.add_child(header)
+		var title := _make_label("세력 선택", 21, Color.WHITE)
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		header.add_child(title)
+		body = VBoxContainer.new()
+		body.add_theme_constant_override("separation", 8)
+		root_box.add_child(body)
+	else:
+		body = _begin_menu_screen("세력 선택", false, "짧은 런의 시작 덱과 전투 필살기를 정합니다.")
 	_retain_screen_controller(RaceSelectionScreenScript.new(self)).build(body)
 
 func _continue_run() -> void:

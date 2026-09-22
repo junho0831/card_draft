@@ -100,6 +100,17 @@ godot --headless --path . -s res://tests/godot/playthrough_probe.gd -- --test-da
 
 ## 화면 검사
 
+휴대폰 가로 화면에서 메인 메뉴, 학습 선택, 지도 경로, 전투 시작 시 적 전열,
+전열 이동 버튼과 카드 상세창의 노출을 검사한다.
+실기기와 같은 비율의 802×390 논리 화면을 사용하며, 실제 휴대폰 입력 검증과는 별개다.
+
+```bash
+godot --path . -s res://tests/godot/phone_landscape_visibility_test.gd -- --test-data-dir=/tmp/card-draft-phone-layout
+```
+
+성공하면 `PASS phone landscape visibility`를 출력하고 지정 폴더에
+`home.png`, `race-selection.png`, `map.png`, `battle-entry.png`, `card-detail.png`를 저장한다.
+
 화면을 변경했을 때 실행한다. 아래 캡처 명령에는 그래픽 화면이 필요하므로 `--headless`를 붙이지 않는다.
 
 ### 전체 반응형 화면

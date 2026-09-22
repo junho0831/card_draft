@@ -11,6 +11,8 @@ var hand_size := Vector2(80, 112)
 var hero_bars: Array[ProgressBar] = []
 var center_guidance: Label
 var intent_detail: Label
+var enemy_lane_button: Button
+var ally_lane_button: Button
 # Overrides follow the existing art identity; other portraits use the default focus.
 const PORTRAIT_FOCUS := {
 	"trainee_swordsman": Vector2(0.5, 0.2),
@@ -120,6 +122,14 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 		button.custom_minimum_size = Vector2(120, 52)
 		button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		button.add_theme_font_size_override("font_size", 16)
+	enemy_lane_button = action("", func(): await focus_targets([{"player": false, "hero": true}]), 44)
+	enemy_lane_button.name = "EnemyLaneNavigation"
+	rail.add_child(enemy_lane_button)
+	ally_lane_button = action("", func(): await focus_targets([{"player": true, "hero": true}]), 44)
+	ally_lane_button.name = "AllyLaneNavigation"
+	rail.add_child(ally_lane_button)
+	for navigation in [enemy_lane_button, ally_lane_button]:
+		navigation.add_theme_font_size_override("font_size", 14)
 
 func label(value: String, font_size: int = 16) -> Label:
 	var result := Label.new()
@@ -425,29 +435,36 @@ func dialog(title: String, text: String, card: Dictionary = {}) -> HBoxContainer
 	panel.offset_top = 12
 	panel.offset_bottom = -12
 	card_dialog.add_child(panel)
-	panel.add_child(label(title, 20))
+	var heading := label(title, 20)
+	heading.clip_text = true
+	heading.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	panel.add_child(heading)
+	var content := HBoxContainer.new()
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_theme_constant_override("separation", 20)
+	panel.add_child(content)
+	if not card.is_empty():
+		var face := preload("res://src/ui/components/card_inspection_view.gd").make_face(battle.main, card)
+		var viewer := preload("res://src/ui/components/card_inspection_view.gd").new()
+		var available_height: float = battle.main._layout_viewport_size().y - 116.0
+		viewer.setup(face, Vector2(available_height * 284.0 / 396.0, available_height))
+		content.add_child(viewer)
+	var right := VBoxContainer.new()
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_child(right)
 	var scroll := ScrollContainer.new()
 	scroll.name = "CardDetailScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	panel.add_child(scroll)
-	var content := HBoxContainer.new()
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation", 20)
-	scroll.add_child(content)
-	if not card.is_empty():
-		var face := preload("res://src/ui/components/card_inspection_view.gd").make_face(battle.main, card)
-		var viewer := preload("res://src/ui/components/card_inspection_view.gd").new()
-		viewer.setup(face)
-		content.add_child(viewer)
+	right.add_child(scroll)
 	var description := label(text, 18)
 	description.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_child(description)
+	scroll.add_child(description)
 	var buttons := HBoxContainer.new()
-	panel.add_child(buttons)
-	panel.move_child(buttons, 0)
+	right.add_child(buttons)
 	buttons.alignment = BoxContainer.ALIGNMENT_END
 	buttons.add_child(action("닫기", close_detail))
 	return buttons
@@ -519,9 +536,12 @@ func refresh_labels() -> void:
 		hero_bars[i].max_value = side.max_health
 		hero_bars[i].value = side.health
 	battle.reference_mana_label.text = "마나 %d/%d" % [battle.player.mana, battle.player.max_mana]
+	enemy_lane_button.text = "적 전열 ↑ %d/%d" % [battle.opponent.health, battle.opponent.max_health]
+	ally_lane_button.text = "아군 전열 ↓ %d/%d" % [battle.player.health, battle.player.max_health]
 	center_guidance.text = battle._next_enemy_action_text(true)
 	if battle.main.Onboarding.first_battle(battle.main.current_run):
 		center_guidance.text = battle._current_battle_guidance_text()
+		center_guidance.text = center_guidance.text.replace("손패 카드를 눌러 확인한 뒤 다시 눌러 소환하세요.", "카드를 확인하고 ‘사용’을 눌러 소환하세요.")
 	if not battle.pending_action.is_empty():
 		center_guidance.text = "아군을 눌러 대상 확정 · 선택 취소 가능"
 	elif battle.selected_attacker >= 0:
@@ -563,7 +583,9 @@ func _gesture_ended() -> void:
 func _initial_focus() -> void:
 	await get_tree().process_frame
 	if is_inside_tree():
-		await focus_targets([{"player": battle.current_player == "player", "hero": true}], true)
+		# Start with the enemy lane fully visible. Following the player hero here
+		# scrolls past the enemy before the player has taken any action.
+		await focus_targets([{"player": false, "hero": true}], true)
 
 func resolve_focus(target: Dictionary) -> Control:
 	var ally := bool(target.get("player", true))

@@ -16,6 +16,7 @@ var strategy_cards: BoxContainer
 var strategy_error: Label
 var learning_toggle: CheckButton
 var expanded_strategy_id := ""
+var selected_race_details: Label
 
 func _init(_main: Node) -> void:
 	main = _main
@@ -23,18 +24,25 @@ func _init(_main: Node) -> void:
 
 func build(body: VBoxContainer) -> void:
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	var stacked: bool = viewport_size.x < 1100.0
 	var short: bool = viewport_size.y <= 760.0 and viewport_size.x > viewport_size.y
+	var stacked: bool = viewport_size.x < 1100.0 and not short
 	var compact: bool = stacked or short
 	var phone: bool = main.ui.mobile_layout
 	var mobile_portrait: bool = main._is_phone_portrait_layout()
 
-	body.add_child(main.ui.make_guidance_banner(
+	var guidance: PanelContainer = main.ui.make_guidance_banner(
 		"새 런 준비",
 		"세력을 고른 뒤 시작 전략을 선택하세요. 학습 모드에서는 기본 덱으로 차근차근 배웁니다.",
 		Color(0.12, 0.2, 0.3, 1.0),
 		compact
-	))
+	)
+	if not short:
+		body.add_child(guidance)
+	else:
+		guidance.free()
+	var modes: BoxContainer = HBoxContainer.new() if short else VBoxContainer.new()
+	modes.add_theme_constant_override("separation", 8)
+	body.add_child(modes)
 
 	var learning := CheckButton.new()
 	if phone:
@@ -47,7 +55,8 @@ func build(body: VBoxContainer) -> void:
 		learning.disabled = true
 	learning.button_pressed = main.pending_guided_run
 	learning.toggled.connect(_set_guided_mode)
-	body.add_child(learning)
+	learning.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	modes.add_child(learning)
 	var skip := Button.new()
 	skip.text = "바로 시작 · 전략 고르기"
 	if phone:
@@ -57,7 +66,14 @@ func build(body: VBoxContainer) -> void:
 		learning.set_pressed_no_signal(false)
 		_set_guided_mode(false)
 	)
-	body.add_child(skip)
+	skip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	modes.add_child(skip)
+	if short and phone:
+		learning.text = "학습" if not learning.disabled else "학습 완료"
+		skip.text = "일반 · 전략 선택"
+		learning.custom_minimum_size = Vector2(120, 48)
+		skip.custom_minimum_size = Vector2(160, 48)
+		modes.reparent(body.get_parent().get_node("RaceSelectionHeader"))
 	var comparison: BoxContainer = VBoxContainer.new() if stacked else HBoxContainer.new()
 	comparison.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	comparison.add_theme_constant_override("separation", 10 if phone else 14)
@@ -65,6 +81,13 @@ func build(body: VBoxContainer) -> void:
 
 	for race_id in main._valid_race_ids():
 		comparison.add_child(_make_race_card(race_id, compact, phone, short))
+	if short and not phone:
+		body.move_child(comparison, 0)
+	if short and phone:
+		selected_race_details = main._make_label("", 14, Color(0.88, 0.92, 0.96))
+		selected_race_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		selected_race_details.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		body.add_child(selected_race_details)
 
 	strategy_box = VBoxContainer.new()
 	strategy_box.add_theme_constant_override("separation", 8)
@@ -83,12 +106,15 @@ func build(body: VBoxContainer) -> void:
 		"2. 선택한 세력으로 시작",
 		"",
 		Color(0.42, 0.68, 1.0, 1.0),
-		126
+		78 if short else 126
 	)
 	fixed_footer = dock.get("panel") as PanelContainer
 	dock_title_label = dock.get("title_label") as Label
 	selection_summary = dock.get("detail_label") as Label
 	actions = dock.get("actions") as BoxContainer
+	if short:
+		dock_title_label.hide()
+		selection_summary.hide()
 
 	actions.alignment = BoxContainer.ALIGNMENT_CENTER
 	actions.add_theme_constant_override("separation", 8)
@@ -172,6 +198,12 @@ func _make_race_card(race_id: String, compact: bool, phone: bool, short: bool) -
 	cards_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	cards_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(cards_label)
+	if short and phone:
+		# Keep all three choices and their touch targets visible above the fold.
+		description.hide()
+		power_panel.hide()
+		cards_label.hide()
+		frame.tooltip_text = "%s\n%s · %s" % [description.text, power_name.text, power_text.text]
 
 	var select_button := Button.new()
 	select_button.text = "%s 선택" % String(meta.get("name", race_id))
@@ -259,6 +291,8 @@ func _refresh_selection() -> void:
 			button.add_theme_font_size_override("font_size", int(button.get_meta("selection_font_size", 17)))
 
 	var selected_meta: Dictionary = main._race_meta().get(selected_race_id, {})
+	if selected_race_details != null:
+		selected_race_details.text = "%s\n필살기 · %s\n%s" % [selected_meta.get("description", ""), selected_meta.get("power_name", ""), selected_meta.get("power_text", "")]
 	var selected_accent: Color = selected_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
 	if selection_summary != null:
 		selection_summary.text = "세력 선택 완료 · %s · %s · %s 1회" % [
@@ -267,7 +301,7 @@ func _refresh_selection() -> void:
 			String(selected_meta.get("power_name", "필살기")),
 		]
 	if dock_title_label != null:
-		dock_title_label.text = "전략 선택 후 시작 · %s" % String(selected_meta.get("start_text", "인간으로 시작"))
+		dock_title_label.text = ("학습 시작 · " if main.pending_guided_run else "전략 선택 후 시작 · ") + String(selected_meta.get("start_text", "인간으로 시작"))
 		dock_title_label.add_theme_color_override("font_color", selected_accent.lightened(0.28))
 	if fixed_footer != null:
 		var dock_style: StyleBoxFlat = main.ui.make_style_box(Color(0.025, 0.034, 0.048, 0.99), selected_accent.darkened(0.12), 2, 8)
