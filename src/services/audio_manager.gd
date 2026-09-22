@@ -68,6 +68,15 @@ func _ready() -> void:
 	add_child(menu_music_player)
 	_play_menu_music()
 
+# User volume lives on the parent buses, separate from adaptive music ducking.
+func apply_settings(settings: Dictionary) -> void:
+	for entry in [[BGM_BUS_NAME, "bgm_volume", -3.0], [SFX_BUS_NAME, "sfx_volume", 0.0]]:
+		var bus := AudioServer.get_bus_index(entry[0])
+		if bus < 0: continue
+		var volume := clampf(float(settings.get(entry[1], 1.0)), 0.0, 1.0)
+		AudioServer.set_bus_mute(bus, volume <= 0.0)
+		AudioServer.set_bus_volume_db(bus, float(entry[2]) + linear_to_db(maxf(volume, 0.0001)))
+
 func set_screen_music(screen: String) -> void:
 	if screen == "battle":
 		return

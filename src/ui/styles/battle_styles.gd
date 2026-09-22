@@ -1,5 +1,6 @@
 extends RefCounted
 class_name BattleStyles
+const ButtonMetrics = preload("res://src/ui/styles/button_metrics.gd")
 
 const BATTLE_BASE := Color(0.035, 0.045, 0.06, 1.0)
 const BATTLE_BORDER := Color(0.2, 0.26, 0.34, 1.0)
@@ -17,23 +18,25 @@ static func _battle_button_base(color: Color) -> Color:
 static func _battle_button_accent(color: Color) -> Color:
 	return BATTLE_BORDER.lerp(color, 0.58)
 
-static func make_modern_style(bg_color: Color, border_color: Color, border_width: int = 1, radius: int = 8, margin: int = 10) -> StyleBoxFlat:
+static func make_flat_style(bg_color: Color, border_color: Color, border_width: int = 1, radius: int = 6, margin: int = 0) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = bg_color
 	style.border_color = border_color
-	style.border_width_left = border_width
-	style.border_width_top = border_width
-	style.border_width_right = border_width
-	style.border_width_bottom = border_width
-	var corner := mini(radius, 8)
-	style.corner_radius_top_left = corner
-	style.corner_radius_top_right = corner
-	style.corner_radius_bottom_left = corner
-	style.corner_radius_bottom_right = corner
-	style.content_margin_left = margin
-	style.content_margin_top = margin
-	style.content_margin_right = margin
-	style.content_margin_bottom = margin
+	style.set_border_width_all(border_width)
+	style.set_corner_radius_all(mini(radius, 8))
+	style.set_content_margin_all(margin)
+	return style
+
+static func apply_compact_button(button: Button, accent: Color) -> void:
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var border := accent.darkened(0.5) if state == "disabled" else accent
+		button.add_theme_stylebox_override(state, make_flat_style(Color(0.025, 0.04, 0.06, 0.9), border, 1, 5, 1))
+	button.add_theme_color_override("font_disabled_color", Color("bac1c9"))
+	button.add_theme_color_override("font_color", Color("e1e5e9"))
+	ButtonMetrics.apply(button, String(button.get_meta("button_kind", "action")))
+
+static func make_modern_style(bg_color: Color, border_color: Color, border_width: int = 1, radius: int = 8, margin: int = 10) -> StyleBoxFlat:
+	var style := make_flat_style(bg_color, border_color, border_width, radius, margin)
 	style.shadow_color = Color(0.0, 0.0, 0.0, 0.24)
 	style.shadow_size = 4
 	style.shadow_offset = Vector2(0, 2)

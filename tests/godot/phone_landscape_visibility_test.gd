@@ -64,6 +64,8 @@ func run() -> void:
 	check(view != null, "uses landscape battle")
 	if view != null:
 		check(view.board_scroll.scroll_vertical == 0, "battle entry starts at enemy lane")
+		check(battle.opponent_hero_target.size.x >= 104, "enemy hero has a wide touch target")
+		check(view.enemy_hero_hint.mouse_filter == Control.MOUSE_FILTER_IGNORE, "hero hint does not intercept taps")
 		check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "enemy hero fully visible on entry")
 		if not battle.opponent.field.is_empty():
 			check(view.board_scroll.get_global_rect().encloses(battle._card_action_field_slot(false, 0).get_global_rect()), "enemy vanguard fully visible on entry")
@@ -85,6 +87,25 @@ func run() -> void:
 		check(view.board_scroll.scroll_vertical > 0, "action focus can still reach ally lane")
 		await view.focus_targets([{"player": false, "hero": true}], true)
 		check(view.board_scroll.scroll_vertical == 0, "action focus can return to enemy lane")
+		# Click the newly added right edge rather than only the portrait center.
+		battle.opponent.field.clear()
+		battle.player.field = [{"id":"militia", "battle_unit_id":9901, "name":"민병대", "race":"인간", "attack":1, "health":3, "max_health":3, "can_attack":true}]
+		battle.selected_attacker = -1
+		battle._refresh_ui()
+		await settle()
+		var hp_before := int(battle.opponent.health)
+		var hero_rect: Rect2 = battle.opponent_hero_target.get_global_rect()
+		var point := hero_rect.position + Vector2(94, 70)
+		for pressed in [true, false]:
+			var event := InputEventMouseButton.new()
+			event.button_index = MOUSE_BUTTON_LEFT
+			event.position = point
+			event.global_position = point
+			event.pressed = pressed
+			root.push_input(event, true)
+			await process_frame
+		await settle()
+		check(int(battle.opponent.health) == hp_before - 1, "expanded hero edge accepts one attack")
 	print("PASS phone landscape visibility" if failures.is_empty() else str(failures))
 	main._clear_screen()
 	main.queue_free()

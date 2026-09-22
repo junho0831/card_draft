@@ -387,6 +387,8 @@ func _clear_modal() -> void:
 		child.queue_free()
 
 func _save_profile() -> void:
+	if is_instance_valid(audio_manager):
+		audio_manager.apply_settings(player_profile.get("settings", {}))
 	profile_store.save(GameStorage.profile_path(), player_profile)
 
 func _save_run() -> void:
@@ -834,7 +836,7 @@ func _small_hub_button(parent: Node, title: String, callback_method: String, ico
 	button.tooltip_text = title
 	button.custom_minimum_size = Vector2(42, 42)
 	ui.style_button(button, Color(0.1, 0.12, 0.16, 1.0))
-	button.add_theme_font_size_override("font_size", 18)
+	ui.ButtonMetrics.apply(button, "icon")
 	button.pressed.connect(Callable(self, callback_method))
 	parent.add_child(button)
 
@@ -843,7 +845,7 @@ func _small_hub_button_config(parent: Node, title: String, callback_method: Stri
 	button.text = title if ui.mobile_layout else "%s\n%s" % [icon_text, title]
 	button.custom_minimum_size = Vector2(width, height)
 	ui.style_flat_button(button, Color(0.08, 0.11, 0.16, 1.0), Color(0.44, 0.6, 0.82, 1.0), font_size, 2)
-	button.add_theme_font_size_override("font_size", maxi(font_size, 16) if ui.mobile_layout else font_size)
+	ui.ButtonMetrics.apply(button, "action" if button.text.contains("\n") else "compact", width)
 	button.pressed.connect(Callable(self, callback_method))
 	parent.add_child(button)
 	return button
@@ -1551,6 +1553,7 @@ func _show_settings() -> void:
 
 func _on_cutscene_toggled(enabled: bool) -> void:
 	player_profile["settings"]["battle_cutscene"] = enabled
+	player_profile["settings"]["reduced_battle_fx"] = false
 	_save_profile()
 
 func _on_fast_ai_toggled(enabled: bool) -> void:
@@ -1579,6 +1582,10 @@ func _on_ui_scale_mode_selected(mode: String) -> void:
 	last_layout_signature = _layout_signature(_layout_viewport_size())
 	pending_layout_signature = last_layout_signature
 	call_deferred("_rebuild_active_screen_for_layout")
+
+func _request_profile_reset() -> void:
+	if active_screen == "settings" and active_screen_controller != null:
+		active_screen_controller.request_reset()
 
 func _reset_profile() -> void:
 	player_profile = profile_store.make_default_profile(card_defs)

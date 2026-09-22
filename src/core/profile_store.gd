@@ -50,6 +50,10 @@ func make_default_profile(card_defs: Array) -> Dictionary:
 		},
 		"settings": {
 			"battle_cutscene": false,
+			"reduced_battle_fx": false,
+			"battle_auto_focus": "outside",
+			"bgm_volume": 1.0,
+			"sfx_volume": 1.0,
 			"fast_ai": true,
 			"fullscreen": true,
 			"fullscreen_setting_initialized": true,
@@ -96,6 +100,13 @@ func normalize(profile: Dictionary, card_defs: Array) -> Dictionary:
 		profile["upgrades"]["second_chance"] = 0
 	if not profile["settings"].has("battle_cutscene"):
 		profile["settings"]["battle_cutscene"] = false
+	var settings: Dictionary = profile["settings"]
+	settings["reduced_battle_fx"] = bool(settings.get("reduced_battle_fx", false))
+	var focus_mode := String(settings.get("battle_auto_focus", "outside"))
+	settings["battle_auto_focus"] = focus_mode if focus_mode in ["always", "outside", "off"] else "outside"
+	for key in ["bgm_volume", "sfx_volume"]:
+		var value = settings.get(key, 1.0)
+		settings[key] = clampf(float(value), 0.0, 1.0) if typeof(value) in [TYPE_INT, TYPE_FLOAT] and is_finite(float(value)) else 1.0
 	if not profile["settings"].has("fast_ai"):
 		profile["settings"]["fast_ai"] = true
 	if not bool(profile["settings"].get("fullscreen_setting_initialized", false)):

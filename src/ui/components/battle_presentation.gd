@@ -1,5 +1,5 @@
 extends RefCounted
-## Presentation-only layout policy. No battle state is read or modified here.
+## Pure presentation policy. Callers supply state; no combat or save mutation.
 
 static func field_size(mobile: bool, wide: bool, roomy: bool) -> Vector2:
 	if mobile:
@@ -51,3 +51,28 @@ static func make_detail_overlay(host: Control, content: Control, close: Callable
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	overlay.visible = false
 	return overlay
+
+# Shared by the turn action and the compact header; priority must stay identical.
+static func phase_state(game_over: bool, player_turn: bool, locked: bool) -> Dictionary:
+	if game_over:
+		return {"badge": "전투 종료", "text": "전투 종료", "hint": "결과 확인 중", "disabled": true, "exhausted": false}
+	if not player_turn:
+		return {"badge": "상대 턴", "text": "상대 턴", "hint": "상대 행동이 끝나면 내 턴입니다", "disabled": true, "exhausted": false}
+	if locked:
+		return {"badge": "행동 중", "text": "행동 처리 중", "hint": "효과가 끝날 때까지 기다리세요", "disabled": true, "exhausted": false}
+	return {"badge": "내 턴", "disabled": false}
+
+# Differences between layouts are data, not separate animation pipelines.
+static func attack_motion(landscape: bool, damage: int, counter: bool) -> Dictionary:
+	return {
+		"windup": 0.055 if landscape else 0.0,
+		"distance": (66.0 if damage >= 4 else 54.0) if landscape else 58.0,
+		"approach": 0.07 if counter else 0.085,
+		"hit_stop": (0.025 if counter else (0.065 if damage >= 4 else 0.04)) if landscape else (0.035 if counter else (0.07 if damage >= 4 else 0.045)),
+		"recoil": 0.025 if landscape else 0.055,
+		"recover": 0.10 if landscape else 0.15,
+	}
+
+static func effect_mode(settings: Dictionary) -> String:
+	if bool(settings.get("reduced_battle_fx", false)): return "minimal"
+	return "rich" if bool(settings.get("battle_cutscene", false)) else "compact"

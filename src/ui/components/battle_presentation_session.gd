@@ -1,4 +1,5 @@
 extends RefCounted
+const Presentation = preload("res://src/ui/components/battle_presentation.gd")
 ## Presentation lifetime is independent of the disposable battlefield controls.
 var owner: WeakRef
 var tree: SceneTree
@@ -66,8 +67,9 @@ func scroll_for_rect(rect: Rect2) -> int:
 	var bar: ScrollBar = view.board_scroll.get_v_scroll_bar()
 	return int(clampf(destination, 0, maxf(0, bar.max_value - bar.page)))
 
-func focus(targets: Array, immediate: bool = false) -> void:
+func focus(targets: Array, immediate: bool = false, manual: bool = false) -> void:
 	if pointer_down or not _view_alive(): return
+	if not manual and not immediate and battle.main.player_profile.settings.get("battle_auto_focus", "outside") == "off": return
 	cancel_focus()
 	focus_pending = true
 	var request := focus_generation
@@ -94,6 +96,9 @@ func _move_to_targets(targets: Array, immediate: bool = false) -> void:
 			var node: Control = view.resolve_focus(targets[rects.find(rect)])
 			if is_instance_valid(node): rect = node.get_global_rect()
 		var destination := scroll_for_rect(rect)
+		if battle.main.player_profile.settings.get("battle_auto_focus", "outside") == "always":
+			var bar: ScrollBar = view.board_scroll.get_v_scroll_bar()
+			destination = int(clampf(rect.get_center().y - view.lanes.global_position.y - view.board_scroll.size.y * 0.5, 0, maxf(0, bar.max_value - bar.page)))
 		if destination == view.board_scroll.scroll_vertical: continue
 		if immediate or battle._should_skip_timed_battle_fx():
 			view.board_scroll.scroll_vertical = destination
@@ -108,35 +113,42 @@ func inline_attack(attacker_node: Control, defender_node: Control, damage: int, 
 	if disposed or not is_instance_valid(attacker_node) or not is_instance_valid(defender_node): return
 	var start_pos = attacker_node.position
 	var start_rotation := attacker_node.rotation
+	var start_scale := Vector2.ONE
+	var landscape: bool = battle._is_landscape_phone()
+	var motion := Presentation.attack_motion(landscape, damage, counter)
 	var lunge_offset = Vector2(0, -58 if attacker_is_player else 58)
+	if landscape:
+		var direction := defender_node.get_global_rect().get_center() - attacker_node.get_global_rect().get_center()
+		if direction.length_squared() > 1.0:
+			lunge_offset = direction.normalized() * float(motion.distance)
 	if counter:
 		lunge_offset *= 0.72
 	attacker_node.pivot_offset = attacker_node.size * 0.5
+	if motion.windup > 0.0:
+		var windup := _tween(attacker_node)
+		windup.set_parallel(true)
+		windup.tween_property(attacker_node, "position", start_pos - lunge_offset.normalized() * 9.0, motion.windup)
+		windup.tween_property(attacker_node, "scale", start_scale * 1.06, motion.windup)
+		if not await _wait(windup): return
 	var approach = _tween(attacker_node)
 	approach.set_parallel(true)
-	approach.tween_property(attacker_node, "position", start_pos + lunge_offset, 0.085 if not counter else 0.07).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	approach.tween_property(attacker_node, "position", start_pos + lunge_offset, motion.approach).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	approach.tween_property(attacker_node, "scale", Vector2(1.17, 1.17) if not counter else Vector2(1.1, 1.1), 0.085).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	approach.tween_property(attacker_node, "rotation", start_rotation + deg_to_rad(-4.5 if attacker_is_player else 4.5), 0.085)
 	if not await _wait(approach): return
 
-	battle._show_damage_number(defender_node, damage, counter)
-	battle._play_attack_impact_fx(attacker_node, defender_node, damage, counter, sfx_name)
-	battle._play_sfx(sfx_name if not sfx_name.is_empty() else battle._attack_impact_sfx({}, damage, counter))
-	battle._spawn_impact_slash(defender_node, counter)
-	battle._flash_target(defender_node, Color(1.0, 0.66, 0.18, 1.0) if counter else Color(1.0, 0.28, 0.22, 1.0), 0.24)
-	battle._shake_target(defender_node, 12.0 if damage < 3 else 18.0)
-	var hit_stop := 0.015 if battle._is_landscape_phone() else (0.035 if counter else (0.07 if damage >= 4 else 0.045))
-	await tree.create_timer(hit_stop).timeout
+	impact(attacker_node, defender_node, damage, counter, sfx_name, true)
+	await tree.create_timer(motion.hit_stop).timeout
 	if disposed or not is_instance_valid(attacker_node) or not is_instance_valid(defender_node): return
 
 	var recoil_direction: Vector2 = -lunge_offset.normalized()
 	var recoil_position: Vector2 = Vector2(start_pos) + recoil_direction * (10.0 if damage >= 4 else 6.0)
 	var recoil = _tween(attacker_node)
-	recoil.tween_property(attacker_node, "position", recoil_position, 0.025 if battle._is_landscape_phone() else 0.055).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	recoil.parallel().tween_property(attacker_node, "scale", Vector2(0.94, 0.94), 0.025 if battle._is_landscape_phone() else 0.055)
-	recoil.tween_property(attacker_node, "position", start_pos, 0.06 if battle._is_landscape_phone() else 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	recoil.parallel().tween_property(attacker_node, "scale", Vector2.ONE, 0.06 if battle._is_landscape_phone() else 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	recoil.parallel().tween_property(attacker_node, "rotation", start_rotation, 0.06 if battle._is_landscape_phone() else 0.15)
+	recoil.tween_property(attacker_node, "position", recoil_position, motion.recoil).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	recoil.parallel().tween_property(attacker_node, "scale", Vector2(0.94, 0.94), motion.recoil)
+	recoil.tween_property(attacker_node, "position", start_pos, motion.recover).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	recoil.parallel().tween_property(attacker_node, "scale", start_scale, motion.recover).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	recoil.parallel().tween_property(attacker_node, "rotation", start_rotation, motion.recover)
 	await _wait(recoil)
 
 
@@ -163,10 +175,15 @@ func play_attack(result: Dictionary) -> void:
 		if counter_damage > 0:
 			impact(defender, attacker, counter_damage, true, String(result.counter_sfx))
 
-func impact(attacker: Control, defender: Control, damage: int, counter: bool, sfx: String) -> void:
-	if disposed: return
+func impact(attacker: Control, defender: Control, damage: int, counter: bool, sfx: String, animated: bool = false) -> void:
+	if disposed or not is_instance_valid(defender): return
 	battle._show_damage_number(defender, damage, counter)
+	if Presentation.effect_mode(battle.main.player_profile.settings) == "minimal":
+		battle._play_sfx(sfx)
+		return
 	battle._play_attack_impact_fx(attacker, defender, damage, counter, sfx)
-	battle._play_sfx(sfx)
+	battle._play_sfx(sfx if not sfx.is_empty() or not animated else battle._attack_impact_sfx({}, damage, counter))
 	battle._spawn_impact_slash(defender, counter)
-	battle._flash_target(defender, Color(1.0, 0.66, 0.18, 1.0) if counter else Color(1.0, 0.28, 0.22, 1.0), 0.22)
+	battle._flash_target(defender, Color(1.0, 0.66, 0.18, 1.0) if counter else Color(1.0, 0.28, 0.22, 1.0), 0.24 if animated else 0.22)
+	if animated:
+		battle._shake_target(defender, 12.0 if damage < 3 else 18.0)

@@ -10,9 +10,12 @@ const RADIUS_SM := 4
 const RADIUS_MD := 6
 const RADIUS_LG := 8
 
-const BUTTON_HEIGHT_SM := 36
-const BUTTON_HEIGHT_MD := 48
-const BUTTON_HEIGHT_LG := 60
+const BUTTON_HEIGHT_SM := 44
+const BUTTON_HEIGHT_MD := 52
+const BUTTON_HEIGHT_LG := 64
+
+const BUTTON_FONT := 16
+const BUTTON_FONT_COMPACT := 14
 
 const FONT_CAPTION := 11
 const FONT_BODY := 13

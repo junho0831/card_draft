@@ -1,5 +1,6 @@
 extends RefCounted
 class_name RaceSelectionScreen
+const ButtonMetrics = preload("res://src/ui/styles/button_metrics.gd")
 
 var main: Node
 var selected_race_id := "human"
@@ -71,8 +72,8 @@ func build(body: VBoxContainer) -> void:
 	if short and phone:
 		learning.text = "학습" if not learning.disabled else "학습 완료"
 		skip.text = "일반 · 전략 선택"
-		learning.custom_minimum_size = Vector2(120, 48)
-		skip.custom_minimum_size = Vector2(160, 48)
+		ButtonMetrics.apply(learning, "compact", 120)
+		ButtonMetrics.apply(skip, "compact", 160)
 		modes.reparent(body.get_parent().get_node("RaceSelectionHeader"))
 	var comparison: BoxContainer = VBoxContainer.new() if stacked else HBoxContainer.new()
 	comparison.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -124,7 +125,7 @@ func build(body: VBoxContainer) -> void:
 	back_button.custom_minimum_size = Vector2(104 if mobile_portrait else 150, 64 if mobile_portrait else (58 if short else 66))
 	back_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mobile_portrait else Control.SIZE_FILL
 	main.ui.style_button(back_button, Color(0.12, 0.15, 0.2, 1.0))
-	back_button.add_theme_font_size_override("font_size", 16 if mobile_portrait else 17)
+	ButtonMetrics.apply(back_button)
 	back_button.pressed.connect(Callable(main, "_show_main_menu"))
 	actions.add_child(back_button)
 
@@ -288,7 +289,7 @@ func _refresh_selection() -> void:
 				main.ui.style_primary_button(button, accent.darkened(0.42))
 			else:
 				main.ui.style_button(button, Color(0.12, 0.15, 0.2, 1.0))
-			button.add_theme_font_size_override("font_size", int(button.get_meta("selection_font_size", 17)))
+			ButtonMetrics.apply(button)
 
 	var selected_meta: Dictionary = main._race_meta().get(selected_race_id, {})
 	if selected_race_details != null:
@@ -374,14 +375,12 @@ func _render_strategies() -> void:
 			box.add_child(label)
 		var choose := Button.new()
 		choose.text = ("✓ 선택됨 · " if selected else "이 전략 선택 · ") + String(strategy.name)
-		choose.custom_minimum_size.y = 56 if main.ui.mobile_layout else 44
-		choose.add_theme_font_size_override("font_size", 16)
+		ButtonMetrics.apply(choose)
 		choose.pressed.connect(_choose_strategy.bind(String(strategy.id)))
 		box.add_child(choose)
 		var expand := Button.new()
 		expand.text = "덱 10장 접기" if expanded_strategy_id == String(strategy.id) else "덱 10장 펼쳐보기"
-		expand.custom_minimum_size.y = 56 if main.ui.mobile_layout else 44
-		expand.add_theme_font_size_override("font_size", 16)
+		ButtonMetrics.apply(expand)
 		expand.pressed.connect(_toggle_strategy_deck.bind(String(strategy.id)))
 		box.add_child(expand)
 		if expanded_strategy_id == String(strategy.id):

@@ -301,7 +301,10 @@ func _can_play_card(side: Dictionary, card: Dictionary, owner_key: String) -> bo
 func _is_battle_cutscene_enabled() -> bool:
 	if _should_skip_timed_battle_fx():
 		return false
-	return bool(main.player_profile.get("settings", {}).get("battle_cutscene", true))
+	return PRESENTATION.effect_mode(main.player_profile.get("settings", {})) == "rich"
+
+func _minimal_battle_fx() -> bool:
+	return PRESENTATION.effect_mode(main.player_profile.get("settings", {})) == "minimal"
 
 func _is_player_input_locked() -> bool:
 	return input_locked or game_over or current_player != "player"
@@ -2573,6 +2576,7 @@ func _build_battle_ui() -> void:
 	var touch_hand = _uses_touch_hand_selection()
 	battle_fx_layer = BATTLE_FX_LAYER.new()
 	battle_fx_layer.set_meta("compact_landscape", _is_landscape_phone())
+	battle_fx_layer.set_meta("reduced_effects", _minimal_battle_fx())
 	main.modal_layer.add_child(battle_fx_layer)
 	root_box.add_theme_constant_override("separation", 5 if tight else 8)
 	battle_detail_visible = false
@@ -3205,7 +3209,7 @@ func _work_on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed:
 	await _focus_card_action(card, true, target_unit_id)
 	source = _hand_card_control(hand_slot)
 	target = _field_slot_for(player, _ally_index_by_id(target_unit_id)) if target_unit_id >= 0 else _card_action_target(card, true)
-	if not _should_skip_timed_battle_fx() and battle_fx_layer != null and is_instance_valid(battle_fx_layer) and source != null and target != null:
+	if not _minimal_battle_fx() and not _should_skip_timed_battle_fx() and battle_fx_layer != null and is_instance_valid(battle_fx_layer) and source != null and target != null:
 		var flight_visual := _make_card_action_visual(card, cost, source.size)
 		source.modulate = Color(source.modulate.r, source.modulate.g, source.modulate.b, 0.14)
 		_play_sfx("play")
@@ -4098,6 +4102,7 @@ func _hero_attack_sfx(attacker: Dictionary, damage: int) -> String:
 	return "hit_%s" % _sfx_race_key(attacker)
 
 func _play_attack_impact_fx(attacker: Control, defender: Control, damage: int, counter: bool, style: String = "hit_human") -> void:
+	if _minimal_battle_fx(): return
 	if damage <= 0 or _should_skip_timed_battle_fx():
 		return
 	if battle_fx_layer != null and is_instance_valid(battle_fx_layer):
@@ -4279,6 +4284,7 @@ func _play_defeat_feedback(target: Control, color: Color) -> void:
 	# The slot is reused by the next unit; death particles live in the FX layer.
 
 func _flash_target(target: Control, color: Color, duration: float = 0.2) -> void:
+	if _minimal_battle_fx(): return
 	if target == null or not is_instance_valid(target):
 		return
 	var original_modulate = target.modulate
@@ -4300,6 +4306,7 @@ func _spawn_target_glow(target: Control, color: Color, duration: float = 0.28) -
 	tween.tween_callback(Callable(self, "_queue_free_if_valid").bind(glow))
 
 func _shake_target(target: Control, intensity: float) -> void:
+	if _minimal_battle_fx(): return
 	if target == null or not is_instance_valid(target):
 		return
 	var origin = target.position
@@ -4310,6 +4317,7 @@ func _shake_target(target: Control, intensity: float) -> void:
 	await tween.finished
 
 func _spawn_impact_slash(target: Control, counter: bool = false) -> void:
+	if _minimal_battle_fx(): return
 	if target == null or not is_instance_valid(target):
 		return
 	var slash = Line2D.new()
@@ -5343,13 +5351,13 @@ func _refresh_action_buttons() -> void:
 		_style_end_turn_action_button(end_turn_button, bool(phase.exhausted))
 		end_turn_button.modulate = Color.WHITE
 
+func _battle_phase_state() -> Dictionary:
+	return PRESENTATION.phase_state(game_over, current_player == "player", input_locked)
+
 func _turn_action_state() -> Dictionary:
-	if game_over:
-		return {"text": "전투 종료", "hint": "결과 확인 중", "disabled": true, "exhausted": false}
-	if current_player != "player":
-		return {"text": "상대 턴", "hint": "상대 행동이 끝나면 내 턴입니다", "disabled": true, "exhausted": false}
-	if input_locked:
-		return {"text": "행동 처리 중", "hint": "효과가 끝날 때까지 기다리세요", "disabled": true, "exhausted": false}
+	var phase := _battle_phase_state()
+	if phase.disabled:
+		return phase
 	if not pending_action.is_empty():
 		return {"text": "선택 취소", "hint": "카드와 마나를 소비하지 않고 돌아갑니다", "disabled": false, "exhausted": false}
 	var available := not _ready_player_attacker_indexes().is_empty() or _can_use_race_power()
@@ -5358,6 +5366,8 @@ func _turn_action_state() -> Dictionary:
 	return {"text": "내 턴 · 턴 종료" if available and not _is_mobile_battle_layout() else "턴 종료", "hint": "카드 사용과 공격을 자유롭게 섞을 수 있습니다" if available else "사용 가능한 카드·공격·필살기가 없습니다", "disabled": false, "exhausted": not available}
 
 func _refresh_ui() -> void:
+	if is_instance_valid(battle_fx_layer):
+		battle_fx_layer.set_meta("reduced_effects", _minimal_battle_fx())
 	if battle_fx_layer != null and is_instance_valid(battle_fx_layer) and not is_dragging_hand_card:
 		battle_fx_layer.clear_drag_target_line()
 	_ensure_battle_unit_ids()
@@ -5473,6 +5483,7 @@ func _add_log(message: String) -> void:
 	log_label.text = "\n".join(output)
 
 func _shake_screen(intensity: float, duration: float) -> void:
+	if _minimal_battle_fx(): return
 	if _is_landscape_phone(): return
 	if main.root_scroll == null or not is_instance_valid(main.root_scroll):
 		return

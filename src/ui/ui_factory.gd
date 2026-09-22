@@ -1,6 +1,7 @@
 extends RefCounted
 class_name UiFactory
 
+const ButtonMetrics = preload("res://src/ui/styles/button_metrics.gd")
 const LayoutPolicy = preload("res://src/ui/layout_policy.gd")
 const UI_STYLES = preload("res://src/ui/styles/ui_styles.gd")
 const CARD_RACE_STYLES = preload("res://src/ui/styles/card_race_styles.gd")
@@ -581,31 +582,30 @@ func make_action_button_style(bg_color: Color, accent_color: Color, active: bool
 
 func style_flat_button(button: Button, base_color: Color, accent_color: Color = Color(0.42, 0.68, 1.0, 1.0), font_size: int = 16, outline_size: int = 0) -> void:
 	UI_STYLES.apply_flat_button(button, base_color, accent_color, font_size, outline_size)
-	_apply_mobile_action_metrics(button)
+	_apply_action_metrics(button)
 	_apply_hover_feedback(button)
 
 func style_button(button: Button, base_color: Color) -> void:
-	if mobile_layout:
-		button.custom_minimum_size.y = maxf(button.custom_minimum_size.y, 56.0)
 	UI_STYLES.apply_role_button(button, "secondary", base_color.lightened(0.34), base_color, 16)
+	_apply_action_metrics(button)
 	_apply_hover_feedback(button)
 
 func style_primary_button(button: Button, base_color: Color = Color(0.16, 0.34, 0.66, 1.0)) -> void:
 	UI_STYLES.apply_role_button(button, "primary", base_color.lightened(0.34), base_color, UI_TOKENS.FONT_ACTION)
-	_apply_mobile_action_metrics(button, 18)
+	_apply_action_metrics(button)
 	_apply_hover_feedback(button)
 
 func style_role_button(button: Button, role: String, accent_color: Color = Color(0.42, 0.68, 1.0, 1.0), base_color: Color = Color(0.0, 0.0, 0.0, 0.0), font_size: int = -1) -> void:
 	UI_STYLES.apply_role_button(button, role, accent_color, base_color, font_size)
-	_apply_mobile_action_metrics(button, 18 if role == "primary" else 16)
+	_apply_action_metrics(button)
 	_apply_hover_feedback(button)
 
-func _apply_mobile_action_metrics(button: Button, minimum_font: int = 16) -> void:
-	if not mobile_layout:
+func _apply_action_metrics(button: Button) -> void:
+	# Large illustrated choices and map nodes are not ordinary action buttons.
+	var extent := button.custom_minimum_size
+	if extent.y > 80 or (extent.y > 0 and is_equal_approx(extent.x, extent.y)):
 		return
-	button.custom_minimum_size.y = maxf(button.custom_minimum_size.y, 56.0)
-	button.add_theme_font_size_override("font_size", maxi(button.get_theme_font_size("font_size"), minimum_font))
-	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ButtonMetrics.apply(button, String(button.get_meta("button_kind", "action")))
 
 func make_card_frame() -> PanelContainer:
 	var frame := make_fantasy_card_panel(Color(0.42, 0.62, 0.9, 1.0), 10)
@@ -666,6 +666,8 @@ func _make_texture_rect(texture: Texture2D, size: Vector2) -> TextureRect:
 	return rect
 
 func _apply_hover_feedback(button: Button) -> void:
+	if button.has_meta("standard_action_metrics") or button.has_meta("hover_feedback_connected"): return
+	button.set_meta("hover_feedback_connected", true)
 	button.pivot_offset = button.size / 2.0
 	button.mouse_entered.connect(func():
 		if button == null or not is_instance_valid(button):

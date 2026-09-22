@@ -73,6 +73,11 @@ func _begin_gesture(point: Vector2, surface: Control) -> bool:
 	candidates.clear()
 	var hit := _hit(surface, point)
 	while hit != null:
+		# Sliders own their drag; the surrounding page must not steal volume input.
+		if hit is Slider:
+			candidates.clear()
+			gesture_started.emit(point)
+			return tap_blocked
 		if hit is ScrollContainer:
 			candidates.append(hit)
 		hit = hit.get_parent() as Control

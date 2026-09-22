@@ -144,6 +144,7 @@ godot --path . -s res://tests/godot/playthrough_probe.gd -- --test-data-dir=/tmp
 ## 문서
 
 - [게임 실행과 테스트 안내](docs/run-and-test.md)
+- [음량·전투 연출·자동 이동 설정](docs/settings.md)
 - 전략 업데이트 검증 기록: `res://docs/strategy-verification.md`
 - 현재 코드 기준 게임 기획서: `res://docs/game-design.md`
 - 개발 메모: `res://docs/knowledge.md`

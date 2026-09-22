@@ -17,6 +17,7 @@ func _ready() -> void:
 		heavy_impact_texture = ResourceLoader.load(HEAVY_IMPACT_TEXTURE_PATH, "Texture2D") as Texture2D
 
 func play_attack(attacker: Control, defender: Control, damage: int, counter: bool = false, style: String = "hit_human") -> void:
+	if get_meta("reduced_effects", false): return
 	if defender == null or not is_instance_valid(defender):
 		return
 	var profile := preload("res://src/battle/card_impact_profiles.gd").get_profile(style)
@@ -47,6 +48,7 @@ func play_attack(attacker: Control, defender: Control, damage: int, counter: boo
 		_spawn_frame_pulse(color, 0.38)
 
 func play_heal(target: Control) -> void:
+	if get_meta("reduced_effects", false): return
 	if not is_instance_valid(target):
 		return
 	var center := _control_center(target)
@@ -65,6 +67,7 @@ func play_heal(target: Control) -> void:
 		tween.tween_callback(Callable(self, "_free_if_valid").bind(mote))
 
 func play_death(target: Control) -> void:
+	if get_meta("reduced_effects", false): return
 	if not is_instance_valid(target):
 		return
 	var center := _control_center(target)
@@ -83,6 +86,7 @@ func play_death(target: Control) -> void:
 		tween.tween_callback(Callable(self, "_free_if_valid").bind(fragment))
 
 func play_ultimate(target: Control, accent: Color) -> void:
+	if get_meta("reduced_effects", false): return
 	if not is_instance_valid(target):
 		return
 	var center := _control_center(target)
@@ -212,6 +216,7 @@ func finish_card(card_visual: Control, action_kind: String, accent: Color, quick
 	_free_if_valid(card_visual)
 
 func play_victory(accent: Color, grand: bool = true, anchor: Control = null) -> void:
+	if get_meta("reduced_effects", false): return
 	var viewport := _viewport_size()
 	var center := _control_center(anchor) if anchor != null and is_instance_valid(anchor) else Vector2(viewport.x * 0.5, viewport.y * 0.46)
 	var gold := Color(1.0, 0.82, 0.28, 1.0)

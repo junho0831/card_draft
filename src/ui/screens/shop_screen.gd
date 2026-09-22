@@ -1,6 +1,7 @@
 extends RefCounted
 class_name ShopScreen
 
+const ButtonMetrics = preload("res://src/ui/styles/button_metrics.gd")
 const Fantasy = preload("res://src/ui/fantasy_components.gd")
 var selected_card_id := ""
 var preview_box: VBoxContainer
@@ -256,7 +257,7 @@ func _make_shop_card_product(card: Dictionary, shop_state: Dictionary, compact: 
 		inner.add_child(tag_label)
 	var button := Button.new()
 	button.text = "구매 ▶"
-	button.custom_minimum_size = Vector2(120, 36)
+	button.custom_minimum_size.x = 120
 	main.ui.style_role_button(button, "primary", Color(0.96, 0.74, 0.3, 1.0), Color(0.24, 0.18, 0.07, 1.0), 14)
 	button.disabled = int(main.current_run.get("gold", 0)) < main.shop_run_service.SHOP_CARD_COST or (shop_state.get("purchased_cards", []) as Array).has(String(card.get("id", "")))
 	button.pressed.connect(Callable(self, "_buy_shop_card").bind(String(card.get("id", ""))))
@@ -302,7 +303,7 @@ func _make_shop_relic_product(relic: Dictionary, shop_state: Dictionary, compact
 		box.add_child(promise)
 	var button := Button.new()
 	button.text = "유물 구매 ▶"
-	button.custom_minimum_size = Vector2(120, 34)
+	button.custom_minimum_size.x = 120
 	main.ui.style_button(button, Color(0.38, 0.3, 0.14, 1.0))
 	button.disabled = int(main.current_run.get("gold", 0)) < main.shop_run_service.SHOP_RELIC_COST or bool(shop_state.get("relic_bought", false))
 	button.pressed.connect(Callable(self, "_buy_shop_relic"))
@@ -385,8 +386,7 @@ func _build_reference_shop(body: VBoxContainer) -> void:
 		stack.add_child(face)
 		Fantasy.clickable_card(face, _select_shop_card.bind(String(id)))
 		var pick := Fantasy.action(main, "확인 · %d 골드" % main.shop_run_service.SHOP_CARD_COST, _select_shop_card.bind(String(id)), false)
-		pick.add_theme_font_size_override("font_size", 13)
-		pick.custom_minimum_size.y = 38
+		ButtonMetrics.apply(pick, "compact")
 		stack.add_child(pick)
 	var services := HBoxContainer.new()
 	services.add_theme_constant_override("separation", 10)

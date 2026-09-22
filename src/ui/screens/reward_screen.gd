@@ -1,6 +1,7 @@
 extends RefCounted
 class_name RewardScreen
 
+const ButtonMetrics = preload("res://src/ui/styles/button_metrics.gd")
 const Fantasy = preload("res://src/ui/fantasy_components.gd")
 var selected_card_id := ""
 var reference_cards: Dictionary = {}
@@ -219,9 +220,9 @@ func _make_reward_side_panel(reward: Dictionary, compact: bool) -> PanelContaine
 	var skip_button := Button.new()
 	skip_button.text = "건너뛰기"
 	skip_button.focus_mode = Control.FOCUS_NONE
-	skip_button.custom_minimum_size = Vector2(132 if compact else 142, 34 if compact else 36)
+	skip_button.custom_minimum_size.x = 132 if compact else 142
 	main.ui.style_button(skip_button, Color(0.16, 0.18, 0.21, 1.0))
-	skip_button.add_theme_font_size_override("font_size", 13)
+	ButtonMetrics.apply(skip_button)
 	skip_button.disabled = not _relic_choice_ready(reward)
 	skip_button.pressed.connect(Callable(self, "_skip_card_reward"))
 	box.add_child(skip_button)
@@ -278,12 +279,12 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var button := Button.new()
 	button.text = "덱에 추가 ▶" if matches_primary else "선택"
 	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = Vector2(98 if tight else (96 if compact else 110), 30 if tight else 32)
+	button.custom_minimum_size.x = 120
 	if matches_primary:
 		main.ui.style_role_button(button, "primary", Color(0.96, 0.74, 0.3, 1.0), Color(0.24, 0.18, 0.07, 1.0), 14)
 	else:
 		main.ui.style_role_button(button, "secondary", Color(0.42, 0.62, 0.82, 1.0), Color(0.12, 0.2, 0.3, 1.0), 12)
-	button.add_theme_font_size_override("font_size", 12)
+	ButtonMetrics.apply(button)
 	button.disabled = not _relic_choice_ready(main.current_run.get("pending_card_reward", {}))
 	button.pressed.connect(Callable(self, "_claim_card_reward").bind(String(card.get("id", ""))))
 	box.add_child(button)

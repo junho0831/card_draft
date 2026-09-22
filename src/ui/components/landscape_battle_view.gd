@@ -1,4 +1,6 @@
 extends Control
+const ButtonMetrics = preload("res://src/ui/styles/button_metrics.gd")
+const Styles = preload("res://src/ui/styles/battle_styles.gd")
 ## Landscape-only presentation. Combat remains owned by BattleScreen.
 var battle
 var session
@@ -8,7 +10,10 @@ var detail_slot := -1
 var confirm_in_progress := false
 var unit_width := 80.0
 var hand_size := Vector2(80, 112)
+const HERO_WIDTH := 104.0
 var hero_bars: Array[ProgressBar] = []
+var enemy_hero_hint: Label
+var phase_badge: Label
 var center_guidance: Label
 var intent_detail: Label
 var enemy_lane_button: Button
@@ -36,7 +41,7 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	var viewport: Vector2 = battle.main._layout_viewport_size()
-	unit_width = floorf((viewport.x - 120 - 24 - 68 - 40) / 5.0)
+	unit_width = floorf((viewport.x - 120 - 24 - HERO_WIDTH - 40) / 5.0)
 	hand_size = Vector2(76, 106) if viewport.y <= 375 else Vector2(80, 112)
 	old_root.hide()
 	action_panel.hide()
@@ -50,20 +55,29 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	var page := VBoxContainer.new()
 	page.add_theme_constant_override("separation", 4)
 	margin.add_child(page)
+	var header_panel := PanelContainer.new()
+	header_panel.add_theme_stylebox_override("panel", Styles.make_flat_style(Color("081320"), Color("695638")))
+	page.add_child(header_panel)
 	var header := HBoxContainer.new()
 	header.custom_minimum_size.y = 44
-	page.add_child(header)
+	header.add_theme_constant_override("separation", 8)
+	header_panel.add_child(header)
 	var title := label("전투 · " + String(battle.opponent.name), 16)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.clip_text = true
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	header.add_child(title)
+	phase_badge = label("", 14)
+	phase_badge.custom_minimum_size.x = 64
+	phase_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header.add_child(phase_badge)
 	battle.reference_mana_label = label("", 18)
 	header.add_child(battle.reference_mana_label)
 	battle.detail_toggle_button.reparent(header)
+	ButtonMetrics.apply(battle.detail_toggle_button, "compact", 60)
 	header.add_child(action("메뉴", func():
 		cancel_focus()
-		battle.main._show_main_menu(), 44))
+		battle.main._show_main_menu(), "compact"))
 	battle.battle_guidance_label.hide()
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 8)
@@ -78,6 +92,7 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	board_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	board_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	board_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	board_scroll.add_theme_stylebox_override("panel", Styles.make_flat_style(Color(0.025, 0.045, 0.075, 0.55), Color("394b60")))
 	board.add_child(board_scroll)
 	lanes = VBoxContainer.new()
 	lanes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -111,6 +126,7 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	intent_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	battle.deck_list_label.get_parent().add_child(intent_detail)
 	battle.hand_scroll.reparent(board)
+	battle.hand_scroll.add_theme_stylebox_override("panel", Styles.make_flat_style(Color(0.025, 0.045, 0.075, 0.8), Color("695638")))
 	battle.hand_scroll.custom_minimum_size = Vector2(0, hand_size.y + 6)
 	battle.hand_scroll.size_flags_vertical = Control.SIZE_SHRINK_END
 	var rail := VBoxContainer.new()
@@ -119,17 +135,13 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	body.add_child(rail)
 	for button in [battle.recommended_action_button, battle.race_power_button, battle.end_turn_button]:
 		button.reparent(rail)
-		button.custom_minimum_size = Vector2(120, 52)
-		button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		button.add_theme_font_size_override("font_size", 16)
-	enemy_lane_button = action("", func(): _navigate_lane(false), 44)
+		ButtonMetrics.apply(button, "action", 120)
+	enemy_lane_button = action("", func(): _navigate_lane(false), "compact")
 	enemy_lane_button.name = "EnemyLaneNavigation"
 	rail.add_child(enemy_lane_button)
-	ally_lane_button = action("", func(): _navigate_lane(true), 44)
+	ally_lane_button = action("", func(): _navigate_lane(true), "compact")
 	ally_lane_button.name = "AllyLaneNavigation"
 	rail.add_child(ally_lane_button)
-	for navigation in [enemy_lane_button, ally_lane_button]:
-		navigation.add_theme_font_size_override("font_size", 14)
 	board_scroll.get_v_scroll_bar().value_changed.connect(func(_value): _refresh_lane_navigation())
 	call_deferred("_refresh_lane_navigation")
 
@@ -137,7 +149,7 @@ func _navigate_lane(ally: bool) -> void:
 	# Android may dispatch Button.pressed before the touch router sees release.
 	await get_tree().process_frame
 	if is_inside_tree():
-		await focus_targets([{"player": ally, "hero": true}])
+		await focus_targets([{"player": ally, "hero": true}], false, true)
 
 func _refresh_lane_navigation() -> void:
 	if not is_instance_valid(enemy_lane_button) or not is_instance_valid(ally_lane_button): return
@@ -145,7 +157,7 @@ func _refresh_lane_navigation() -> void:
 	var at_enemy := bar.value <= maxf(0, bar.max_value - bar.page) * 0.5
 	for button in [enemy_lane_button, ally_lane_button]:
 		var active: bool = (button == enemy_lane_button) == at_enemy
-		style_rail_button(button, Color("d5b779") if active else Color("66788e"))
+		Styles.apply_compact_button(button, Color("d5b779") if active else Color("66788e"))
 		var style: StyleBoxFlat = button.get_theme_stylebox("normal").duplicate()
 		style.bg_color = Color(0.17, 0.14, 0.08, 0.98) if active else Color(0.025, 0.04, 0.06, 0.96)
 		style.set_border_width_all(2 if active else 1)
@@ -159,11 +171,10 @@ func label(value: String, font_size: int = 16) -> Label:
 	result.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return result
 
-func action(value: String, callback: Callable, height: int = 52) -> Button:
+func action(value: String, callback: Callable, kind: String = "action") -> Button:
 	var button := Button.new()
 	button.text = value
-	button.custom_minimum_size = Vector2(60, height)
-	button.add_theme_font_size_override("font_size", 16)
+	ButtonMetrics.apply(button, kind, 60 if kind == "compact" else 120)
 	button.pressed.connect(callback)
 	return button
 
@@ -173,7 +184,7 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 	row.custom_minimum_size.y = 144
 	parent.add_child(row)
 	var hero := Button.new()
-	hero.custom_minimum_size = Vector2(68, 144)
+	hero.custom_minimum_size = Vector2(HERO_WIDTH, 144)
 	hero.clip_text = true
 	hero.add_theme_font_size_override("font_size", 16)
 	row.add_child(hero)
@@ -184,6 +195,25 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hero.add_child(portrait)
+	var title := label(str(battle.opponent.name) if enemy else "내 영웅", 14)
+	title.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	title.offset_left = 4
+	title.offset_right = -4
+	title.offset_top = 5
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.add_theme_color_override("font_outline_color", Color.BLACK)
+	title.add_theme_constant_override("outline_size", 6)
+	hero.add_child(title)
+	if enemy:
+		enemy_hero_hint = label("", 14)
+		enemy_hero_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		enemy_hero_hint.offset_top = -48
+		enemy_hero_hint.offset_bottom = -27
+		enemy_hero_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		enemy_hero_hint.add_theme_color_override("font_outline_color", Color.BLACK)
+		enemy_hero_hint.add_theme_constant_override("outline_size", 6)
+		hero.add_child(enemy_hero_hint)
 	var bar := ProgressBar.new()
 	bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	bar.offset_top = -6
@@ -489,7 +519,7 @@ func dialog(title: String, text: String, card: Dictionary = {}) -> HBoxContainer
 	right.add_child(buttons)
 	buttons.alignment = BoxContainer.ALIGNMENT_END
 	var close := action("닫기", close_detail)
-	style_rail_button(close, Color("8497ac"))
+	Styles.apply_compact_button(close, Color("8497ac"))
 	buttons.add_child(close)
 	return buttons
 
@@ -515,7 +545,7 @@ func show_card(index: int) -> void:
 	confirm_button.disabled = not playable
 	confirm_button.custom_minimum_size.x = 164
 	confirm_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	style_rail_button(confirm_button, Color("dfba68"))
+	Styles.apply_compact_button(confirm_button, Color("dfba68"))
 	var primary_style: StyleBoxFlat = confirm_button.get_theme_stylebox("normal").duplicate()
 	primary_style.bg_color = Color(0.22, 0.16, 0.065, 0.98)
 	primary_style.set_border_width_all(2)
@@ -558,15 +588,20 @@ func handle_back() -> bool:
 	return false
 
 func refresh_labels() -> void:
+	phase_badge.text = battle._battle_phase_state().badge
+	phase_badge.add_theme_color_override("font_color", Color("9eacbf") if battle.current_player != "player" else Color("f1ce83"))
+	if is_instance_valid(enemy_hero_hint):
+		enemy_hero_hint.text = "선봉 보호" if battle._enemy_vanguard_blocks_hero() else ("눌러 공격" if battle.current_player == "player" and not battle.hero_attack_button.disabled else "적 영웅")
 	battle.opponent_info.text = "%d/%d" % [battle.opponent.health, battle.opponent.max_health]
 	battle.player_info.text = "%d/%d" % [battle.player.health, battle.player.max_health]
 	for i in range(hero_bars.size()):
 		var side: Dictionary = battle.opponent if i == 0 else battle.player
 		hero_bars[i].max_value = side.max_health
 		hero_bars[i].value = side.health
-	battle.reference_mana_label.text = "마나 %d/%d" % [battle.player.mana, battle.player.max_mana]
-	enemy_lane_button.text = "적 전열 ↑ %d/%d" % [battle.opponent.health, battle.opponent.max_health]
-	ally_lane_button.text = "아군 전열 ↓ %d/%d" % [battle.player.health, battle.player.max_health]
+	battle.reference_mana_label.add_theme_color_override("font_color", Color("79d4ff"))
+	battle.reference_mana_label.text = "◆ %d/%d" % [battle.player.mana, battle.player.max_mana]
+	enemy_lane_button.text = "적 ↑ %d/%d" % [battle.opponent.health, battle.opponent.max_health]
+	ally_lane_button.text = "아군 ↓ %d/%d" % [battle.player.health, battle.player.max_health]
 	center_guidance.text = battle._next_enemy_action_text(true)
 	if battle.main.Onboarding.first_battle(battle.main.current_run):
 		center_guidance.text = battle._current_battle_guidance_text()
@@ -577,20 +612,9 @@ func refresh_labels() -> void:
 		center_guidance.text = "공격 후 체력 · 대상을 누르면 공격"
 	center_guidance.tooltip_text = center_guidance.text
 	intent_detail.text = "적 공격 예고\n" + battle._next_enemy_action_text()
-	style_rail_button(battle.recommended_action_button, Color("526170"))
-	style_rail_button(battle.race_power_button, Color("b69a60"))
-	style_rail_button(battle.end_turn_button, Color("71ac88") if battle._turn_action_state().exhausted else Color("8497ac"))
-
-func style_rail_button(button: Button, accent: Color) -> void:
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.025, 0.04, 0.06, 0.9)
-		style.border_color = accent.darkened(0.5) if state == "disabled" else accent
-		style.set_border_width_all(1)
-		style.set_corner_radius_all(5)
-		button.add_theme_stylebox_override(state, style)
-	button.add_theme_color_override("font_disabled_color", Color("bac1c9"))
-	button.add_theme_color_override("font_color", Color("e1e5e9"))
+	Styles.apply_compact_button(battle.recommended_action_button, Color("526170"))
+	Styles.apply_compact_button(battle.race_power_button, Color("b69a60"))
+	Styles.apply_compact_button(battle.end_turn_button, Color("71ac88") if battle._turn_action_state().exhausted else Color("8497ac"))
 
 func _exit_tree() -> void:
 	session.dispose()
@@ -630,5 +654,5 @@ func resolve_focus(target: Dictionary) -> Control:
 func scroll_for_rect(rect: Rect2) -> int:
 	return session.scroll_for_rect(rect)
 
-func focus_targets(targets: Array, immediate: bool = false) -> void:
-	await session.focus(targets, immediate)
+func focus_targets(targets: Array, immediate: bool = false, manual: bool = false) -> void:
+	await session.focus(targets, immediate, manual)
