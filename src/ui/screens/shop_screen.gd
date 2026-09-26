@@ -23,9 +23,8 @@ func build(body: VBoxContainer) -> void:
 		return
 	var shop_state: Dictionary = main.current_run.get("pending_shop", {})
 	var compact: bool = _is_shop_compact_layout()
-	var phone_portrait: bool = main._is_phone_portrait_layout()
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	var action_dock_layout: bool = phone_portrait or (viewport_size.x > viewport_size.y and viewport_size.y <= 800.0)
+	var action_dock_layout: bool = viewport_size.x > viewport_size.y and viewport_size.y <= 800.0
 	if not action_dock_layout:
 		body.add_child(main._make_run_summary_panel())
 	body.add_child(main.ui.make_guidance_banner("다음 행동", "골드로 카드를 강화하거나 덱을 정리하세요", Color(0.2, 0.18, 0.12, 1.0), compact))
@@ -74,8 +73,6 @@ func build(body: VBoxContainer) -> void:
 		product_row.add_child(_make_shop_relic_product(relic, shop_state, compact))
 
 	if action_dock_layout:
-		if phone_portrait:
-			hub.add_child(_make_shop_service_panel(shop_state, compact))
 		_mount_shop_action_dock(body, shop_state)
 	else:
 		hub.add_child(_make_shop_service_panel(shop_state, compact))
@@ -91,12 +88,6 @@ func _mount_shop_action_dock(body: VBoxContainer, shop_state: Dictionary) -> voi
 	)
 	screen_action_dock = dock.get("panel") as PanelContainer
 	var actions: BoxContainer = dock.get("actions") as BoxContainer
-	if main._is_phone_portrait_layout():
-		for entry in [["덱 보기", Callable(main, "_show_collection")], ["상점 나가기", Callable(self, "_leave_shop")]]:
-			var button: Button = main.ui.make_dock_action_button(entry[0], "", Color(0.18, 0.42, 0.66), entry[0] == "상점 나가기", 152)
-			button.pressed.connect(entry[1])
-			actions.add_child(button)
-		return
 	var recommended_card := _recommended_shop_card(shop_state)
 	if not recommended_card.is_empty():
 		var buy_button: Button = main.ui.make_dock_action_button("추천 카드 구매 ▶", "%s · 골드 %d" % [String(recommended_card.get("name", "카드")), main.shop_run_service.SHOP_CARD_COST], Color(0.48, 0.32, 0.1, 1.0), true, 224)

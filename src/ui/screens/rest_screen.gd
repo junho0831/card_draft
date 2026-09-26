@@ -9,9 +9,8 @@ func _init(_main: Node) -> void:
 
 func build(body: VBoxContainer) -> void:
 	var compact: bool = main._is_compact_layout_for(1180.0, 760.0)
-	var phone_portrait: bool = main._is_phone_portrait_layout()
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	var action_dock_layout: bool = phone_portrait or (viewport_size.x > viewport_size.y and viewport_size.y <= 800.0)
+	var action_dock_layout: bool = viewport_size.x > viewport_size.y and viewport_size.y <= 800.0
 	if not action_dock_layout:
 		body.add_child(main._make_run_summary_panel())
 	body.add_child(main.ui.make_guidance_banner("다음 행동", "회복하거나 카드를 강화해 다음 전투를 준비하세요", Color(0.18, 0.2, 0.12, 1.0), compact))
@@ -32,8 +31,7 @@ func build(body: VBoxContainer) -> void:
 	panel.add_child(hub)
 
 	var story_panel := _make_rest_story_panel(compact, hp, max_hp, heal_amount, action_dock_layout)
-	if not phone_portrait:
-		hub.add_child(story_panel)
+	hub.add_child(story_panel)
 
 	var action_panel: PanelContainer = null
 	var list: VBoxContainer = null
@@ -51,8 +49,6 @@ func build(body: VBoxContainer) -> void:
 		desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		list.add_child(desc)
 	if action_dock_layout:
-		if phone_portrait:
-			hub.add_child(story_panel)
 		_mount_rest_action_dock(body, hp, max_hp, heal_amount)
 	else:
 		list.add_child(main.ui.make_objective_panel("휴식 목표", "체력 상태와 현재 빌드를 보고 회복, 강화, 진행 중 하나를 선택하세요.", compact))

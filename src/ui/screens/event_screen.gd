@@ -40,9 +40,7 @@ func _event_theme_color(event_id: String) -> Color:
 func build(body: VBoxContainer) -> void:
 	var event_data: Dictionary = main.current_run.get("pending_event", {})
 	var compact: bool = main._is_compact_layout()
-	var phone_portrait: bool = main._is_phone_portrait_layout()
-	if not phone_portrait:
-		body.add_child(main._make_run_summary_panel())
+	body.add_child(main._make_run_summary_panel())
 	body.add_child(main.ui.make_guidance_banner("다음 행동", "선택지 하나를 골라 런의 방향을 바꾸세요", Color(0.18, 0.2, 0.12, 1.0), compact))
 	body.add_child(_make_event_status_strip(event_data, compact))
 
@@ -52,8 +50,7 @@ func build(body: VBoxContainer) -> void:
 	body.add_child(hub)
 
 	var story_panel := _make_story_panel(event_data, compact)
-	if not phone_portrait:
-		hub.add_child(story_panel)
+	hub.add_child(story_panel)
 
 	var choice_panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 14)
 	choice_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -67,24 +64,16 @@ func build(body: VBoxContainer) -> void:
 	var subtitle: Label = main._make_label("선택 하나가 이번 런의 체력, 골드, 덱, 유물을 바꿉니다.", 13 if compact else 14, Color(0.84, 0.88, 0.94, 1.0))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(subtitle)
-	if phone_portrait:
-		box.add_child(main.ui.make_chip("모든 선택 버튼은 화면 아래에 고정되어 있습니다.", Color(0.08, 0.16, 0.28, 1.0), Color(0.76, 0.9, 1.0, 1.0), 12))
-	else:
-		box.add_child(main.ui.make_objective_panel("이벤트 목표", "지금 빌드에 맞는 대가와 보상을 비교해 가장 효율적인 선택을 고르세요.", compact))
-		for option in event_data.get("options", []):
-			if typeof(option) != TYPE_DICTIONARY:
-				continue
-			var option_data: Dictionary = option
-			var button: Button = _make_option_button(option_data, compact)
-			button.pressed.connect(Callable(self, "_resolve_event_option").bind(String(option.get("effect", ""))))
-			box.add_child(button)
+	box.add_child(main.ui.make_objective_panel("이벤트 목표", "지금 빌드에 맞는 대가와 보상을 비교해 가장 효율적인 선택을 고르세요.", compact))
+	for option in event_data.get("options", []):
+		if typeof(option) != TYPE_DICTIONARY:
+			continue
+		var option_data: Dictionary = option
+		var button: Button = _make_option_button(option_data, compact)
+		button.pressed.connect(Callable(self, "_resolve_event_option").bind(String(option.get("effect", ""))))
+		box.add_child(button)
 
-	if phone_portrait:
-		hub.add_child(story_panel)
 	hub.add_child(_make_preview_panel(event_data, compact))
-	if phone_portrait:
-		_mount_event_action_dock(body, event_data)
-
 func _mount_event_action_dock(body: VBoxContainer, event_data: Dictionary) -> void:
 	var dock: Dictionary = main.ui.mount_screen_action_dock(
 		main,

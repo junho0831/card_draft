@@ -29,7 +29,6 @@ func build(body: VBoxContainer) -> void:
 	var stacked: bool = viewport_size.x < 1100.0 and not short
 	var compact: bool = stacked or short
 	var phone: bool = main.ui.mobile_layout
-	var mobile_portrait: bool = main._is_phone_portrait_layout()
 
 	var guidance: PanelContainer = main.ui.make_guidance_banner(
 		"새 런 준비",
@@ -94,7 +93,7 @@ func build(body: VBoxContainer) -> void:
 	strategy_box.add_theme_constant_override("separation", 8)
 	body.add_child(strategy_box)
 	strategy_box.add_child(main._make_label("시작 전략 선택", 20, Color(1.0, 0.88, 0.55)))
-	strategy_cards = VBoxContainer.new() if mobile_portrait else HBoxContainer.new()
+	strategy_cards = HBoxContainer.new()
 	strategy_cards.add_theme_constant_override("separation", 10)
 	strategy_box.add_child(strategy_cards)
 	strategy_error = main._make_label("", 14, Color(1.0, 0.5, 0.4))
@@ -122,16 +121,16 @@ func build(body: VBoxContainer) -> void:
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var back_button := Button.new()
 	back_button.text = "메인 메뉴"
-	back_button.custom_minimum_size = Vector2(104 if mobile_portrait else 150, 64 if mobile_portrait else (58 if short else 66))
-	back_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mobile_portrait else Control.SIZE_FILL
+	back_button.custom_minimum_size = Vector2(150, 58 if short else 66)
+	back_button.size_flags_horizontal = Control.SIZE_FILL
 	main.ui.style_button(back_button, Color(0.12, 0.15, 0.2, 1.0))
 	ButtonMetrics.apply(back_button)
 	back_button.pressed.connect(Callable(main, "_show_main_menu"))
 	actions.add_child(back_button)
 
 	start_button = Button.new()
-	start_button.custom_minimum_size = Vector2(0 if mobile_portrait else 320, 64 if mobile_portrait else (58 if short else 66))
-	start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mobile_portrait else Control.SIZE_FILL
+	start_button.custom_minimum_size = Vector2(320, 58 if short else 66)
+	start_button.size_flags_horizontal = Control.SIZE_FILL
 	start_button.pressed.connect(Callable(self, "_confirm_selection"))
 	actions.add_child(start_button)
 

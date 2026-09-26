@@ -28,9 +28,8 @@ func build(body: VBoxContainer) -> void:
 	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
 	var compact: bool = _is_reward_compact_layout()
 	var tight: bool = _is_tight_reward_layout()
-	var phone_portrait: bool = main._is_phone_portrait_layout()
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	var action_dock_layout: bool = phone_portrait or (viewport_size.x > viewport_size.y and viewport_size.y <= 800.0)
+	var action_dock_layout: bool = viewport_size.x > viewport_size.y and viewport_size.y <= 800.0
 	if not action_dock_layout:
 		body.add_child(main._make_run_summary_panel())
 	body.add_child(main.ui.make_guidance_banner("다음 행동", "유물을 고른 뒤, 다음 전투에 필요한 카드 1장을 선택하세요" if _has_relic_choice(reward) else ("장비 한 장을 골라 아군을 강화해보세요" if bool(reward.get("lesson_equipment", false)) else "주력 강화 · 보조 연계 · 새로운 방향 중 다음 수를 고르세요"), Color(0.24, 0.2, 0.12, 1.0), compact))
@@ -48,7 +47,7 @@ func build(body: VBoxContainer) -> void:
 		relic_panel.custom_minimum_size.x = 210
 		hub.add_child(relic_panel)
 		build_panel.queue_free()
-	elif not phone_portrait:
+	else:
 		hub.add_child(build_panel)
 
 	var card_panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 14)
@@ -73,8 +72,6 @@ func build(body: VBoxContainer) -> void:
 			continue
 		row.add_child(_make_reward_choice(main.cards_by_id[String(card_id)]))
 
-	if phone_portrait:
-		hub.add_child(build_panel)
 	if main._lesson_stage() >= 5:
 		hub.add_child(_make_reward_side_panel(reward, compact))
 	elif not action_dock_layout:
@@ -256,12 +253,11 @@ func _reward_growth_summary(card: Dictionary) -> Dictionary:
 func _make_reward_choice(card: Dictionary) -> Control:
 	var compact: bool = _is_reward_compact_layout()
 	var tight: bool = _is_tight_reward_layout()
-	var phone_portrait: bool = main._is_phone_portrait_layout()
 	var primary_tag: String = main._primary_build_tag(main._current_build_scores())
 	var matches_primary: bool = main._card_matches_build_tag(card, primary_tag)
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override("panel", main.ui.make_race_card_style(card, Color(0.035, 0.05, 0.07, 0.94), 2, 8, 0.12, Color(0.94, 0.72, 0.3) if matches_primary else Color.TRANSPARENT))
-	frame.custom_minimum_size = Vector2(0 if phone_portrait else 188, 0)
+	frame.custom_minimum_size = Vector2(188, 0)
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	frame.tooltip_text = "%s\n%s\n%s" % [_reward_choice_reason(card, matches_primary), main._plain_build_delta_text(card), main._choice_impact_text(card)]
 	var box := VBoxContainer.new()
@@ -270,7 +266,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var role: Label = main._make_label(_card_choice_role(String(card.get("id", ""))), 13, Color(1.0, 0.83, 0.48))
 	box.add_child(role)
 	box.add_child(main.ui.make_card_header(main, card, "reward", compact, tight, int(card.get("cost", 0))))
-	box.add_child(main.ui.make_card_art(main, card, Vector2(180, 140 if phone_portrait else 156)))
+	box.add_child(main.ui.make_card_art(main, card, Vector2(180, 156)))
 	box.add_child(main.ui.make_card_identity_label(main, card, "reward", compact, tight, false, true))
 	box.add_child(main.ui.make_card_rules_block(main, card, main._card_effect_summary(card), "", "reward", compact, tight, 40.0))
 	var reason: Label = main._make_label(_reward_choice_reason(card, matches_primary), 13, Color(0.78, 0.86, 0.93))
@@ -327,7 +323,7 @@ func _make_relic_choices(reward: Dictionary, compact: bool) -> PanelContainer:
 	var title: Label = main._make_label("유물 1개 선택", 16 if compact else 18, Color(0.92, 0.82, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(title)
-	var row: BoxContainer = HBoxContainer.new() if main._is_phone_portrait_layout() else main.ui.make_responsive_box(compact, 8)
+	var row: BoxContainer = main.ui.make_responsive_box(compact, 8)
 	row.add_theme_constant_override("separation", 8)
 	box.add_child(row)
 	var selected: Dictionary = _selected_reward_relic(reward)
@@ -338,8 +334,6 @@ func _make_relic_choices(reward: Dictionary, compact: bool) -> PanelContainer:
 		var button := Button.new()
 		button.name = "RelicChoice_" + id
 		button.text = "%s%s\n%s\n%s" % ["✓ 선택됨 · " if chosen else "", String(relic.get("name", "유물")), String(relic.get("text", "")), main._choice_impact_text(relic)]
-		if main._is_phone_portrait_layout():
-			button.text = "%s%s\n%s" % ["✓ " if chosen else "", String(relic.get("name", "유물")), String(relic.get("text", ""))]
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.custom_minimum_size = Vector2(0, 120 if compact else 120)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL

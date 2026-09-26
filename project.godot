@@ -21,8 +21,8 @@ config/icon="res://assets/store/app_icon_1024.png"
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
-window/handheld/orientation=6
+window/stretch/aspect="keep"
+window/handheld/orientation=4
 
 [gui]
 

@@ -123,14 +123,14 @@ func _test_content_scaling(main: Node) -> void:
 	var original_scale_mode := String(main.player_profile["settings"].get("ui_scale_mode", "auto"))
 	main.player_profile["settings"]["ui_scale_mode"] = "auto"
 	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/mode", "")), "canvas_items", "project uses Canvas Items stretch mode")
-	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/aspect", "")), "expand", "project uses Expand stretch aspect")
-	_assert_eq(int(ProjectSettings.get_setting("display/window/handheld/orientation", -1)), DisplayServer.SCREEN_SENSOR, "mobile app follows landscape and portrait rotation")
-	_assert_eq(main._layout_size_for_physical_size(Vector2(390, 844)), Vector2(390, 844), "phone layout keeps native logical pixels")
+	_assert_eq(String(ProjectSettings.get_setting("display/window/stretch/aspect", "")), "keep", "project preserves landscape canvas aspect")
+	_assert_eq(int(ProjectSettings.get_setting("display/window/handheld/orientation", -1)), DisplayServer.SCREEN_SENSOR_LANDSCAPE, "mobile app allows landscape rotation but never portrait")
+	_assert_eq(main._layout_size_for_physical_size(Vector2(390, 844)), Vector2(844, 390), "phone always uses landscape logical pixels")
 	main.touch_input_active = true
-	_assert_true(is_equal_approx(main._layout_size_for_physical_size(Vector2(1080, 2340)).x, 390.0), "Android high density screen uses phone layout width")
-	_assert_true(is_equal_approx(main._layout_size_for_physical_size(Vector2(1440, 3120)).x, 390.0), "higher density phone preserves control size")
+	_assert_true(is_equal_approx(main._layout_size_for_physical_size(Vector2(1080, 2340)).y, 390.0), "Android high density screen uses landscape layout height")
+	_assert_true(is_equal_approx(main._layout_size_for_physical_size(Vector2(1440, 3120)).y, 390.0), "higher density phone preserves landscape control size")
 	main.touch_input_active = false
-	_assert_eq(main._layout_size_for_physical_size(Vector2(800, 1280)), Vector2(800, 1280), "tablet layout keeps native logical pixels")
+	_assert_eq(main._layout_size_for_physical_size(Vector2(800, 1280)), Vector2(1280, 800), "tablet always uses landscape logical pixels")
 	var full_hd_layout: Vector2 = main._layout_size_for_physical_size(Vector2(1920, 1080))
 	_assert_true(is_equal_approx(full_hd_layout.x, 1324.1379) and is_equal_approx(full_hd_layout.y, 744.8276), "full HD uses the roomy desktop UI scale")
 	_assert_true(is_equal_approx(main._content_scale_factor_for_physical_size(Vector2(1920, 1080)), 0.9666667), "full HD keeps Canvas Items close to native size")
@@ -138,7 +138,7 @@ func _test_content_scaling(main: Node) -> void:
 	_assert_true(is_equal_approx(ultrawide_layout.x, 1765.5172) and is_equal_approx(ultrawide_layout.y, 744.8276), "ultrawide keeps extra horizontal layout space with larger UI")
 	main.player_profile["settings"]["ui_scale_mode"] = "large"
 	_assert_true(is_equal_approx(main._render_scale_for_physical_size(Vector2(1920, 1080)), 1.566), "large mode increases desktop UI scale")
-	_assert_eq(main._layout_size_for_physical_size(Vector2(390, 844)), Vector2(390, 844), "large mode does not shrink phone layout")
+	_assert_eq(main._layout_size_for_physical_size(Vector2(390, 844)), Vector2(844, 390), "large mode preserves landscape phone layout")
 	main.player_profile["settings"]["ui_scale_mode"] = "small"
 	_assert_true(is_equal_approx(main._render_scale_for_physical_size(Vector2(1920, 1080)), 1.305), "small mode reduces desktop UI scale")
 	main.player_profile["settings"]["ui_scale_mode"] = original_scale_mode

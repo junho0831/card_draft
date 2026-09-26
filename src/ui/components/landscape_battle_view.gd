@@ -10,14 +10,14 @@ var detail_slot := -1
 var confirm_in_progress := false
 var unit_width := 80.0
 var hand_size := Vector2(80, 112)
-const HERO_WIDTH := 104.0
+const HERO_WIDTH := 80.0
+var field_height := 72.0
+var cancel_button: Button
 var hero_bars: Array[ProgressBar] = []
 var enemy_hero_hint: Label
 var phase_badge: Label
 var center_guidance: Label
 var intent_detail: Label
-var enemy_lane_button: Button
-var ally_lane_button: Button
 # Overrides follow the existing art identity; other portraits use the default focus.
 const PORTRAIT_FOCUS := {
 	"trainee_swordsman": Vector2(0.5, 0.2),
@@ -41,8 +41,9 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	var viewport: Vector2 = battle.main._layout_viewport_size()
-	unit_width = floorf((viewport.x - 120 - 24 - HERO_WIDTH - 40) / 5.0)
-	hand_size = Vector2(76, 106) if viewport.y <= 375 else Vector2(80, 112)
+	unit_width = floorf((viewport.x - 100 - 24 - HERO_WIDTH - 32) / 5.0)
+	hand_size = Vector2(68, 92)
+	field_height = maxf(64, floorf((viewport.y - 190) / 2.0))
 	old_root.hide()
 	action_panel.hide()
 	battle.main.mobile_bottom_inset = 0
@@ -59,7 +60,7 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	header_panel.add_theme_stylebox_override("panel", Styles.make_flat_style(Color("081320"), Color("695638")))
 	page.add_child(header_panel)
 	var header := HBoxContainer.new()
-	header.custom_minimum_size.y = 44
+	header.custom_minimum_size.y = 36
 	header.add_theme_constant_override("separation", 8)
 	header_panel.add_child(header)
 	var title := label("전투 · " + String(battle.opponent.name), 16)
@@ -90,13 +91,13 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	board_scroll = ScrollContainer.new()
 	board_scroll.name = "BattlefieldScroll"
 	board_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	board_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+	board_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	board_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	board_scroll.add_theme_stylebox_override("panel", Styles.make_flat_style(Color(0.025, 0.045, 0.075, 0.55), Color("394b60")))
 	board.add_child(board_scroll)
 	lanes = VBoxContainer.new()
 	lanes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lanes.add_theme_constant_override("separation", 12)
+	lanes.add_theme_constant_override("separation", 4)
 	board_scroll.add_child(lanes)
 	lane(lanes, battle.opponent_field_box, true)
 	lane(lanes, battle.player_field_box, false)
@@ -126,43 +127,25 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	intent_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	battle.deck_list_label.get_parent().add_child(intent_detail)
 	battle.hand_scroll.reparent(board)
+	battle.hand_scroll.set_meta("cancel_tap_on_motion", true)
 	battle.hand_scroll.add_theme_stylebox_override("panel", Styles.make_flat_style(Color(0.025, 0.045, 0.075, 0.8), Color("695638")))
 	battle.hand_scroll.custom_minimum_size = Vector2(0, hand_size.y + 6)
 	battle.hand_scroll.size_flags_vertical = Control.SIZE_SHRINK_END
 	var rail := VBoxContainer.new()
-	rail.custom_minimum_size.x = 120
+	rail.custom_minimum_size.x = 100
 	rail.add_theme_constant_override("separation", 6)
 	body.add_child(rail)
-	for button in [battle.recommended_action_button, battle.race_power_button, battle.end_turn_button]:
+	battle.recommended_action_button.reparent(header)
+	ButtonMetrics.apply(battle.recommended_action_button, "compact", 48)
+	battle.recommended_action_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	for button in [battle.race_power_button, battle.end_turn_button]:
 		button.reparent(rail)
-		ButtonMetrics.apply(button, "action", 120)
-	enemy_lane_button = action("", func(): _navigate_lane(false), "compact")
-	enemy_lane_button.name = "EnemyLaneNavigation"
-	rail.add_child(enemy_lane_button)
-	ally_lane_button = action("", func(): _navigate_lane(true), "compact")
-	ally_lane_button.name = "AllyLaneNavigation"
-	rail.add_child(ally_lane_button)
-	board_scroll.get_v_scroll_bar().value_changed.connect(func(_value): _refresh_lane_navigation())
-	call_deferred("_refresh_lane_navigation")
-
-func _navigate_lane(ally: bool) -> void:
-	# Android may dispatch Button.pressed before the touch router sees release.
-	await get_tree().process_frame
-	if is_inside_tree():
-		await focus_targets([{"player": ally, "hero": true}], false, true)
-
-func _refresh_lane_navigation() -> void:
-	if not is_instance_valid(enemy_lane_button) or not is_instance_valid(ally_lane_button): return
-	var bar := board_scroll.get_v_scroll_bar()
-	var at_enemy := bar.value <= maxf(0, bar.max_value - bar.page) * 0.5
-	for button in [enemy_lane_button, ally_lane_button]:
-		var active: bool = (button == enemy_lane_button) == at_enemy
-		Styles.apply_compact_button(button, Color("d5b779") if active else Color("66788e"))
-		var style: StyleBoxFlat = button.get_theme_stylebox("normal").duplicate()
-		style.bg_color = Color(0.17, 0.14, 0.08, 0.98) if active else Color(0.025, 0.04, 0.06, 0.96)
-		style.set_border_width_all(2 if active else 1)
-		button.add_theme_stylebox_override("normal", style)
-		button.tooltip_text = "현재 보고 있는 전열" if active else "눌러서 전열로 이동"
+		ButtonMetrics.apply(button, "action", 100)
+	cancel_button = action("선택 취소", func():
+		battle._cancel_ally_selection()
+		battle.selected_attacker = -1
+		battle._refresh_ui(), "compact")
+	rail.add_child(cancel_button)
 
 func label(value: String, font_size: int = 16) -> Label:
 	var result := Label.new()
@@ -181,10 +164,10 @@ func action(value: String, callback: Callable, kind: String = "action") -> Butto
 func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
-	row.custom_minimum_size.y = 144
+	row.custom_minimum_size.y = field_height
 	parent.add_child(row)
 	var hero := Button.new()
-	hero.custom_minimum_size = Vector2(HERO_WIDTH, 144)
+	hero.custom_minimum_size = Vector2(HERO_WIDTH, field_height)
 	hero.clip_text = true
 	hero.add_theme_font_size_override("font_size", 16)
 	row.add_child(hero)
@@ -201,7 +184,8 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 	title.offset_right = -4
 	title.offset_top = 5
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.clip_text = true
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title.add_theme_color_override("font_outline_color", Color.BLACK)
 	title.add_theme_constant_override("outline_size", 6)
 	hero.add_child(title)
@@ -236,13 +220,14 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 		battle.enemy_hero_hp_label = hp
 		battle.opponent_info = hp
 		hero.pressed.connect(func(): battle._attack_opponent_hero())
+		outline(hero, Color(1.0, 0.35, 0.3), 1, 3, "TargetBorder")
 	else:
 		battle.player_hero_target = hero
 		battle.player_hero_target_hp_label = hp
 		battle.player_hero_hp_label = hp
 		battle.player_info = hp
 	cards.reparent(row)
-	cards.custom_minimum_size = Vector2(0, 144)
+	cards.custom_minimum_size = Vector2(0, field_height)
 	cards.add_theme_constant_override("separation", 4)
 	cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
@@ -263,6 +248,7 @@ func stamp(parent: Control, node_name: String, value: String, at: Vector2, exten
 		band.add_theme_stylebox_override("panel", style)
 	parent.add_child(band)
 	var text := label(value, font_size)
+	text.add_theme_constant_override("line_spacing", 0)
 	text.name = node_name
 	text.position = at
 	text.size = extent
@@ -330,7 +316,7 @@ func portrait_texture(card: Dictionary, target_size: Vector2) -> Texture2D:
 	return result
 
 func field_card(unit: Dictionary, status: String, accent: Color) -> Button:
-	return tile(unit, status, unit_width, accent, 144, true)
+	return tile(unit, status, unit_width, accent, field_height, true)
 
 func tile(card: Dictionary, bottom: String, width: float, accent: Color, height: float = 72, field: bool = false) -> Button:
 	var button := Button.new()
@@ -356,11 +342,12 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if field:
-		art.texture = portrait_texture(card, Vector2(width - 6, 102))
+		art.texture = portrait_texture(card, Vector2(width - 6, height - 24))
 		art.anchor_bottom = 0
-		art.offset_bottom = 102
+		art.offset_bottom = height - 24
 	button.add_child(art)
-	stamp(button, "CardName", String(card.get("name", "")), Vector2(3, 102 if field else height - 43), Vector2(width - 6, 18 if field else 20), Color(tint.r * 0.35, tint.g * 0.35, tint.b * 0.35, 0.96), 14)
+	var name_label := stamp(button, "CardName", String(card.get("name", "")), Vector2(3, height - 43), Vector2(width - 6, 18), Color(tint.r * 0.35, tint.g * 0.35, tint.b * 0.35, 0.96), 12)
+	if field: name_label.hide(); button.get_node("CardNameBand").hide()
 	if card.has("attack"):
 		stamp(button, "Attack", str(int(card.attack)), Vector2(3, height - 24), Vector2(26, 22), Color(0.48, 0.12, 0.09))
 		stamp(button, "Health", str(int(card.get("health", 0))), Vector2(width - 29, height - 24), Vector2(26, 22), Color(0.08, 0.25, 0.48))
@@ -375,22 +362,15 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(icon)
+	if field: icon.hide()
 	button.tooltip_text = {"unit":"유닛", "damage":"피해·저주 주문", "support":"회복·지원 주문", "equipment":"장비"}[kind]
 	return button
 
 func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 	if index >= side.field.size():
 		var empty := field_card({}, "", Color(0.2, 0.27, 0.33))
-		if ally:
-			empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		else:
-			battle._configure_enemy_field_attack(empty)
-			empty.modulate.a = 1.0
-			if index == side.field.size():
-				empty.text = "선봉 보호" if battle._enemy_vanguard_blocks_hero() else ("영웅 공격" if battle.selected_attacker >= 0 else "아군 선택")
-				empty.add_theme_font_size_override("font_size", 14)
-			if battle.selected_attacker >= 0 and not empty.disabled and not battle._enemy_vanguard_blocks_hero():
-				outline(empty, Color(1.0, 0.35, 0.3), 4, 1, "TargetBorder")
+		empty.disabled = true
+		empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		return empty
 	var unit: Dictionary = side.field[index]
 	var ready: bool = not battle._is_player_input_locked() and (bool(unit.get("can_attack", false)) or not battle.pending_action.is_empty()) if ally else not battle._is_player_input_locked() and battle.selected_attacker >= 0
@@ -416,18 +396,22 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 		for node_name in ["Attack", "AttackBand", "Health", "HealthBand"]:
 			var node := button.get_node_or_null(node_name)
 			if node != null: node.hide()
-		stamp(button, "CombatPrediction", "적 %d→%d\n내 %d→%d" % [int(unit.health), int(prediction.defender_health), int(battle._selected_player_attacker().get("health", 0)), int(prediction.attacker_health)], Vector2(2, 26), Vector2(unit_width - 4, 38), Color(0.03, 0.08, 0.12, 0.96), 13)
+		stamp(button, "CombatPrediction", "적 %d→%d\n내 %d→%d" % [int(unit.health), int(prediction.defender_health), int(battle._selected_player_attacker().get("health", 0)), int(prediction.attacker_health)], Vector2(2, field_height - 56), Vector2(unit_width - 4, 54), Color(0.03, 0.08, 0.12, 0.96), 12)
 		if prediction.defender_health <= 0:
 			button.get_node("CardName").size.x = unit_width - 38
-			stamp(button, "Lethal", "처치", Vector2(unit_width - 34, 102), Vector2(32, 18), Color(0.45, 0.08, 0.05), 12)
+			stamp(button, "Lethal", "처치", Vector2(2, 2), Vector2(32, 18), Color(0.45, 0.08, 0.05), 12)
 		button.tooltip_text = battle._unit_attack_preview_text(unit, prediction) + " (후속 사망·장비 효과 별도)"
 		if int(prediction.attacker_health) <= 0:
-			stamp(button, "AllyLethal", "내 유닛 사망", Vector2(2, 66), Vector2(unit_width - 4, 20), Color(0.45, 0.08, 0.05), 12)
+			button.tooltip_text += " · 내 유닛 사망"
 	button.pressed.connect(func():
 		if button.get_meta("hold_consumed", false) or battle._is_player_input_locked(): return
 		if ally: battle._on_player_unit_pressed(index)
 		else: battle._on_opponent_unit_pressed(index)
 	)
+	_bind_hold(button, func(): show_unit(unit, ally))
+	return button
+
+func _bind_hold(button: Button, inspect: Callable) -> void:
 	var timer := Timer.new()
 	timer.one_shot = true
 	timer.wait_time = 0.4
@@ -435,7 +419,7 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 	battle.main.touch_scroll_router.swipe_started.connect(timer.stop)
 	timer.timeout.connect(func():
 		button.set_meta("hold_consumed", true)
-		show_unit(unit, ally)
+		inspect.call()
 	)
 	button.gui_input.connect(func(event: InputEvent):
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -445,11 +429,10 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 				timer.start()
 			else: timer.stop()
 		elif event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
-			if event.position.distance_to(button.get_meta("hold_origin", event.position)) >= 12:
+			if event.position.distance_to(button.get_meta("hold_origin", event.position)) >= battle.main.touch_scroll_router.SWIPE_THRESHOLD:
 				timer.stop()
 				button.set_meta("hold_consumed", true)
 	)
-	return button
 
 func render_hand() -> void:
 	for i in range(battle.player.hand.size()):
@@ -464,7 +447,11 @@ func render_hand() -> void:
 			stamp(button, "Playable", "◆", Vector2(hand_size.x - 20, 27), Vector2(16, 16), Color(0.03, 0.09, 0.08, 0.8), 12)
 		button.set_meta("hand_slot", int(card.get("_hand_slot", i)))
 		if not playable: button.get_node("Illustration").modulate = Color(0.42, 0.42, 0.42)
-		button.pressed.connect(battle._on_hand_card_pressed.bind(i))
+		button.pressed.connect(func():
+			if button.get_meta("hold_consumed", false): return
+			battle._on_hand_card_pressed(i)
+		)
+		_bind_hold(button, func(): show_card(i))
 		battle.hand_box.add_child(button)
 	battle._layout_hand_cards()
 
@@ -481,6 +468,7 @@ func close_detail() -> void:
 	card_dialog = null
 	confirm_button = null
 	detail_slot = -1
+	if battle != null: battle.call_deferred("_check_no_actions_loss")
 
 func dialog(title: String, text: String, card: Dictionary = {}) -> HBoxContainer:
 	cancel_focus()
@@ -602,10 +590,13 @@ func handle_back() -> bool:
 	return false
 
 func refresh_labels() -> void:
+	battle.recommended_action_button.text = "도움"
 	phase_badge.text = battle._battle_phase_state().badge
 	phase_badge.add_theme_color_override("font_color", Color("9eacbf") if battle.current_player != "player" else Color("f1ce83"))
 	if is_instance_valid(enemy_hero_hint):
 		enemy_hero_hint.text = "선봉 보호" if battle._enemy_vanguard_blocks_hero() else ("아군 선택" if battle.selected_attacker < 0 else battle._hero_attack_target_badge_text() if battle.current_player == "player" and not battle.hero_attack_button.disabled else "적 영웅")
+		battle.opponent_hero_target.get_node("TargetBorder").visible = battle.selected_attacker >= 0 and not battle._is_player_input_locked() and battle.pending_action.is_empty() and not battle._enemy_vanguard_blocks_hero()
+		battle.opponent_hero_target.tooltip_text = "아군을 선택한 뒤 이 영웅을 누르면 공격합니다."
 	battle.opponent_info.text = "%d/%d" % [battle.opponent.health, battle.opponent.max_health]
 	battle.player_info.text = "%d/%d" % [battle.player.health, battle.player.max_health]
 	for i in range(hero_bars.size()):
@@ -614,8 +605,10 @@ func refresh_labels() -> void:
 		hero_bars[i].value = side.health
 	battle.reference_mana_label.add_theme_color_override("font_color", Color("79d4ff"))
 	battle.reference_mana_label.text = "◆ %d/%d" % [battle.player.mana, battle.player.max_mana]
-	enemy_lane_button.text = "적 ↑ %d/%d" % [battle.opponent.health, battle.opponent.max_health]
-	ally_lane_button.text = "아군 ↓\n공격 가능 %d" % battle._ready_player_attacker_indexes().size()
+	cancel_button.visible = not battle.pending_action.is_empty() or battle.selected_attacker >= 0
+	if cancel_button.visible:
+		battle.end_turn_button.text = "턴 종료"
+		battle.end_turn_button.disabled = true
 	center_guidance.text = battle._next_enemy_action_text(true)
 	if not battle.pending_action.is_empty() or Time.get_ticks_msec() < battle.interaction_hint_until or battle.main.Onboarding.first_battle(battle.main.current_run):
 		center_guidance.text = battle._current_battle_guidance_text()
@@ -623,7 +616,7 @@ func refresh_labels() -> void:
 		center_guidance.text = "할 수 있는 행동이 없습니다 · 턴 종료" if battle._turn_action_state().exhausted else "카드·필살기 사용 또는 턴 종료"
 	if battle.selected_attacker >= 0 and battle.pending_action.is_empty() and Time.get_ticks_msec() >= battle.interaction_hint_until:
 		center_guidance.text = "공격 후 체력 미리보기 · 붉은 대상을 누르면 공격"
-	center_guidance.text = center_guidance.text.replace("손패 카드를 눌러 확인한 뒤 다시 눌러 소환하세요.", "카드를 확인하고 ‘사용’을 눌러 소환하세요.")
+	center_guidance.text = center_guidance.text.replace("손패 카드를 눌러 확인한 뒤 다시 눌러 소환하세요.", "손패 카드를 누르면 바로 소환합니다.")
 	center_guidance.tooltip_text = center_guidance.text
 	intent_detail.text = "적 공격 예고\n" + battle._next_enemy_action_text()
 	Styles.apply_compact_button(battle.recommended_action_button, Color("526170"))
@@ -635,7 +628,7 @@ func _exit_tree() -> void:
 	get_tree().quit_on_go_back = previous_back_quit
 
 func show_help() -> void:
-	dialog("전투 도움", center_guidance.text + "\n\n" + battle._next_enemy_action_text() + "\n\n카드를 누르면 효과와 비용을 확인합니다. 사용 버튼으로 확정하세요.\n아군을 누른 뒤 강조된 적을 누르면 공격합니다. 선봉을 처치하면 적 영웅을 공격할 수 있습니다.\n카드 숫자는 공격 / 체력입니다. 유닛을 길게 누르면 효과를 확인합니다.\n대상을 고르는 중에는 선택 취소로 돌아갈 수 있습니다.")
+	dialog("전투 도움", center_guidance.text + "\n\n" + battle._next_enemy_action_text() + "\n\n카드를 누르면 바로 사용합니다. 길게 누르면 효과와 비용을 확인합니다.\n아군을 누른 뒤 강조된 적을 누르면 공격합니다. 선봉을 처치하면 적 영웅을 공격할 수 있습니다.\n카드 숫자는 공격 / 체력입니다. 유닛을 길게 누르면 효과를 확인합니다.\n대상을 고르는 중에는 선택 취소로 돌아갈 수 있습니다.")
 
 # Camera movement is presentation only; cancelling it never cancels combat.
 func cancel_focus() -> void:
@@ -667,4 +660,4 @@ func scroll_for_rect(rect: Rect2) -> int:
 	return session.scroll_for_rect(rect)
 
 func focus_targets(targets: Array, immediate: bool = false, manual: bool = false) -> void:
-	await session.focus(targets, immediate, manual)
+	pass

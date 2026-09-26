@@ -441,4 +441,4 @@ func _is_guide_compact_layout() -> bool:
 	# a multi-column guide. Compacting by height made the first preview stretch
 	# across the whole page and pushed every other screen below the fold.
 	var viewport: Vector2 = main._layout_viewport_size()
-	return main._is_phone_portrait_layout() or viewport.x < 900.0
+	return viewport.x < 900.0

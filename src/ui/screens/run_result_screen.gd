@@ -16,9 +16,8 @@ func build(body: VBoxContainer, is_win: bool, play_audio: bool = true) -> void:
 	if play_audio and main.audio_manager != null and not suppress_victory_audio:
 		main.audio_manager.play_sound("victory_burst" if is_win else "defeat")
 	var compact: bool = _is_run_result_compact_layout()
-	var phone_portrait: bool = main._is_phone_portrait_layout()
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	var action_dock_layout: bool = phone_portrait or (viewport_size.x > viewport_size.y and viewport_size.y <= 800.0)
+	var action_dock_layout: bool = viewport_size.x > viewport_size.y and viewport_size.y <= 800.0
 	var scores: Dictionary = main._current_build_scores()
 	var primary_tag: String = main._primary_build_tag(scores)
 	var tag_meta: Dictionary = main._build_tag_meta().get(primary_tag, {})

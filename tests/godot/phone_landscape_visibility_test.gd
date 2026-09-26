@@ -31,6 +31,23 @@ func run() -> void:
 	root.add_child(main)
 	main.touch_input_active = true
 	main._apply_root_layout()
+	main.set_meta("layout_viewport_override", Vector2i(390, 802))
+	main._apply_root_layout()
+	await settle()
+	check(main._layout_viewport_size() == Vector2(802, 390), "startup dimensions cannot select a vertical layout")
+	check(root.content_scale_size == Vector2i(802, 390), "canvas stays landscape rather than stretching a vertical screen")
+	main.set_meta("layout_viewport_override", Vector2i(802, 390))
+	main._apply_root_layout()
+	main.set_meta("display_safe_area_override", Rect2(44, 0, 714, 369))
+	main._apply_root_layout()
+	await settle()
+	check(main._layout_viewport_size() == Vector2(714, 369), "layout excludes camera and home indicator areas")
+	var modal_rect: Rect2 = main.modal_layer.get_global_rect()
+	check(Rect2(44, 0, 714, 369).encloses(modal_rect) and modal_rect.size.distance_to(Vector2(714, 369)) < 1.0, "battle and dialogs stay inside safe area: %s" % modal_rect)
+	check(main.root_scroll.get_global_rect().position.x >= 44, "menu text stays past camera inset")
+	check(main.root_scroll.get_global_rect().end.x <= 758, "menu text stays inside trailing inset")
+	main.remove_meta("display_safe_area_override")
+	main._apply_root_layout()
 	main._clear_run()
 	await main._show_main_menu()
 	await settle()
@@ -63,8 +80,8 @@ func run() -> void:
 	var view = battle.landscape_view
 	check(view != null, "uses landscape battle")
 	if view != null:
-		check(view.board_scroll.scroll_vertical > 0, "battle entry starts at ally lane")
-		check(battle.opponent_hero_target.size.x >= 104, "enemy hero has a wide touch target")
+		check(view.board_scroll.scroll_vertical == 0, "battle entry uses fixed lanes")
+		check(battle.opponent_hero_target.size.x >= 64, "enemy hero has a wide touch target")
 		check(view.enemy_hero_hint.mouse_filter == Control.MOUSE_FILTER_IGNORE, "hero hint does not intercept taps")
 		check(view.board_scroll.get_global_rect().encloses(battle.player_hero_target.get_global_rect()), "ally hero fully visible on entry")
 		await view.focus_targets([{ "player":false, "hero":true }], true)
@@ -72,7 +89,7 @@ func run() -> void:
 		if not battle.opponent.field.is_empty():
 			check(view.board_scroll.get_global_rect().encloses(battle._card_action_field_slot(false, 0).get_global_rect()), "enemy vanguard fully visible after navigating")
 		await capture("battle-entry")
-		check(Rect2(Vector2.ZERO, Vector2(root.size)).encloses(view.ally_lane_button.get_global_rect()), "lane navigation stays on screen")
+		check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "enemy hero remains visible alongside ally hero")
 		view.show_card(0)
 		await settle()
 		var viewer = view.card_dialog.find_child("CardInspectionView", true, false)
@@ -82,11 +99,8 @@ func run() -> void:
 		var before: int = battle.player.hand.size()
 		view.close_detail()
 		check(battle.player.hand.size() == before, "closing card detail does not play it")
-		view.session.pointer_down = true
-		view.ally_lane_button.pressed.emit()
-		view.session.pointer_down = false
-		await settle()
-		check(view.board_scroll.scroll_vertical > 0, "action focus can still reach ally lane")
+		await view.focus_targets([{"player": true, "hero": true}], true)
+		check(view.board_scroll.scroll_vertical == 0, "action focus never moves the board")
 		await view.focus_targets([{"player": false, "hero": true}], true)
 		check(view.board_scroll.scroll_vertical == 0, "action focus can return to enemy lane")
 		# Click the newly added right edge rather than only the portrait center.
@@ -97,7 +111,7 @@ func run() -> void:
 		await settle()
 		var hp_before := int(battle.opponent.health)
 		var hero_rect: Rect2 = battle.opponent_hero_target.get_global_rect()
-		var point := hero_rect.position + Vector2(94, 70)
+		var point := hero_rect.position + Vector2(hero_rect.size.x - 8, hero_rect.size.y / 2)
 		for pressed in [true, false]:
 			var event := InputEventMouseButton.new()
 			event.button_index = MOUSE_BUTTON_LEFT

@@ -16,6 +16,8 @@ var presentation
 var attack_executor
 var leaving_battle := false
 var inflight_actions := 0
+var auto_end_pending := false
+var floating_text_until := 0
 var pending_action: Dictionary = {}
 var reference_health_bars: Dictionary = {}
 var reference_mana_label: Label
@@ -778,7 +780,7 @@ func _effective_battle_tutorial_stage() -> int:
 
 func _battle_tutorial_content() -> Dictionary:
 	if _is_landscape_phone():
-		return {"compact": "카드 확인 후 사용 · 아군 선택 후 적 공격", "title": "직접 조작하기", "lines": ["손패를 눌러 효과를 확인한 뒤 사용을 누르세요.", "아군을 고르면 적 아래에 공격 후 체력이 표시됩니다. 적을 누르면 공격합니다.", "도움 보기는 설명만 표시합니다. 대상 선택은 취소할 수 있습니다."], "detail": "손패를 눌러 확인한 뒤 사용하세요. 아군을 고른 뒤 적을 누르면 공격합니다. 도움 보기는 설명만 표시합니다."}
+		return {"compact": "카드 즉시 사용 · 아군 선택 후 적 공격", "title": "직접 조작하기", "lines": ["손패를 누르면 바로 사용합니다. 길게 누르면 효과를 확인합니다.", "아군을 고르면 적 아래에 공격 후 체력이 표시됩니다. 적을 누르면 공격합니다.", "도움 보기는 설명만 표시합니다. 대상 선택은 취소할 수 있습니다."], "detail": "손패를 누르면 바로 사용합니다. 아군을 고른 뒤 적을 누르면 공격합니다. 도움 보기는 설명만 표시합니다."}
 	var stage := _effective_battle_tutorial_stage()
 	match stage:
 		0:
@@ -873,20 +875,15 @@ func _is_tight_battle_layout() -> bool:
 	var desktop_fit := viewport_size.x >= 1180.0 and viewport_size.y <= 900.0
 	return viewport_size.x <= 1024.0 or viewport_size.y <= 760.0 or desktop_fit
 
-func _is_portrait_battle_layout() -> bool:
-	var viewport_size: Vector2 = main._layout_viewport_size()
-	return viewport_size.y > viewport_size.x
-
 func _is_landscape_phone() -> bool:
 	return LayoutPolicy.is_mobile_landscape(main._layout_viewport_size())
 
 func _is_mobile_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	return LayoutPolicy.is_mobile_portrait(viewport_size) or LayoutPolicy.is_mobile_landscape(viewport_size)
+	return LayoutPolicy.is_mobile_landscape(viewport_size)
 
 func _uses_touch_hand_selection() -> bool:
-	var viewport_size: Vector2 = main._layout_viewport_size()
-	return bool(main.touch_input_active) or LayoutPolicy.is_touch_portrait(viewport_size)
+	return bool(main.touch_input_active)
 
 func _is_wide_tight_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
@@ -900,8 +897,6 @@ func _battle_field_card_size() -> Vector2:
 		return PRESENTATION.field_size(true, false, false)
 	if _is_wide_tight_battle_layout():
 		return PRESENTATION.field_size(false, true, _is_roomy_wide_battle_layout())
-	if _is_tight_battle_layout() and _is_portrait_battle_layout():
-		return Vector2(118, 144)
 	if _is_tight_battle_layout():
 		return Vector2(132, 154)
 	return Vector2(156, 182) if not _is_compact_layout() else Vector2(132, 154)
@@ -911,8 +906,6 @@ func _battle_hand_card_size() -> Vector2:
 		return PRESENTATION.hand_size(true, false, false)
 	if _is_wide_tight_battle_layout():
 		return PRESENTATION.hand_size(false, true, _is_roomy_wide_battle_layout())
-	if _is_tight_battle_layout() and _is_portrait_battle_layout():
-		return Vector2(152, 206)
 	if _is_tight_battle_layout():
 		return Vector2(140, 178)
 	return Vector2(190, 220) if not _is_compact_layout() else Vector2(162, 194)
@@ -1883,32 +1876,30 @@ func _make_battle_log_panel(compact: bool, min_height: int) -> Dictionary:
 func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	var tight = _is_tight_battle_layout()
 	var wide_tight = _is_wide_tight_battle_layout()
-	var portrait = _is_portrait_battle_layout()
 	var mobile = _is_mobile_battle_layout()
 	var vertical_stack = compact and not wide_tight
-	var phone_stack = tight and portrait and vertical_stack
 	var race_meta: Dictionary = main._current_race_meta()
 	var race_color: Color = race_meta.get("color", Color(0.42, 0.68, 1.0, 1.0))
 	var guidance_mode := _battle_guidance_mode()
 	var action_accent := Color(1.0, 0.74, 0.24, 1.0) if guidance_mode != GUIDANCE_MODE_HINT else Color(0.42, 0.68, 1.0, 1.0)
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", BATTLE_STYLES.make_action_dock_style(action_accent, 6 if phone_stack else (8 if wide_tight else 12)))
+	panel.add_theme_stylebox_override('panel', BATTLE_STYLES.make_action_dock_style(action_accent, 8 if wide_tight else 12))
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var landscape_phone := mobile and not portrait
-	var box: BoxContainer = HBoxContainer.new() if landscape_phone else (VBoxContainer.new() if mobile else (HBoxContainer.new() if wide_tight else VBoxContainer.new()))
-	box.add_theme_constant_override("separation", 6 if phone_stack else (8 if tight else 10))
+	var landscape_phone: bool = mobile
+	var box: BoxContainer = HBoxContainer.new() if mobile or wide_tight else VBoxContainer.new()
+	box.add_theme_constant_override('separation', 8 if tight else 10)
 	panel.add_child(box)
 	battle_action_caption_label = main._make_label("지금은 금색 주 버튼만 보면 됩니다", 12 if mobile else (12 if tight else (14 if compact else 15)), Color(1.0, 0.88, 0.52, 1.0))
 	battle_action_caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	battle_action_caption_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if mobile or phone_stack else TextServer.AUTOWRAP_OFF
-	battle_action_caption_label.clip_text = not mobile and not phone_stack
+	battle_action_caption_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if mobile else TextServer.AUTOWRAP_OFF
+	battle_action_caption_label.clip_text = not mobile
 	battle_action_caption_label.custom_minimum_size = Vector2(0 if not wide_tight else 168, 0)
 	battle_action_caption_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL if not wide_tight else Control.SIZE_SHRINK_CENTER
 	battle_action_caption_label.add_theme_constant_override("outline_size", 3)
 	battle_action_caption_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.72))
 	box.add_child(battle_action_caption_label)
 	battle_action_caption_label.visible = not landscape_phone
-	if tight and not wide_tight and not phone_stack and not landscape_phone:
+	if tight and (not wide_tight) and (not landscape_phone):
 		var mode_description := "버튼을 누르면 추천 행동이 바로 실행됩니다."
 		if guidance_mode == GUIDANCE_MODE_GUIDED:
 			mode_description = "공격자는 안내가 고르고, 마지막 대상은 직접 누릅니다."
@@ -1920,28 +1911,24 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 
 	recommended_action_button = Button.new()
 	recommended_action_button.text = "다음 행동"
-	var primary_height := 56 if mobile else (58 if phone_stack else (56 if wide_tight else (64 if tight else (70 if compact else 78))))
+	var primary_height := 56 if mobile else 56 if wide_tight else 64 if tight else 70 if compact else 78
 	if guidance_mode == GUIDANCE_MODE_HINT:
 		primary_height = mini(primary_height, 58)
 	recommended_action_button.custom_minimum_size = Vector2(0 if mobile else (320 if vertical_stack else 0), primary_height)
 	recommended_action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if vertical_stack and not landscape_phone:
-		recommended_action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if phone_stack else Control.SIZE_SHRINK_CENTER
+		recommended_action_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_style_recommended_action_button(recommended_action_button, "play_card", "", guidance_mode)
-	recommended_action_button.add_theme_font_size_override("font_size", 18 if mobile else (15 if phone_stack else (16 if tight else 20)))
+	recommended_action_button.add_theme_font_size_override('font_size', 18 if mobile else 16 if tight else 20)
 	recommended_action_button.pressed.connect(Callable(self, "_on_recommended_action_pressed"))
 	box.add_child(recommended_action_button)
 
 	var secondary_parent: BoxContainer = box
-	if mobile and not landscape_phone:
-		secondary_parent = HBoxContainer.new()
-		secondary_parent.add_theme_constant_override("separation", 6 if tight else 8)
-		box.add_child(secondary_parent)
 
 	race_power_button = Button.new()
 	race_power_button.text = _race_power_button_text()
 	race_power_button.tooltip_text = "전투당 1회 · %s" % String(race_meta.get("power_text", ""))
-	race_power_button.custom_minimum_size = Vector2(0, 56 if mobile else (42 if phone_stack else (44 if wide_tight else (46 if tight else (50 if compact else 54)))))
+	race_power_button.custom_minimum_size = Vector2(0, 56 if mobile else 44 if wide_tight else 46 if tight else 50 if compact else 54)
 	race_power_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_race_power_action_button(race_power_button, race_color, false, true)
 	race_power_button.add_theme_font_size_override("font_size", 16 if mobile else (10 if tight else 12))
@@ -1950,7 +1937,7 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 
 	end_turn_button = Button.new()
 	end_turn_button.text = "턴 넘기기"
-	end_turn_button.custom_minimum_size = Vector2(0, 56 if mobile else (38 if phone_stack else (40 if wide_tight else (44 if tight else (46 if compact else 50)))))
+	end_turn_button.custom_minimum_size = Vector2(0, 56 if mobile else 40 if wide_tight else 44 if tight else 46 if compact else 50)
 	end_turn_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_end_turn_action_button(end_turn_button, false)
 	end_turn_button.add_theme_font_size_override("font_size", 18 if mobile else (11 if tight else 13))
@@ -1961,22 +1948,17 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 
 func _make_detail_toggle_row(compact: bool) -> HBoxContainer:
 	var tight = _is_tight_battle_layout()
-	var portrait = _is_portrait_battle_layout()
-	var phone_row = tight and portrait
 	var row = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6 if phone_row else 8)
-	if not phone_row:
-		var title: Label = main._make_label("상세 보기", 11 if tight else (12 if compact else 13), Color(0.76, 0.82, 0.9, 1.0))
-		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(title)
-	else:
-		row.alignment = BoxContainer.ALIGNMENT_END
+	row.add_theme_constant_override('separation', 8)
+	var title: Label = main._make_label("상세 보기", 11 if tight else (12 if compact else 13), Color(0.76, 0.82, 0.9, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(title)
 	detail_toggle_button = Button.new()
 	detail_toggle_button.text = "상세 정보"
-	detail_toggle_button.custom_minimum_size = Vector2(108 if phone_row else (124 if tight else 144), 28 if phone_row else (30 if tight else 34))
-	_style_detail_action_button(detail_toggle_button, phone_row)
-	detail_toggle_button.add_theme_font_size_override("font_size", 9 if phone_row else (10 if tight else 12))
+	detail_toggle_button.custom_minimum_size = Vector2(124 if tight else 144, 30 if tight else 34)
+	_style_detail_action_button(detail_toggle_button, false)
+	detail_toggle_button.add_theme_font_size_override('font_size', 10 if tight else 12)
 	detail_toggle_button.pressed.connect(Callable(self, "_toggle_battle_details"))
 	row.add_child(detail_toggle_button)
 	return row
@@ -2063,6 +2045,7 @@ func _toggle_battle_details() -> void:
 		detail_panel.visible = battle_detail_visible
 	if detail_toggle_button != null and is_instance_valid(detail_toggle_button):
 		detail_toggle_button.text = "상세 닫기" if battle_detail_visible else "상세 정보"
+	if not battle_detail_visible: _check_no_actions_loss()
 
 func _on_surrender_pressed() -> void:
 	if _is_player_input_locked():
@@ -2569,7 +2552,6 @@ func _build_battle_ui() -> void:
 	var compact = _is_compact_layout()
 	var tight = _is_tight_battle_layout()
 	var wide_tight = _is_wide_tight_battle_layout()
-	var portrait = _is_portrait_battle_layout()
 	var mobile = _is_mobile_battle_layout()
 	var touch_hand = _uses_touch_hand_selection()
 	battle_fx_layer = BATTLE_FX_LAYER.new()
@@ -2638,7 +2620,7 @@ func _build_battle_ui() -> void:
 		top_action_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		top_action_panel.offset_left = 6
 		top_action_panel.offset_right = -6
-		var dock_minimum := 160.0 if portrait else 88.0
+		var dock_minimum := 88.0
 		top_action_panel.offset_top = -dock_minimum + 4
 		top_action_panel.offset_bottom = -12
 		main.mobile_bottom_inset = dock_minimum
@@ -3154,9 +3136,6 @@ func _finish_hand_card_drag(release_pos: Vector2, card_index: int) -> void:
 		_render_hand()
 
 func _work_on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed: bool = false) -> void:
-	if _is_landscape_phone() and target_unit_id < 0 and not confirmed and is_instance_valid(landscape_view):
-		landscape_view.show_card(index)
-		return
 	is_dragging_hand_card = false
 	drag_candidate_index = -1
 	if drag_preview_card != null and is_instance_valid(drag_preview_card):
@@ -3171,7 +3150,7 @@ func _work_on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed:
 		return
 	var card: Dictionary = player.hand[index]
 	var hand_slot := int(card.get("_hand_slot", index))
-	if target_unit_id < 0 and not confirmed and _uses_touch_hand_selection() and selected_hand_slot != hand_slot:
+	if target_unit_id < 0 and not confirmed and not _is_landscape_phone() and _uses_touch_hand_selection() and selected_hand_slot != hand_slot:
 		selected_hand_slot = hand_slot
 		_render_hand()
 		hand_render_signature = _hand_signature()
@@ -4013,23 +3992,28 @@ func _resolve_unit_combat(attacker_side: Dictionary, defender_side: Dictionary, 
 
 
 func _check_no_actions_loss() -> void:
-	if main.Onboarding.first_battle(main.current_run):
-		return
-	if current_player != "player" or input_locked or game_over or main.active_screen != "battle":
-		return
-	var has_attacker = false
-	for unit in player.field:
-		if bool(unit.get("can_attack", false)):
-			has_attacker = true
-			break
-	var has_playable_card = false
-	for card in player.hand:
-		if _can_play_card(player, card, "player"):
-			has_playable_card = true
-			break
-	if not has_attacker and not has_playable_card:
-		_add_log("더 이상 할 수 있는 행동이 없어 턴을 종료합니다.")
-		call_deferred("_on_end_turn_pressed")
+	if auto_end_pending or not _can_auto_end_turn(): return
+	auto_end_pending = true
+	call_deferred("_finish_exhausted_turn", battle_state, int(battle_state.get("player_turn_count", 0)))
+
+func _can_auto_end_turn() -> bool:
+	if leaving_battle or main.Onboarding.first_battle(main.current_run): return false
+	if current_player != "player" or input_locked or game_over or main.active_screen != "battle": return false
+	if not pending_action.is_empty() or selected_attacker >= 0 or battle_detail_visible: return false
+	if is_instance_valid(landscape_view) and is_instance_valid(landscape_view.card_dialog): return false
+	return bool(_turn_action_state().exhausted)
+
+func _finish_exhausted_turn(state: Dictionary, turn: int) -> void:
+	while not leaving_battle and (inflight_actions > 0 or Time.get_ticks_msec() < floating_text_until):
+		await main.get_tree().process_frame
+	if is_same(state, battle_state) and int(battle_state.get("player_turn_count", 0)) == turn and _can_auto_end_turn():
+		if is_instance_valid(landscape_view):
+			landscape_view.center_guidance.text = "행동 완료 · 상대 턴"
+		await main.get_tree().create_timer(0.6).timeout
+		if is_same(state, battle_state) and int(battle_state.get("player_turn_count", 0)) == turn and _can_auto_end_turn():
+			_add_log("더 이상 할 수 있는 행동이 없어 턴을 종료합니다.")
+			await _on_end_turn_pressed()
+	auto_end_pending = false
 
 
 
@@ -4129,6 +4113,9 @@ func _show_outcome_text(target: Control, text: String, color: Color) -> void:
 
 func _show_slot_overlay_text(target: Control, text: String, color: Color) -> void:
 	if target == null or not is_instance_valid(target) or text.is_empty():
+		return
+	if is_instance_valid(landscape_view):
+		_spawn_floating_text(target, text, color, 16)
 		return
 	var lbl := Label.new()
 	lbl.text = text
@@ -4593,6 +4580,9 @@ func _play_battle_victory_sequence(reward: Dictionary) -> void:
 func _spawn_floating_text(target: Control, text: String, color: Color, font_size: int = 42, duration: float = 0.85, center_offset: Vector2 = Vector2.ZERO) -> void:
 	if text.is_empty() or target == null or not is_instance_valid(target):
 		return
+	if is_instance_valid(landscape_view) and is_instance_valid(battle_fx_layer):
+		_spawn_compact_floating_text(target, text, color, duration, center_offset)
+		return
 	var lbl = Label.new()
 	lbl.text = text
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -4620,8 +4610,46 @@ func _spawn_floating_text(target: Control, text: String, color: Color, font_size
 	tween.parallel().tween_property(lbl, "modulate:a", 0.0, duration).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
 	tween.tween_callback(Callable(self, "_queue_free_if_valid").bind(lbl))
 
+func _spawn_compact_floating_text(target: Control, text: String, color: Color, duration: float, offset: Vector2) -> void:
+	var layer: Control = battle_fx_layer
+	var bounds: Rect2 = landscape_view.board_scroll.get_global_rect().grow(-4)
+	var numeric := text.trim_prefix("-").trim_prefix("+").is_valid_int()
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", 22 if numeric else 16)
+	lbl.add_theme_color_override("font_color", color)
+	lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	lbl.add_theme_constant_override("outline_size", 3)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.add_theme_constant_override("line_spacing", 0)
+	lbl.max_lines_visible = 2
+	lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	lbl.size = Vector2(minf(200, bounds.size.x), 52)
+	var at := target.global_position + target.size / 2 - lbl.size / 2 + offset
+	at.x = clampf(at.x, bounds.position.x, bounds.end.x - lbl.size.x)
+	at.y = clampf(at.y, bounds.position.y + 12, bounds.end.y - lbl.size.y)
+	var now := Time.get_ticks_msec()
+	var delay := maxf(0, (floating_text_until - now) / 1000.0)
+	var lifetime := minf(duration, 0.5)
+	floating_text_until = now + int((delay + lifetime) * 1000)
+	layer.add_child(lbl)
+	lbl.global_position = at
+	lbl.modulate.a = 0
+	var tween := lbl.create_tween()
+	tween.tween_interval(delay)
+	tween.tween_property(lbl, "modulate:a", 1.0, 0.05)
+	tween.tween_property(lbl, "position:y", lbl.position.y - 12, lifetime - 0.05)
+	tween.parallel().tween_property(lbl, "modulate:a", 0.0, lifetime - 0.05)
+	tween.tween_callback(lbl.queue_free)
+
 func _spawn_center_banner(text: String, color: Color, font_size: int = 42, duration: float = 0.9) -> void:
 	if text.is_empty() or main.modal_layer == null or not is_instance_valid(main.modal_layer):
+		return
+	if is_instance_valid(landscape_view) and not game_over and not battle_finished:
+		_spawn_floating_text(player_hero_target, text, color, 16, duration)
 		return
 	var lbl := Label.new()
 	lbl.text = text
@@ -4657,7 +4685,7 @@ func _trigger_hype_moment(target: Control, text: String, color: Color, sfx_name:
 	if target != null and is_instance_valid(target):
 		_spawn_target_glow(target, color, 0.42)
 		_spawn_floating_text(target, text, color, font_size, 0.95, Vector2.ZERO)
-	if center_banner:
+	if center_banner and not is_instance_valid(landscape_view):
 		_spawn_center_banner(text, color, max(28, font_size - 6), 1.0)
 
 
@@ -4708,7 +4736,6 @@ func _configure_field_button(button: Button, unit: Dictionary, index: int, is_pl
 
 func _make_empty_field_slot(compact: bool, is_next_summon_slot: bool = false, is_player_field: bool = true) -> Control:
 	var tight = _is_tight_battle_layout()
-	var portrait = _is_portrait_battle_layout()
 	var mobile = _is_mobile_battle_layout()
 	var slot_alpha := 0.22 if is_next_summon_slot else 0.04
 	var border_alpha := 0.38 if is_next_summon_slot else 0.08
@@ -4738,18 +4765,18 @@ func _make_empty_field_slot(compact: bool, is_next_summon_slot: bool = false, is
 	var enemy_clickable: bool = not is_player_field and _can_click_enemy_hero_area() and pending_action.is_empty() and not _enemy_vanguard_blocks_hero()
 	var emblem_text := "+" if is_next_summon_slot else ("⌖" if enemy_clickable else "·")
 	var emblem_color := Color(1.0, 0.34, 0.26, 0.64) if enemy_clickable else Color(0.46, 0.64, 0.82, 0.58 if is_next_summon_slot else 0.18)
-	var emblem: Label = main._make_label(emblem_text, 26 if mobile else (22 if tight and portrait else (24 if tight else (26 if compact else 30))), emblem_color)
+	var emblem: Label = main._make_label(emblem_text, 26 if mobile else 24 if tight else 26 if compact else 30, emblem_color)
 	emblem.autowrap_mode = TextServer.AUTOWRAP_OFF
 	emblem.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(emblem)
 	if is_next_summon_slot:
-		var text: Label = main._make_label("다음 소환", 9 if tight and portrait else (10 if tight else (10 if compact else 11)), Color(0.64, 0.76, 0.9, 0.74))
+		var text: Label = main._make_label('다음 소환', 10 if tight else 10 if compact else 11, Color(0.64, 0.76, 0.9, 0.74))
 		text.autowrap_mode = TextServer.AUTOWRAP_OFF
 		text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(text)
 	elif enemy_clickable:
-		var text: Label = main._make_label("영웅 공격" if selected_attacker >= 0 else "아군 먼저 선택", 9 if tight and portrait else (10 if tight else (10 if compact else 11)), Color(1.0, 0.58, 0.5, 0.78))
+		var text: Label = main._make_label('영웅 공격' if selected_attacker >= 0 else '아군 먼저 선택', 10 if tight else 10 if compact else 11, Color(1.0, 0.58, 0.5, 0.78))
 		text.autowrap_mode = TextServer.AUTOWRAP_OFF
 		text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		text.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -4761,7 +4788,6 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 		return landscape_view.field_slot(side, index, is_player_field)
 	var compact = _is_compact_layout()
 	var tight = _is_tight_battle_layout()
-	var portrait = _is_portrait_battle_layout()
 	var wide_tight = _is_wide_tight_battle_layout()
 	var mobile = _is_mobile_battle_layout()
 	if index >= side.field.size():
@@ -4854,7 +4880,7 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	frame.add_child(slot)
 
 	# 1. Name band at the top of the card
-	slot.add_child(main.ui.make_card_name_band(main, unit, "field", compact or portrait, tight))
+	slot.add_child(main.ui.make_card_name_band(main, unit, 'field', compact, tight))
 
 	# 2. Art container that holds the card illustration, overlaying stat badges at bottom corners
 	var art_container = Control.new()
@@ -4934,7 +4960,6 @@ func _render_hand() -> void:
 	_clear_card_board_preview()
 	var compact = _is_compact_layout()
 	var tight = _is_tight_battle_layout()
-	var portrait = _is_portrait_battle_layout()
 	var mobile = _is_mobile_battle_layout()
 	_ensure_hand_visual_slots()
 	var recommended_index = _recommended_hand_index()
@@ -5015,7 +5040,7 @@ func _render_hand() -> void:
 		action_panel.visible = not mobile or not playable or (main.Onboarding.first_battle(main.current_run) and is_touch_selected)
 		card_box.add_child(action_panel)
 		var action_text = ("다시 눌러 사용" if is_touch_selected else "지금 사용 가능") if playable else _unplayable_card_hint(card, cost)
-		var action_label: Label = main._make_label(action_text, 12 if mobile else (11 if tight and portrait else (10 if tight else (11 if not compact else 9))), Color(0.86, 1.0, 0.92, 1.0) if playable else Color(0.58, 0.62, 0.68, 1.0))
+		var action_label: Label = main._make_label(action_text, 12 if mobile else 10 if tight else 11 if not compact else 9, Color(0.86, 1.0, 0.92, 1.0) if playable else Color(0.58, 0.62, 0.68, 1.0))
 		action_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		action_label.clip_text = true
 		action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -5034,10 +5059,7 @@ func _render_hand() -> void:
 			var base_scale: Vector2 = frame.get_meta("base_scale", Vector2.ONE)
 			var hover_scale := 1.02
 			var hover_lift := -4.0
-			if tight and portrait:
-				hover_scale = 1.02
-				hover_lift = -8.0
-			elif tight:
+			if tight:
 				hover_scale = 1.1
 				hover_lift = -18.0
 			var h_tween: Tween = frame.create_tween()

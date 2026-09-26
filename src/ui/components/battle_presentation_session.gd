@@ -73,6 +73,7 @@ func scroll_for_rect(rect: Rect2) -> int:
 
 func focus(targets: Array, immediate: bool = false, manual: bool = false) -> void:
 	if pointer_down or not _view_alive(): return
+	if view.board_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED: return
 	if not manual and not immediate and battle.main.player_profile.settings.get("battle_auto_focus", "outside") == "off": return
 	cancel_focus()
 	focus_pending = true
@@ -115,6 +116,7 @@ func _move_to_targets(targets: Array, immediate: bool = false) -> void:
 
 func return_to_allies(gesture: int) -> void:
 	if not _view_alive(): return
+	if view.board_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED: return
 	var generation := return_generation
 	# Let the outcome remain readable; user gestures/modal opening cancel this return.
 	await tree.create_timer(0.45 if not battle._should_skip_timed_battle_fx() else 0.0).timeout

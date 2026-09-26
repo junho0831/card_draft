@@ -15,6 +15,7 @@ func run() -> Dictionary:
 	tree.root.size = Vector2i(1280, 720)
 	var main = MAIN.instantiate()
 	main.set_meta("disable_window_mode_changes", true)
+	main.set_meta("disable_timed_battle_fx", true)
 	main.set_meta("layout_viewport_override", Vector2i(1280, 720))
 	tree.root.add_child(main)
 	main.player_profile["learning_stage"] = 0
@@ -61,10 +62,12 @@ func run() -> Dictionary:
 	var field_button: Button = find_button(battle.player_field_slots[0], "")
 	await click(field_button, tree)
 	check(battle.pending_action.is_empty() and battle.player.field[0].attack == 4, "clicking the unit artwork confirms equipment on that unit")
-	for viewport in [Vector2i(1280, 720), Vector2i(390, 844)]:
+	for viewport in [Vector2i(1280, 720), Vector2i(844, 390)]:
 		for race in ["human", "elf", "undead"]:
 			tree.root.size = viewport
 			main.set_meta("layout_viewport_override", viewport)
+			await tree.process_frame
+			await tree.process_frame
 			main.player_profile["learning_stage"] = 0
 			main.pending_guided_run = true
 			main._init_run(race)
@@ -80,15 +83,16 @@ func run() -> Dictionary:
 			var unchanged: String = JSON.stringify([battle.player, battle.opponent, battle.selected_attacker])
 			await click(battle.recommended_action_button, tree)
 			check(JSON.stringify([battle.player, battle.opponent, battle.selected_attacker]) == unchanged, "help input preserves combat %s %s" % [race, viewport])
+			if is_instance_valid(battle.landscape_view):
+				await click(find_button(battle.landscape_view.card_dialog, "닫기"), tree)
 			var index: int = battle._recommended_hand_index()
 			var slot: int = battle.player.hand[index].get("_hand_slot", index)
 			var card_button: Button = battle._hand_card_control(slot)
 			battle.hand_scroll.ensure_control_visible(card_button)
 			await tree.process_frame
 			await click(battle._hand_card_control(slot), tree)
-			if viewport.x < 500:
-				check(battle.player.field.is_empty(), "mobile first tap only previews")
-				await click(battle._hand_card_control(slot), tree)
+			if is_instance_valid(battle.landscape_view):
+				check(not is_instance_valid(battle.landscape_view.card_dialog), "mobile tap plays without inspection dialog")
 			check(not battle.player.field.is_empty(), "manual card input summons %s %s" % [race, viewport])
 			if battle.player.field.is_empty():
 				continue
@@ -96,11 +100,15 @@ func run() -> Dictionary:
 			battle.player.field[0].can_attack = true
 			battle._refresh_ui()
 			await tree.process_frame
+			if is_instance_valid(battle.landscape_view):
+				await battle.landscape_view.focus_targets([{"player": true, "hero": true}], true)
 			await click(find_button(battle.player_field_slots[0], ""), tree)
 			check(battle.selected_attacker == 0, "manual attacker selection")
 			if OS.get_cmdline_user_args().has("--capture-input") and race == "human":
 				await RenderingServer.frame_post_draw
 				tree.root.get_texture().get_image().save_png(preload("res://src/services/game_storage.gd").path_for("target_%d.png" % viewport.x))
+			if is_instance_valid(battle.landscape_view):
+				await battle.landscape_view.focus_targets([{"player": false, "hero": true}], true)
 			await click(find_button(battle.opponent_field_slots[0], ""), tree)
 			check(main.current_run.get("first_play_actions", {}).get("unit_attacked", false), "manual vanguard attack")
 			check(not battle.end_turn_button.get_global_rect().intersects(battle.hand_scroll.get_global_rect()), "action dock does not overlap hand")
@@ -111,8 +119,14 @@ func run() -> Dictionary:
 					break
 				await tree.create_timer(0.05).timeout
 			check(int(battle.battle_state.get("player_turn_count", 0)) > turns, "manual turn end starts another player turn")
+			if is_instance_valid(battle.landscape_view):
+				await battle.landscape_view.focus_targets([{"player": true, "hero": true}], true)
 			await click(find_button(battle.player_field_slots[0], ""), tree)
-			await click(battle.hero_attack_button, tree)
+			if is_instance_valid(battle.landscape_view):
+				await battle.landscape_view.focus_targets([{"player": false, "hero": true}], true)
+				await click(battle.opponent_hero_target, tree)
+			else:
+				await click(battle.hero_attack_button, tree)
 			check(main.current_run.get("first_play_actions", {}).get("hero_attacked", false), "manual hero attack records actual action %s %s selection=%s" % [race, viewport, battle.selected_attacker])
 			if race == "human":
 				main.current_run.current_node_index = 2
@@ -123,10 +137,8 @@ func run() -> Dictionary:
 				await tree.process_frame
 				var equipment_slot: int = battle.player.hand[0].get("_hand_slot", 0)
 				await click(battle._hand_card_control(equipment_slot), tree)
-				if viewport.x < 500:
-					await click(battle._hand_card_control(equipment_slot), tree)
 				check(not battle.pending_action.is_empty(), "equipment input opens target selection %s" % viewport)
-				await click(battle.end_turn_button, tree)
+				await click(battle.landscape_view.cancel_button if is_instance_valid(battle.landscape_view) else battle.end_turn_button, tree)
 				check(battle.pending_action.is_empty() and battle.player.mana == 10 and battle.player.hand.size() == 1, "cancel input preserves equipment and mana %s" % viewport)
 	main._clear_screen()
 	main.queue_free()
@@ -143,7 +155,7 @@ func find_button(node: Node, prefix: String) -> Button:
 			return found
 	return null
 
-func click(button: Control, tree) -> void:
+func click(button: Control, tree, hold_seconds: float = 0.0) -> void:
 	if button == null:
 		check(false, "expected clickable control exists")
 		return
@@ -159,3 +171,5 @@ func click(button: Control, tree) -> void:
 		event.pressed = pressed
 		tree.root.push_input(event, true)
 		await tree.process_frame
+		if pressed and hold_seconds > 0.0:
+			await tree.create_timer(hold_seconds).timeout

@@ -29,10 +29,8 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	vertical_route = not compact and nodes_data.size() <= 5
 	var phone: bool = main._is_mobile_phone_layout()
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	var portrait_flow: bool = viewport_size.y > viewport_size.x
-	var phone_portrait: bool = main._is_phone_portrait_layout()
-	var fixed_actions: bool = compact or phone_portrait
-	if not phone_portrait and not phone_landscape:
+	var fixed_actions: bool = compact
+	if not phone_landscape:
 		body.add_child(_make_map_status_strip(compact))
 	if compact and not phone_landscape:
 		body.add_child(main.ui.make_guidance_banner("다음 행동", _map_primary_guidance_text(), Color(0.2, 0.24, 0.18, 1.0), compact))
@@ -43,7 +41,7 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	hub.add_theme_constant_override("separation", 10)
 	body.add_child(hub)
 
-	if portrait_flow or compact:
+	if compact:
 		hub.add_child(_make_map_panel(compact))
 		hub.add_child(_make_objective_panel(compact, act_data, not fixed_actions))
 		hub.add_child(_make_legend_panel(compact))

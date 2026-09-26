@@ -1,5 +1,5 @@
 extends SceneTree
-## Taps on empty enemy slots use the same attack rules in both phone layouts.
+## Empty slots never attack; only explicit hero and unit targets accept attacks.
 const Storage = preload("res://src/services/game_storage.gd")
 var failures: Array[String] = []
 var main
@@ -69,14 +69,16 @@ func run() -> void:
 	main.current_run.relic_ids = []
 	await settle()
 	if is_instance_valid(battle.landscape_view):
-		check(battle.landscape_view.board_scroll.scroll_vertical > 0, "new battle shows ally lane first")
+		check(battle.landscape_view.board_scroll.scroll_vertical == 0, "new battle shows both lanes")
 	await prepare()
 	check(main.Onboarding.first_battle(main.current_run), "also tests the first learning battle")
 	await tap(await target())
-	check(battle.opponent.health == 38 and not battle.player.field[0].can_attack, "empty field attacks hero exactly once")
+	check(battle.opponent.health == 40 and battle.player.field[0].can_attack, "empty slot never attacks hero")
+	await tap(battle.opponent_hero_target.get_global_rect().get_center())
+	check(battle.opponent.health == 38 and not battle.player.field[0].can_attack, "hero target attacks exactly once")
 	check(battle._unit_attack_status(battle.player.field[0], 0).label == "공격 완료", "successful attack displays spent status")
 	if is_instance_valid(battle.landscape_view):
-		check(battle.landscape_view.board_scroll.scroll_vertical > 0, "completed attack returns to allies")
+		check(battle.landscape_view.board_scroll.scroll_vertical == 0, "completed attack keeps both lanes visible")
 	await tap(await target())
 	check(battle.opponent.health == 38, "exhausted unit cannot attack again")
 	await prepare(false)
@@ -84,7 +86,9 @@ func run() -> void:
 	check(battle.opponent.health == 40 and battle.selected_attacker == -1 and battle.player.field[0].can_attack, "unselected field tap explains without attacking")
 	await battle._on_player_unit_pressed(0)
 	await tap(await target(1))
-	check(battle.opponent.health == 38, "selected attacker can attack the empty field")
+	check(battle.opponent.health == 40, "selected attacker cannot attack empty slot")
+	await tap(battle.opponent_hero_target.get_global_rect().get_center())
+	check(battle.opponent.health == 38, "selected attacker can attack hero")
 	await prepare()
 	battle.opponent.field = [{"id":"militia", "battle_unit_id":9902, "name":"선봉", "race":"인간", "attack":1, "health":8, "max_health":8, "can_attack":true, "is_vanguard":true}]
 	battle._refresh_ui()
@@ -117,7 +121,7 @@ func run() -> void:
 	await settle()
 	check(battle.opponent.health == 40 and battle.player.field[0].can_attack, "swipe on empty field does not attack")
 	await tap(await target())
-	check(battle.opponent.health == 38, "tap after swipe still attacks")
+	check(battle.opponent.health == 40, "empty tap after swipe remains inert")
 	await prepare(false)
 	var ally: Control = battle.player_field_slots[0]
 	if is_instance_valid(battle.landscape_view):
@@ -133,8 +137,8 @@ func run() -> void:
 	await tap(battle.player_field_slots[0].get_global_rect().get_center())
 	check(battle.selected_attacker == -1 and battle.player.field[0].can_attack, "same ally tap cancels without consuming attack")
 	await battle._on_player_unit_pressed(0)
-	check(battle.end_turn_button.text == "선택 취소", "selected attacker exposes cancel action")
-	await tap(battle.end_turn_button.get_global_rect().get_center())
+	check(battle.landscape_view.cancel_button.visible and battle.end_turn_button.disabled, "selected attacker exposes separate cancel action")
+	await tap(battle.landscape_view.cancel_button.get_global_rect().get_center())
 	check(battle.selected_attacker == -1 and battle.current_player == "player" and battle.player.field[0].can_attack, "cancel button does not end turn or attack")
 	battle.player.field[0].can_attack = false
 	battle.player.field[0].attack_wait_reason = "summoned"
@@ -153,7 +157,7 @@ func run() -> void:
 			main.player_profile.settings.battle_auto_focus = mode
 			await view.focus_targets([{"player":true, "hero":true}], true, true)
 			await battle._on_player_unit_pressed(0)
-			check((view.board_scroll.scroll_vertical > 0) == (mode == "off"), "selection respects camera mode " + mode)
+			check(view.board_scroll.scroll_vertical == 0, "fixed layout ignores legacy camera mode " + mode)
 			await view.focus_targets([{"player":false, "hero":true}], false, true)
 			check(view.board_scroll.scroll_vertical == 0, "manual navigation works in " + mode)
 		main.player_profile.settings.battle_auto_focus = "outside"
