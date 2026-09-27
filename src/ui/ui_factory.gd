@@ -476,7 +476,7 @@ func make_race_card_style(
 	emphasis: float = 0.0,
 	accent_override: Color = Color(0.0, 0.0, 0.0, 0.0)
 ) -> StyleBoxFlat:
-	return CARD_RACE_STYLES.make_frame_style(String(card.get("race", "중립")), state_tint, border_width, margin, emphasis, accent_override)
+	return CARD_RACE_STYLES.make_frame_style(String(card.get("race", "중립")), state_tint, border_width, margin, emphasis, accent_override, String(card.get("type", "unit")))
 
 func make_race_band_style(card: Dictionary, margin: int = 3) -> StyleBoxFlat:
 	return CARD_RACE_STYLES.make_band_style(String(card.get("race", "중립")), margin)
@@ -484,10 +484,34 @@ func make_race_band_style(card: Dictionary, margin: int = 3) -> StyleBoxFlat:
 func make_race_rules_style(card: Dictionary, margin: int = 6) -> StyleBoxFlat:
 	return CARD_RACE_STYLES.make_rules_style(String(card.get("race", "중립")), margin)
 
+func make_race_emblem(card: Dictionary, edge: float = 24) -> TextureRect:
+	var race := String(card.get("race", "중립"))
+	var key: String = {"인간": "human", "엘프": "elf", "언데드": "undead", "정령": "spirit"}.get(race, "neutral")
+	var emblem := TextureRect.new()
+	emblem.name = "RaceEmblem"
+	emblem.texture = load("res://assets/ui/fantasy/race_%s.svg" % key)
+	emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	emblem.custom_minimum_size = Vector2(edge, edge)
+	emblem.size = Vector2(edge, edge)
+	emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	emblem.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	emblem.tooltip_text = race
+	return emblem
+
+func decorate_card_frame(frame: Control, card: Dictionary) -> void:
+	var ornament := preload("res://src/ui/components/card_frame_ornaments.gd").new()
+	ornament.name = "RaceOrnaments"
+	ornament.race = String(card.get("race", "중립"))
+	ornament.accent = card_race_color(card)
+	ornament.z_index = 0
+	frame.add_child(ornament)
+
 func make_race_card_panel(card: Dictionary, margins: int = 10, border_width: int = 2, emphasis: float = 0.0) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.add_theme_stylebox_override("panel", make_race_card_style(card, Color(0.0, 0.0, 0.0, 0.0), border_width, margins, emphasis))
+	decorate_card_frame(panel, card)
 	return panel
 
 func relic_visual_meta(relic: Dictionary) -> Dictionary:
@@ -625,10 +649,45 @@ func make_location_art(location: String, size: Vector2) -> TextureRect:
 	return _make_texture_rect(texture, size)
 
 func make_card_art_rect(card: Dictionary, size: Vector2) -> TextureRect:
-	return _make_texture_rect(card_art_texture(card), size)
+	var source := card_art_texture(card)
+	var art := _make_texture_rect(source, size)
+	if source != null and source.resource_path.begins_with("res://assets/card_art/portraits_v2/") and size.x > 0 and size.y > 0:
+		art.stretch_mode = TextureRect.STRETCH_SCALE
+		art.size = size
+		art.resized.connect(_fit_card_portrait.bind(art, source))
+		_fit_card_portrait(art, source)
+	return art
+
+func _fit_card_portrait(art: TextureRect, source: Texture2D) -> void:
+	if art.size.x <= 0 or art.size.y <= 0: return
+	var source_size := source.get_size()
+	var crop := source_size
+	var ratio := art.size.x / art.size.y
+	if crop.x / crop.y > ratio:
+		crop.x = crop.y * ratio
+	else:
+		crop.y = crop.x / ratio
+	var offset := source_size * Vector2(0.5, 0.3) - crop * 0.5
+	offset.x = clampf(offset.x, 0, source_size.x - crop.x)
+	offset.y = clampf(offset.y, 0, source_size.y - crop.y)
+	var portrait := AtlasTexture.new()
+	portrait.atlas = source
+	portrait.region = Rect2(offset, crop)
+	portrait.filter_clip = true
+	art.texture = portrait
 
 func card_art_texture(card: Dictionary) -> Texture2D:
 	var art_id := String(card.get("art_id", ""))
+	var visual_id := String(card.get("id", art_id)).trim_suffix("_plus")
+	if visual_id in ["militia", "forest_archer", "bone_soldier", "stone_golem", "mercenary"]:
+		var portrait_path := "res://assets/card_art/portraits_v2/%s.png" % visual_id
+		if card_art_cache.has(portrait_path):
+			return card_art_cache[portrait_path]
+		if ResourceLoader.exists(portrait_path, "Texture2D"):
+			var portrait := ResourceLoader.load(portrait_path) as Texture2D
+			if portrait != null:
+				card_art_cache[portrait_path] = portrait
+				return portrait
 	# Older per-card files were copied from unrelated cells of the sample sheet.
 	# Reuse the matching original illustration until a dedicated painting exists.
 	var matching_sheet_regions := {
@@ -641,7 +700,6 @@ func card_art_texture(card: Dictionary) -> Texture2D:
 		"bone_armor": 6, "healing_potion": 5, "funeral_fog": 8,
 		"war_horn": 2,
 	}
-	var visual_id := String(card.get("id", art_id)).trim_suffix("_plus")
 	if matching_sheet_regions.has(visual_id):
 		return _make_sheet_art_texture(int(matching_sheet_regions[visual_id]))
 	if art_id == "thief":

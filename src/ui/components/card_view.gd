@@ -20,7 +20,7 @@ static func make_name_band(
 	band.add_theme_stylebox_override("panel", main.ui.make_race_band_style(card, 3))
 	band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var title := "%s %s" % [String(race_visual.get("mark", "*")), String(card.get("name", ""))]
+	var title := String(card.get("name", ""))
 	if not suffix.is_empty():
 		title += " %s" % suffix
 	var label: Label = main._make_label(title, int(values.get("title_font", 15)), race_visual.get("text", Color(0.98, 0.98, 0.96, 1.0)))
@@ -29,7 +29,13 @@ static func make_name_band(
 	label.clip_text = true
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	main.ui.style_card_title(label, tight)
-	band.add_child(label)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(row)
+	row.add_child(main.ui.make_race_emblem(card, 20 if tight else 26))
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
 	return band
 
 static func make_header(

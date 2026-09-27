@@ -328,16 +328,17 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 		button.modulate.a = 0.32
 		return button
 	var kind := card_kind(card)
-	var tint := kind_color(kind)
 	button.set_meta("card_kind", kind)
-	button.add_theme_stylebox_override("normal", battle.BATTLE_STYLES.make_card_frame(tint, 2))
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		button.add_theme_stylebox_override(state, battle.main.ui.make_race_card_style(card, Color.TRANSPARENT, 3, 2, 0.12 if state == "hover" else 0.0))
+	var race_band: Color = battle.main.ui.make_race_band_style(card).bg_color
 	var art: TextureRect = battle.main._make_card_art_rect(card, Vector2.ZERO)
 	art.name = "Illustration"
 	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	art.offset_left = 3
-	art.offset_right = -3
-	art.offset_top = 3
-	art.offset_bottom = -3
+	art.offset_left = 7
+	art.offset_right = -7
+	art.offset_top = 6
+	art.offset_bottom = -6
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -346,14 +347,22 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 		art.anchor_bottom = 0
 		art.offset_bottom = height - 24
 	button.add_child(art)
-	var name_label := stamp(button, "CardName", String(card.get("name", "")), Vector2(3, height - 43), Vector2(width - 6, 18), Color(tint.r * 0.35, tint.g * 0.35, tint.b * 0.35, 0.96), 12)
+	var name_label := stamp(button, "CardName", String(card.get("name", "")), Vector2(7, height - 43), Vector2(width - 14, 18), race_band, 12)
 	if field: name_label.hide(); button.get_node("CardNameBand").hide()
 	if card.has("attack"):
 		stamp(button, "Attack", str(int(card.attack)), Vector2(3, height - 24), Vector2(26, 22), Color(0.48, 0.12, 0.09))
 		stamp(button, "Health", str(int(card.get("health", 0))), Vector2(width - 29, height - 24), Vector2(26, 22), Color(0.08, 0.25, 0.48))
 	if not bottom.is_empty():
 		stamp(button, "Status", bottom, Vector2(3, 3), Vector2(width - 6, 19), Color(0.025, 0.04, 0.06, 0.75), 12)
-	outline(button, tint, 1, 2, "TypeBorder")
+	var type_border := Panel.new()
+	type_border.name = "TypeBorder"
+	type_border.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	type_border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var type_style: StyleBoxFlat = battle.main.ui.make_race_card_style(card, Color.TRANSPARENT, 3, 2)
+	type_style.draw_center = false
+	type_border.add_theme_stylebox_override("panel", type_style)
+	button.add_child(type_border)
+	battle.main.ui.decorate_card_frame(button, card)
 	var icon := TextureRect.new()
 	icon.name = "TypeIcon"
 	icon.texture = load("res://assets/ui/fantasy/type_%s.svg" % kind)
@@ -363,6 +372,9 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(icon)
 	if field: icon.hide()
+	var emblem: TextureRect = battle.main.ui.make_race_emblem(card, 20)
+	emblem.position = Vector2((width - 20) * 0.5, 25 if field else 28)
+	button.add_child(emblem)
 	button.tooltip_text = {"unit":"유닛", "damage":"피해·저주 주문", "support":"회복·지원 주문", "equipment":"장비"}[kind]
 	return button
 

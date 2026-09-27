@@ -66,37 +66,37 @@ static func visual_meta(race: String) -> Dictionary:
 		_:
 			return visual_meta("중립")
 
+static func type_meta(card_type: String) -> Dictionary:
+	match card_type:
+		"spell":
+			return {"accent": Color("9cdeff"), "radius": 8, "width": 6, "side": 0, "bottom": 0}
+		"equipment":
+			return {"accent": Color("efbd68"), "radius": 0, "width": 6, "side": 1, "bottom": 1}
+		_:
+			return {"accent": Color("c5cfda"), "radius": 2, "width": 6, "side": 0, "bottom": 1}
+
 static func make_frame_style(
 	race: String,
-	state_tint: Color = Color(0.0, 0.0, 0.0, 0.0),
+	_state_tint: Color = Color(0.0, 0.0, 0.0, 0.0),
 	border_width: int = 2,
 	margin: int = 7,
 	emphasis: float = 0.0,
-	accent_override: Color = Color(0.0, 0.0, 0.0, 0.0)
+	accent_override: Color = Color(0.0, 0.0, 0.0, 0.0),
+	card_type: String = "unit"
 ) -> StyleBoxFlat:
 	var meta := visual_meta(race)
-	var accent: Color = accent_override if accent_override.a > 0.0 else meta["accent"]
-	var surface: Color = meta["surface"]
-	if state_tint.a > 0.0:
-		surface = surface.lerp(state_tint, 0.34)
-	surface = surface.lerp(accent, clampf(emphasis, 0.0, 0.24))
+	var frame := type_meta(card_type)
+	var accent: Color = frame["accent"]
+	var surface: Color = Color(meta["band"]).lerp(meta["accent"], 0.16)
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.07, 0.085, 0.11).lerp(surface, 0.2)
+	style.bg_color = surface
 	style.border_color = accent.lightened(clampf(emphasis, 0.0, 0.2))
-	style.border_width_left = border_width
-	style.border_width_top = border_width
-	style.border_width_right = border_width
-	style.border_width_bottom = border_width + (2 if race == "인간" else 1)
-	if race == "언데드":
-		style.border_width_left = border_width + 1
-		style.border_width_right = maxi(1, border_width - 1)
-	elif race == "엘프":
-		style.border_width_left = border_width + 1
-		style.border_width_right = border_width + 1
-	elif race == "중립":
-		style.border_width_top = border_width + 1
-		style.border_width_bottom = border_width + 2
-	var radius := int(meta["radius"])
+	var width := maxi(border_width, int(frame["width"]))
+	style.border_width_left = width + int(frame["side"])
+	style.border_width_top = width
+	style.border_width_right = width + int(frame["side"])
+	style.border_width_bottom = width + int(frame["bottom"])
+	var radius := int(frame["radius"])
 	style.corner_radius_top_left = radius
 	style.corner_radius_top_right = radius
 	style.corner_radius_bottom_left = radius
@@ -105,7 +105,7 @@ static func make_frame_style(
 	style.content_margin_top = margin
 	style.content_margin_right = margin
 	style.content_margin_bottom = margin + 1
-	style.shadow_color = Color(accent.r * 0.12, accent.g * 0.12, accent.b * 0.12, 0.72)
+	style.shadow_color = Color(accent_override, 0.55) if accent_override.a > 0.0 else Color(0, 0, 0, 0.72)
 	style.shadow_size = 3 if emphasis > 0.0 else 1
 	style.shadow_offset = Vector2(0, 3)
 	style.anti_aliasing = true
@@ -114,7 +114,7 @@ static func make_frame_style(
 static func make_band_style(race: String, margin: int = 3) -> StyleBoxFlat:
 	var meta := visual_meta(race)
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.075, 0.09, 0.12)
+	style.bg_color = Color(meta["band"]).lerp(meta["accent"], 0.18)
 	style.border_color = Color(meta["accent"]).lightened(0.08)
 	style.border_width_left = 3
 	style.border_width_top = 1
@@ -134,7 +134,7 @@ static func make_band_style(race: String, margin: int = 3) -> StyleBoxFlat:
 static func make_rules_style(race: String, margin: int = 6) -> StyleBoxFlat:
 	var meta := visual_meta(race)
 	var style := StyleBoxFlat.new()
-	style.bg_color = meta["rules"]
+	style.bg_color = Color(meta["rules"]).lerp(meta["accent"], 0.12)
 	style.border_color = Color(meta["accent"]).darkened(0.2)
 	style.border_width_left = 2
 	style.border_width_top = 1

@@ -33,6 +33,7 @@ func setup(face: Control, display_size := Vector2(300, 470), face_size := Vector
 	surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	effect = ShaderMaterial.new()
 	effect.shader = EFFECT
+	effect.set_shader_parameter("edge_color", face.get_meta("type_edge_color", Color.WHITE))
 	surface.material = effect
 	add_child(surface)
 	mouse_exited.connect(_release)
@@ -82,20 +83,21 @@ func _process(delta: float) -> void:
 static func make_face(main: Node, card: Dictionary) -> Control:
 	var face := Panel.new()
 	face.theme = main.theme
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.025, 0.035, 0.05)
-	style.border_color = Color(0.78, 0.63, 0.34)
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(10)
+	var style: StyleBoxFlat = main.ui.make_race_card_style(card)
+	face.set_meta("type_edge_color", style.border_color)
 	face.add_theme_stylebox_override("panel", style)
+	main.ui.decorate_card_frame(face, card)
 	var art: TextureRect = main._make_card_art_rect(card, Vector2.ZERO)
 	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	art.offset_left = 6; art.offset_top = 6; art.offset_right = -6; art.offset_bottom = -6
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	face.add_child(art)
+	var emblem: TextureRect = main.ui.make_race_emblem(card, 48)
+	emblem.position = Vector2(118, 12)
+	face.add_child(emblem)
 	var band := ColorRect.new()
-	band.color = Color(0.02, 0.04, 0.06, 0.92)
+	band.color = main.ui.make_race_band_style(card).bg_color
 	band.position = Vector2(6, 304); band.size = Vector2(272, 86)
 	face.add_child(band)
 	var title: Label = main._make_label(String(card.get("name", "카드")), 26, Color(0.96, 0.93, 0.82))

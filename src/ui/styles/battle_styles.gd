@@ -156,6 +156,10 @@ static func add_active_outline(frame: Control, color: Color) -> void:
 	outline.name = "ActiveOutline"
 	outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	outline.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	outline.offset_left = -3
+	outline.offset_top = -3
+	outline.offset_right = 3
+	outline.offset_bottom = 3
 	outline.z_index = 2
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color.TRANSPARENT

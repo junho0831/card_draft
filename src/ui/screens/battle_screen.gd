@@ -3316,6 +3316,7 @@ func _make_card_action_visual(card: Dictionary, cost: int, requested_size: Vecto
 	visual.clip_contents = true
 	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visual.add_theme_stylebox_override("panel", main.ui.make_race_card_style(card, Color(0.045, 0.055, 0.07, 1.0), 4, 6, 0.24))
+	main.ui.decorate_card_frame(visual, card)
 
 	var box := VBoxContainer.new()
 	box.custom_minimum_size = frame_size - Vector2(12, 12)
@@ -4864,15 +4865,16 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 		card_state = "disabled"
 	var slot_border: Color = Color(0.3, 1.0, 0.65) if is_player_field and not pending_action.is_empty() else main.ui.card_state_accent(unit, card_state)
 
-	var normal_style = BATTLE_STYLES.make_card_frame(slot_border, 5)
-	var hover_style = BATTLE_STYLES.make_card_frame(slot_border.lightened(0.12), 5)
-	var pressed_style = BATTLE_STYLES.make_card_frame(slot_border, 5)
-	var disabled_style = BATTLE_STYLES.make_card_frame(slot_border.darkened(0.3) if is_disabled and is_player_field else slot_border, 5)
+	var normal_style = main.ui.make_race_card_style(unit, Color.TRANSPARENT, 3, 5)
+	var hover_style = main.ui.make_race_card_style(unit, Color.TRANSPARENT, 3, 5, 0.15)
+	var pressed_style = normal_style.duplicate()
+	var disabled_style = normal_style.duplicate()
 
 	frame.add_theme_stylebox_override("normal", normal_style)
 	frame.add_theme_stylebox_override("hover", hover_style)
 	frame.add_theme_stylebox_override("pressed", pressed_style)
 	frame.add_theme_stylebox_override("disabled", disabled_style)
+	main.ui.decorate_card_frame(frame, unit)
 	if not is_disabled and card_state in ["target", "selected", "playable", "recommended"]:
 		BATTLE_STYLES.add_active_outline(frame, slot_border)
 
@@ -4986,9 +4988,10 @@ func _render_hand() -> void:
 		frame.custom_minimum_size = frame_size
 		var card_state := "disabled" if not playable else ("selected" if is_touch_selected else ("recommended" if is_recommended else "playable"))
 		var hand_border: Color = main.ui.card_state_accent(card, card_state)
-		frame.add_theme_stylebox_override("normal", BATTLE_STYLES.make_card_frame(hand_border, 7))
-		frame.add_theme_stylebox_override("hover", BATTLE_STYLES.make_card_frame(accent.lightened(0.22), 7))
-		frame.add_theme_stylebox_override("pressed", BATTLE_STYLES.make_card_frame(accent, 7))
+		frame.add_theme_stylebox_override("normal", main.ui.make_race_card_style(card, Color.TRANSPARENT, 3, 7))
+		frame.add_theme_stylebox_override("hover", main.ui.make_race_card_style(card, Color.TRANSPARENT, 3, 7, 0.15))
+		frame.add_theme_stylebox_override("pressed", main.ui.make_race_card_style(card, Color.TRANSPARENT, 3, 7, 0.08))
+		main.ui.decorate_card_frame(frame, card)
 		frame.add_theme_color_override("font_color", Color(1, 1, 1, 0))
 		frame.pressed.connect(Callable(self, "_on_hand_card_pressed").bind(i))
 		frame.gui_input.connect(Callable(self, "_on_hand_card_gui_input").bind(i))

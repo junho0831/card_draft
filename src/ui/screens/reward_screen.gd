@@ -257,6 +257,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var matches_primary: bool = main._card_matches_build_tag(card, primary_tag)
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override("panel", main.ui.make_race_card_style(card, Color(0.035, 0.05, 0.07, 0.94), 2, 8, 0.12, Color(0.94, 0.72, 0.3) if matches_primary else Color.TRANSPARENT))
+	main.ui.decorate_card_frame(frame, card)
 	frame.custom_minimum_size = Vector2(188, 0)
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	frame.tooltip_text = "%s\n%s\n%s" % [_reward_choice_reason(card, matches_primary), main._plain_build_delta_text(card), main._choice_impact_text(card)]
