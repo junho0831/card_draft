@@ -50,7 +50,7 @@ func _test_boots_to_main_menu(main: Node) -> void:
 	_assert_eq(int(main.player_profile.get("battle_tutorial_stage", -1)), 0, "battle tutorial starts at stage 0")
 	_assert_true(main.audio_manager.streams.has("impact_heavy"), "audio manager provides heavy impact sound")
 	_assert_true(main.audio_manager.streams.has("direct_attack"), "audio manager provides direct attack sound")
-	_assert_true(main.audio_manager.streams.values().all(func(stream): return stream != null and String(stream.resource_path).begins_with("res://assets/audio/local_models_v1/")), "runtime initialization reads existing model audio without synthesizing disposable waveforms")
+	_assert_true(main.audio_manager.streams.values().all(func(stream): return stream != null and (String(stream.resource_path).begins_with("res://assets/audio/local_models_v1/") or String(stream.resource_path).begins_with("res://assets/audio/model_foley_v2/"))), "runtime initialization reads packaged audio without synthesizing disposable waveforms")
 	_assert_true(ResourceLoader.exists("res://assets/audio/original_v1/direct_attack.ogg"), "runtime direct attack SFX exists")
 	_assert_true(main.audio_manager.has_authored_sfx("direct_attack"), "audio manager loads direct attack SFX")
 	_assert_true(main.audio_manager.streams.has("victory_burst"), "audio manager provides victory burst sound")
@@ -69,8 +69,8 @@ func _test_boots_to_main_menu(main: Node) -> void:
 			all_model_sfx_loaded = false
 			continue
 		var sound_path := String(sound_stream.resource_path)
-		all_model_sfx_loaded = all_model_sfx_loaded and sound_path.begins_with("res://assets/audio/local_models_v1/")
-		_assert_true(sound_path.begins_with("res://assets/audio/original_v1/") or sound_path.begins_with("res://assets/audio/local_models_v1/"), "SFX is loaded from a documented production directory: %s" % sound_name)
+		all_model_sfx_loaded = all_model_sfx_loaded and (sound_path.begins_with("res://assets/audio/local_models_v1/") or sound_path.begins_with("res://assets/audio/model_foley_v2/"))
+		_assert_true(sound_path.begins_with("res://assets/audio/original_v1/") or sound_path.begins_with("res://assets/audio/local_models_v1/") or sound_path.begins_with("res://assets/audio/model_foley_v2/"), "SFX is loaded from a documented production directory: %s" % sound_name)
 		_assert_true(main.audio_manager.has_authored_sfx(sound_name), "audio manager loads original SFX: %s" % sound_name)
 	if ResourceLoader.exists("res://assets/audio/local_models_v1/ui_click.ogg"):
 		_assert_true(all_model_sfx_loaded, "complete generated SFX pack replaces every runtime sound")

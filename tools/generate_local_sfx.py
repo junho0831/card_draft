@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate isolated game sound effects with the Apache-2.0 MOSS model."""
 import argparse
+import gc
 import hashlib
 import json
 import os
@@ -46,7 +47,15 @@ def main():
     parser.add_argument('--seed', type=int, default=20260911)
     parser.add_argument('--steps', type=int, default=100)
     parser.add_argument('--skip-existing', action='store_true')
+    parser.add_argument('--prompt-file', type=Path, help='JSON overrides for selected sound prompts')
+    parser.add_argument('--cache-prompts', action='store_true', help='Release the text encoder after encoding selected prompts')
     args = parser.parse_args()
+    prompts = dict(PROMPTS)
+    if args.prompt_file:
+        overrides = json.loads(args.prompt_file.read_text())
+        if not isinstance(overrides, dict) or any(key not in PROMPTS or not isinstance(value, str) or not value.strip() for key, value in overrides.items()):
+            parser.error('prompt-file must map known sound keys to nonempty text')
+        prompts.update(overrides)
     root = args.model_root.resolve()
     output = args.output_dir.resolve()
     if not (root / 'moss_soundeffect_v2').is_dir():
@@ -77,6 +86,22 @@ def main():
         return torch.nn.functional.pad(hidden, (0, 0, 0, ids.shape[1] - length))
     pipe.text_encoder.forward = types.MethodType(encode_hidden, pipe.text_encoder)
     keys = args.keys or (list(PROMPTS) if args.key == 'all' else [args.key])
+    if args.cache_prompts:
+        cache = {}
+        requested = [(prompts[key] + ' duration: 3.0s', True) for key in keys] + [('', False)]
+        for prompt, positive in requested:
+            print('Encoding prompt: ' + prompt[:64], flush=True)
+            with torch.inference_mode():
+                cache[(prompt, positive)] = pipe.prompter.encode_prompt(prompt, positive=positive, device='cpu')
+        def cached_prompt(prompter, prompt, positive=True, device='cpu'):
+            if positive is None:
+                positive = bool(prompt)
+            return cache[(prompt, positive)].to(device)
+        pipe.prompter.encode_prompt = types.MethodType(cached_prompt, pipe.prompter)
+        pipe.engine.text_encoder = None
+        pipe.prompter.text_encoder = None
+        gc.collect()
+        print('Text encoder released; original conditioning tensors cached', flush=True)
     failed = []
     for index, key in enumerate(keys):
         seed = args.seed + index
@@ -86,6 +111,8 @@ def main():
             saved = json.loads(metadata.read_text())
             previous, previous_rate = sf.read(existing, always_2d=True)
             if (saved.get('sha256') == hashlib.sha256(existing.read_bytes()).hexdigest()
+                    and saved.get('prompt') == prompts[key]
+                    and saved.get('seed') == seed and saved.get('steps') == args.steps
                     and usable_audio(previous, previous_rate)):
                 print('Keeping completed effect: ' + key, flush=True)
                 continue
@@ -95,7 +122,7 @@ def main():
         # machine has no native BF16, so use the same engine in float32 instead.
         with torch.inference_mode():
             audio = pipe.engine(
-                prompt=PROMPTS[key] + ' duration: 3.0s', negative_prompt='',
+                prompt=prompts[key] + ' duration: 3.0s', negative_prompt='',
                 num_samples=3 * pipe.sample_rate, num_channels=1,
                 num_inference_steps=args.steps, cfg_scale=4.0, sigma_shift=5.0,
                 seed=seed)
@@ -113,9 +140,10 @@ def main():
         record = {
             'model': 'OpenMOSS-Team/MOSS-SoundEffect-v2.0', 'license': 'Apache-2.0',
             'cpu_threads': torch.get_num_threads(),
+            'cached_prompt_embeddings': args.cache_prompts,
             'code_revision': subprocess.check_output(
                 ['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip(),
-            'prompt': PROMPTS[key], 'seed': seed, 'steps': args.steps,
+            'prompt': prompts[key], 'seed': seed, 'steps': args.steps,
             'seconds': 3, 'elapsed_seconds': time.monotonic() - started,
             'sha256': hashlib.sha256(target.read_bytes()).hexdigest(),
             'file': str(target),

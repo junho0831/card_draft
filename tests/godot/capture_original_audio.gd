@@ -18,7 +18,7 @@ func run() -> void:
 			return
 		for key in manager.authored_sfx_keys():
 			var stream = manager.custom_streams.get(key)
-			if stream == null or not String(stream.resource_path).begins_with(manager.MODEL_AUDIO_DIR):
+			if stream == null or not (String(stream.resource_path).begins_with(manager.MODEL_AUDIO_DIR) or String(stream.resource_path).begins_with(manager.FOLEY_AUDIO_DIR)):
 				printerr("FAIL generated SFX missing from package: " + String(key))
 				quit(1)
 				return

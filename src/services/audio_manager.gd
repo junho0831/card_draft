@@ -10,6 +10,9 @@ const MUSIC_MIX_BUS_NAME := &"MusicMix"
 const BATTLE_MUSIC_KEYS := ["battle_base", "battle_tension", "battle_lethal", "battle_low_hp"]
 const ORIGINAL_AUDIO_DIR := "res://assets/audio/original_v1"
 const MODEL_AUDIO_DIR := "res://assets/audio/local_models_v1"
+const FOLEY_AUDIO_DIR := "res://assets/audio/model_foley_v2"
+const SFX_HEADROOM_DB := -6.0
+const SHARED_STREAM_GAP_MSEC := 120
 
 var players: Array[AudioStreamPlayer] = []
 var max_players := 12
@@ -27,6 +30,7 @@ var current_battle_music_mode := "stopped"
 var current_battle_music_signature := ""
 var rng := RandomNumberGenerator.new()
 var last_sound_at_msec := {}
+var last_stream_at_msec := {}
 var duck_until_msec := 0
 var force_procedural := false
 var ambient_key := "menu_theme"
@@ -137,6 +141,7 @@ func _exit_tree() -> void:
 	streams.clear()
 	music_streams.clear()
 	last_sound_at_msec.clear()
+	last_stream_at_msec.clear()
 
 func play_sound(sound_name: String) -> void:
 	if _is_headless_runtime():
@@ -150,18 +155,24 @@ func play_sound(sound_name: String) -> void:
 	var minimum_gap := _minimum_gap_msec(sound_name)
 	if minimum_gap > 0 and now_msec - int(last_sound_at_msec.get(sound_name, -1000)) < minimum_gap:
 		return
+	var stream: AudioStream = custom_streams.get(sound_name, streams[sound_name])
+	# Aliased combat events can share one recording despite different sound names.
+	var stream_id := stream.get_instance_id()
+	if now_msec - int(last_stream_at_msec.get(stream_id, -1000)) < SHARED_STREAM_GAP_MSEC:
+		return
 	var p := _claim_player(priority)
 	if p == null:
 		return
 	var duck_db := -11.0 if now_msec < duck_until_msec and priority <= 1 else 0.0
-	p.volume_db = float(sound_volume_db.get(sound_name, -3.5)) + duck_db
+	p.volume_db = float(sound_volume_db.get(sound_name, -3.5)) + duck_db + SFX_HEADROOM_DB
 	var jitter := float(sound_pitch_jitter.get(sound_name, 0.0))
 	p.pitch_scale = 1.0 + rng.randf_range(-jitter, jitter)
 	p.set_meta("sfx_priority", priority)
 	p.set_meta("sfx_started_msec", now_msec)
-	p.stream = custom_streams.get(sound_name, streams[sound_name])
+	p.stream = stream
 	p.play()
 	last_sound_at_msec[sound_name] = now_msec
+	last_stream_at_msec[stream_id] = now_msec
 	var duck_duration := _duck_duration_msec(sound_name)
 	if duck_duration > 0:
 		duck_until_msec = maxi(duck_until_msec, now_msec + duck_duration)
@@ -174,6 +185,14 @@ func has_authored_sfx(sound_name: String) -> bool:
 
 func _ensure_sfx_bus() -> void:
 	var bus_index := _ensure_bus(SFX_BUS_NAME)
+	var has_high_pass := false
+	for effect_index in range(AudioServer.get_bus_effect_count(bus_index)):
+		if AudioServer.get_bus_effect(bus_index, effect_index) is AudioEffectHighPassFilter:
+			has_high_pass = true
+	if not has_high_pass:
+		var high_pass := AudioEffectHighPassFilter.new()
+		high_pass.cutoff_hz = 70.0
+		AudioServer.add_bus_effect(bus_index, high_pass, 0)
 	var has_limiter := false
 	for effect_index in range(AudioServer.get_bus_effect_count(bus_index)):
 		if AudioServer.get_bus_effect(bus_index, effect_index) is AudioEffectLimiter:
@@ -401,6 +420,9 @@ func _load_custom_sounds() -> void:
 		var model_path := "%s/%s.ogg" % [MODEL_AUDIO_DIR, _model_sfx_key(sound_name)]
 		if ResourceLoader.exists(model_path):
 			path = model_path
+		var foley_path := "%s/%s.ogg" % [FOLEY_AUDIO_DIR, _model_sfx_key(sound_name)]
+		if ResourceLoader.exists(foley_path):
+			path = foley_path
 		if ResourceLoader.exists(path):
 			custom_streams[sound_name] = load(path)
 
@@ -506,7 +528,7 @@ func _read_u32_le(bytes: PackedByteArray, offset: int) -> int:
 
 func _sound_or_generate(sound_name: String, fallback: Callable) -> AudioStream:
 	if not force_procedural:
-		for path in ["%s/%s.ogg" % [MODEL_AUDIO_DIR, _model_sfx_key(sound_name)], "%s/%s.ogg" % [ORIGINAL_AUDIO_DIR, sound_name]]:
+		for path in ["%s/%s.ogg" % [FOLEY_AUDIO_DIR, _model_sfx_key(sound_name)], "%s/%s.ogg" % [MODEL_AUDIO_DIR, _model_sfx_key(sound_name)], "%s/%s.ogg" % [ORIGINAL_AUDIO_DIR, sound_name]]:
 			if ResourceLoader.exists(path): return load(path) as AudioStream
 	return fallback.call()
 

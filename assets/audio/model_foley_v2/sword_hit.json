@@ -1,0 +1,20 @@
+{
+  "model": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+  "license": "Apache-2.0",
+  "cpu_threads": 4,
+  "cached_prompt_embeddings": true,
+  "code_revision": "934d6826b084c46a0d033402174d5f8ac4ed2519",
+  "prompt": "Close microphone foley recording in a quiet acoustically treated room. A wooden practice sword makes a single firm dry contact against a leather covered wooden shield. A compact tactile wooden clack with a subtle leather scrape, then silence. Natural realistic material texture, restrained volume. No metallic ringing, no bass boom, no drums, no reverb, no music, no voice.",
+  "seed": 20260928,
+  "steps": 32,
+  "seconds": 3,
+  "elapsed_seconds": 190.43474600000627,
+  "sha256": "2624b2dbad2d74d3e92d32db7cb0875fe102bbf0b790da08d70f48b2a4582ff4",
+  "file": "sword_hit.ogg",
+  "output_seconds": 0.38,
+  "output_peak": 0.4101438820362091,
+  "trim_start_seconds": 0.78,
+  "output_sha256": "b7afef7bf67ed5f1a5dcaa0823c53ca681683f9f61439974d793669e86103696",
+  "model_revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d",
+  "edit_profile": "short dry foley, no synthesized layers"
+}

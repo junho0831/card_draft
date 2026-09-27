@@ -16,13 +16,15 @@ def main():
     parser.add_argument('--source-dir', type=Path, required=True)
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--key', choices=[*LENGTHS, 'all'], default='all')
+    parser.add_argument('--keys', nargs='+', choices=list(LENGTHS))
+    parser.add_argument('--dry', action='store_true', help='Short game edits, without adding synthesized sound')
     args = parser.parse_args()
     import numpy as np
     import soundfile as sf
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    keys = list(LENGTHS) if args.key == 'all' else [args.key]
+    keys = args.keys or (list(LENGTHS) if args.key == 'all' else [args.key])
     for key in keys:
-        seconds = LENGTHS[key]
+        seconds = min(LENGTHS[key], 0.45 if key == 'heavy_hit' else 0.38) if args.dry else LENGTHS[key]
         source = args.source_dir / (key + '.wav')
         if not source.is_file():
             raise SystemExit('Missing generated effect: ' + str(source))
@@ -45,7 +47,13 @@ def main():
         start = max(0, strongest - round(rate * lead))
         start = min(start, max(0, len(samples) - round(rate * 0.15)))
         clip = samples[start:start + round(rate * seconds)].copy()
+        if args.dry:
+            from scipy.signal import butter, sosfilt
+            clip = sosfilt(butter(2, 140, 'highpass', fs=rate, output='sos'), clip, axis=0)
+            clip = sosfilt(butter(2, 6500, 'lowpass', fs=rate, output='sos'), clip, axis=0)
         clip *= 10 ** (-4 / 20) / max(float(np.max(np.abs(clip))), 1e-5)
+        if args.dry:
+            clip *= 10 ** (-4 / 20)
         fade_in = min(round(rate * 0.004), len(clip))
         fade_out = min(round(rate * 0.04), len(clip))
         clip[:fade_in] *= np.linspace(0, 1, fade_in)[:, None]
@@ -55,8 +63,11 @@ def main():
             edited = Path(temp) / 'effect.wav'
             candidate = Path(temp) / target.name
             sf.write(edited, clip, rate, subtype='PCM_24')
-            subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(edited),
-                            '-codec:a', 'libvorbis', '-q:a', '5', str(candidate)], check=True)
+            if args.dry:
+                sf.write(candidate, clip, rate, format='OGG', subtype='VORBIS')
+            else:
+                subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(edited),
+                                '-codec:a', 'libvorbis', '-q:a', '5', str(candidate)], check=True)
             decoded, sr = sf.read(candidate)
             if not np.isfinite(decoded).all() or not 0.03 < np.max(np.abs(decoded)) < 1.0 or np.sqrt(np.mean(decoded ** 2)) < 0.001:
                 raise SystemExit('Invalid encoded effect: ' + key)
@@ -67,6 +78,7 @@ def main():
             'trim_start_seconds': start / rate,
             'output_sha256': hashlib.sha256(target.read_bytes()).hexdigest(),
             'model_revision': 'e35df4d82fbe87fcd5d14e5d100e349c0c3c076d',
+            'edit_profile': 'short dry foley, no synthesized layers' if args.dry else 'original',
         })
         target.with_suffix('.json').write_text(
             json.dumps(record, ensure_ascii=False, indent=2) + '\n')
