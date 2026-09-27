@@ -18,12 +18,13 @@ const VIEWPORTS := [
 	{"name": "desktop_1920x1080", "size": Vector2i(1920, 1080)},
 	{"name": "landscape_1280x720", "size": Vector2i(1280, 720)},
 	{"name": "landscape_1024x768", "size": Vector2i(1024, 768)},
-	{"name": "portrait_800x1280", "size": Vector2i(800, 1280)},
-	{"name": "mobile_390x844", "size": Vector2i(390, 844)},
+	{"name": "tablet_1280x800", "size": Vector2i(1280, 800)},
+	{"name": "mobile_844x390", "size": Vector2i(844, 390)},
 ]
 
 var output_dir := TestStorage.path_for("ui_captures_responsive")
 var capture_failed := false
+var expected_capture_size := Vector2i.ZERO
 
 func _init() -> void:
 	if not TestStorage.prepare_test_directory():
@@ -89,12 +90,14 @@ func _run_capture() -> void:
 	quit(0)
 
 func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i) -> void:
+	expected_capture_size = viewport_size
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_position(Vector2i(40, 40))
 	DisplayServer.window_set_size(viewport_size)
 	await _wait_for_window_size(viewport_size)
 
 	var main = MAIN_SCENE.instantiate()
+	main.touch_input_active = viewport_size.x <= 900
 	var initial_layout_size := Vector2i(1280, 720) if viewport_size.y > viewport_size.x else viewport_size
 	main.set_meta("disable_window_mode_changes", true)
 	main.set_meta("layout_viewport_override", initial_layout_size)
@@ -133,13 +136,13 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
 	_seed_battle_preview_units(main)
-	if initial_layout_size != viewport_size:
-		var battle_state_preserved: bool = await _exercise_battle_runtime_resize(main, initial_layout_size, viewport_size)
+	if initial_layout_size != viewport_size or main.touch_input_active:
+		var battle_state_preserved: bool = await _exercise_battle_runtime_resize(main, Vector2i(1280, 720), viewport_size)
 		if not battle_state_preserved:
 			capture_failed = true
 			quit(1)
 			return
-	if viewport_size.y > viewport_size.x and viewport_size.x <= 900 and main.battle_screen != null:
+	if main.battle_screen._uses_touch_hand_selection() and not main.battle_screen._is_landscape_phone():
 		var hand_before := _hand_slot_signature(main.battle_screen.player.get("hand", []))
 		var hand_count_before := (main.battle_screen.player.get("hand", []) as Array).size()
 		main.battle_screen._on_hand_card_pressed(0)
@@ -161,12 +164,18 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 		quit(1)
 		return
 	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[3]], "battle")
-	if viewport_size.x <= 600:
-		main.root_scroll.scroll_vertical = 1000000
+	if main.battle_screen.landscape_view != null:
+		var hand_before := _hand_slot_signature(main.battle_screen.player.hand)
+		main.battle_screen.landscape_view.show_card(0)
 		await _wait_for_capture_frame()
 		await _wait_for_capture_frame()
 		await _capture_screen(main, "%s_04b_battle_hand" % viewport_name, "battle")
-		main.root_scroll.scroll_vertical = 0
+		main.battle_screen.landscape_view.close_detail()
+		if hand_before != _hand_slot_signature(main.battle_screen.player.hand):
+			printerr("Card preview changed hand contents.")
+			capture_failed = true
+			quit(1)
+			return
 		await _wait_for_capture_frame()
 
 	main.battle_screen._begin_ally_selection({"kind": "power"})
@@ -277,6 +286,12 @@ func _capture(file_name: String) -> void:
 		return
 	if not _image_has_content(image):
 		printerr("Viewport image has no rendered UI content for %s." % file_name)
+		capture_failed = true
+		quit(1)
+		return
+	var size_delta := image.get_size() - expected_capture_size
+	if absi(size_delta.x) > 2 or absi(size_delta.y) > 2:
+		printerr("Capture size mismatch for %s: expected %s, got %s." % [file_name, expected_capture_size, image.get_size()])
 		capture_failed = true
 		quit(1)
 		return

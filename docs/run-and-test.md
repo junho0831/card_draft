@@ -119,7 +119,7 @@ godot --path . -s res://tests/godot/phone_landscape_visibility_test.gd -- --test
 godot --path . -s res://tests/godot/capture_ui_responsive.gd -- --test-data-dir=/tmp/card-draft-ui
 ```
 
-1920×1080, 1280×720, 1024×768, 800×1280, 390×844 화면을 `/tmp/card-draft-ui/ui_captures_responsive/`에 저장한다. 캡처 완료 후 파일 검사를 실행한다.
+1920×1080, 1280×720, 1024×768, 1280×800, 844×390 화면을 `/tmp/card-draft-ui/ui_captures_responsive/`에 저장한다. 게임의 가로 전용 레이아웃으로 검사하며, PNG 크기가 요청 해상도에서 2px 넘게 벗어나면 실패한다. 운영체제의 창 크기 보정 오차만 허용한다. 캡처 완료 후 파일 검사를 실행한다.
 
 ```bash
 godot --headless --path . -s res://tests/godot/validate_ui_captures.gd -- --test-data-dir=/tmp/card-draft-ui
@@ -130,7 +130,7 @@ godot --headless --path . -s res://tests/godot/validate_ui_captures.gd -- --test
 모바일 화면만 확인하려면 다음 명령을 사용한다. 이 명령만 실행한 폴더에서는 전체 해상도를 요구하는 파일 검사가 통과하지 않는다.
 
 ```bash
-godot --path . -s res://tests/godot/capture_ui_responsive.gd -- --test-data-dir=/tmp/card-draft-ui-mobile --single-viewport mobile_390x844 390 844
+godot --path . -s res://tests/godot/capture_ui_responsive.gd -- --test-data-dir=/tmp/card-draft-ui-mobile --single-viewport mobile_844x390 844 390
 ```
 
 ### 단계별 학습 화면

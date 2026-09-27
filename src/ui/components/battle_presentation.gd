@@ -5,14 +5,14 @@ static func field_size(mobile: bool, wide: bool, roomy: bool) -> Vector2:
 	if mobile:
 		return Vector2(112, 112)
 	if wide:
-		return Vector2(164, 144) if roomy else Vector2(154, 140)
+		return Vector2(164, 144) if roomy else Vector2(144, 126)
 	return Vector2.ZERO
 
 static func hand_size(mobile: bool, wide: bool, roomy: bool) -> Vector2:
 	if mobile:
 		return Vector2(164, 202)
 	if wide:
-		return Vector2(208, 210) if roomy else Vector2(194, 204)
+		return Vector2(208, 210) if roomy else Vector2(178, 190)
 	return Vector2.ZERO
 
 static func open_surface(panel: PanelContainer, padding: int = 0) -> void:

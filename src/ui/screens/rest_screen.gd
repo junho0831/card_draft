@@ -121,7 +121,7 @@ func _make_rest_story_panel(compact: bool, hp: int, max_hp: int, heal_amount: in
 	var title: Label = main._make_label("캠프에 도착했습니다", 22 if compact else 24, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(title)
-	box.add_child(main._make_art_rect(11, Vector2(190, 112) if dock_layout else (Vector2(236, 144) if compact else Vector2(260, 160))))
+	box.add_child(main.ui.make_location_art("camp", Vector2(190, 112) if dock_layout else (Vector2(236, 144) if compact else Vector2(260, 160))))
 	var desc: Label = main._make_label("모닥불 곁에서 숨을 고르고 덱의 핵심 카드를 다듬을 수 있습니다.", 13 if compact else 15, Color(0.86, 0.9, 0.96, 1.0))
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(desc)

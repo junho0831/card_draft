@@ -25,7 +25,7 @@ func _init(_main: Node) -> void:
 
 func build(body: VBoxContainer) -> void:
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	var short: bool = viewport_size.y <= 760.0 and viewport_size.x > viewport_size.y
+	var short: bool = viewport_size.y <= 800.0 and viewport_size.x > viewport_size.y
 	var stacked: bool = viewport_size.x < 1100.0 and not short
 	var compact: bool = stacked or short
 	var phone: bool = main.ui.mobile_layout
@@ -173,7 +173,7 @@ func _make_race_card(race_id: String, compact: bool, phone: bool, short: bool) -
 	var representative_card: Dictionary = main.card_db.get_card(String(meta.get("representative_card_id", "")))
 	box.add_child(main._make_card_art_rect(
 		representative_card,
-		Vector2(0, 106 if short else (126 if phone else (142 if compact else 172)))
+		Vector2(0, 48 if short and phone else (106 if short else (126 if phone else (142 if compact else 172))))
 	))
 
 	var description: Label = main._make_label(String(meta.get("description", "")), 12 if compact else 14, Color(0.88, 0.92, 0.96, 1.0))

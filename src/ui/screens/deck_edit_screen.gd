@@ -53,11 +53,19 @@ func build_upgrade(body: VBoxContainer) -> void:
 		if card.is_empty():
 			continue
 		has_options = true
-		box.add_child(_make_option_row(String(card.get("name", "")), "강화", Callable(main, "_upgrade_card_in_run").bind(String(card_id))))
+		var upgraded: Dictionary = main.card_db.get_card(String(card_id) + "_plus")
+		var preview := "%s\n%s\n%s" % [String(card.get("name", "")), _card_summary("현재", card), _card_summary("강화 후", upgraded)]
+		box.add_child(_make_option_row(preview, "강화", Callable(main, "_upgrade_card_in_run").bind(String(card_id))))
 
 	if not has_options:
 		box.add_child(main._make_label("강화할 카드가 없습니다.", 15, Color(0.92, 0.94, 0.98, 1.0)))
 	main._add_menu_button(box, "돌아가기", "_cancel_pending_subscreen", Color(0.22, 0.24, 0.28, 1.0))
+
+func _card_summary(prefix: String, card: Dictionary) -> String:
+	var stats := "마나 %d" % int(card.get("cost", 0))
+	if String(card.get("type", "")) == "unit":
+		stats += " · 공격 %d / 체력 %d" % [int(card.get("attack", 0)), int(card.get("health", 0))]
+	return "%s: %s · %s" % [prefix, stats, String(card.get("text", ""))]
 
 func _make_option_row(label_text: String, button_text: String, callback: Callable) -> Control:
 	var row := HBoxContainer.new()

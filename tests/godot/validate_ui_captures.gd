@@ -17,8 +17,8 @@ const RESPONSIVE_VIEWPORTS := [
 	"desktop_1920x1080",
 	"landscape_1280x720",
 	"landscape_1024x768",
-	"portrait_800x1280",
-	"mobile_390x844",
+	"tablet_1280x800",
+	"mobile_844x390",
 ]
 const MIN_PNG_BYTES := 10 * 1024
 
@@ -33,7 +33,7 @@ func _validate_all() -> void:
 				TestStorage.path_for("ui_captures_responsive/%s_%s.png" % [viewport_name, capture_name]),
 				failures
 			)
-	_validate_capture(TestStorage.path_for("ui_captures_responsive/mobile_390x844_04b_battle_hand.png"), failures)
+	_validate_capture(TestStorage.path_for("ui_captures_responsive/mobile_844x390_04b_battle_hand.png"), failures)
 	if failures.is_empty():
 		print("PASS responsive UI captures validated")
 		quit(0)

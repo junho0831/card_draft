@@ -7,21 +7,6 @@ var screen_action_dock: PanelContainer = null
 func _init(_main: Node) -> void:
 	main = _main
 
-func _event_art_index(event_id: String) -> int:
-	match event_id:
-		"suspicious_merchant":
-			return 9
-		"abandoned_cathedral":
-			return 11
-		"goblin_casino":
-			return 4
-		"magic_spring":
-			return 5
-		"battlefield_ruins":
-			return 10
-		_:
-			return 8
-
 func _event_theme_color(event_id: String) -> Color:
 	match event_id:
 		"suspicious_merchant":
@@ -122,7 +107,7 @@ func _make_story_panel(event_data: Dictionary, compact: bool) -> PanelContainer:
 	var title: Label = main._make_label(String(event_data.get("title", "")), 22 if compact else 24, Color(1.0, 0.88, 0.55, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(title)
-	box.add_child(main._make_art_rect(_event_art_index(event_id), Vector2(220, 132) if compact else Vector2(236, 148)))
+	box.add_child(main.ui.make_location_art(event_id, Vector2(220, 132) if compact else Vector2(236, 148)))
 	var description: Label = main._make_label(String(event_data.get("description", "")), 15 if compact else 16, Color(0.9, 0.92, 0.98, 1.0))
 	description.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(description)

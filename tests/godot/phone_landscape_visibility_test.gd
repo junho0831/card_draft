@@ -62,6 +62,7 @@ func run() -> void:
 		check(visible_area.encloses(selection.race_buttons[id].get_global_rect()), "%s choice button visible without scrolling" % id)
 	check(selection.fixed_footer.size.y <= 90, "start dock leaves space for choices")
 	check(selection.start_button.get_global_rect().end.y <= root.size.y, "start button fits screen")
+	check(visible_area.encloses(selection.selected_race_details.get_global_rect()), "selected race description and power fit above the dock: %s inside %s" % [selection.selected_race_details.get_global_rect(), visible_area])
 	await capture("race-selection")
 	selection._select_race("elf")
 	check(selection.selected_race_id == "elf", "race remains selectable")
@@ -109,6 +110,9 @@ func run() -> void:
 		battle.selected_attacker = 0
 		battle._refresh_ui()
 		await settle()
+		battle.rebuild_layout()
+		await settle()
+		check(battle.selected_attacker == 0, "layout rebuild preserves the selected attacker")
 		var hp_before := int(battle.opponent.health)
 		var hero_rect: Rect2 = battle.opponent_hero_target.get_global_rect()
 		var point := hero_rect.position + Vector2(hero_rect.size.x - 8, hero_rect.size.y / 2)

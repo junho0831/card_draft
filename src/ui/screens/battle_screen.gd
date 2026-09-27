@@ -887,7 +887,7 @@ func _uses_touch_hand_selection() -> bool:
 
 func _is_wide_tight_battle_layout() -> bool:
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	return viewport_size.x >= 1100.0 and viewport_size.y <= 900.0
+	return viewport_size.x >= 1000.0 and viewport_size.y <= 900.0
 
 func _is_roomy_wide_battle_layout() -> bool:
 	return _is_wide_tight_battle_layout() and main._layout_viewport_size().x >= 1450.0
@@ -895,6 +895,8 @@ func _is_roomy_wide_battle_layout() -> bool:
 func _battle_field_card_size() -> Vector2:
 	if _is_mobile_battle_layout():
 		return PRESENTATION.field_size(true, false, false)
+	if _is_wide_tight_battle_layout() and main._layout_viewport_size().x < 1100.0:
+		return Vector2(120, 126)
 	if _is_wide_tight_battle_layout():
 		return PRESENTATION.field_size(false, true, _is_roomy_wide_battle_layout())
 	if _is_tight_battle_layout():
@@ -5429,10 +5431,6 @@ func rebuild_layout() -> void:
 	if is_instance_valid(landscape_view):
 		landscape_view.cancel_focus()
 		landscape_view.close_detail()
-	if is_instance_valid(landscape_view) or _is_landscape_phone():
-		pending_action.clear()
-		selected_hand_slot = -1
-		selected_attacker = -1
 	var timer_was_running: bool = turn_timer != null and is_instance_valid(turn_timer) and not turn_timer.is_stopped()
 	var timer_left: float = float(turn_timer.time_left) if timer_was_running else 0.0
 	var saved_log: String = "" if log_label == null or not is_instance_valid(log_label) else log_label.text

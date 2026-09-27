@@ -228,14 +228,13 @@ func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, de
 	dock.offset_bottom = -6
 	dock.mouse_filter = Control.MOUSE_FILTER_STOP
 	main.modal_layer.add_child(dock)
-	if mobile_layout:
-		main.mobile_bottom_inset = float(dock_height + 12)
-		main._apply_root_layout()
-		dock.resized.connect(func():
-			if is_instance_valid(dock) and dock.is_inside_tree():
-				main.mobile_bottom_inset = maxf(float(dock_height + 12), dock.size.y + 12.0)
-				main._apply_root_layout()
-		)
+	main.mobile_bottom_inset = float(dock_height + 12)
+	main._apply_root_layout()
+	dock.resized.connect(func():
+		if is_instance_valid(dock) and dock.is_inside_tree() and not dock.is_queued_for_deletion() and dock.is_visible_in_tree():
+			main.mobile_bottom_inset = maxf(float(dock_height + 12), dock.size.y + 12.0)
+			main._apply_root_layout()
+	)
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)
@@ -264,7 +263,7 @@ func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, de
 	action_scroll.add_child(actions)
 
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 4 if mobile_layout else dock_height + 8)
+	spacer.custom_minimum_size = Vector2(0, 4)
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(spacer)
 	return {
@@ -613,6 +612,17 @@ func make_card_frame() -> PanelContainer:
 
 func make_art_rect(art_index: int, size: Vector2) -> TextureRect:
 	return _make_texture_rect(_make_sheet_art_texture(art_index), size)
+
+func make_location_art(location: String, size: Vector2) -> TextureRect:
+	var locations := {"suspicious_merchant": 0, "abandoned_cathedral": 1, "goblin_casino": 2, "magic_spring": 3, "battlefield_ruins": 4, "camp": 5}
+	var index := int(locations.get(location, 5))
+	var sheet := load("res://assets/backgrounds/location_atlas_v1.png") as Texture2D
+	var tile_size := Vector2(sheet.get_width() / 3.0, sheet.get_height() / 2.0)
+	var texture := AtlasTexture.new()
+	texture.atlas = sheet
+	texture.region = Rect2(Vector2(index % 3, floori(index / 3.0)) * tile_size, tile_size)
+	texture.filter_clip = true
+	return _make_texture_rect(texture, size)
 
 func make_card_art_rect(card: Dictionary, size: Vector2) -> TextureRect:
 	return _make_texture_rect(card_art_texture(card), size)

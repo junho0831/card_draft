@@ -255,13 +255,15 @@ func _on_window_size_changed() -> void:
 	_schedule_layout_rebuild()
 
 func _layout_signature(viewport_size: Vector2) -> String:
-	return "%s|%s|%s|%s|%s|%s|%s" % [
+	return "%s|%s|%s|%s|%s|%s|%s|%s|%s" % [
 		"phone" if LayoutPolicy.is_mobile_landscape(viewport_size) else "desktop",
 		"compact860" if viewport_size.x < 860.0 else "wide860",
+		"compact1000" if viewport_size.x < 1000.0 else "wide1000",
 		"compact1080" if viewport_size.x < 1080.0 else "wide1080",
 		"compact1400" if viewport_size.x < 1400.0 else "wide1400",
 		"desktop" if viewport_size.x < 1600.0 else "wide_desktop",
 		"short" if viewport_size.y <= 760.0 else "tall",
+		"short800" if viewport_size.y <= 800.0 else "tall800",
 		_ui_scale_mode(),
 	]
 
@@ -367,6 +369,7 @@ func _apply_root_layout() -> void:
 func _clear_screen() -> void:
 	if battle_screen != null and battle_screen.presentation != null:
 		battle_screen.presentation.dispose()
+	_clear_modal()
 	mobile_bottom_inset = 0.0
 	_apply_root_layout()
 	if audio_manager != null:
@@ -383,8 +386,6 @@ func _clear_screen() -> void:
 		# A button may be dispatching the event that switches screens.
 		if child is CanvasItem: child.hide()
 		child.queue_free()
-
-	_clear_modal()
 
 func _clear_modal() -> void:
 	for child in modal_layer.get_children():
@@ -1308,12 +1309,12 @@ func _profile_upgrades() -> Dictionary:
 
 func _build_tag_meta() -> Dictionary:
 	return {
-		"fire": {"icon": "화염", "name": "화염", "color": Color(0.84, 0.34, 0.16, 1.0), "bonus": "화염 피해 +2 / 연계 시 폭발 피해"},
-		"draw": {"icon": "드로우", "name": "드로우", "color": Color(0.24, 0.46, 0.82, 1.0), "bonus": "추가 드로우 / 연계 시 마나 회복"},
-		"death": {"icon": "사망", "name": "사망", "color": Color(0.48, 0.28, 0.58, 1.0), "bonus": "아군 사망 시 적 영웅 피해"},
-		"buff": {"icon": "버프", "name": "버프", "color": Color(0.7, 0.58, 0.18, 1.0), "bonus": "소환 유닛 체력 +1 / 연계 시 선봉 성장"},
-		"low_hp": {"icon": "위험", "name": "저체력", "color": Color(0.76, 0.22, 0.28, 1.0), "bonus": "위험 체력에서 공격 피해 +1 / 연계 회복"},
-		"summon": {"icon": "소환", "name": "소환", "color": Color(0.22, 0.58, 0.32, 1.0), "bonus": "전투 시작 토큰 / 연계 시 즉시 공격"},
+		"fire": {"icon": "▲", "name": "화염", "color": Color(0.84, 0.34, 0.16, 1.0), "bonus": "화염 피해 +2 / 연계 시 폭발 피해"},
+		"draw": {"icon": "↻", "name": "드로우", "color": Color(0.24, 0.46, 0.82, 1.0), "bonus": "추가 드로우 / 연계 시 마나 회복"},
+		"death": {"icon": "†", "name": "사망", "color": Color(0.48, 0.28, 0.58, 1.0), "bonus": "아군 사망 시 적 영웅 피해"},
+		"buff": {"icon": "+", "name": "버프", "color": Color(0.7, 0.58, 0.18, 1.0), "bonus": "소환 유닛 체력 +1 / 연계 시 선봉 성장"},
+		"low_hp": {"icon": "!", "name": "저체력", "color": Color(0.76, 0.22, 0.28, 1.0), "bonus": "위험 체력에서 공격 피해 +1 / 연계 회복"},
+		"summon": {"icon": "◇", "name": "소환", "color": Color(0.22, 0.58, 0.32, 1.0), "bonus": "전투 시작 토큰 / 연계 시 즉시 공격"},
 	}
 
 func _build_threshold() -> int:
