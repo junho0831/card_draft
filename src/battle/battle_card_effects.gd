@@ -2,6 +2,10 @@ extends RefCounted
 class_name BattleCardEffects
 const Frontier = preload("res://src/battle/frontier_effects.gd")
 
+func emit_impact(owner: Dictionary, enemy: Dictionary, source: Dictionary, amount: int, context: Dictionary, area: bool = false, hero: bool = false) -> void:
+	var impact: Callable = context.get("frontier_impact", Callable())
+	if amount > 0 and impact.is_valid(): impact.call(owner, enemy, source, amount, area, hero)
+
 func _base_card_id(card_id: String) -> String:
 	if card_id.ends_with("_plus"):
 		return card_id.trim_suffix("_plus")
@@ -55,6 +59,7 @@ func on_unit_died(dead_unit: Dictionary, owner: Dictionary, enemy: Dictionary, c
 		if log.is_valid():
 			log.call("무덤 기사 사망 효과: %s 영웅 체력 2 회복" % owner.name)
 	if _base_card_id(String(dead_unit.get("id", ""))) == "bone_soldier":
+		emit_impact(owner, enemy, {"impact_profile":"bone"}, 1, context, false, true)
 		enemy.health -= 1
 		if log.is_valid():
 			log.call("해골 병사 사망 효과: %s 영웅에게 피해 1" % enemy.name)
@@ -67,11 +72,13 @@ func on_unit_died(dead_unit: Dictionary, owner: Dictionary, enemy: Dictionary, c
 			log.call("광전사 사망 효과: %s 영웅에게 피해 2" % owner.name)
 	var equipment_death_damage := int(dead_unit.get("bone_armor_death_damage", 0))
 	if equipment_death_damage > 0:
+		emit_impact(owner, enemy, {"impact_profile":dead_unit.get("gear_death_impact_profile", "bone")}, equipment_death_damage, context, false, true)
 		enemy["health"] = int(enemy.get("health", 0)) - equipment_death_damage
 		if log.is_valid():
 			log.call("뼈 갑옷 파열: %s 영웅에게 피해 %d" % [enemy.name, equipment_death_damage])
 	if int(owner.get("corpse_explosion_stacks", 0)) > 0:
 		var damage := 2 * int(owner.corpse_explosion_stacks)
+		emit_impact(owner, enemy, {"impact_profile":"fire"}, damage, context)
 		var cleanup: Callable = context.get("cleanup_dead_units", Callable())
 		if enemy.field.is_empty():
 			enemy.health -= damage
@@ -133,6 +140,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 			var damage := 2
 			if calc_damage.is_valid():
 				damage = int(calc_damage.call(card, true, owner, damage))
+			emit_impact(owner, enemy, card, damage, context)
 			if enemy.field.is_empty():
 				enemy.health -= damage
 				if log.is_valid():
@@ -158,6 +166,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 		"death_mark":
 			_add_curse(enemy, 1 + effect_bonus, log, "죽음의 낙인")
 		"plague_spread":
+			if not enemy.field.is_empty(): emit_impact(owner, enemy, card, 1, context, true)
 			for unit in enemy.field:
 				unit.health -= 1
 				if log.is_valid():
@@ -170,6 +179,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 			if draw_cards.is_valid():
 				draw_cards.call(owner, 1)
 		"funeral_fog":
+			emit_impact(owner, enemy, card, 2 + effect_bonus, context)
 			if enemy.field.is_empty():
 				enemy.health -= 2 + effect_bonus
 				if log.is_valid():
@@ -252,11 +262,13 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 					"health": 1,
 					"art": 2,
 					"art_id": "bone_soldier",
+					"impact_profile": "bone",
 				}, context)
 		"corpse_explosion":
 			var sacrifice := _selected_ally(owner, context)
 			if sacrifice.is_empty():
 				return
+			emit_impact(owner, enemy, card, 2, context, true)
 			sacrifice.health = 0
 			if enemy.field.is_empty():
 				enemy.health -= 2
@@ -280,6 +292,7 @@ func _resolve_spell(owner: Dictionary, enemy: Dictionary, card: Dictionary, cont
 			var damage := base_damage
 			if calc_damage.is_valid():
 				damage = int(calc_damage.call(card, true, owner, base_damage))
+			emit_impact(owner, enemy, card, damage, context)
 			if enemy.field.is_empty():
 				enemy.health -= damage
 				if log.is_valid():
@@ -320,6 +333,7 @@ func _resolve_equipment(owner: Dictionary, enemy: Dictionary, card: Dictionary, 
 	var result_text := "공격력 +2"
 	match card_id:
 		"ember_blade":
+			target["gear_hit_impact_profile"] = "fire"
 			target["attack"] = int(target.get("attack", 0)) + 1
 			target["ember_blade_damage"] = int(target.get("ember_blade_damage", 0)) + 1
 			result_text = "공격력 +1 / 공격 후 적 영웅 피해 1"
@@ -328,6 +342,7 @@ func _resolve_equipment(owner: Dictionary, enemy: Dictionary, card: Dictionary, 
 			target["wind_quiver_draw"] = int(target.get("wind_quiver_draw", 0)) + 1
 			result_text = "공격력 +1 / 공격 후 드로우 1"
 		"bone_armor":
+			target["gear_death_impact_profile"] = "bone"
 			target["health"] = int(target.get("health", 0)) + 3
 			target["max_health"] = int(target.get("max_health", 0)) + 3
 			target["bone_armor_death_damage"] = int(target.get("bone_armor_death_damage", 0)) + 2
@@ -352,6 +367,8 @@ func _resolve_equipment(owner: Dictionary, enemy: Dictionary, card: Dictionary, 
 			result_text = "공격력 +1%s" % (" / 즉시 공격 지원병 소환" if summoned else "")
 		_:
 			target["attack"] = int(target.get("attack", 0)) + 2
+	if card_id in ["training_sword", "ember_blade", "wind_quiver", "blood_blade"]:
+		target["impact_profile"] = card.get("impact_profile", "metal")
 	_add_equipment_name(target, String(card.get("name", "장비")))
 	if log.is_valid():
 		log.call("%s: %s 장착, %s %s" % [owner.name, card.name, target.name, result_text])
@@ -361,6 +378,7 @@ func on_unit_attacked(attacker: Dictionary, owner: Dictionary, enemy: Dictionary
 	var log: Callable = context.get("log", Callable())
 	var hero_damage := int(attacker.get("ember_blade_damage", 0))
 	if hero_damage > 0:
+		emit_impact(owner, enemy, {"impact_profile":attacker.get("gear_hit_impact_profile", "fire")}, hero_damage, context, false, true)
 		enemy["health"] = int(enemy.get("health", 0)) - hero_damage
 		result["hero_damage"] = hero_damage
 		if log.is_valid():
@@ -391,6 +409,7 @@ func _summon_war_horn_token(owner: Dictionary, context: Dictionary) -> bool:
 		return false
 	var token := {
 		"id": "war_horn_token",
+		"impact_profile": "metal",
 		"name": "징집 지원병",
 		"race": "중립",
 		"attr": "대지",
@@ -417,6 +436,7 @@ func _deal_frontline_damage(owner: Dictionary, enemy: Dictionary, source: Dictio
 	var damage := base_damage
 	if calc_damage.is_valid():
 		damage = int(calc_damage.call(source, source.get("type", "unit") == "spell", owner, base_damage))
+	emit_impact(owner, enemy, source, damage, context)
 	if enemy.field.is_empty():
 		enemy.health -= damage
 		if log.is_valid():

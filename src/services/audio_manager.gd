@@ -10,6 +10,7 @@ const MUSIC_MIX_BUS_NAME := &"MusicMix"
 const BATTLE_MUSIC_KEYS := ["battle_base", "battle_tension", "battle_lethal", "battle_low_hp"]
 const ORIGINAL_AUDIO_DIR := "res://assets/audio/original_v1"
 const MODEL_AUDIO_DIR := "res://assets/audio/local_models_v1"
+const COMMUNITY_AUDIO_DIR := "res://assets/audio/community_v1"
 const FOLEY_AUDIO_DIR := "res://assets/audio/model_foley_v2"
 const SFX_HEADROOM_DB := -6.0
 const SHARED_STREAM_GAP_MSEC := 120
@@ -61,11 +62,8 @@ func _ready() -> void:
 	_setup_battle_music_players()
 	menu_music_player = AudioStreamPlayer.new()
 	menu_music_player.bus = MUSIC_MIX_BUS_NAME
-	menu_music_player.volume_db = -18.0
-	var menu_path := ORIGINAL_AUDIO_DIR + "/menu_theme.ogg"
-	if ResourceLoader.exists(MODEL_AUDIO_DIR + "/menu_theme.ogg"):
-		menu_path = MODEL_AUDIO_DIR + "/menu_theme.ogg"
-		menu_music_player.volume_db = -10.0
+	var menu_path := _music_path("menu_theme")
+	menu_music_player.volume_db = -10.0
 	if ResourceLoader.exists(menu_path):
 		menu_music_player.stream = load(menu_path)
 		_make_stream_loop(menu_music_player.stream)
@@ -87,7 +85,7 @@ func set_screen_music(screen: String) -> void:
 	if current_battle_music_mode != "stopped":
 		stop_battle_music()
 	var key := "exploration" if screen in ["map", "shop", "rest", "event", "reward", "remove_card", "upgrade_card"] else "menu_theme"
-	var path := "%s/%s.ogg" % [MODEL_AUDIO_DIR, key]
+	var path := _music_path(key)
 	if not ResourceLoader.exists(path) or not is_instance_valid(menu_music_player):
 		return
 	if ambient_key != key:
@@ -233,12 +231,12 @@ func set_battle_music_state(state: Dictionary) -> void:
 	current_battle_music_signature = signature
 	if music_players.is_empty():
 		_setup_battle_music_players()
-	var score_key := "boss_theme" if bool(state.get("boss", false)) and ResourceLoader.exists(MODEL_AUDIO_DIR + "/boss_theme.ogg") else "battle_base"
+	var score_key := "boss_theme" if bool(state.get("boss", false)) and not _music_path("boss_theme").is_empty() else "battle_base"
 	if score_key != battle_score_key and music_players.has("battle_base"):
 		battle_score_key = score_key
 		var score_player: AudioStreamPlayer = music_players["battle_base"]
 		score_player.stop()
-		score_player.stream = load("%s/%s.ogg" % [MODEL_AUDIO_DIR, score_key])
+		score_player.stream = load(_music_path(score_key))
 		_make_stream_loop(score_player.stream)
 	if _is_headless_runtime():
 		return
@@ -320,7 +318,7 @@ func _battle_music_layer_targets(mode: String, state: Dictionary) -> Dictionary:
 
 func _has_model_battle_score() -> bool:
 	var stream = custom_music_streams.get("battle_base")
-	return stream != null and String(stream.resource_path).begins_with(MODEL_AUDIO_DIR)
+	return stream != null and (String(stream.resource_path).begins_with(MODEL_AUDIO_DIR) or String(stream.resource_path).begins_with(COMMUNITY_AUDIO_DIR))
 
 func _cancel_music_tween(key: String) -> void:
 	var previous = music_tweens.get(key)
@@ -416,13 +414,7 @@ func _is_headless_runtime() -> bool:
 func _load_custom_sounds() -> void:
 	custom_streams.clear()
 	for sound_name in streams.keys():
-		var path := "%s/%s.ogg" % [ORIGINAL_AUDIO_DIR, sound_name]
-		var model_path := "%s/%s.ogg" % [MODEL_AUDIO_DIR, _model_sfx_key(sound_name)]
-		if ResourceLoader.exists(model_path):
-			path = model_path
-		var foley_path := "%s/%s.ogg" % [FOLEY_AUDIO_DIR, _model_sfx_key(sound_name)]
-		if ResourceLoader.exists(foley_path):
-			path = foley_path
+		var path := _sfx_path(sound_name)
 		if ResourceLoader.exists(path):
 			custom_streams[sound_name] = load(path)
 
@@ -456,10 +448,7 @@ func _model_sfx_key(sound_name: String) -> String:
 func _load_custom_music() -> void:
 	custom_music_streams.clear()
 	for music_name in music_streams.keys():
-		var path := "%s/%s.ogg" % [ORIGINAL_AUDIO_DIR, music_name]
-		var model_path := "%s/%s.ogg" % [MODEL_AUDIO_DIR, music_name]
-		if ResourceLoader.exists(model_path):
-			path = model_path
+		var path := _music_path(music_name)
 		if ResourceLoader.exists(path):
 			var stream = load(path)
 			_make_stream_loop(stream)
@@ -526,10 +515,22 @@ func _read_u16_le(bytes: PackedByteArray, offset: int) -> int:
 func _read_u32_le(bytes: PackedByteArray, offset: int) -> int:
 	return int(bytes[offset]) | (int(bytes[offset + 1]) << 8) | (int(bytes[offset + 2]) << 16) | (int(bytes[offset + 3]) << 24)
 
+# CC0 library recordings take priority; unavailable events keep their existing assets.
+func _sfx_path(sound_name: String) -> String:
+	for path in ["%s/%s.ogg" % [COMMUNITY_AUDIO_DIR, _model_sfx_key(sound_name)], "%s/%s.ogg" % [FOLEY_AUDIO_DIR, _model_sfx_key(sound_name)], "%s/%s.ogg" % [MODEL_AUDIO_DIR, _model_sfx_key(sound_name)], "%s/%s.ogg" % [ORIGINAL_AUDIO_DIR, sound_name]]:
+		if ResourceLoader.exists(path): return path
+	return ""
+
+func _music_path(key: String) -> String:
+	for directory in [COMMUNITY_AUDIO_DIR, MODEL_AUDIO_DIR, ORIGINAL_AUDIO_DIR]:
+		var path := "%s/%s.ogg" % [directory, key]
+		if ResourceLoader.exists(path): return path
+	return ""
+
 func _sound_or_generate(sound_name: String, fallback: Callable) -> AudioStream:
 	if not force_procedural:
-		for path in ["%s/%s.ogg" % [FOLEY_AUDIO_DIR, _model_sfx_key(sound_name)], "%s/%s.ogg" % [MODEL_AUDIO_DIR, _model_sfx_key(sound_name)], "%s/%s.ogg" % [ORIGINAL_AUDIO_DIR, sound_name]]:
-			if ResourceLoader.exists(path): return load(path) as AudioStream
+		var path := _sfx_path(sound_name)
+		if not path.is_empty(): return load(path) as AudioStream
 	return fallback.call()
 
 func _generate_all_sounds() -> void:
@@ -642,8 +643,8 @@ func _generate_all_sounds() -> void:
 	}
 
 func _generate_all_music() -> void:
-	if not force_procedural and ResourceLoader.exists(MODEL_AUDIO_DIR + "/battle_base.ogg"):
-		var score: AudioStream = load(MODEL_AUDIO_DIR + "/battle_base.ogg")
+	if not force_procedural and not _music_path("battle_base").is_empty():
+		var score: AudioStream = load(_music_path("battle_base"))
 		for key in BATTLE_MUSIC_KEYS: music_streams[key] = score
 		return
 	music_streams["battle_base"] = _generate_battle_music_loop("base")

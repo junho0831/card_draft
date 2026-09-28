@@ -15,7 +15,6 @@ static func apply(engine, owner: Dictionary, enemy: Dictionary, source: Dictiona
 			"front_damage", "combo_damage", "low_damage":
 				if effect.op == "combo_damage" and int(context.get("cards_played_this_turn", 0)) >= 3: amount = extra
 				if effect.op == "low_damage" and int(owner.health) * 2 <= int(owner.max_health): amount = extra
-				if impact.is_valid(): impact.call(owner, enemy, source, amount, false, false)
 				engine._deal_frontline_damage(owner, enemy, source, amount, context, String(source.name))
 			"all_damage":
 				var calc: Callable = context.get("calculate_damage", Callable())
@@ -57,6 +56,8 @@ static func apply(engine, owner: Dictionary, enemy: Dictionary, source: Dictiona
 				if not target.is_empty():
 					var key: String = {"gear_hit":"ember_blade_damage", "gear_heal":"blood_blade_heal", "gear_draw":"wind_quiver_draw", "gear_death":"bone_armor_death_damage"}[effect.op]
 					target[key] = int(target.get(key, 0)) + amount
+					if effect.op == "gear_hit": target["gear_hit_impact_profile"] = source.get("impact_profile", "fire")
+					if effect.op == "gear_death": target["gear_death_impact_profile"] = source.get("impact_profile", "bone")
 		if log.is_valid(): log.call("%s: %s" % [source.name, describe(effect)])
 	if source.get("type") == "equipment":
 		var target: Dictionary = engine._selected_ally(owner, context)

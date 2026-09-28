@@ -50,7 +50,7 @@ func _test_boots_to_main_menu(main: Node) -> void:
 	_assert_eq(int(main.player_profile.get("battle_tutorial_stage", -1)), 0, "battle tutorial starts at stage 0")
 	_assert_true(main.audio_manager.streams.has("impact_heavy"), "audio manager provides heavy impact sound")
 	_assert_true(main.audio_manager.streams.has("direct_attack"), "audio manager provides direct attack sound")
-	_assert_true(main.audio_manager.streams.values().all(func(stream): return stream != null and (String(stream.resource_path).begins_with("res://assets/audio/local_models_v1/") or String(stream.resource_path).begins_with("res://assets/audio/model_foley_v2/"))), "runtime initialization reads packaged audio without synthesizing disposable waveforms")
+	_assert_true(main.audio_manager.streams.values().all(func(stream): return stream != null and (String(stream.resource_path).begins_with("res://assets/audio/local_models_v1/") or String(stream.resource_path).begins_with("res://assets/audio/model_foley_v2/") or String(stream.resource_path).begins_with("res://assets/audio/community_v1/"))), "runtime initialization reads packaged audio without synthesizing disposable waveforms")
 	_assert_true(ResourceLoader.exists("res://assets/audio/original_v1/direct_attack.ogg"), "runtime direct attack SFX exists")
 	_assert_true(main.audio_manager.has_authored_sfx("direct_attack"), "audio manager loads direct attack SFX")
 	_assert_true(main.audio_manager.streams.has("victory_burst"), "audio manager provides victory burst sound")
@@ -62,28 +62,28 @@ func _test_boots_to_main_menu(main: Node) -> void:
 		_assert_true(main.audio_manager.streams.has(sound_name), "audio manager provides card identity sound: %s" % sound_name)
 	var all_model_sfx_loaded := true
 	for sound_name in main.audio_manager.authored_sfx_keys():
-		_assert_true(ResourceLoader.exists("res://assets/audio/local_models_v1/%s.ogg" % main.audio_manager._model_sfx_key(sound_name)), "generated SFX resource exists: %s" % sound_name)
+		_assert_true(ResourceLoader.exists(main.audio_manager._sfx_path(sound_name)), "packaged SFX resource exists: %s" % sound_name)
 		var sound_stream = main.audio_manager.custom_streams.get(sound_name)
 		if sound_stream == null:
 			_assert_true(false, "generated SFX stream loads: %s" % sound_name)
 			all_model_sfx_loaded = false
 			continue
 		var sound_path := String(sound_stream.resource_path)
-		all_model_sfx_loaded = all_model_sfx_loaded and (sound_path.begins_with("res://assets/audio/local_models_v1/") or sound_path.begins_with("res://assets/audio/model_foley_v2/"))
-		_assert_true(sound_path.begins_with("res://assets/audio/original_v1/") or sound_path.begins_with("res://assets/audio/local_models_v1/") or sound_path.begins_with("res://assets/audio/model_foley_v2/"), "SFX is loaded from a documented production directory: %s" % sound_name)
+		all_model_sfx_loaded = all_model_sfx_loaded and (sound_path.begins_with("res://assets/audio/local_models_v1/") or sound_path.begins_with("res://assets/audio/model_foley_v2/") or sound_path.begins_with("res://assets/audio/community_v1/"))
+		_assert_true(sound_path.begins_with("res://assets/audio/original_v1/") or sound_path.begins_with("res://assets/audio/local_models_v1/") or sound_path.begins_with("res://assets/audio/model_foley_v2/") or sound_path.begins_with("res://assets/audio/community_v1/"), "SFX is loaded from a documented production directory: %s" % sound_name)
 		_assert_true(main.audio_manager.has_authored_sfx(sound_name), "audio manager loads original SFX: %s" % sound_name)
 	if ResourceLoader.exists("res://assets/audio/local_models_v1/ui_click.ogg"):
-		_assert_true(all_model_sfx_loaded, "complete generated SFX pack replaces every runtime sound")
+		_assert_true(all_model_sfx_loaded, "packaged SFX replaces every runtime sound")
 	for music_name in ["battle_base", "battle_tension", "battle_lethal", "battle_low_hp"]:
 		_assert_true(main.audio_manager.music_streams.has(music_name), "audio manager provides adaptive battle music: %s" % music_name)
 	_assert_true(main.audio_manager.menu_music_player.stream != null, "original menu music is loaded")
 	if ResourceLoader.exists("res://assets/audio/local_models_v1/menu_theme.ogg"):
-		_assert_true(String(main.audio_manager.menu_music_player.stream.resource_path).begins_with("res://assets/audio/local_models_v1/"), "generated menu score takes priority")
+		_assert_true(String(main.audio_manager.menu_music_player.stream.resource_path).begins_with("res://assets/audio/community_v1/"), "CC0 menu score takes priority")
 	for music_name in main.audio_manager.BATTLE_MUSIC_KEYS:
 		_assert_true(main.audio_manager.custom_music_streams.has(music_name), "original battle layer loaded: %s" % music_name)
 		_assert_true(main.audio_manager.custom_music_streams[music_name].loop, "battle layer loops: %s" % music_name)
 	if ResourceLoader.exists("res://assets/audio/local_models_v1/battle_base.ogg"):
-		_assert_true(String(main.audio_manager.custom_music_streams["battle_base"].resource_path).begins_with("res://assets/audio/local_models_v1/"), "generated battle score takes priority")
+		_assert_true(String(main.audio_manager.custom_music_streams["battle_base"].resource_path).begins_with("res://assets/audio/community_v1/"), "CC0 battle score takes priority")
 		for mode in ["base", "tension", "lethal", "low_hp"]:
 			var targets: Dictionary = main.audio_manager._battle_music_layer_targets(mode, {"boss": true})
 			_assert_true(float(targets["battle_base"]) > -80.0, "generated score remains audible: %s" % mode)

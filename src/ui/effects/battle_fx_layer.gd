@@ -504,6 +504,17 @@ func _play_profile_impact(attacker: Control, defender: Control, damage: int, pro
 			var direction := (center - source).normalized()
 			_motif_line([center - direction * 75, center + direction * 18], color, 4.0)
 			_spawn_ring(center, color, radius * 0.65, 0.2)
+		"gust":
+			for i in range(3):
+				var offset := Vector2(0, (i - 1) * 15)
+				_spawn_card_arc_trail(source + offset, source.lerp(center, 0.5) + offset + Vector2(0, -30), center + offset, color, 0.28)
+		"droplets", "splatter", "fragments":
+			_spawn_material_fragments(center, color, String(profile.motif), radius)
+		"fracture":
+			for i in range(5):
+				var direction := Vector2.RIGHT.rotated(float(i) * TAU / 5.0)
+				_motif_line([center, center + direction * radius * 0.5 + direction.orthogonal() * 8, center + direction * radius], color, 5.0)
+			_spawn_ring(center, color, radius * 1.2, 0.3)
 		"bolt":
 			_motif_line([source, source.lerp(center, 0.35) + Vector2(12,-18), source.lerp(center, 0.6) + Vector2(-18,12), center], color, 5.0)
 			_spawn_radial_burst(center, Color.WHITE, 6, false)
@@ -541,3 +552,27 @@ func _motif_line(points: Array, color: Color, width: float) -> void:
 	var tween := line.create_tween()
 	tween.tween_property(line, "modulate:a", 0.0, 0.25)
 	tween.tween_callback(line.queue_free)
+
+# Material motion distinguishes effects even without color perception.
+func _spawn_material_fragments(center: Vector2, color: Color, motif: String, radius: float) -> void:
+	for i in range(6):
+		var particle := ColorRect.new()
+		particle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		particle.color = color
+		particle.size = Vector2(5, 12) if motif == "fragments" else Vector2(6, 6)
+		particle.position = center - particle.size * 0.5
+		add_child(particle)
+		var direction := Vector2.RIGHT.rotated(float(i) * TAU / 6.0)
+		var destination := particle.position + direction * radius
+		var duration := 0.32
+		if motif == "droplets":
+			destination = particle.position + Vector2((i - 2.5) * 10, 36 + i * 4)
+			duration = 0.48
+		elif motif == "fragments":
+			destination.y += 30
+		var tween := particle.create_tween()
+		tween.tween_property(particle, "position", destination, duration).set_trans(Tween.TRANS_QUAD)
+		if motif == "fragments":
+			tween.parallel().tween_property(particle, "rotation", (i - 2.5) * 1.5, duration)
+		tween.parallel().tween_property(particle, "modulate:a", 0.0, duration)
+		tween.tween_callback(particle.queue_free)

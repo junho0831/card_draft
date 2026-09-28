@@ -1,6 +1,7 @@
 [
     {
         "id": "militia",
+    "impact_profile": "metal",
         "name": "민병대",
         "type": "unit",
         "race": "인간",
@@ -18,6 +19,7 @@
     },
     {
         "id": "trainee_swordsman",
+    "impact_profile": "metal",
         "name": "초보 검병",
         "type": "unit",
         "race": "인간",
@@ -35,6 +37,7 @@
     },
     {
         "id": "small_flame",
+    "impact_profile": "fire",
         "name": "작은 불꽃",
         "type": "spell",
         "race": "인간",
@@ -50,6 +53,7 @@
     },
     {
         "id": "first_aid",
+    "impact_profile": "holy",
         "name": "응급 치료",
         "type": "spell",
         "race": "인간",
@@ -65,6 +69,7 @@
     },
     {
         "id": "flame_swordsman",
+    "impact_profile": "fire",
         "name": "불꽃 검사",
         "type": "unit",
         "race": "인간",
@@ -82,6 +87,7 @@
     },
     {
         "id": "shield_guard",
+    "impact_profile": "metal",
         "name": "방패 수호병",
         "type": "unit",
         "race": "인간",
@@ -98,6 +104,7 @@
     },
     {
         "id": "captain_order",
+    "impact_profile": "holy",
         "name": "지휘관의 명령",
         "type": "spell",
         "race": "인간",
@@ -112,6 +119,7 @@
     },
     {
         "id": "knight_spearman",
+    "impact_profile": "metal",
         "name": "기사단 창병",
         "type": "unit",
         "race": "인간",
@@ -129,6 +137,7 @@
     },
     {
         "id": "royal_support",
+    "impact_profile": "holy",
         "name": "왕실 지원",
         "type": "spell",
         "race": "인간",
@@ -144,6 +153,7 @@
     },
     {
         "id": "elf_ranger",
+    "impact_profile": "arrow",
         "name": "엘프 순찰자",
         "type": "unit",
         "race": "엘프",
@@ -160,6 +170,7 @@
     },
     {
         "id": "forest_archer",
+    "impact_profile": "arrow",
         "name": "숲의 궁수",
         "type": "unit",
         "race": "엘프",
@@ -177,6 +188,7 @@
     },
     {
         "id": "elven_insight",
+    "impact_profile": "wind",
         "name": "엘프의 통찰",
         "type": "spell",
         "race": "엘프",
@@ -191,6 +203,7 @@
     },
     {
         "id": "nature_blessing",
+    "impact_profile": "holy",
         "name": "자연의 축복",
         "type": "spell",
         "race": "엘프",
@@ -205,6 +218,7 @@
     },
     {
         "id": "gale_shot",
+    "impact_profile": "arrow",
         "name": "질풍 사격",
         "type": "spell",
         "race": "엘프",
@@ -219,6 +233,7 @@
     },
     {
         "id": "bone_soldier",
+    "impact_profile": "bone",
         "name": "해골 병사",
         "type": "unit",
         "race": "언데드",
@@ -236,6 +251,7 @@
     },
     {
         "id": "grave_knight",
+    "impact_profile": "shadow",
         "name": "무덤 기사",
         "type": "unit",
         "race": "언데드",
@@ -253,6 +269,7 @@
     },
     {
         "id": "dark_bargain",
+    "impact_profile": "blood",
         "name": "어둠의 거래",
         "type": "spell",
         "race": "언데드",
@@ -269,6 +286,7 @@
     },
     {
         "id": "call_of_dead",
+    "impact_profile": "shadow",
         "name": "망자의 부름",
         "type": "spell",
         "race": "언데드",
@@ -284,6 +302,7 @@
     },
     {
         "id": "corpse_explosion",
+    "impact_profile": "fire",
         "name": "시체 폭발",
         "type": "spell",
         "race": "언데드",
@@ -299,6 +318,7 @@
     },
     {
         "id": "fireball",
+    "impact_profile": "fire",
         "name": "화염구",
         "type": "spell",
         "race": "인간",
@@ -313,6 +333,7 @@
     },
     {
         "id": "healing_potion",
+    "impact_profile": "holy",
         "name": "회복 물약",
         "type": "spell",
         "race": "중립",
@@ -327,6 +348,7 @@
     },
     {
         "id": "training_sword",
+    "impact_profile": "metal",
         "name": "훈련용 검",
         "type": "equipment",
         "race": "중립",
@@ -341,6 +363,7 @@
     },
     {
         "id": "mercenary",
+    "impact_profile": "metal",
         "name": "용병",
         "type": "unit",
         "race": "중립",
@@ -357,6 +380,7 @@
     },
     {
         "id": "thief",
+    "impact_profile": "metal",
         "name": "도적",
         "type": "unit",
         "race": "중립",
@@ -374,6 +398,7 @@
     },
     {
         "id": "death_mark",
+    "impact_profile": "shadow",
         "name": "죽음의 낙인",
         "type": "spell",
         "race": "언데드",
@@ -388,6 +413,7 @@
     },
     {
         "id": "plague_spread",
+    "impact_profile": "poison",
         "name": "역병 확산",
         "type": "spell",
         "race": "언데드",
@@ -402,6 +428,7 @@
     },
     {
         "id": "world_tree_ritual",
+    "impact_profile": "holy",
         "name": "세계수 의식",
         "type": "spell",
         "race": "엘프",
@@ -416,6 +443,7 @@
     },
     {
         "id": "nature_communion",
+    "impact_profile": "wind",
         "name": "자연의 교감",
         "type": "spell",
         "race": "엘프",
@@ -430,6 +458,7 @@
     },
     {
         "id": "bone_oracle",
+    "impact_profile": "bone",
         "name": "뼈 점술사",
         "type": "unit",
         "race": "언데드",
@@ -447,6 +476,7 @@
     },
     {
         "id": "soul_shackle",
+    "impact_profile": "shadow",
         "name": "영혼 족쇄",
         "type": "spell",
         "race": "언데드",
@@ -462,6 +492,7 @@
     },
     {
         "id": "funeral_fog",
+    "impact_profile": "shadow",
         "name": "장례 안개",
         "type": "spell",
         "race": "언데드",
@@ -476,6 +507,7 @@
     },
     {
         "id": "ritual_sapling",
+    "impact_profile": "stone",
         "name": "의식의 묘목",
         "type": "unit",
         "race": "엘프",
@@ -493,6 +525,7 @@
     },
     {
         "id": "moonwell",
+    "impact_profile": "holy",
         "name": "달샘",
         "type": "spell",
         "race": "엘프",
@@ -508,6 +541,7 @@
     },
     {
         "id": "ancient_oath",
+    "impact_profile": "holy",
         "name": "고대의 맹세",
         "type": "spell",
         "race": "엘프",
@@ -522,6 +556,7 @@
     },
     {
         "id": "vampiric_strike",
+    "impact_profile": "blood",
         "name": "흡혈의 일격",
         "type": "spell",
         "cost": 2,
@@ -533,6 +568,7 @@
     },
     {
         "id": "battlecry",
+    "impact_profile": "holy",
         "name": "전장의 함성",
         "type": "spell",
         "cost": 1,
@@ -544,6 +580,7 @@
     },
     {
         "id": "berserker",
+    "impact_profile": "blood",
         "name": "광전사",
         "type": "unit",
         "cost": 2,
@@ -557,6 +594,7 @@
     },
     {
         "id": "stone_golem",
+    "impact_profile": "stone",
         "name": "돌 골렘",
         "type": "unit",
         "cost": 3,
@@ -570,6 +608,7 @@
     },
     {
         "id": "ember_blade",
+    "impact_profile": "fire",
         "name": "잿불 검",
         "type": "equipment",
         "race": "인간",
@@ -584,6 +623,7 @@
     },
     {
         "id": "wind_quiver",
+    "impact_profile": "arrow",
         "name": "바람깃 화살통",
         "type": "equipment",
         "race": "엘프",
@@ -598,6 +638,7 @@
     },
     {
         "id": "bone_armor",
+    "impact_profile": "bone",
         "name": "뼈 갑옷",
         "type": "equipment",
         "race": "언데드",
@@ -612,6 +653,7 @@
     },
     {
         "id": "royal_standard",
+    "impact_profile": "holy",
         "name": "왕가의 군기",
         "type": "equipment",
         "race": "인간",
@@ -626,6 +668,7 @@
     },
     {
         "id": "blood_blade",
+    "impact_profile": "blood",
         "name": "피의 칼날",
         "type": "equipment",
         "race": "언데드",
@@ -640,6 +683,7 @@
     },
     {
         "id": "war_horn",
+    "impact_profile": "wind",
         "name": "돌격의 뿔피리",
         "type": "equipment",
         "race": "엘프",
@@ -654,6 +698,7 @@
     },
     {
         "id": "border_guardian",
+    "impact_profile": "metal",
         "name": "국경 수호자",
         "type": "unit",
         "race": "인간",
@@ -671,6 +716,7 @@
     },
     {
         "id": "undead_king",
+    "impact_profile": "shadow",
         "name": "언데드 왕",
         "type": "unit",
         "race": "언데드",
@@ -688,6 +734,7 @@
     },
     {
         "id": "necro_lord",
+    "impact_profile": "shadow",
         "name": "강령술사 군주",
         "type": "unit",
         "race": "언데드",

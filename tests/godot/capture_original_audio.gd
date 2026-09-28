@@ -18,7 +18,7 @@ func run() -> void:
 			return
 		for key in manager.authored_sfx_keys():
 			var stream = manager.custom_streams.get(key)
-			if stream == null or not (String(stream.resource_path).begins_with(manager.MODEL_AUDIO_DIR) or String(stream.resource_path).begins_with(manager.FOLEY_AUDIO_DIR)):
+			if stream == null or not (String(stream.resource_path).begins_with(manager.COMMUNITY_AUDIO_DIR) or String(stream.resource_path).begins_with(manager.MODEL_AUDIO_DIR) or String(stream.resource_path).begins_with(manager.FOLEY_AUDIO_DIR)):
 				printerr("FAIL generated SFX missing from package: " + String(key))
 				quit(1)
 				return
@@ -35,7 +35,7 @@ func run() -> void:
 		printerr("FAIL menu music overlaps battle")
 		quit(1)
 		return
-	for key in ["draw", "play", "summon_human", "equipment_elf", "hit_human", "hit_elf", "impact_heavy", "unit_death", "spell_fire", "heal", "combo", "finisher", "victory_burst", "impact_arrow", "impact_ice", "impact_shadow", "impact_lightning"]:
+	for key in ["draw", "play", "summon_human", "equipment_elf", "hit_human", "hit_elf", "impact_heavy", "unit_death", "spell_fire", "heal", "combo", "finisher", "victory_burst", "impact_wind", "impact_poison", "impact_blood", "impact_bone", "impact_arrow", "impact_ice", "impact_shadow", "impact_lightning"]:
 		manager.play_sound(key)
 		await create_timer(0.75).timeout
 	manager.stop_battle_music()
@@ -71,7 +71,7 @@ func run() -> void:
 	if saved != OK:
 		quit(1)
 		return
-	print("PASS generated menu, battle, boss, exploration, 17 SFX events and return; engine recording saved")
+	print("PASS packaged menu, battle, boss, exploration, 21 SFX events and return; engine recording saved")
 	manager.queue_free()
 	await process_frame
 	quit()

@@ -11,6 +11,8 @@ const SnapshotCodec = preload("res://src/battle/battle_snapshot_codec.gd")
 const LayoutPolicy = preload("res://src/ui/layout_policy.gd")
 const EnemyPolicy = preload("res://src/battle/battle_enemy_policy.gd")
 const LANDSCAPE_VIEW = preload("res://src/ui/components/landscape_battle_view.gd")
+var hero_impact_expected_hp := {}
+
 var landscape_view: Control
 var presentation
 var attack_executor
@@ -3203,7 +3205,7 @@ func _work_on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed:
 		)
 	player.mana -= cost
 	player.hand.remove_at(index)
-	var own_impact: bool = card_type == "spell" and (card.get("effects", []) as Array).any(func(effect): return effect.op in ["front_damage", "all_damage", "hero_damage", "combo_damage", "low_damage"])
+	var own_impact: bool = _card_has_impact_feedback(card)
 	if not own_impact:
 		_play_sfx(_card_play_sfx(card))
 	_add_log("%s 사용" % String(card.get("name", "카드")))
@@ -3377,6 +3379,11 @@ func _primary_build_sfx_tag(card: Dictionary) -> String:
 			return tag
 	return "common"
 
+
+func _card_has_impact_feedback(card: Dictionary) -> bool:
+	if String(card.get("type", "")) != "spell": return false
+	if String(card.get("id", "")).trim_suffix("_plus") in ["small_flame", "fireball", "gale_shot", "vampiric_strike", "funeral_fog", "plague_spread", "corpse_explosion"]: return true
+	return (card.get("effects", []) as Array).any(func(effect): return effect.op in ["front_damage", "all_damage", "hero_damage", "combo_damage", "low_damage"])
 
 func _card_play_sfx(card: Dictionary) -> String:
 	var card_type := String(card.get("type", ""))
@@ -4295,7 +4302,7 @@ func _shake_target(target: Control, intensity: float) -> void:
 	for i in range(4):
 		tween.tween_property(target, "position", origin + Vector2(randf_range(-intensity, intensity), randf_range(-intensity, intensity)), 0.035)
 	tween.tween_property(target, "position", origin, 0.05)
-	await tween.finished
+	# Fire-and-forget: freeing a refreshed slot kills its tween without emitting finished.
 
 func _spawn_impact_slash(target: Control, counter: bool = false) -> void:
 	if _minimal_battle_fx(): return
@@ -4465,6 +4472,7 @@ func _run_ai_play_cards() -> void:
 		if String(card.get("type", "")) != "unit" and not _card_exhausts_after_play(card):
 			opponent.discard_pile.append(card)
 		var old_player_health := int(player.get("health", 0))
+		if not _card_has_impact_feedback(card): _play_sfx(_card_play_sfx(card))
 		main.battle_effects.play_card(opponent, player, card, _battle_effect_context("opponent"))
 		_record_player_hero_damage(old_player_health)
 		_store_battle_snapshot()
@@ -5620,7 +5628,7 @@ func _apply_damage_juice(old_p_hp: int, old_o_hp: int) -> void:
 	if int(player.health) < old_p_hp:
 		_flash_and_shake(player_info, Color(1.0, 0.2, 0.2, 1.0))
 		_flash_and_shake(player_hero_hp_label, Color(1.0, 0.2, 0.2, 1.0))
-		_play_sfx("hit")
+		if int(hero_impact_expected_hp.get("player", old_p_hp)) != int(player.health): _play_sfx("hit")
 	elif int(player.health) > old_p_hp:
 		_flash_and_shake(player_info, Color(0.2, 1.0, 0.2, 1.0))
 		_flash_and_shake(player_hero_hp_label, Color(0.2, 1.0, 0.2, 1.0))
@@ -5630,12 +5638,13 @@ func _apply_damage_juice(old_p_hp: int, old_o_hp: int) -> void:
 	if int(opponent.health) < old_o_hp:
 		_flash_and_shake(opponent_info, Color(1.0, 0.2, 0.2, 1.0))
 		_flash_and_shake(enemy_hero_hp_label, Color(1.0, 0.2, 0.2, 1.0))
-		_play_sfx("hit")
+		if int(hero_impact_expected_hp.get("opponent", old_o_hp)) != int(opponent.health): _play_sfx("hit")
 	elif int(opponent.health) > old_o_hp:
 		_flash_and_shake(opponent_info, Color(0.2, 1.0, 0.2, 1.0))
 		_flash_and_shake(enemy_hero_hp_label, Color(0.2, 1.0, 0.2, 1.0))
 		_play_sfx("heal")
 		_play_heal_fx(false, int(opponent.health) - old_o_hp)
+	hero_impact_expected_hp.clear()
 
 func _play_heal_fx(is_player_target: bool, amount: int) -> void:
 	if _should_skip_timed_battle_fx() or not is_instance_valid(battle_fx_layer):
@@ -5969,6 +5978,7 @@ func _frontier_impact(owner: Dictionary, enemy: Dictionary, card: Dictionary, am
 	if style.is_empty(): return
 	_play_sfx(style)
 	if hero or enemy.field.is_empty():
+		hero_impact_expected_hp["opponent" if ally else "player"] = int(enemy.health) - amount
 		_play_attack_impact_fx(source, _hero_target_for_player(not ally), amount, false, style)
 	else:
 		for i in range(enemy.field.size() if area else 1):

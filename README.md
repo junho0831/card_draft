@@ -208,3 +208,5 @@ xvfb-run -a godot --path . -s res://tests/godot/touch_scroll_test.gd -- --test-d
 코드 책임 분리와 검증 범위: [리팩토링 기록](docs/refactoring-2026-09-14.md), [전투 실행·연출 수명 분리](docs/battle-refactoring.md).
 
 카드 상세·도감의 입체 미리보기: [2.5D 카드 뷰어](docs/card-inspection.md).
+
+무료 음원 적용 현황·출처·검증: [커뮤니티 오디오](docs/community-audio.md).

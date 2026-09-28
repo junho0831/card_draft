@@ -22,13 +22,16 @@ func run() -> void:
 	root.add_child(manager)
 	for key in manager.custom_streams:
 		check(not manager.custom_streams[key].resource_path.begins_with("res://assets/audio/dry_combat_v1/"), "rejected synthesized pack is not selected: " + key)
-	for key in ["hit_human", "hit_elf", "hit_common", "counter", "impact_metal"]:
+	for key in ["hit_human", "hit_elf", "hit_common", "counter", "impact_metal", "impact_heavy", "direct_attack"]:
 		var sound: AudioStream = manager.custom_streams[key]
-		check(sound.resource_path.begins_with(manager.FOLEY_AUDIO_DIR), "fresh model foley selected: " + key)
-		check(sound.get_length() <= 0.46, "short model foley edit: " + key)
-	for key in ["impact_heavy", "direct_attack", "spell_fire"]:
-		check(manager.custom_streams[key].resource_path.begins_with(manager.MODEL_AUDIO_DIR), "unfinished replacement retains existing model asset: " + key)
-	check(manager.custom_music_streams["battle_base"].resource_path.begins_with(manager.MODEL_AUDIO_DIR), "music remains unchanged")
+		check(sound.resource_path.begins_with(manager.COMMUNITY_AUDIO_DIR), "CC0 recording selected: " + key)
+		check(sound.get_length() > 0.5, "natural recording tail retained: " + key)
+	check(manager.custom_streams["spell_fire"].resource_path.begins_with(manager.MODEL_AUDIO_DIR), "rejected spell replacement retains existing model asset")
+	check(manager.custom_music_streams["battle_base"].resource_path.begins_with(manager.COMMUNITY_AUDIO_DIR), "CC0 battle music selected")
+	check(manager.menu_music_player.stream.resource_path.begins_with(manager.COMMUNITY_AUDIO_DIR), "CC0 menu music selected")
+	manager.set_screen_music("map")
+	check(manager.menu_music_player.stream.resource_path.ends_with("community_v1/exploration.ogg"), "CC0 exploration selected")
+	check(manager._sfx_path("spell_fire").begins_with(manager.MODEL_AUDIO_DIR), "unreplaced magic retains fallback")
 	manager.apply_settings({"bgm_volume": 1.0, "sfx_volume": 1.0})
 	var bus := AudioServer.get_bus_index("SFX")
 	var count := AudioServer.get_bus_effect_count(bus)

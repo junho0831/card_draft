@@ -43,6 +43,9 @@ func run():
 	await create_timer(0.8).timeout
 	assert(fx.get_child_count() == baseline, "all impact profile transients are released")
 	for target in targets: assert(target[0].size == Vector2(75,125), "impact does not resize attacker")
+	fx.set_meta("reduced_effects", true)
+	for target in targets: fx.play_attack(target[0], target[1], 4, false, target[2])
+	assert(fx.get_child_count() == baseline, "reduced effects skips all motifs")
 	surface.queue_free()
 	await process_frame
 	print("PASS 12 impact motifs and transient cleanup")
