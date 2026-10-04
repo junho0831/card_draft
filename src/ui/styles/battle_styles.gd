@@ -1,9 +1,11 @@
 extends RefCounted
 class_name BattleStyles
 const ButtonMetrics = preload("res://src/ui/styles/button_metrics.gd")
+const UiStyles = preload("res://src/ui/styles/ui_styles.gd")
+const Tokens = preload("res://src/ui/styles/ui_tokens.gd")
 
-const BATTLE_BASE := Color(0.035, 0.045, 0.06, 1.0)
-const BATTLE_BORDER := Color(0.2, 0.26, 0.34, 1.0)
+const BATTLE_BASE := Tokens.SURFACE
+const BATTLE_BORDER := Tokens.BORDER
 const BUTTON_GOLD_PATH := "res://assets/ui/generated/slices/button_gold.png"
 const BUTTON_BLUE_PATH := "res://assets/ui/generated/slices/button_blue.png"
 const BUTTON_RED_PATH := "res://assets/ui/generated/slices/button_red.png"
@@ -28,11 +30,7 @@ static func make_flat_style(bg_color: Color, border_color: Color, border_width: 
 	return style
 
 static func apply_compact_button(button: Button, accent: Color) -> void:
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var border := accent.darkened(0.5) if state == "disabled" else accent
-		button.add_theme_stylebox_override(state, make_flat_style(Color(0.025, 0.04, 0.06, 0.9), border, 1, 5, 1))
-	button.add_theme_color_override("font_disabled_color", Color("bac1c9"))
-	button.add_theme_color_override("font_color", Color("e1e5e9"))
+	UiStyles.apply_role_button(button, "secondary", accent, Color.TRANSPARENT, 14)
 	ButtonMetrics.apply(button, String(button.get_meta("button_kind", "action")))
 
 static func make_modern_style(bg_color: Color, border_color: Color, border_width: int = 1, radius: int = 8, margin: int = 10) -> StyleBoxFlat:
@@ -57,7 +55,7 @@ static func _panel_texture_for_accent(accent_color: Color) -> Texture2D:
 	return texture if texture != null else _load_texture(PANEL_BLUE_PATH)
 
 static func _make_panel_texture_style(bg_color: Color, accent_color: Color, margin: int, large: bool = false) -> StyleBox:
-	return make_modern_style(bg_color, BATTLE_BORDER, 1, 10, margin)
+	return UiStyles.make_textured_panel_style(Tokens.SURFACE, BATTLE_BORDER, margin)
 
 static func make_battle_surface(bg_color: Color, accent_color: Color, border_width: int = 1, radius: int = 8, margin: int = 10) -> PanelContainer:
 	var panel := PanelContainer.new()
@@ -114,34 +112,7 @@ static func _make_battle_button_texture_style(texture: Texture2D, tint: Color, a
 	return style
 
 static func apply_battle_button(button: Button, bg_color: Color, accent_color: Color, active: bool = false, role: String = "action") -> void:
-	var base := Color(0.085, 0.105, 0.14)
-	var accent := Color(0.25, 0.31, 0.39)
-	if role == "turn":
-		base = Color(0.15, 0.32, 0.37)
-		accent = Color(0.35, 0.65, 0.65)
-	elif role == "power":
-		base = Color(0.18, 0.15, 0.105)
-		accent = Color(0.5, 0.4, 0.23)
-	elif active:
-		base = Color(0.10, 0.18, 0.24)
-		accent = Color(0.29, 0.47, 0.56)
-	var normal := make_modern_style(base, accent, 1, 8, 8)
-	var hover: StyleBoxFlat = normal.duplicate()
-	hover.bg_color = base.lightened(0.08)
-	hover.border_color = accent.lightened(0.18)
-	var pressed: StyleBoxFlat = normal.duplicate()
-	pressed.bg_color = base.darkened(0.15)
-	var disabled: StyleBoxFlat = normal.duplicate()
-	disabled.bg_color = Color(0.05, 0.06, 0.08)
-	disabled.border_color = Color(0.12, 0.15, 0.19)
-	button.add_theme_stylebox_override("normal", normal)
-	button.add_theme_stylebox_override("hover", hover)
-	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_stylebox_override("disabled", disabled)
-	button.add_theme_color_override("font_color", Color(0.94, 0.96, 0.98))
-	button.add_theme_color_override("font_hover_color", Color.WHITE)
-	button.add_theme_color_override("font_disabled_color", Color(0.46, 0.51, 0.58))
-	button.add_theme_constant_override("outline_size", 0)
+	UiStyles.apply_role_button(button, "primary" if role == "turn" else "secondary", accent_color, Color.TRANSPARENT, 16)
 
 static func make_field_slot_style(bg_color: Color, border_color: Color, border_width: int = 2) -> StyleBoxFlat:
 	var neutral_bg := Color(0.025, 0.032, 0.044, bg_color.a).lerp(bg_color, 0.3)
@@ -202,8 +173,6 @@ static func apply_custom_button_style(button: Button, bg_color: Color, border_co
 	hover.border_color = border_color.lightened(0.16)
 	var pressed: StyleBoxFlat = normal.duplicate()
 	pressed.bg_color = bg_color.darkened(0.1)
-	pressed.content_margin_top = margin_y + 3
-	pressed.content_margin_bottom = maxi(1, margin_y - 1)
 	pressed.shadow_size = maxi(1, shadow_size - 3)
 	var disabled: StyleBoxFlat = normal.duplicate()
 	disabled.bg_color = Color(bg_color.r * 0.62, bg_color.g * 0.62, bg_color.b * 0.62, bg_color.a * 0.78)

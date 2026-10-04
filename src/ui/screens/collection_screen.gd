@@ -1,6 +1,8 @@
 extends RefCounted
 class_name CollectionScreen
 
+const Layout = preload("res://src/ui/screens/screen_layout.gd")
+
 var main: Node
 
 func _init(_main: Node) -> void:
@@ -8,16 +10,23 @@ func _init(_main: Node) -> void:
 
 func build(body: VBoxContainer) -> void:
 	var compact = main._is_compact_layout()
-	var panel = main._make_screen_panel(Color(0.105, 0.115, 0.135, 1.0), 760 if not compact else 420)
-	body.add_child(panel)
+	Layout.back(main, body)
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 10)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.add_child(list)
-	list.add_child(main._make_label("카드 %d종 | 보유 카드는 밝게, 미보유 카드는 어둡게 표시됩니다." % main.card_defs.size(), 14, Color(0.82, 0.88, 0.95, 1.0)))
-	list.add_child(main.ui.make_filter_bar(["전체", "보유", "미보유", "인간", "엘프", "언데드", "공용", "변경 원정"], main.collection_filter, self, "_set_collection_filter", compact))
+	body.add_child(list)
+	list.add_child(Layout.label(main, "카드 %d종" % main.card_defs.size(), true))
+	var filters := ["전체", "보유", "미보유", "인간", "엘프", "언데드", "공용", "변경 원정"]
+	var selector := OptionButton.new()
+	selector.custom_minimum_size = Vector2(180, 44)
+	selector.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	for filter in filters:
+		selector.add_item(filter)
+	selector.select(maxi(0, filters.find(main.collection_filter)))
+	selector.item_selected.connect(func(index: int): _set_collection_filter(filters[index]))
+	list.add_child(selector)
 	var filtered_cards := _filtered_collection_cards()
-	var columns := 2 if compact else 4
+	var columns := maxi(1, mini(4, int((main._layout_viewport_size().x - 48) / (190 if compact else 244))))
 	var row: HBoxContainer = null
 	for index in range(filtered_cards.size()):
 		if index % columns == 0:
@@ -27,9 +36,7 @@ func build(body: VBoxContainer) -> void:
 			row.add_theme_constant_override("separation", 10)
 			list.add_child(row)
 		row.add_child(_make_collection_card(filtered_cards[index], compact))
-	var actions: BoxContainer = main.ui.make_action_bar(compact, 10)
-	body.add_child(actions)
-	main._add_menu_button(actions, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
+
 
 func _set_collection_filter(filter: String) -> void:
 	main.collection_filter = filter
@@ -66,7 +73,7 @@ func _make_collection_card(card: Dictionary, compact: bool) -> Control:
 		"include_stats": true,
 		"summary_text": main._card_effect_summary(card),
 		"detail_text": _collection_lore_text(card),
-		"detail_font": 10 if compact else 11,
+		"detail_font": 14,
 		"rules_min_height": 78 if compact else 92,
 	})
 	if owned <= 0:
@@ -124,6 +131,6 @@ func _inspect_card(card: Dictionary) -> void:
 	viewer.setup(face, Vector2(300, 470))
 	viewer.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(viewer)
-	var description: Label = main._make_label("좌우로 기울이기 · 위아래로 스크롤\n\n" + _collection_lore_text(card), 16, Color(0.9, 0.92, 0.96))
+	var description: Label = main._make_label(_collection_lore_text(card), 16, Color(0.9, 0.92, 0.96))
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(description)

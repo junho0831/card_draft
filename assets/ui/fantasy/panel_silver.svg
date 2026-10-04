@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs><linearGradient id="stone" x2="0" y2="1"><stop stop-color="#343c3c"/><stop offset="1" stop-color="#24282a"/></linearGradient><linearGradient id="silver" x2="0" y2="1"><stop stop-color="#c9cfc7"/><stop offset=".48" stop-color="#707e78"/><stop offset="1" stop-color="#aab8ae"/></linearGradient></defs>
+<path d="M10 2H118L126 10V118L118 126H10L2 118V10Z" fill="url(#stone)" stroke="url(#silver)" stroke-width="2"/>
+<path d="M13 6H115L122 13V115L115 122H13L6 115V13Z" fill="none" stroke="#8a9691" opacity=".3"/>
+<path d="M4 22V11L11 4H22M106 4H117L124 11V22M124 106V117L117 124H106M22 124H11L4 117V106" fill="none" stroke="#c9cfc7"/>
+<path d="m10 10 5 0-5 5Zm108 0-5 0 5 5Zm0 108-5 0 5-5Zm-108 0 5 0-5-5Z" fill="#80b7a7"/>
+</svg>

@@ -50,8 +50,8 @@ func _test_boots_to_main_menu(main: Node) -> void:
 	_assert_eq(int(main.player_profile.get("battle_tutorial_stage", -1)), 0, "battle tutorial starts at stage 0")
 	_assert_true(main.audio_manager.streams.has("impact_heavy"), "audio manager provides heavy impact sound")
 	_assert_true(main.audio_manager.streams.has("direct_attack"), "audio manager provides direct attack sound")
-	_assert_true(main.audio_manager.streams.values().all(func(stream): return stream != null and (String(stream.resource_path).begins_with("res://assets/audio/local_models_v1/") or String(stream.resource_path).begins_with("res://assets/audio/model_foley_v2/") or String(stream.resource_path).begins_with("res://assets/audio/community_v1/"))), "runtime initialization reads packaged audio without synthesizing disposable waveforms")
-	_assert_true(ResourceLoader.exists("res://assets/audio/original_v1/direct_attack.ogg"), "runtime direct attack SFX exists")
+	_assert_true(main.audio_manager.streams.values().all(func(stream): return stream != null and (String(stream.resource_path).begins_with("res://assets/audio/combat_edited_v1/") or String(stream.resource_path).begins_with("res://assets/audio/community_v1/"))), "runtime initializes only CC0 streams")
+	_assert_true(ResourceLoader.exists(main.audio_manager._sfx_path("direct_attack")), "runtime direct attack SFX exists")
 	_assert_true(main.audio_manager.has_authored_sfx("direct_attack"), "audio manager loads direct attack SFX")
 	_assert_true(main.audio_manager.streams.has("victory_burst"), "audio manager provides victory burst sound")
 	for profile in main.audio_manager.ImpactProfiles.PROFILES:
@@ -69,8 +69,8 @@ func _test_boots_to_main_menu(main: Node) -> void:
 			all_model_sfx_loaded = false
 			continue
 		var sound_path := String(sound_stream.resource_path)
-		all_model_sfx_loaded = all_model_sfx_loaded and (sound_path.begins_with("res://assets/audio/local_models_v1/") or sound_path.begins_with("res://assets/audio/model_foley_v2/") or sound_path.begins_with("res://assets/audio/community_v1/"))
-		_assert_true(sound_path.begins_with("res://assets/audio/original_v1/") or sound_path.begins_with("res://assets/audio/local_models_v1/") or sound_path.begins_with("res://assets/audio/model_foley_v2/") or sound_path.begins_with("res://assets/audio/community_v1/"), "SFX is loaded from a documented production directory: %s" % sound_name)
+		all_model_sfx_loaded = all_model_sfx_loaded and (sound_path.begins_with("res://assets/audio/combat_edited_v1/") or sound_path.begins_with("res://assets/audio/community_v1/"))
+		_assert_true(sound_path.begins_with("res://assets/audio/combat_edited_v1/") or sound_path.begins_with("res://assets/audio/community_v1/"), "only CC0 SFX loads: %s" % sound_name)
 		_assert_true(main.audio_manager.has_authored_sfx(sound_name), "audio manager loads original SFX: %s" % sound_name)
 	if ResourceLoader.exists("res://assets/audio/local_models_v1/ui_click.ogg"):
 		_assert_true(all_model_sfx_loaded, "packaged SFX replaces every runtime sound")
@@ -219,11 +219,11 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	_assert_true(battle.detail_overlay.visible and battle.detail_panel.visible, "information opens in an overlay")
 	_assert_true(battle.detail_overlay.is_ancestor_of(battle.battle_objective_label), "live objective progress is available in information")
 	var help_button = preload("res://tests/godot/ui_input_test.gd").new().find_button(battle.detail_panel, "안내 확인")
-	_assert_true(help_button != null, "tutorial acknowledgement remains available in information")
+	_assert_true(help_button == null, "normal information does not present tutorial acknowledgement")
 	battle._toggle_battle_details()
 	_assert_true(not battle.detail_overlay.visible, "information can close without ending the turn")
 	_assert_true(battle.recommended_action_button != null, "battle recommends a primary action button")
-	_assert_eq(String(battle._battle_guidance_mode()), "auto", "first battle keeps one-button automatic guidance")
+	_assert_true(not battle._uses_tutorial_guidance(), "normal first battle does not expose tutorial recommendations")
 	_assert_true(battle.race_power_button != null, "battle shows the race power button")
 	_assert_true(battle.end_turn_button != null, "battle keeps end turn button visible")
 	_assert_true(battle.battle_fx_layer != null, "battle mounts the combat fx layer")
@@ -298,13 +298,13 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	_assert_true(String(direct_attack.get("guidance", "")).contains("적 영웅 영역") and String(direct_attack.get("guidance", "")).contains("피해"), "direct attack guidance names the hero target and damage")
 	_assert_true(not bool(battle.hero_attack_button.disabled), "enemy hero target becomes clickable after selecting an attacker")
 	_assert_eq(String(battle.opponent_hero_target_badge_label.text), "HP 10 → %d" % (10 - battle._predict_hero_attack_damage(battle.player.field[0], battle.player, false)), "enemy hero badge shows health before and after attack")
-	_assert_true(String(battle.recommended_action_button.text).begins_with("추천 공격 실행"), "primary action button is explicitly labeled")
+	_assert_eq(String(battle.recommended_action_button.text), "전투 정보", "normal battle offers information rather than automatic attack")
 	battle.opponent["health"] = 1
 	battle._refresh_action_buttons()
 	var lethal_attack: Dictionary = battle._recommended_action_state()
 	_assert_eq(String(lethal_attack.get("outcome", "")), "victory", "lethal hero attack exposes a victory outcome")
 	_assert_eq(String(battle._battle_music_state().get("mode", "")), "lethal", "battle music enters lethal when the player can win now")
-	_assert_true(String(battle.recommended_action_button.text).contains("승리"), "lethal primary action states that it wins")
+	_assert_eq(String(battle.recommended_action_button.text), "전투 정보", "lethal attack does not become an automatic recommendation")
 	_assert_true(String(battle.opponent_hero_target_badge_label.text).contains("승리"), "lethal enemy hero target states that clicking wins")
 	battle.selected_attacker = -1
 	battle._refresh_action_buttons()
@@ -316,8 +316,8 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	main.current_run["current_node_index"] = 2
 	battle.opponent["health"] = 10
 	battle._refresh_ui()
-	_assert_eq(String(battle._battle_guidance_mode()), "guided", "second battle changes recommendation to guided manual targeting")
-	_assert_true(String(battle.recommended_action_button.text).begins_with("1단계"), "guided recommendation names the attacker-selection step")
+	_assert_true(not battle._uses_tutorial_guidance(), "normal second battle remains free of tutorial recommendations")
+	_assert_eq(String(battle.recommended_action_button.text), "전투 정보", "normal battle keeps neutral information label")
 	_assert_true(not String(battle._manual_battle_guidance_text(battle._recommended_action_state())).contains("자동"), "guided attack hint requires explicit attacker selection")
 	_assert_eq(String(battle._card_play_sfx({"type": "unit", "race": "인간", "build_tags": ["summon"]})), "summon_human", "human unit cards use human summon audio")
 	_assert_eq(String(battle._card_play_sfx({"type": "unit", "race": "엘프", "build_tags": ["draw"]})), "summon_elf", "elf unit cards use elf summon audio")
@@ -330,10 +330,13 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	_assert_true(not battle._card_exhausts_after_play({"id": "new_setup_attack", "type": "spell", "text": "효과", "build_tags": ["buff"]}), "non-ritual setup spells are not exhausted by id or tag alone")
 	var guided_enemy_health := int(battle.opponent.get("health", 0))
 	battle._on_recommended_action_pressed()
-	_assert_eq(int(battle.selected_attacker), 0, "guided recommendation selects only the suggested attacker")
+	_assert_eq(int(battle.selected_attacker), -1, "information does not choose an attacker")
 	_assert_eq(int(battle.opponent.get("health", 0)), guided_enemy_health, "guided recommendation does not execute the final attack")
-	_assert_true(String(battle.recommended_action_button.text).begins_with("2단계"), "guided recommendation advances to direct target selection")
-	_assert_true(bool(battle.battle_focus_panel.visible), "guided attack displays the source-to-target route strip")
+	_assert_eq(String(battle.recommended_action_button.text), "전투 정보", "information does not advance an action step")
+	_assert_true(not bool(battle.battle_focus_panel.visible), "normal battle does not single out a source-to-target route")
+	if battle.battle_detail_visible: battle._toggle_battle_details()
+	for child in main.modal_layer.get_children():
+		if child is AcceptDialog: child.free()
 	var auto_test_player: Dictionary = battle.player.duplicate(true)
 	var auto_test_opponent: Dictionary = battle.opponent.duplicate(true)
 	battle.selected_attacker = -1
@@ -366,10 +369,12 @@ func _test_battle_ui_defaults(main: Node) -> void:
 	main.current_run["current_node_index"] = 4
 	battle._refresh_ui()
 	_assert_eq(String(battle._battle_guidance_mode()), "hint", "boss battle reduces recommendation to a positional hint")
-	_assert_true(String(battle.recommended_action_button.text).begins_with("힌트 보기"), "boss recommendation is labeled as a hint")
+	_assert_eq(String(battle.recommended_action_button.text), "전투 정보", "normal boss keeps information instead of a recommendation")
 	battle._on_recommended_action_pressed()
 	_assert_eq(int(battle.selected_attacker), -1, "hint mode does not select or execute an attacker")
 	_assert_eq(int(battle.opponent.get("health", 0)), guided_enemy_health, "hint mode leaves combat state unchanged")
+	for child in main.modal_layer.get_children():
+		if child is AcceptDialog: child.free()
 	main.current_run["current_node_index"] = original_node_index
 	battle._refresh_ui()
 

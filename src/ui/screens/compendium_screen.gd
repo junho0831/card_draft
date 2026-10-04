@@ -3,6 +3,8 @@ class_name CompendiumScreen
 
 const Fantasy = preload("res://src/ui/fantasy_components.gd")
 const Presentation = preload("res://src/ui/components/battle_presentation.gd")
+const Layout = preload("res://src/ui/screens/screen_layout.gd")
+
 var main: Node
 var grid: GridContainer
 var counter: Label
@@ -17,7 +19,8 @@ func _init(value: Node) -> void:
 	main = value
 
 func build(body: VBoxContainer) -> void:
-	counter = main._make_label("", 18, Color(1, 0.88, 0.6))
+	Layout.back(main, body)
+	counter = Layout.label(main, "", true)
 	body.add_child(counter)
 	var filters := HBoxContainer.new()
 	filters.add_theme_constant_override("separation", 8)
@@ -37,7 +40,8 @@ func build(body: VBoxContainer) -> void:
 	search.placeholder_text = "카드 이름 또는 효과 검색"
 	search.custom_minimum_size.y = 44
 	search.text_changed.connect(func(_text): _refresh_grid())
-	body.add_child(search)
+	search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	filters.add_child(search)
 	grid = GridContainer.new()
 	var card_width := 154 if main._layout_viewport_size().x < 600 else 208
 	grid.columns = clampi(floori((main._layout_viewport_size().x - 38) / float(card_width + 10)), 1, 4)
@@ -55,7 +59,7 @@ func build(body: VBoxContainer) -> void:
 	body.add_child(relics)
 	for relic in main.relic_service.relics:
 		relics.add_child(main._make_label("%s · %s" % [relic.get("name", ""), relic.get("text", "")], 14, Color(0.86, 0.88, 0.94)))
-	main._add_menu_button(body, "메인으로", "_show_main_menu", Color(0.16, 0.2, 0.28))
+
 
 func _refresh_grid() -> void:
 	for child in grid.get_children():

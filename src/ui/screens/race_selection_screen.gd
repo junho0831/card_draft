@@ -1,6 +1,7 @@
 extends RefCounted
 class_name RaceSelectionScreen
 const ButtonMetrics = preload("res://src/ui/styles/button_metrics.gd")
+const Layout = preload("res://src/ui/screens/screen_layout.gd")
 
 var main: Node
 var selected_race_id := "human"
@@ -24,6 +25,12 @@ func _init(_main: Node) -> void:
 	selected_race_id = main.pending_race_selection_id
 
 func build(body: VBoxContainer) -> void:
+	var screen_header := body.get_parent().get_node_or_null("RaceSelectionHeader")
+	if screen_header != null:
+		for child in screen_header.get_children():
+			if child is Label:
+				child.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+				child.add_theme_font_size_override("font_size", 24)
 	var viewport_size: Vector2 = main._layout_viewport_size()
 	var short: bool = viewport_size.y <= 800.0 and viewport_size.x > viewport_size.y
 	var stacked: bool = viewport_size.x < 1100.0 and not short
@@ -73,7 +80,9 @@ func build(body: VBoxContainer) -> void:
 		skip.text = "일반 · 전략 선택"
 		ButtonMetrics.apply(learning, "compact", 120)
 		ButtonMetrics.apply(skip, "compact", 160)
-		modes.reparent(body.get_parent().get_node("RaceSelectionHeader"))
+		var header := body.get_parent().get_node_or_null("RaceSelectionHeader")
+		if header != null:
+			modes.reparent(header)
 	var comparison: BoxContainer = VBoxContainer.new() if stacked else HBoxContainer.new()
 	comparison.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	comparison.add_theme_constant_override("separation", 10 if phone else 14)
@@ -116,20 +125,13 @@ func build(body: VBoxContainer) -> void:
 		dock_title_label.hide()
 		selection_summary.hide()
 
-	actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	actions.alignment = BoxContainer.ALIGNMENT_END
 	actions.add_theme_constant_override("separation", 8)
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var back_button := Button.new()
-	back_button.text = "메인 메뉴"
-	back_button.custom_minimum_size = Vector2(150, 58 if short else 66)
-	back_button.size_flags_horizontal = Control.SIZE_FILL
-	main.ui.style_button(back_button, Color(0.12, 0.15, 0.2, 1.0))
-	ButtonMetrics.apply(back_button)
-	back_button.pressed.connect(Callable(main, "_show_main_menu"))
-	actions.add_child(back_button)
+	Layout.back(main, body)
 
 	start_button = Button.new()
-	start_button.custom_minimum_size = Vector2(320, 58 if short else 66)
+	start_button.custom_minimum_size = Vector2(280, 52)
 	start_button.size_flags_horizontal = Control.SIZE_FILL
 	start_button.pressed.connect(Callable(self, "_confirm_selection"))
 	actions.add_child(start_button)
@@ -171,10 +173,13 @@ func _make_race_card(race_id: String, compact: bool, phone: bool, short: bool) -
 	header.add_child(style_chip)
 
 	var representative_card: Dictionary = main.card_db.get_card(String(meta.get("representative_card_id", "")))
-	box.add_child(main._make_card_art_rect(
+	var portrait: TextureRect = main._make_card_art_rect(
 		representative_card,
-		Vector2(0, 48 if short and phone else (106 if short else (126 if phone else (142 if compact else 172))))
-	))
+		Vector2(1, 96 if short and phone else (106 if short else (126 if phone else (142 if compact else 172))))
+	)
+	portrait.name = "RacePortrait"
+	portrait.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(portrait)
 
 	var description: Label = main._make_label(String(meta.get("description", "")), 12 if compact else 14, Color(0.88, 0.92, 0.96, 1.0))
 	description.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -250,7 +255,7 @@ func _apply_race_panel_style(race_id: String) -> void:
 		return
 	var panel_margin := 8 if bool(panel.get_meta("short_layout", false)) else 12
 	var style: StyleBoxFlat = main.ui.make_style_box(
-		Color(0.055, 0.07, 0.09, 1.0).lerp(accent, 0.1 if selected else (0.065 if hovered else 0.02)),
+		preload("res://src/ui/styles/ui_tokens.gd").SURFACE_RAISED.lerp(accent, 0.1 if selected else (0.065 if hovered else 0.02)),
 		accent if selected else (accent.darkened(0.2) if hovered else accent.darkened(0.48)),
 		3 if selected else (2 if hovered else 1),
 		8
@@ -304,7 +309,7 @@ func _refresh_selection() -> void:
 		dock_title_label.text = ("학습 시작 · " if main.pending_guided_run else "전략 선택 후 시작 · ") + String(selected_meta.get("start_text", "인간으로 시작"))
 		dock_title_label.add_theme_color_override("font_color", selected_accent.lightened(0.28))
 	if fixed_footer != null:
-		var dock_style: StyleBoxFlat = main.ui.make_style_box(Color(0.025, 0.034, 0.048, 0.99), selected_accent.darkened(0.12), 2, 8)
+		var dock_style: StyleBoxFlat = main.ui.make_style_box(preload("res://src/ui/styles/ui_tokens.gd").SURFACE, selected_accent.darkened(0.12), 2, 8)
 		dock_style.content_margin_left = 8
 		dock_style.content_margin_top = 8
 		dock_style.content_margin_right = 8
@@ -360,7 +365,7 @@ func _render_strategies() -> void:
 		var panel := PanelContainer.new()
 		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var selected: bool = String(strategy.id) == main.pending_strategy_id
-		panel.add_theme_stylebox_override("panel", main.ui.make_style_box(Color(0.06, 0.1, 0.16), Color(0.5, 0.75, 1.0) if selected else Color(0.2, 0.3, 0.4), 2, 8))
+		panel.add_theme_stylebox_override("panel", main.ui.make_style_box(preload("res://src/ui/styles/ui_tokens.gd").SURFACE_RAISED, preload("res://src/ui/styles/ui_tokens.gd").ACCENT_GOLD if selected else preload("res://src/ui/styles/ui_tokens.gd").BORDER, 2, 8))
 		strategy_cards.add_child(panel)
 		var box := VBoxContainer.new()
 		box.add_theme_constant_override("separation", 8)

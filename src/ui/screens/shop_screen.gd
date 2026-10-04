@@ -3,8 +3,13 @@ class_name ShopScreen
 
 const ButtonMetrics = preload("res://src/ui/styles/button_metrics.gd")
 const Fantasy = preload("res://src/ui/fantasy_components.gd")
+const EconomyDetail = preload("res://src/ui/components/economy_detail_view.gd")
 var selected_card_id := ""
+var offer_cards: Dictionary = {}
 var preview_box: VBoxContainer
+var preview_content: VBoxContainer
+var preview_buy: Button
+var detail_overlay: Control
 var main: Node
 var screen_action_dock: PanelContainer = null
 
@@ -18,64 +23,7 @@ func _is_shop_compact_layout() -> bool:
 	return main._layout_viewport_size().x < 1000.0
 
 func build(body: VBoxContainer) -> void:
-	if main._layout_viewport_size().x >= 1100:
-		_build_reference_shop(body)
-		return
-	var shop_state: Dictionary = main.current_run.get("pending_shop", {})
-	var compact: bool = _is_shop_compact_layout()
-	var viewport_size: Vector2 = main._layout_viewport_size()
-	var action_dock_layout: bool = viewport_size.x > viewport_size.y and viewport_size.y <= 800.0
-	if not action_dock_layout:
-		body.add_child(main._make_run_summary_panel())
-	body.add_child(main.ui.make_guidance_banner("다음 행동", "골드로 카드를 강화하거나 덱을 정리하세요", Color(0.2, 0.18, 0.12, 1.0), compact))
-	body.add_child(_make_shop_status_strip(compact))
-
-	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hub.add_theme_constant_override("separation", 10)
-	body.add_child(hub)
-
-	if not action_dock_layout:
-		hub.add_child(_make_shop_summary_panel(compact))
-
-	var products_panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 14)
-	products_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hub.add_child(products_panel)
-	var products_box := VBoxContainer.new()
-	products_box.add_theme_constant_override("separation", 7)
-	products_panel.add_child(products_box)
-	var title_row := HBoxContainer.new()
-	title_row.add_theme_constant_override("separation", 8)
-	products_box.add_child(title_row)
-	var title: Label = main._make_label("상점", 20 if compact else 23, Color(1.0, 0.88, 0.55, 1.0))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_row.add_child(title)
-	var gold: Label = main._make_label("골드 %d" % int(main.current_run.get("gold", 0)), 14 if compact else 16, Color(1.0, 0.86, 0.44, 1.0))
-	gold.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	gold.autowrap_mode = TextServer.AUTOWRAP_OFF
-	gold.custom_minimum_size = Vector2(96, 0)
-	title_row.add_child(gold)
-	var subtitle: Label = main._make_label("카드와 유물을 골라 덱을 강화하세요.", 12 if compact else 13, Color(0.82, 0.86, 0.92, 1.0))
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	products_box.add_child(subtitle)
-	var product_row: BoxContainer = main.ui.make_responsive_box(compact, 10)
-	product_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	products_box.add_child(product_row)
-	for card_id in shop_state.get("cards", []):
-		var card: Dictionary = main.card_db.get_card(String(card_id))
-		if card.is_empty():
-			continue
-		product_row.add_child(_make_shop_card_product(card, shop_state, compact))
-
-	var relic: Dictionary = shop_state.get("relic", {})
-	if not relic.is_empty():
-		product_row.add_child(_make_shop_relic_product(relic, shop_state, compact))
-
-	if action_dock_layout:
-		_mount_shop_action_dock(body, shop_state)
-	else:
-		hub.add_child(_make_shop_service_panel(shop_state, compact))
+	_build_reference_shop(body)
 
 func _mount_shop_action_dock(body: VBoxContainer, shop_state: Dictionary) -> void:
 	var dock: Dictionary = main.ui.mount_screen_action_dock(
@@ -240,6 +188,11 @@ func _make_shop_card_product(card: Dictionary, shop_state: Dictionary, compact: 
 		"show_detail": false,
 		"rules_min_height": 30.0,
 	}))
+	frame.tooltip_text = main._card_economy_comparison_text(card)
+	var inspect := Fantasy.action(main, "덱 변화 보기", _show_card_comparison.bind(String(card.get("id", ""))), false)
+	inspect.name = "EconomyInspect_" + String(card.get("id", ""))
+	ButtonMetrics.apply(inspect)
+	inner.add_child(inspect)
 	inner.add_child(main.ui.make_chip("골드 %d" % main.shop_run_service.SHOP_CARD_COST, Color(0.38, 0.26, 0.08, 1.0), Color(1.0, 0.86, 0.46, 1.0), 12))
 	var tag_text: String = main._format_card_tag_text(card)
 	if not tag_text.is_empty():
@@ -349,79 +302,117 @@ func _leave_shop() -> void:
 
 func _build_reference_shop(body: VBoxContainer) -> void:
 	var state: Dictionary = main.current_run.get("pending_shop", {})
+	var desktop: bool = main._layout_viewport_size().x >= 1100
+	body.add_theme_constant_override("separation", 8)
+	var title := EconomyDetail.comparison_label(main, ("상점   ·   골드 %d" if desktop else "골드 %d") % int(main.current_run.gold), EconomyDetail.TEXT, 20 if desktop else 14)
+	if not desktop:
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	body.add_child(title)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 16)
+	row.add_theme_constant_override("separation", 20)
 	body.add_child(row)
-	var merchant := VBoxContainer.new()
-	merchant.custom_minimum_size = Vector2(245, 480)
-	merchant.alignment = BoxContainer.ALIGNMENT_END
-	row.add_child(merchant)
-	var speech := Fantasy.panel(main, "바렌 · 전장의 상인")
-	merchant.add_child(speech.get_meta("frame"))
-	speech.add_child(main._make_label("좋은 장비는 더 긴 이야기를
-만들지. 무엇이 필요한가?", 15, Color(0.86, 0.85, 0.78)))
 	var stock := VBoxContainer.new()
 	stock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stock.add_theme_constant_override("separation", 12)
+	stock.add_theme_constant_override("separation", 8)
 	row.add_child(stock)
-	stock.add_child(Fantasy.heading(main, "⚜  카드 구매", 21))
 	var cards := HBoxContainer.new()
-	cards.add_theme_constant_override("separation", 10)
+	cards.name = "EconomyOffers"
+	cards.alignment = BoxContainer.ALIGNMENT_CENTER
+	cards.add_theme_constant_override("separation", 12)
 	stock.add_child(cards)
 	for id in state.get("cards", []):
 		var card: Dictionary = main.card_db.get_card(String(id))
+		if card.is_empty():
+			continue
 		var stack := VBoxContainer.new()
-		stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		stack.add_theme_constant_override("separation", 6)
 		cards.add_child(stack)
-		var face := Fantasy.card(main, card, 145, 240)
+		var face := EconomyDetail.offer_face(main, card, 208 if desktop else 180, 300 if desktop else int(clampf(main._layout_viewport_size().y - 188, 132, 300)), not desktop)
+		face.name = "EconomyOffer_" + String(id)
 		stack.add_child(face)
-		Fantasy.clickable_card(face, _select_shop_card.bind(String(id)))
-		var pick := Fantasy.action(main, "확인 · %d 골드" % main.shop_run_service.SHOP_CARD_COST, _select_shop_card.bind(String(id)), false)
-		ButtonMetrics.apply(pick, "compact")
-		stack.add_child(pick)
-	var services := HBoxContainer.new()
-	services.add_theme_constant_override("separation", 10)
-	stock.add_child(services)
-	var relic: Dictionary = state.get("relic", {})
-	if not relic.is_empty():
-		var relic_box := Fantasy.panel(main, "유물 · " + String(relic.get("name", "")))
-		var relic_frame: Control = relic_box.get_meta("frame")
-		relic_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		services.add_child(relic_frame)
-		relic_box.add_child(main._make_label(String(relic.get("text", "")), 14, Color(0.86, 0.85, 0.92)))
-		var buy_relic := Fantasy.action(main, "%d 골드 · 유물 구매" % main.shop_run_service.SHOP_RELIC_COST, _buy_shop_relic)
-		buy_relic.disabled = int(main.current_run.gold) < main.shop_run_service.SHOP_RELIC_COST or bool(state.get("relic_bought", false))
-		relic_box.add_child(buy_relic)
-	var service_box := Fantasy.panel(main, "서비스", 190)
-	services.add_child(service_box.get_meta("frame"))
-	service_box.add_child(Fantasy.action(main, "카드 제거 · %d" % _shop_remove_cost(), _begin_shop_remove, false))
-	var heal := Fantasy.action(main, "회복 · %d" % main.shop_run_service.SHOP_HEAL_COST, _buy_shop_heal, false)
-	heal.disabled = int(main.current_run.gold) < main.shop_run_service.SHOP_HEAL_COST or int(main.current_run.hp) >= int(main.current_run.max_hp)
-	service_box.add_child(heal)
-	preview_box = Fantasy.panel(main, "선택한 카드", 238)
-	row.add_child(preview_box.get_meta("frame"))
+		offer_cards[String(id)] = face
+		var inspect := _select_shop_card.bind(String(id)) if desktop else _show_card_comparison.bind(String(id))
+		Fantasy.clickable_card(face, inspect)
+		var purchased: bool = state.get("purchased_cards", []).has(String(id))
+		if desktop:
+			var pick := EconomyDetail.action_button(main, "구매 완료" if purchased else "확인 · %d 골드" % main.shop_run_service.SHOP_CARD_COST, inspect)
+			pick.name = "EconomyInspect_" + String(id)
+			stack.add_child(pick)
+		if purchased:
+			face.modulate = Color(0.65, 0.65, 0.65)
+	preview_box = EconomyDetail.section(main, "덱 변화", 290 if desktop else 0)
+	preview_box.visible = desktop
+	row.add_child(preview_box)
+	preview_content = EconomyDetail.add_scroll(preview_box, 260 if desktop else 0)
+	preview_buy = EconomyDetail.action_button(main, "%d 골드 · 구매" % main.shop_run_service.SHOP_CARD_COST, func(): _buy_shop_card(selected_card_id), true)
+	preview_buy.name = "EconomyPreviewBuy"
+	preview_buy.size_flags_horizontal = Control.SIZE_SHRINK_END
+	ButtonMetrics.apply(preview_buy, "compact", 230)
+	preview_box.add_child(preview_buy)
 	var recommended := _recommended_shop_card(state)
 	_select_shop_card(String(recommended.get("id", "")))
+	var services := HFlowContainer.new()
+	services.add_theme_constant_override("h_separation", 8)
+	services.add_theme_constant_override("v_separation", 8)
+	stock.add_child(services)
+	var remove := EconomyDetail.action_button(main, "카드 제거 · %d" % _shop_remove_cost(), _begin_shop_remove)
+	remove.disabled = int(main.current_run.gold) < _shop_remove_cost() or main.current_run.deck_ids.is_empty()
+	services.add_child(remove)
+	var heal := EconomyDetail.action_button(main, "회복 · %d" % main.shop_run_service.SHOP_HEAL_COST, _buy_shop_heal)
+	heal.disabled = int(main.current_run.gold) < main.shop_run_service.SHOP_HEAL_COST or int(main.current_run.hp) >= int(main.current_run.max_hp)
+	services.add_child(heal)
+	var relic: Dictionary = state.get("relic", {})
+	if not relic.is_empty():
+		stock.add_child(EconomyDetail.comparison_label(main, "%s · %s" % [String(relic.get("name", "유물")), String(relic.get("text", ""))], EconomyDetail.MUTED, 14))
+		var buy_relic := EconomyDetail.action_button(main, "%s · %d 골드" % [String(relic.get("name", "유물")), main.shop_run_service.SHOP_RELIC_COST], _buy_shop_relic)
+		buy_relic.tooltip_text = String(relic.get("text", ""))
+		buy_relic.disabled = int(main.current_run.gold) < main.shop_run_service.SHOP_RELIC_COST or bool(state.get("relic_bought", false))
+		services.add_child(buy_relic)
 	var footer := HBoxContainer.new()
-	footer.add_theme_constant_override("separation", 14)
+	footer.add_theme_constant_override("separation", 8)
 	body.add_child(footer)
-	var resources := Fantasy.heading(main, "골드 %d    ·    현재 덱 %d장    ·    보유 유물 %d개" % [main.current_run.gold, main.current_run.deck_ids.size(), main.current_run.relic_ids.size()], 18)
-	resources.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(resources)
-	footer.add_child(Fantasy.action(main, "덱 보기", Callable(main, "_show_collection"), false))
-	footer.add_child(Fantasy.action(main, "나가기  ❯", _leave_shop, false))
+	footer.add_child(EconomyDetail.comparison_label(main, "덱 %d장 · 유물 %d개" % [main.current_run.deck_ids.size(), main.current_run.relic_ids.size()], EconomyDetail.MUTED, 14))
+	footer.add_child(EconomyDetail.action_button(main, "덱 보기", Callable(main, "_show_collection")))
+	footer.add_child(EconomyDetail.action_button(main, "나가기", _leave_shop))
+	if not desktop:
+		footer.get_child(0).hide()
+		var spacer := Control.new()
+		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		footer.add_child(spacer)
+		var inspect := EconomyDetail.action_button(main, "선택 카드 확인", func(): _show_card_comparison(selected_card_id), true)
+		inspect.disabled = selected_card_id.is_empty()
+		footer.add_child(inspect)
+		screen_action_dock = EconomyDetail.pin_mobile_footer(main, body, footer)
 
 func _select_shop_card(card_id: String) -> void:
 	selected_card_id = card_id
-	for child in preview_box.get_children():
-		preview_box.remove_child(child)
+	for id in offer_cards:
+		offer_cards[id].modulate = Color.WHITE if id == card_id else Color(0.82, 0.82, 0.82)
+		if main.current_run.pending_shop.get("purchased_cards", []).has(id):
+			offer_cards[id].modulate = Color(0.65, 0.65, 0.65)
+	for child in preview_content.get_children():
+		preview_content.remove_child(child)
 		child.queue_free()
+	(preview_content.get_parent() as ScrollContainer).scroll_vertical = 0
 	var card: Dictionary = main.card_db.get_card(card_id)
 	if card.is_empty():
-		preview_box.add_child(Fantasy.heading(main, "카드를 모두 구매했습니다", 17))
+		preview_content.add_child(Fantasy.heading(main, "카드를 모두 구매했습니다", 17))
+		preview_buy.disabled = true
 		return
-	preview_box.add_child(Fantasy.card(main, card, 202, 345, true))
-	preview_box.add_child(main._make_label("구매 시 덱에 추가됩니다.", 13, Color(0.8, 0.83, 0.87)))
-	var buy := Fantasy.action(main, "%d 골드   구매" % main.shop_run_service.SHOP_CARD_COST, _buy_shop_card.bind(card_id))
-	buy.disabled = int(main.current_run.gold) < main.shop_run_service.SHOP_CARD_COST or main.current_run.pending_shop.get("purchased_cards", []).has(card_id)
-	preview_box.add_child(buy)
+	preview_content.add_child(EconomyDetail.comparison_label(main, String(card.get("name", "")), EconomyDetail.TEXT, 18))
+	preview_content.add_child(EconomyDetail.comparison_label(main, main._card_effect_summary(card), EconomyDetail.MUTED, 14))
+	preview_content.add_child(EconomyDetail.make_comparison(main, card, true))
+	preview_buy.disabled = int(main.current_run.gold) < main.shop_run_service.SHOP_CARD_COST or main.current_run.pending_shop.get("purchased_cards", []).has(card_id)
+
+func _show_card_comparison(card_id: String) -> void:
+	_close_card_comparison()
+	_select_shop_card(card_id)
+	var card: Dictionary = main.card_db.get_card(card_id)
+	var disabled: bool = int(main.current_run.gold) < main.shop_run_service.SHOP_CARD_COST or main.current_run.pending_shop.get("purchased_cards", []).has(card_id)
+	detail_overlay = EconomyDetail.show_card(main, card, "%d 골드 · 구매" % main.shop_run_service.SHOP_CARD_COST, _buy_shop_card.bind(card_id), disabled, _close_card_comparison)
+
+func _close_card_comparison() -> void:
+	if is_instance_valid(detail_overlay):
+		detail_overlay.hide()
+		detail_overlay.queue_free()
+	detail_overlay = null

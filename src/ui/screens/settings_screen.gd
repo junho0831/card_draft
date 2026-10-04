@@ -11,6 +11,8 @@ const FOCUS_MODES := ["always", "outside", "off"]
 const UI_SCALE_MODES := ["auto", "large", "small"]
 const UI_SCALE_LABELS := ["자동", "크게", "작게"]
 
+const Layout = preload("res://src/ui/screens/screen_layout.gd")
+
 var main: Node
 var reset_confirmation: ConfirmationDialog
 var preview: Control
@@ -23,14 +25,31 @@ func _init(_main: Node) -> void:
 	main = _main
 
 func build(body: VBoxContainer) -> void:
-	var panel: PanelContainer = main._make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 480)
-	body.add_child(panel)
+	Layout.back(main, body)
 
+	var band := PanelContainer.new()
+	var band_style := StyleBoxFlat.new()
+	band_style.bg_color = Tokens.SURFACE
+	band_style.content_margin_left = 16
+	band_style.content_margin_right = 16
+	band_style.content_margin_top = 12
+	band_style.content_margin_bottom = 12
+	band.add_theme_stylebox_override("panel", band_style)
+	band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(band)
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 24)
+	band.add_child(columns)
 	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 12)
-	panel.add_child(box)
+	columns.add_child(box)
 	_add_volume(box, "배경음악", "bgm_volume")
 	_add_volume(box, "효과음", "sfx_volume")
+	box = VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 12)
+	columns.add_child(box)
 	_add_choice(box, "전투 연출", ["풍부하게", "간결하게", "최소화"], EFFECT_MODES.find(Presentation.effect_mode(main.player_profile.settings)), _on_effects_selected, "EffectsMode")
 	_add_hint(box, "최소화는 타격 숫자·소리를 유지하고 돌진·섬광을 줄입니다.")
 	preview_button = Button.new()
@@ -48,6 +67,8 @@ func build(body: VBoxContainer) -> void:
 	fast_ai_toggle.toggled.connect(Callable(main, "_on_fast_ai_toggled"))
 	box.add_child(fast_ai_toggle)
 	var fullscreen_toggle := CheckBox.new()
+	fullscreen_toggle.name = "FullscreenToggle"
+	fullscreen_toggle.visible = not main.touch_input_active
 	fullscreen_toggle.text = "전체 화면"
 	ButtonMetrics.apply(fullscreen_toggle)
 	fullscreen_toggle.button_pressed = bool(main.player_profile["settings"].get("fullscreen", true))
@@ -55,6 +76,8 @@ func build(body: VBoxContainer) -> void:
 	box.add_child(fullscreen_toggle)
 
 	var scale_row := HBoxContainer.new()
+	scale_row.name = "DesktopScaleRow"
+	scale_row.visible = not main.touch_input_active and main._layout_viewport_size().x >= 1280
 	scale_row.add_theme_constant_override("separation", 12)
 	box.add_child(scale_row)
 	var scale_label: Label = main._make_label("UI 크기", 15, Color(0.9, 0.93, 0.98, 1.0))
@@ -70,12 +93,13 @@ func build(body: VBoxContainer) -> void:
 	scale_selector.item_selected.connect(Callable(self, "_on_ui_scale_selected"))
 	scale_row.add_child(scale_selector)
 	var scale_hint: Label = main._make_label("1280px 이상 큰 화면에서 카드와 버튼 크기를 조절합니다.", 12, Color(0.66, 0.72, 0.8, 1.0))
+	scale_hint.visible = scale_row.visible
 	scale_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	scale_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(scale_hint)
 	var reset_button: Button = main._add_menu_button(box, "로컬 프로필 초기화", "_request_profile_reset", Color(0.35, 0.16, 0.16, 1.0))
 	main.ui.style_role_button(reset_button, "danger", Color(0.9, 0.3, 0.28, 1.0), Color(0.24, 0.07, 0.08, 1.0))
-	main._add_menu_button(box, "메인으로", "_show_main_menu", Color(0.22, 0.24, 0.28, 1.0))
+
 
 func _on_ui_scale_selected(index: int) -> void:
 	if index < 0 or index >= UI_SCALE_MODES.size():
@@ -83,7 +107,7 @@ func _on_ui_scale_selected(index: int) -> void:
 	main._on_ui_scale_mode_selected(UI_SCALE_MODES[index])
 
 func _add_hint(box: VBoxContainer, text: String) -> void:
-	var hint: Label = main._make_label(text, 13, Color("b4c0d0"))
+	var hint: Label = Layout.label(main, text, true)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(hint)
@@ -166,7 +190,7 @@ func show_preview() -> void:
 	preview_overlay.add_child(center)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size.x = minf(520, main._layout_viewport_size().x - 24)
-	panel.add_theme_stylebox_override("panel", preload("res://src/ui/styles/battle_styles.gd").make_modern_style(Color("081320"), Color("b69a60"), 1, 8, 12))
+	panel.add_theme_stylebox_override("panel", preload("res://src/ui/styles/ui_styles.gd").make_textured_panel_style(Tokens.SURFACE, Tokens.BORDER, 12))
 	center.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)

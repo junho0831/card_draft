@@ -36,6 +36,19 @@ func run():
 	surface.add_child(fx)
 	await process_frame
 	var baseline := fx.get_child_count()
+	var policy = preload("res://src/ui/components/battle_presentation.gd")
+	for landscape in [false, true]:
+		var light: Dictionary = policy.attack_motion(landscape, 2, false)
+		var heavy: Dictionary = policy.attack_motion(landscape, 4, false)
+		assert(light.distance < heavy.distance and light.hit_stop < heavy.hit_stop, "light attacks travel less and pause less")
+	for style in ["hit_human", "impact_metal", "impact_fire", "impact_lightning", "impact_wind"]:
+		fx.play_attack(targets[0][0], targets[0][1], 2, false, style)
+		var light_count := fx.get_child_count()
+		await create_timer(0.8).timeout
+		assert(fx.get_child_count() == baseline, "light effects clean up")
+		fx.play_attack(targets[0][0], targets[0][1], 4, false, style)
+		assert(fx.get_child_count() > light_count, "heavy effects have stronger accents: " + style)
+		await create_timer(0.8).timeout
 	for target in targets: fx.play_attack(target[0],target[1],4,false,target[2])
 	await create_timer(0.07).timeout
 	await RenderingServer.frame_post_draw

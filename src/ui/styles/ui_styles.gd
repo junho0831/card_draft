@@ -2,15 +2,15 @@ extends RefCounted
 class_name UiStyles
 
 const UI_TOKENS = preload("res://src/ui/styles/ui_tokens.gd")
-const BUTTON_GOLD_PATH := "res://assets/ui/fantasy/button_gold.svg"
-const BUTTON_BLUE_PATH := "res://assets/ui/fantasy/button_blue.svg"
+const BUTTON_GOLD_PATH := "res://assets/ui/fantasy/button_amber.svg"
+const BUTTON_BLUE_PATH := "res://assets/ui/fantasy/button_silver.svg"
 const BUTTON_RED_PATH := "res://assets/ui/fantasy/button_red.svg"
-const BUTTON_DARK_PATH := "res://assets/ui/fantasy/button_dark.svg"
-const PANEL_GOLD_PATH := "res://assets/ui/fantasy/panel_gold.svg"
-const PANEL_BLUE_PATH := "res://assets/ui/fantasy/panel_blue.svg"
+const BUTTON_DARK_PATH := "res://assets/ui/fantasy/button_silver.svg"
+const PANEL_GOLD_PATH := "res://assets/ui/fantasy/panel_silver.svg"
+const PANEL_BLUE_PATH := "res://assets/ui/fantasy/panel_silver.svg"
 
-const NEUTRAL_BASE := Color(0.035, 0.042, 0.055, 1.0)
-const NEUTRAL_BORDER := Color(0.28, 0.32, 0.4, 1.0)
+const NEUTRAL_BASE := UI_TOKENS.SURFACE
+const NEUTRAL_BORDER := UI_TOKENS.BORDER
 
 static func _game_button_base(color: Color) -> Color:
 	var neutral := Color(NEUTRAL_BASE.r, NEUTRAL_BASE.g, NEUTRAL_BASE.b, color.a)
@@ -79,23 +79,18 @@ static func make_textured_panel_style(bg_color: Color, accent_color: Color, marg
 	style.content_margin_right = margin
 	style.content_margin_top = margin
 	style.content_margin_bottom = margin
-	style.modulate_color = Color(1, 1, 1, minf(bg_color.a, 0.94))
+	style.modulate_color = Color(1, 1, 1, bg_color.a)
 	return style
 
 static func _button_texture_for_role(role: String, accent_color: Color) -> Texture2D:
 	var path := BUTTON_DARK_PATH
 	match role:
-		"primary", "power":
+		"primary":
 			path = BUTTON_GOLD_PATH
 		"danger":
 			path = BUTTON_RED_PATH
-		"turn":
-			path = BUTTON_BLUE_PATH
 		_:
-			if accent_color.r > accent_color.b + 0.12 and accent_color.r > accent_color.g:
-				path = BUTTON_RED_PATH
-			elif accent_color.b > accent_color.r + 0.08:
-				path = BUTTON_BLUE_PATH
+			path = BUTTON_DARK_PATH
 	var texture := _load_texture(path)
 	return texture if texture != null else _load_texture(BUTTON_DARK_PATH)
 
@@ -108,9 +103,9 @@ static func _make_textured_button_style(texture: Texture2D, tint: Color, active:
 	style.texture_margin_bottom = 16
 	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	style.content_margin_left = 18 if active else 15
+	style.content_margin_left = 18
 	style.content_margin_top = 10
-	style.content_margin_right = 18 if active else 15
+	style.content_margin_right = 18
 	style.content_margin_bottom = 12
 	style.modulate_color = tint
 	return style
@@ -122,17 +117,15 @@ static func _textured_button_state_styles(role: String, accent_color: Color, act
 	hover.modulate_color = Color(1.08, 1.08, 1.1, 1.0)
 	var pressed: StyleBoxTexture = normal.duplicate()
 	pressed.modulate_color = Color(0.78, 0.8, 0.84, 1.0)
-	pressed.content_margin_top = 13
-	pressed.content_margin_bottom = 9
 	var disabled: StyleBoxTexture = normal.duplicate()
 	disabled.modulate_color = Color(0.52, 0.55, 0.6, 0.62)
 	return [normal, hover, pressed, disabled]
 
 static func _apply_button_text(button: Button, font_size: int, outline_size: int = 0) -> void:
-	button.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0, 1.0))
+	button.add_theme_color_override("font_color", UI_TOKENS.TEXT_PRIMARY)
 	button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 1.0))
 	button.add_theme_color_override("font_pressed_color", Color(0.91, 0.94, 0.98, 1.0))
-	button.add_theme_color_override("font_disabled_color", Color(0.47, 0.5, 0.57, 1.0))
+	button.add_theme_color_override("font_disabled_color", UI_TOKENS.TEXT_SECONDARY.darkened(0.18))
 	button.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.7))
 	button.add_theme_constant_override("outline_size", maxi(0, outline_size))
 	button.add_theme_font_size_override("font_size", font_size)
@@ -147,8 +140,6 @@ static func _button_state_styles(base_color: Color, accent_color: Color, active:
 	pressed.bg_color = normal.bg_color.darkened(0.12)
 	pressed.border_width_top = 3
 	pressed.border_width_bottom = 1
-	pressed.content_margin_top = 12
-	pressed.content_margin_bottom = 8
 	pressed.shadow_size = 0
 	pressed.shadow_offset = Vector2.ZERO
 	var disabled: StyleBoxFlat = normal.duplicate()

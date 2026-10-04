@@ -1,5 +1,43 @@
 # 무료 상업용 오디오 적용
 
+## 2026-10-04 CC0 전용 전환
+
+현재 재생 경로는 Kenney CC0 효과음과 RandomMind CC0 BGM만 선택한다.
+아래 9월 기록의 "기존 마법 유지"는 과거 상태다. 이제 마법·회복·소환·결정타·퇴장까지
+`combat_edited_v1`의 Kenney 편집본 15개로 교체했다. 클릭·카드·골드와 BGM 세 곡은
+`community_v1`을 유지한다. 전투 상태별 슬롯은 같은 CC0 전투곡을 쓰고 음량만 바뀐다.
+AI 생성/전자 합성 팩은 보존하되 재생 경로와 Web/Android/iOS 배포에서 제외한다.
+파일 누락 시 AI/전자음으로 되돌아가지 않는다.
+
+강타는 짧은 채굴 타격, 뼈는 chop, 독은 가죽·천 마찰, 불은 천 마찰,
+얼음은 가벼운 유리 타격, 번개는 금속 걸쇠, 암흑은 천, 빛은 동전 질감이다.
+실제 불·번개 녹음이라고 주장하지 않는다. 북·지속 저음·긴 울림 대신 짧은 재질감을
+고른 뒤 길이, 저역, 고역, 음량과 끝 페이드를 편집했다. 새 AI 생성은 하지 않았다.
+
+공식 [Kenney 안내](https://kenney.nl/support)와 각 팩의 동봉 라이선스,
+[메뉴곡](https://opengameart.org/content/medieval-the-bards-tale),
+[전투곡](https://opengameart.org/content/medieval-battle),
+[탐험곡](https://opengameart.org/content/medieval-exploration)의 CC0 표시를 다시 확인했다.
+선정본의 원본/출력 해시와 출처는 `combat_edited_v1/manifest.json`,
+BGM 및 기존 UI 출처는 `community_v1/manifest.json`에 있다.
+Sonniss/Pixabay 자료는 포함하지 않는다.
+
+재현: Kenney RPG/Impact 팩을 각각 `<source-dir>/rpg`, `<source-dir>/impact`에 풀고
+`python3 tools/package_combat_audio.py --source-dir <source-dir>` 실행.
+검증: `python3 tools/package_combat_audio.py --check`.
+미리듣기: `python3 tools/build_audio_preview.py`.
+Python 의존성은 numpy/scipy/soundfile이며 생성 모델은 실행하지 않는다.
+자동 측정은 청감 보증이 아니므로 휴대폰에서의 편안함은 사용자 확인이 필요하다.
+
+검증 결과: 전체 회귀 2,325개, 147종 카드/12계열 구분, 실제 카드 사용과 오디오
+플레이어 연결, 설정 조작, 카드 스타일 및 전투 효과 정리 검사 통과.
+전투 편집본 15개와 기존 CC0 팩 13개는 파일/해시 검증을 통과했다.
+동시 재생 믹스 피크는 -11.53 dBFS였다. Web용 PCK를 별도 경로에서 실행해
+모든 음원의 CC0 출처 기록 포함과 이전 음원 제외도 확인했다.
+이번 변경본의 휴대폰 설치·스피커 청음은 아직 수행하지 않았다.
+
+## 이전 적용 기록
+
 2026-09-28 기준. 비용 0원. AI 생성 작업은 재시작하지 않았다.
 
 ## 이번 적용

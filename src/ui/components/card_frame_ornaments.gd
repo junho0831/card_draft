@@ -1,6 +1,7 @@
 extends Node2D
 
 var race := "중립"
+var card_type := "unit"
 var accent := Color.WHITE
 var size: Vector2:
 	get: return (get_parent() as Control).size
@@ -8,12 +9,33 @@ var size: Vector2:
 func _ready() -> void:
 	(get_parent() as Control).resized.connect(queue_redraw)
 
+func uses_simple_ornaments() -> bool:
+	return size.x < 180.0
+
 func _draw() -> void:
 	if size.x < 20 or size.y < 20: return
 	var ink := accent.darkened(0.65)
 	var shine := accent.lightened(0.55)
+	var type_accent: Color = Color("c5cfda")
+	match card_type:
+		"spell": type_accent = Color("8fdcff")
+		"equipment": type_accent = Color("efbd68")
+		_: type_accent = Color("d7e3ee")
+	# The outer rule makes the card type visible at a glance; race ornaments stay in the corners.
+	draw_line(Vector2(8, 4), Vector2(size.x - 8, 4), type_accent, 2.0, true)
+	draw_line(Vector2(8, size.y - 4), Vector2(size.x - 8, size.y - 4), type_accent.darkened(0.25), 2.0, true)
+	if card_type == "spell":
+		var spell_mark := PackedVector2Array([Vector2(size.x * 0.5, 2), Vector2(size.x * 0.5 + 4, 7), Vector2(size.x * 0.5, 12), Vector2(size.x * 0.5 - 4, 7)])
+		draw_colored_polygon(spell_mark, type_accent)
+	elif card_type == "equipment":
+		draw_line(Vector2(size.x * 0.5 - 8, 7), Vector2(size.x * 0.5 + 8, 7), type_accent, 2.0, true)
+		draw_line(Vector2(size.x * 0.5 - 5, size.y - 7), Vector2(size.x * 0.5 + 5, size.y - 7), type_accent, 2.0, true)
+	else:
+		draw_circle(Vector2(size.x * 0.5, 7), 3.0, type_accent)
+		draw_circle(Vector2(size.x * 0.5, size.y - 7), 3.0, type_accent.darkened(0.25))
 	# Keep ornamentation inside the frame so card text and input stay unobstructed.
 	for x in [3.0, size.x - 3.0]:
+		if uses_simple_ornaments(): continue
 		draw_line(Vector2(x, 12), Vector2(x, size.y - 12), ink, 1.0, true)
 		for fraction in [0.22, 0.5, 0.78]:
 			var p := Vector2(x, size.y * fraction)
@@ -40,6 +62,7 @@ func _draw() -> void:
 					draw_circle(p, 2.5, ink)
 					draw_circle(p - Vector2(0.5, 0.5), 1.2, shine)
 	for y in [3.0, size.y - 3.0]:
+		if uses_simple_ornaments(): continue
 		var center := Vector2(size.x * 0.5, y)
 		if race == "인간":
 			var crown := PackedVector2Array([center + Vector2(-8, -2), center + Vector2(-4, 0), center + Vector2(0, -3), center + Vector2(4, 0), center + Vector2(8, -2), center + Vector2(6, 3), center + Vector2(-6, 3)])
@@ -56,7 +79,7 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO)
 
 func _draw_corner(ink: Color, shine: Color) -> void:
-	var length := minf(19, size.x * 0.23)
+	var length := minf(27, size.x * 0.28)
 	var plate := PackedVector2Array([Vector2.ZERO, Vector2(length, 0), Vector2(length - 4, 5), Vector2(5, 5), Vector2(5, length - 4), Vector2(0, length)])
 	draw_colored_polygon(plate, ink)
 	draw_polyline(PackedVector2Array([Vector2(1, length - 2), Vector2(1, 1), Vector2(length - 2, 1)]), shine, 1, true)

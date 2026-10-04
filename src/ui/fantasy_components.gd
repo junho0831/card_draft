@@ -1,12 +1,13 @@
 extends RefCounted
+const Tokens = preload("res://src/ui/styles/ui_tokens.gd")
 
 static func heading(main: Node, text: String, size: int = 24) -> Label:
-	var label: Label = main._make_label(text, size, Color(0.98, 0.85, 0.55))
+	var label: Label = main._make_label(text, mini(size, Tokens.FONT_TITLE), Tokens.TEXT_PRIMARY)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	return label
 
 static func panel(main: Node, title: String, width: int = 0) -> VBoxContainer:
-	var outer: PanelContainer = main.ui.make_surface_panel(Color(0.025, 0.035, 0.05, 0.94), Color(0.7, 0.5, 0.22), 1, 12, 18)
+	var outer: PanelContainer = main.ui.make_surface_panel(Tokens.SURFACE, Tokens.BORDER, 1, 8, 12)
 	outer.custom_minimum_size.x = width
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
@@ -20,7 +21,7 @@ static func action(main: Node, title: String, callback: Callable, gold: bool = t
 	button.text = title
 	button.custom_minimum_size = Vector2(0, 54)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	main.ui.style_role_button(button, "primary" if gold else "turn", Color(0.95, 0.75, 0.3) if gold else Color(0.3, 0.64, 1), Color.TRANSPARENT, 18)
+	main.ui.style_role_button(button, "primary" if gold else "secondary", Tokens.ACCENT_GOLD if gold else Tokens.BORDER, Color.TRANSPARENT, 16)
 	button.pressed.connect(callback)
 	return button
 

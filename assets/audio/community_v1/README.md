@@ -1,5 +1,10 @@
 # CC0 community audio — 2026-09-28
 
+2026-10-04: combat playback now prefers the shorter CC0 edits in
+`../combat_edited_v1/`. UI and all three music tracks still use this pack.
+Older model packs are no longer runtime fallbacks. The text below records
+the original September import, not the current complete sound selection.
+
 Ten Kenney recordings and three RandomMind compositions. These are downloaded
 works, not newly synthesized or AI-generated sounds. Only gain, encoding and
 music fades were changed. Source URLs, author names, CC0 links, source/output

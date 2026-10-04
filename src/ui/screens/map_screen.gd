@@ -17,19 +17,16 @@ func _init(_main: Node) -> void:
 
 func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	phone_landscape = main.LayoutPolicy.is_mobile_landscape(main._layout_viewport_size())
-	if main._layout_viewport_size().x >= 1100 and act_data.get("nodes", []).size() <= 5:
-		_build_reference_map(body, act_data)
-		return
 	if not main._lesson_description().is_empty() and not phone_landscape:
 		body.add_child(main.ui.make_guidance_banner("이번에 배울 것", main._lesson_description(), Color(0.12, 0.2, 0.3, 1.0), true))
 	nodes_data = act_data.get("nodes", [])
 	current_index = int(main.current_run.get("current_node_index", 0))
 
 	var compact: bool = _is_map_compact_layout()
-	vertical_route = not compact and nodes_data.size() <= 5
+	vertical_route = false
 	var phone: bool = main._is_mobile_phone_layout()
 	var viewport_size: Vector2 = main._layout_viewport_size()
-	var fixed_actions: bool = compact
+	var fixed_actions: bool = true
 	if not phone_landscape:
 		body.add_child(_make_map_status_strip(compact))
 	if compact and not phone_landscape:
@@ -48,7 +45,7 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	else:
 		hub.add_child(_make_legend_panel(compact))
 		hub.add_child(_make_map_panel(compact))
-		hub.add_child(_make_objective_panel(compact, act_data, true))
+		hub.add_child(_make_objective_panel(compact, act_data, false))
 
 	body.add_child(_make_build_direction_panel(compact))
 	if phone_landscape and not main._lesson_description().is_empty():
@@ -105,7 +102,7 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 		subtitle.hide()
 
 	map_scroll = ScrollContainer.new()
-	map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if phone else ScrollContainer.SCROLL_MODE_DISABLED
+	map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	map_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	map_scroll.custom_minimum_size = Vector2(0, 194 if phone else (206 if compact else 220))
 	map_scroll.follow_focus = true
@@ -117,7 +114,7 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	var step_count: int = max(1, nodes_data.size() - 1)
 	var viewport_width: int = int(main._layout_viewport_size().x)
 	var visible_map_width: int = max(420 if compact else 520, viewport_width - (20 if phone else (48 if compact else 420)))
-	var min_spacing: int = 60 if compact else 66
+	var min_spacing: int = 92
 	var max_spacing: int = 116 if compact else 126
 	if phone_landscape:
 		visible_map_width = viewport_width - 32
@@ -265,6 +262,7 @@ func _mount_map_action_dock(body: VBoxContainer) -> void:
 		dock.title_label.hide()
 	screen_action_dock = dock.get("panel") as PanelContainer
 	var actions: BoxContainer = dock.get("actions") as BoxContainer
+	actions.alignment = BoxContainer.ALIGNMENT_END
 	var path_indices: Array[int] = [0]
 	var recommended_path_index := 0
 	if typeof(current_layer) == TYPE_ARRAY:
@@ -275,6 +273,8 @@ func _mount_map_action_dock(body: VBoxContainer) -> void:
 		for path_idx in range(paths.size()):
 			if path_idx != recommended_path_index:
 				path_indices.append(path_idx)
+	path_indices.erase(recommended_path_index)
+	path_indices.append(recommended_path_index)
 	for path_index in path_indices:
 		var path_type := current_type
 		if typeof(current_layer) == TYPE_ARRAY:
@@ -288,6 +288,8 @@ func _mount_map_action_dock(body: VBoxContainer) -> void:
 			230
 		)
 		button.pressed.connect(Callable(main, "_enter_current_node").bind(path_index))
+		button.custom_minimum_size.x = 240
+		button.size_flags_horizontal = Control.SIZE_FILL
 		actions.add_child(button)
 
 func _make_build_direction_panel(compact: bool) -> PanelContainer:
@@ -685,8 +687,8 @@ func _make_node_button(index: int, type: String, pos: Vector2) -> Control:
 	btn.add_theme_stylebox_override("hover", hover)
 	
 	var disabled = style.duplicate()
-	disabled.bg_color = Color(0.075, 0.105, 0.15)
-	disabled.border_color = Color(0.38, 0.46, 0.58)
+	disabled.bg_color = preload("res://src/ui/styles/ui_tokens.gd").SURFACE
+	disabled.border_color = preload("res://src/ui/styles/ui_tokens.gd").BORDER
 	btn.add_theme_stylebox_override("disabled", disabled)
 
 	btn.text = "%s\n%s" % [icon_text, label_text]

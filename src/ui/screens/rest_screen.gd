@@ -1,6 +1,9 @@
 extends RefCounted
 class_name RestScreen
 
+const Layout = preload("res://src/ui/screens/screen_layout.gd")
+const Tokens = preload("res://src/ui/styles/ui_tokens.gd")
+
 var main: Node
 var screen_action_dock: PanelContainer = null
 
@@ -8,68 +11,35 @@ func _init(_main: Node) -> void:
 	main = _main
 
 func build(body: VBoxContainer) -> void:
-	var compact: bool = main._is_compact_layout_for(1180.0, 760.0)
-	var viewport_size: Vector2 = main._layout_viewport_size()
-	var action_dock_layout: bool = viewport_size.x > viewport_size.y and viewport_size.y <= 800.0
-	if not action_dock_layout:
-		body.add_child(main._make_run_summary_panel())
-	body.add_child(main.ui.make_guidance_banner("다음 행동", "회복하거나 카드를 강화해 다음 전투를 준비하세요", Color(0.18, 0.2, 0.12, 1.0), compact))
-
 	var max_hp: int = int(main.current_run.get("max_hp", 50))
 	var hp: int = int(main.current_run.get("hp", max_hp))
 	var heal_amount: int = main.run_flow.rest_heal_amount(max_hp)
-	body.add_child(_make_rest_status_strip(compact, hp, max_hp, heal_amount))
-
-	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.22, 0.18, 0.11, 1.0), 1, 12, 14)
-	panel.custom_minimum_size = Vector2(0, 260 if action_dock_layout else (300 if compact else 340))
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_child(panel)
-
-	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hub.add_theme_constant_override("separation", 12)
-	panel.add_child(hub)
-
-	var story_panel := _make_rest_story_panel(compact, hp, max_hp, heal_amount, action_dock_layout)
-	hub.add_child(story_panel)
-
-	var action_panel: PanelContainer = null
-	var list: VBoxContainer = null
-	if not action_dock_layout:
-		action_panel = main.ui.make_surface_panel(Color(0.08, 0.09, 0.11, 0.96), Color(0.18, 0.2, 0.12, 1.0), 1, 12, 14)
-		action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hub.add_child(action_panel)
-		list = VBoxContainer.new()
-		list.add_theme_constant_override("separation", 10)
-		action_panel.add_child(list)
-		var title: Label = main._make_label("어떤 행동을 하시겠습니까?", 20 if compact else 22, Color(1.0, 0.88, 0.55, 1.0))
-		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		list.add_child(title)
-		var desc: Label = main._make_label("회복으로 안정성을 챙기거나, 카드 강화를 통해 다음 전투를 준비하세요.", 12 if compact else 14, Color(0.84, 0.88, 0.94, 1.0))
-		desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		list.add_child(desc)
-	if action_dock_layout:
-		_mount_rest_action_dock(body, hp, max_hp, heal_amount)
-	else:
-		list.add_child(main.ui.make_objective_panel("휴식 목표", "체력 상태와 현재 빌드를 보고 회복, 강화, 진행 중 하나를 선택하세요.", compact))
-		var actions: BoxContainer = main.ui.make_responsive_box(compact, 10)
-		actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		list.add_child(actions)
-
-		var heal_btn: Button = _make_rest_action("휴식", "체력 %d 회복\n현재 %d / %d" % [heal_amount, hp, max_hp], Color(0.25, 0.5, 0.25, 1.0), compact)
-		if hp >= max_hp:
-			heal_btn.disabled = true
-		heal_btn.pressed.connect(Callable(main, "_rest_heal"))
-		actions.add_child(heal_btn)
-
-		var upgrade_btn: Button = _make_rest_action("명상", "카드 1장 강화\n빌드 핵심 카드를 키움", Color(0.55, 0.34, 0.12, 1.0), compact)
-		upgrade_btn.pressed.connect(Callable(main, "_rest_upgrade_card"))
-		actions.add_child(upgrade_btn)
-
-		var leave_btn: Button = _make_rest_action("떠나기 ▶", "정비 없이 다음 노드로 이동", Color(0.18, 0.34, 0.48, 1.0), compact)
-		main.ui.style_primary_button(leave_btn, Color(0.18, 0.34, 0.48, 1.0))
-		leave_btn.pressed.connect(Callable(main, "_complete_rest"))
-		actions.add_child(leave_btn)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 24)
+	body.add_child(row)
+	row.add_child(main.ui.make_location_art("camp", Vector2(260, 152)))
+	var story := VBoxContainer.new()
+	story.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	story.add_theme_constant_override("separation", 12)
+	row.add_child(story)
+	var title: Label = main.ui.make_label("캠프에 도착했습니다", 24, Tokens.TEXT_PRIMARY)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	story.add_child(title)
+	story.add_child(Layout.label(main, "현재 체력 %d / %d · 회복량 +%d" % [hp, max_hp, heal_amount]))
+	story.add_child(Layout.label(main, "모닥불 곁에서 숨을 고르고 덱의 핵심 카드를 다듬을 수 있습니다.", true))
+	var dock: Dictionary = Layout.dock(main, body)
+	screen_action_dock = dock.panel
+	var actions: BoxContainer = dock.actions
+	var leave: Button = main.ui.make_dock_action_button("떠나기", "정비 없이 진행", Tokens.ACCENT_TEAL, false, 144)
+	leave.pressed.connect(Callable(main, "_complete_rest"))
+	actions.add_child(leave)
+	var heal: Button = main.ui.make_dock_action_button("휴식", "체력 +%d" % heal_amount, Tokens.ACCENT_TEAL, hp * 2 < max_hp, 160)
+	heal.disabled = hp >= max_hp
+	heal.pressed.connect(Callable(main, "_rest_heal"))
+	var upgrade: Button = main.ui.make_dock_action_button("명상", "카드 1장 강화", Tokens.ACCENT_GOLD, hp * 2 >= max_hp, 160)
+	upgrade.pressed.connect(Callable(main, "_rest_upgrade_card"))
+	actions.add_child(upgrade if hp * 2 < max_hp else heal)
+	actions.add_child(heal if hp * 2 < max_hp else upgrade)
 
 func _mount_rest_action_dock(body: VBoxContainer, hp: int, max_hp: int, heal_amount: int) -> void:
 	var heal_recommended := hp * 2 < max_hp

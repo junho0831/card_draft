@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="64" viewBox="0 0 320 64">
+<defs><linearGradient id="stone" x2="0" y2="1"><stop stop-color="#454f4b"/><stop offset=".5" stop-color="#303735"/><stop offset="1" stop-color="#242a29"/></linearGradient><linearGradient id="silver" x2="0" y2="1"><stop stop-color="#d5d9ce"/><stop offset=".5" stop-color="#78867e"/><stop offset="1" stop-color="#afbbb1"/></linearGradient></defs>
+<path d="M16 3H304L317 16V48L304 61H16L3 48V16Z" fill="url(#stone)" stroke="url(#silver)" stroke-width="3"/>
+<path d="M19 7H301L312 18V46L301 57H19L8 46V18Z" fill="none" stroke="#9aa79b" opacity=".6"/>
+<path d="m16 25-5 7 5 7m288-14 5 7-5 7" fill="none" stroke="#cbd4c9"/>
+</svg>

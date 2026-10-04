@@ -16,17 +16,17 @@ var card_art_cache := {}
 const COMPACT_BREAKPOINT := 860.0
 const SCREEN_MARGIN := 10.0
 const MIN_RESPONSIVE_WIDTH := 280.0
-const THEME_BG := Color(0.018, 0.024, 0.034, 1.0)
-const THEME_PANEL := Color(0.06, 0.072, 0.09, 0.98)
-const THEME_PANEL_DARK := Color(0.032, 0.042, 0.057, 0.98)
-const THEME_GOLD := Color(0.93, 0.68, 0.3, 1.0)
-const THEME_GOLD_SOFT := Color(0.95, 0.97, 1.0, 1.0)
-const THEME_BLUE := Color(0.18, 0.4, 0.76, 1.0)
+const THEME_BG := UI_TOKENS.SURFACE
+const THEME_PANEL := UI_TOKENS.SURFACE_RAISED
+const THEME_PANEL_DARK := UI_TOKENS.SURFACE
+const THEME_GOLD := UI_TOKENS.ACCENT_GOLD
+const THEME_GOLD_SOFT := UI_TOKENS.TEXT_PRIMARY
+const THEME_BLUE := UI_TOKENS.ACCENT_TEAL
 const THEME_GREEN := Color(0.12, 0.38, 0.28, 1.0)
 const THEME_RED := Color(0.52, 0.16, 0.2, 1.0)
-const THEME_TEXT := Color(0.94, 0.96, 1.0, 1.0)
-const THEME_TEXT_MUTED := Color(0.58, 0.64, 0.72, 1.0)
-const THEME_BORDER := Color(0.18, 0.23, 0.3, 1.0)
+const THEME_TEXT := UI_TOKENS.TEXT_PRIMARY
+const THEME_TEXT_MUTED := UI_TOKENS.TEXT_SECONDARY
+const THEME_BORDER := UI_TOKENS.BORDER
 
 func setup(art_sheet: Texture2D, cols: int, rows: int) -> void:
 	card_art_sheet = art_sheet
@@ -95,11 +95,19 @@ func make_filter_bar(filters: Array, active_filter: String, target: Object, call
 	for filter in filters:
 		var button := Button.new()
 		button.text = String(filter)
-		button.custom_minimum_size = Vector2(92 if compact else 86, 34)
+		button.custom_minimum_size = Vector2(92 if compact else 86, 44)
 		var color := Color(0.18, 0.24, 0.3, 1.0)
 		if String(filter) == active_filter:
 			color = Color(0.38, 0.31, 0.12, 1.0)
 		style_button(button, color)
+		button.toggle_mode = true
+		button.button_pressed = String(filter) == active_filter
+		if button.button_pressed:
+			button.icon = button.get_theme_icon("checked", "CheckBox")
+			button.add_theme_constant_override("icon_max_width", 16)
+			var selected: StyleBoxTexture = button.get_theme_stylebox("normal").duplicate()
+			selected.modulate_color = UI_TOKENS.ACCENT_TEAL.lightened(0.22)
+			button.add_theme_stylebox_override("pressed", selected)
 		button.pressed.connect(Callable(target, callback_method).bind(String(filter)))
 		actions.add_child(button)
 	return actions
@@ -169,15 +177,12 @@ func make_guidance_banner(title: String, value: String, color: Color, compact: b
 	return panel
 
 func add_title(parent: Node, text: String) -> void:
-	var title := make_label(text, 40, THEME_TEXT)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var title := make_label(text, UI_TOKENS.FONT_TITLE, THEME_TEXT)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	parent.add_child(title)
 
 func begin_screen(root: Node, title: String, summary: Control = null, spacing: int = 12, subtitle: String = "", compact: bool = false) -> VBoxContainer:
-	var sub := subtitle
-	if sub.is_empty():
-		sub = "지금 무엇을 해야 하는지와 이번 런의 빌드를 확인하세요."
-	root.add_child(make_screen_header(title, sub, compact))
+	root.add_child(make_screen_header(title, subtitle, compact))
 	if summary != null:
 		root.add_child(summary)
 	var body := VBoxContainer.new()
@@ -211,7 +216,7 @@ func make_scroll_panel(color: Color, viewport_width: float, preferred_width: int
 
 func make_action_bar(compact: bool, separation: int = 10) -> BoxContainer:
 	var bar := make_responsive_box(compact, separation)
-	bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	bar.size_flags_horizontal = Control.SIZE_SHRINK_END
 	return bar
 
 func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, detail: String, accent: Color, dock_height: int = 126) -> Dictionary:
@@ -239,11 +244,11 @@ func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, de
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)
 	dock.add_child(box)
-	var title_label := make_label(title, 12, accent.lightened(0.28))
+	var title_label := make_label(title, 14, THEME_TEXT)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(title_label)
-	var detail_label := make_label(detail, 12, THEME_TEXT)
+	var detail_label := make_label(detail, 14, THEME_TEXT_MUTED)
 	detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(detail_label)
@@ -260,6 +265,7 @@ func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, de
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 8)
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.alignment = BoxContainer.ALIGNMENT_END
 	action_scroll.add_child(actions)
 
 	var spacer := Control.new()
@@ -333,12 +339,12 @@ func make_screen_header(title: String, subtitle: String, compact: bool = false) 
 	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_box.add_theme_constant_override("separation", 4)
 	row.add_child(title_box)
-	var title_label := make_label(title, 21 if compact else 25, THEME_TEXT)
+	var title_label := make_label(title, UI_TOKENS.FONT_TITLE, THEME_TEXT)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title_box.add_child(title_label)
 	if not subtitle.is_empty():
-		var subtitle_label := make_label(subtitle, 12 if compact else 13, THEME_TEXT_MUTED)
+		var subtitle_label := make_label(subtitle, 14, THEME_TEXT_MUTED)
 		subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		title_box.add_child(subtitle_label)
 	return panel
@@ -372,8 +378,8 @@ func make_surface_panel(bg_color: Color, border_color: Color = Color(0.32, 0.35,
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	var surface_base := Color(THEME_PANEL.r, THEME_PANEL.g, THEME_PANEL.b, bg_color.a)
-	var surface_color := surface_base.lerp(bg_color, 0.24)
-	var surface_border := THEME_BORDER.lerp(border_color, 0.34)
+	var surface_color := surface_base
+	var surface_border := THEME_BORDER
 	var style: StyleBox = UI_STYLES.make_textured_panel_style(surface_color, surface_border, margins, border_color.r > border_color.b + 0.12) if radius >= 8 and margins >= 10 else make_style_box(surface_color, surface_border, border_width, min(radius, 8))
 	if style is StyleBoxFlat:
 		var flat_style := style as StyleBoxFlat
@@ -399,13 +405,11 @@ func make_fantasy_card_panel(tint: Color, margins: int = 10) -> PanelContainer:
 	return panel
 
 func style_card_title(label: Label, compact: bool = false) -> void:
-	label.add_theme_font_size_override("font_size", 13 if compact else 15)
 	label.add_theme_color_override("font_color", THEME_TEXT)
 	label.add_theme_constant_override("outline_size", 0)
 
 func style_card_rules(label: Label, compact: bool = false, muted: bool = false) -> void:
-	label.add_theme_font_size_override("font_size", 12 if compact else 14)
-	label.add_theme_color_override("font_color", Color(0.7, 0.75, 0.82, 0.78) if muted else Color(0.9, 0.93, 0.98, 1.0))
+	label.add_theme_color_override("font_color", THEME_TEXT_MUTED if muted else THEME_TEXT)
 	label.add_theme_constant_override("outline_size", 0)
 
 func make_chip(text: String, bg_color: Color, text_color: Color = Color(0.96, 0.97, 0.94, 1.0), font_size: int = 14) -> PanelContainer:
@@ -503,6 +507,7 @@ func decorate_card_frame(frame: Control, card: Dictionary) -> void:
 	var ornament := preload("res://src/ui/components/card_frame_ornaments.gd").new()
 	ornament.name = "RaceOrnaments"
 	ornament.race = String(card.get("race", "중립"))
+	ornament.card_type = String(card.get("type", "unit"))
 	ornament.accent = card_race_color(card)
 	ornament.z_index = 0
 	frame.add_child(ornament)
@@ -743,13 +748,10 @@ func _apply_hover_feedback(button: Button) -> void:
 		var root = Engine.get_main_loop().current_scene
 		if root != null and root.get("audio_manager") != null:
 			root.audio_manager.play_sound("hover")
-		button.pivot_offset = button.size / 2.0
-		var tween := button.create_tween()
-		tween.tween_property(button, "scale", Vector2(1.02, 1.02), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		button.modulate = Color(1.06, 1.06, 1.06)
 	)
 	button.mouse_exited.connect(func():
 		if button == null or not is_instance_valid(button):
 			return
-		var tween := button.create_tween()
-		tween.tween_property(button, "scale", Vector2.ONE, 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		button.modulate = Color.WHITE
 	)

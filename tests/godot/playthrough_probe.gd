@@ -19,6 +19,20 @@ var matrix_strategy := ""
 var case_seed := 0
 var matrix_main: Node
 var matrix_profile: Dictionary = {}
+var seed_count := 10
+var seed_start := 20260909
+var case_failed := false
+
+func _configuration() -> Dictionary:
+	return {"schema": 2, "strategy_id": matrix_strategy, "seed_count": seed_count, "seed_start": seed_start}
+
+func _save_metrics(path: String) -> void:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		push_error("Cannot write probe report: " + path)
+		quit(2)
+		return
+	file.store_string(JSON.stringify({"configuration": _configuration(), "cases": cases, "battles": battle_metrics, "failed": probe_failed, "initial_profile": matrix_profile}, "\t", true))
 
 func _init() -> void:
 	if not TestStorage.prepare_test_directory():
@@ -30,6 +44,13 @@ func _run_all() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--strategy="):
 			matrix_strategy = arg.trim_prefix("--strategy=")
+		elif arg.begins_with("--seed-count="):
+			seed_count = int(arg.trim_prefix("--seed-count="))
+		elif arg.begins_with("--seed-start="):
+			seed_start = int(arg.trim_prefix("--seed-start="))
+	if seed_count <= 0:
+		quit(2)
+		return
 	if not matrix_strategy.is_empty():
 		var strategy: Dictionary = preload("res://src/services/starting_strategy_service.gd").get_strategy(matrix_strategy)
 		if strategy.is_empty():
@@ -38,17 +59,22 @@ func _run_all() -> void:
 		var checkpoint_path := TestStorage.path_for("progress.json")
 		if FileAccess.file_exists(checkpoint_path):
 			var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(checkpoint_path))
+			var saved_config: Dictionary = saved.get("configuration", {})
+			if int(saved_config.get("schema", 0)) != 2 or String(saved_config.get("strategy_id", "")) != matrix_strategy or int(saved_config.get("seed_count", 0)) != seed_count or int(saved_config.get("seed_start", 0)) != seed_start:
+				push_error("Checkpoint configuration mismatch; use a fresh test-data-dir")
+				quit(2)
+				return
 			cases.assign(saved.get("cases", []))
 			battle_metrics.assign(saved.get("battles", []))
 			probe_failed = bool(saved.get("failed", false))
-		for seed_index in range(10):
+			matrix_profile = saved.get("initial_profile", {})
+		for seed_index in range(seed_count):
 			for elite in [false, true]:
-				case_seed = 20260909 + seed_index
+				case_seed = seed_start + seed_index
 				if cases.any(func(entry): return int(entry.get("seed", 0)) == case_seed and bool(entry.get("elite", false)) == elite):
 					continue
 				await _run_case(String(strategy.race_id), elite)
-		var file := FileAccess.open(TestStorage.path_for("playthrough_metrics.json"), FileAccess.WRITE)
-		file.store_string(JSON.stringify({"cases": cases, "battles": battle_metrics, "failed": probe_failed}, "\t"))
+		_save_metrics(TestStorage.path_for("playthrough_metrics.json"))
 		var wins := cases.filter(func(entry): return entry.result == "win").size()
 		print("STRATEGY RESULT: ", matrix_strategy, " wins=", wins, "/", cases.size(), " stalled=", probe_failed)
 		quit(1 if probe_failed or wins == 0 else 0)
@@ -68,6 +94,7 @@ func _run_all() -> void:
 	quit(1 if probe_failed else 0)
 
 func _run_case(race: String, elite: bool) -> void:
+	case_failed = false
 	headless = DisplayServer.get_name() == "headless"
 	var global_dir := ProjectSettings.globalize_path(output_dir)
 	DirAccess.make_dir_recursive_absolute(global_dir)
@@ -77,6 +104,7 @@ func _run_case(race: String, elite: bool) -> void:
 	
 	var main = matrix_main if is_instance_valid(matrix_main) else MAIN_SCENE.instantiate()
 	var newly_created: bool = not main.is_inside_tree()
+	main.set_meta("probe_elite", elite)
 	main.set_meta("disable_window_mode_changes", true)
 	main.set_meta("layout_viewport_override", Vector2i(1280, 720))
 	main.set_meta("disable_timed_battle_fx", true)
@@ -85,7 +113,10 @@ func _run_case(race: String, elite: bool) -> void:
 		root.add_child(main)
 		if not matrix_strategy.is_empty():
 			matrix_main = main
-			matrix_profile = main.player_profile.duplicate(true)
+			if matrix_profile.is_empty():
+				matrix_profile = main.player_profile.duplicate(true)
+			else:
+				main.player_profile = matrix_profile.duplicate(true)
 	elif not matrix_strategy.is_empty():
 		main.player_profile = matrix_profile.duplicate(true)
 	await _wait_for_frame()
@@ -159,6 +190,8 @@ func _run_case(race: String, elite: bool) -> void:
 				_note(main, "unexpected_screen:%s" % screen)
 				probe_failed = true
 				break
+		if case_failed:
+			break
 	
 	if safety >= safety_limit:
 		_note(main, "safety_stop")
@@ -167,14 +200,22 @@ func _run_case(race: String, elite: bool) -> void:
 		probe_failed = true
 	_note_fun_metrics(main)
 	
-	cases.append({"strategy_id": matrix_strategy, "seed": case_seed, "race": race, "elite": elite, "result": String(main.current_run.get("result", "")), "nodes": main.current_run.get("visited_nodes", []).size(), "hp": main.current_run.get("hp", 0)})
+	var duplicate_settlement_ok := false
+	if completed_run:
+		var settled_profile: Dictionary = main.player_profile.duplicate(true)
+		var settled_run: Dictionary = main.current_run.duplicate(true)
+		main._finish_run(String(main.current_run.get("result", "")) == "win")
+		duplicate_settlement_ok = settled_profile == main.player_profile and settled_run == main.current_run
+		if not duplicate_settlement_ok:
+			probe_failed = true
+	cases.append({"strategy_id": matrix_strategy, "seed": case_seed, "race": race, "elite": elite, "result": String(main.current_run.get("result", "")), "nodes": main.current_run.get("visited_nodes", []).size(), "hp": main.current_run.get("hp", 0), "completed": completed_run, "stalled": not completed_run, "duplicate_settlement_ok": duplicate_settlement_ok})
 	if not completed_run:
 		for line in report:
 			print(line)
 	report.clear()
 	if not matrix_strategy.is_empty():
-		var checkpoint := FileAccess.open(TestStorage.path_for("progress.json"), FileAccess.WRITE)
-		checkpoint.store_string(JSON.stringify({"cases": cases, "battles": battle_metrics, "failed": probe_failed}))
+		_save_metrics(TestStorage.path_for("progress.json"))
+		print("CASE COMPLETE: ", matrix_strategy, " seed=", case_seed, " elite=", elite, " result=", main.current_run.get("result", ""), " count=", cases.size())
 	print("Playthrough probe captures saved to %s" % global_dir)
 	if matrix_strategy.is_empty():
 		root.remove_child(main)
@@ -188,6 +229,7 @@ func _play_battle(main: Node, safety: int) -> void:
 	if battle == null:
 		_note(main, "battle_missing")
 		probe_failed = true
+		case_failed = true
 		return
 	_note(main, "battle_start hp=%d enemy=%s enemy_hp=%d hand=%d" % [
 		int(battle.player.get("health", 0)),
@@ -243,7 +285,7 @@ func _play_battle(main: Node, safety: int) -> void:
 		if steps == 3:
 			await _capture("%02d_battle_mid" % safety)
 	await _wait_frames(3 if headless else 20)
-	battle_metrics.append({"strategy_id": matrix_strategy, "seed": case_seed, "metrics": battle.battle_state.get("strategy_metrics", {}).duplicate(true), "first_turn_win": battle.battle_state.get("player_turn_count", 0) == 1 and int(battle.opponent.get("health", 0)) <= 0, "race": main._current_race_id(), "tier": battle.battle_tier, "enemy": battle.opponent.get("name", ""), "turns": battle.battle_state.get("player_turn_count", 0), "finisher": battle.battle_state.get("combo_finisher_used", false), "hp_lost_net": initial_hp - int(battle.player.get("health", 0)), "actions": steps})
+	battle_metrics.append({"strategy_id": matrix_strategy, "seed": case_seed, "elite": bool(main.get_meta("probe_elite", false)), "battle_index": safety, "metrics": battle.battle_state.get("strategy_metrics", {}).duplicate(true), "first_turn_win": battle.battle_state.get("player_turn_count", 0) == 1 and int(battle.opponent.get("health", 0)) <= 0, "race": main._current_race_id(), "tier": battle.battle_tier, "enemy": battle.opponent.get("name", ""), "turns": battle.battle_state.get("player_turn_count", 0), "finisher": battle.battle_state.get("combo_finisher_used", false), "hp_lost_net": initial_hp - int(battle.player.get("health", 0)), "actions": steps, "stalled": String(main.active_screen) == "battle", "outcome": "win" if int(battle.opponent.get("health", 0)) <= 0 else ("loss" if int(battle.player.get("health", 0)) <= 0 else "unfinished")})
 	max_battle_steps = maxi(max_battle_steps, steps)
 	var node_type := String(main.run_store.current_node(main.current_run).get("type", ""))
 	if node_type == "boss":
@@ -257,6 +299,7 @@ func _play_battle(main: Node, safety: int) -> void:
 	])
 	if String(main.active_screen) == "battle":
 		probe_failed = true
+		case_failed = true
 		_note(main, "battle_stalled current_player=%s input_locked=%s enemy_hp=%d player_hp=%d hand=%d pfield=%d efield=%d" % [
 			String(battle.current_player),
 			str(battle.input_locked),

@@ -1,6 +1,8 @@
 extends RefCounted
 class_name RunState
 
+const RewardEconomy = preload("res://src/services/reward_economy.gd")
+
 func load_or_empty(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
@@ -10,7 +12,16 @@ func load_or_empty(path: String) -> Dictionary:
 	var json := JSON.new()
 	if json.parse(text) != OK or typeof(json.data) != TYPE_DICTIONARY:
 		return {}
-	return (json.data as Dictionary).duplicate(true)
+	var run_data: Dictionary = (json.data as Dictionary).duplicate(true)
+	if run_data.is_empty():
+		return {}
+	if not run_data.has("reward_offer_history"):
+		run_data["reward_offer_history"] = []
+	# 복원된 제안은 다시 생성하거나 과거 기록에 추가하지 않습니다.
+	var pending: Dictionary = run_data.get("pending_card_reward", {})
+	if not pending.is_empty():
+		pending["offer_history_recorded"] = true
+	return run_data
 
 func has_saved_run(path: String) -> bool:
 	return not load_or_empty(path).is_empty()
@@ -35,6 +46,7 @@ func create_new_run(acts: Array[Dictionary], deck_ids: Array[String], start_hp: 
 		"visited_nodes": [],
 		"cleared_node_types": {},
 		"pending_shop": {},
+		"reward_offer_history": [],
 		"pending_event": {},
 		"pending_message": {},
 		"pending_subscreen": {},
@@ -48,6 +60,8 @@ func save(path: String, run_data: Dictionary) -> void:
 	if file == null:
 		push_warning("런 저장 실패: %s" % path)
 		return
+	# 생성 직후 저장되는 최종 보상만 기록합니다. 보스의 임시 추첨은 제외합니다.
+	RewardEconomy.record_pending(run_data)
 	file.store_string(JSON.stringify(run_data, "\t"))
 
 func clear(path: String) -> void:

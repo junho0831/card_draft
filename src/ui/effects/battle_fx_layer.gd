@@ -40,11 +40,11 @@ func play_attack(attacker: Control, defender: Control, damage: int, counter: boo
 	else:
 		_spawn_travel_streak(source, center, color, strong)
 	_spawn_impact_core(center, color, strong)
-	_spawn_impact_texture(center, strong, counter)
-	_spawn_ring(center, color, 48.0 if strong else 34.0, 0.36 if strong else 0.28)
-	_spawn_radial_burst(center, color, 18 if strong else 11, strong)
-	_spawn_sparks(center, color, 16 if strong else 8, 0.48 if strong else 0.34)
 	if strong:
+		_spawn_impact_texture(center, true, counter)
+		_spawn_ring(center, color, 48.0, 0.36)
+		_spawn_radial_burst(center, color, 18, true)
+		_spawn_sparks(center, color, 16, 0.48)
 		_spawn_frame_pulse(color, 0.38)
 
 func play_heal(target: Control) -> void:
@@ -295,7 +295,7 @@ func _spawn_travel_streak(source: Vector2, target: Vector2, color: Color, strong
 	if delta.length() < 8.0:
 		return
 	var normal := Vector2(-delta.y, delta.x).normalized()
-	var streak_count := 5 if strong else 3
+	var streak_count := 5 if strong else 1
 	for index in range(streak_count):
 		var offset := (float(index) - float(streak_count - 1) * 0.5) * (9.0 if strong else 7.0)
 		var streak := Line2D.new()
@@ -314,7 +314,7 @@ func _spawn_travel_streak(source: Vector2, target: Vector2, color: Color, strong
 
 func _spawn_impact_core(center: Vector2, color: Color, strong: bool) -> void:
 	var core := ColorRect.new()
-	var core_size := 28.0 if strong else 18.0
+	var core_size := 28.0 if strong else 10.0
 	core.color = color.lightened(0.62)
 	core.size = Vector2(core_size, core_size)
 	core.position = center - core.size * 0.5
@@ -496,17 +496,18 @@ func _play_profile_impact(attacker: Control, defender: Control, damage: int, pro
 	var color := Color(String(profile.color))
 	var strong := damage >= 4
 	var radius := 40.0 if strong else 28.0
+	# 기본 공격은 계열 모양만 남기고, 추가 빛과 파편은 강타에 사용한다.
 	match String(profile.motif):
 		"slash":
 			_motif_line([center + Vector2(-radius, radius), center + Vector2(radius, -radius)], color, 7.0)
-			_spawn_sparks(center, color, 8, 0.24)
+			if strong: _spawn_sparks(center, color, 8, 0.24)
 		"pierce":
 			var direction := (center - source).normalized()
 			_motif_line([center - direction * 75, center + direction * 18], color, 4.0)
 			_spawn_ring(center, color, radius * 0.65, 0.2)
 		"gust":
-			for i in range(3):
-				var offset := Vector2(0, (i - 1) * 15)
+			for i in range(3 if strong else 1):
+				var offset := Vector2(0, (i - 1) * 15 if strong else 0)
 				_spawn_card_arc_trail(source + offset, source.lerp(center, 0.5) + offset + Vector2(0, -30), center + offset, color, 0.28)
 		"droplets", "splatter", "fragments":
 			_spawn_material_fragments(center, color, String(profile.motif), radius)
@@ -517,7 +518,7 @@ func _play_profile_impact(attacker: Control, defender: Control, damage: int, pro
 			_spawn_ring(center, color, radius * 1.2, 0.3)
 		"bolt":
 			_motif_line([source, source.lerp(center, 0.35) + Vector2(12,-18), source.lerp(center, 0.6) + Vector2(-18,12), center], color, 5.0)
-			_spawn_radial_burst(center, Color.WHITE, 6, false)
+			if strong: _spawn_radial_burst(center, Color.WHITE, 6, true)
 		"shards":
 			for i in range(7):
 				var direction := Vector2.RIGHT.rotated(float(i) * TAU / 7.0)
@@ -539,8 +540,8 @@ func _play_profile_impact(attacker: Control, defender: Control, damage: int, pro
 			_motif_line([center - Vector2(0,radius), center + Vector2(0,radius)], color, 4.0)
 		_:
 			_spawn_impact_core(center, color, strong)
-			_spawn_radial_burst(center, color, 12 if strong else 8, strong)
-			_spawn_ring(center, color, radius, 0.3)
+			_spawn_radial_burst(center, color, 12 if strong else 3, strong)
+			if strong: _spawn_ring(center, color, radius, 0.3)
 
 func _motif_line(points: Array, color: Color, width: float) -> void:
 	var line := Line2D.new()

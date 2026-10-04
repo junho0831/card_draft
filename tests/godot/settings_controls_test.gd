@@ -11,11 +11,18 @@ func check(ok: bool, message: String) -> void:
 	if not ok: failures.append(message)
 func settle() -> void:
 	for i in range(8): await process_frame
+	# 관성 스크롤이 끝난 뒤 좌표를 읽어 프레임 속도에 따른 오클릭을 피한다.
+	await create_timer(0.22).timeout
 func capture(file: String) -> void:
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(Storage.path_for(file + ".png"))
 func click(control: Control) -> void:
 	var point := control.get_global_rect().get_center()
+	var hover := InputEventMouseMotion.new()
+	hover.position = point
+	hover.global_position = point
+	root.push_input(hover, true)
+	await process_frame
 	for down in [true, false]:
 		var event := InputEventMouseButton.new()
 		event.button_index = MOUSE_BUTTON_LEFT
@@ -25,6 +32,7 @@ func click(control: Control) -> void:
 		root.push_input(event, true)
 		await process_frame
 func run() -> void:
+	root.gui_embed_subwindows = true
 	root.size = Vector2i(802, 390)
 	var main = preload("res://src/core/Main.tscn").instantiate()
 	main.set_meta("disable_window_mode_changes", true)
@@ -48,9 +56,12 @@ func run() -> void:
 		main._show_settings()
 		await settle()
 		var screen = main.active_screen_controller
+		check(not main.root_box.find_child("FullscreenToggle", true, false).visible, "phone hides desktop fullscreen")
+		check(not main.root_box.find_child("DesktopScaleRow", true, false).visible, "phone hides desktop scaling")
 		var bgm: HSlider = main.root_box.find_child("bgm_volume", true, false)
 		var sfx: HSlider = main.root_box.find_child("sfx_volume", true, false)
-		check(bgm.get_global_rect().end.x <= viewport.x, "volume slider fits %s" % viewport)
+		var canvas_bounds := Rect2(Vector2.ZERO, Vector2(root.content_scale_size))
+		check(canvas_bounds.encloses(bgm.get_global_rect()), "volume slider fits landscape canvas %s" % viewport)
 		await capture("settings-%d" % viewport.x)
 		var slider_point := bgm.get_global_rect().get_center()
 		main.touch_scroll_router._begin_gesture(slider_point, main.root_box)
@@ -113,13 +124,18 @@ func run() -> void:
 			screen._on_effects_selected(index)
 			check(Policy.effect_mode(main.player_profile.settings) == screen.EFFECT_MODES[index], "effects choice applied")
 			await click(screen.preview_button)
+			if not is_instance_valid(screen.preview):
+				await capture("preview-click-failed")
+				printerr("Preview did not open: ", failures, " button=", screen.preview_button.get_global_rect())
+				quit(1)
+				return
 			check(screen.preview.playing, "preview starts from button input")
 			await create_timer(0.22).timeout
 			check(screen.preview.damage_label.visible, "preview shows damage in all modes")
 			if index == 0: await capture("preview-%d" % viewport.x)
 			await create_timer(0.85).timeout
 			check(not screen.preview.playing and not screen.preview_replay.disabled, "preview releases replay button")
-			check(Rect2(Vector2.ZERO, Vector2(viewport)).encloses(screen.preview_close.get_global_rect()), "preview close fits viewport")
+			check(canvas_bounds.encloses(screen.preview_close.get_global_rect()), "preview close fits landscape canvas")
 			await click(screen.preview_replay)
 			check(screen.preview.playing, "replay starts through pointer input")
 			await click(screen.preview_close)
@@ -161,7 +177,7 @@ func run() -> void:
 	await view.session.focus([{"player":true, "hero":true}])
 	check(view.board_scroll.scroll_vertical == 0, "auto follow off preserves scroll")
 	await view.session.focus([{"player":true, "hero":true}], false, true)
-	check(view.board_scroll.scroll_vertical > 0, "manual navigation works with auto follow off")
+	check(view.board_scroll.get_global_rect().encloses(view.resolve_focus({"player":true, "hero":true}).get_global_rect()), "manual navigation reveals target with auto follow off")
 	main.player_profile.settings.battle_auto_focus = "outside"
 	var camera_before: int = view.board_scroll.scroll_vertical
 	await view.session.focus([{"player":true, "hero":true}])

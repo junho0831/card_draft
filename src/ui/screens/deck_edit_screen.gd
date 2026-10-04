@@ -1,18 +1,18 @@
 extends RefCounted
 class_name DeckEditScreen
 
+const Layout = preload("res://src/ui/screens/screen_layout.gd")
+
 var main: Node
 
 func _init(_main: Node) -> void:
 	main = _main
 
 func build_remove(body: VBoxContainer, reason: String) -> void:
-	body.add_child(main._make_run_summary_panel())
-	var panel: PanelContainer = main._make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 760)
-	body.add_child(panel)
+	Layout.back(main, body, "_cancel_pending_subscreen")
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
-	panel.add_child(box)
+	body.add_child(box)
 	box.add_child(main._make_label("%s - 카드 제거" % reason, 22, Color(1.0, 0.88, 0.55, 1.0)))
 	box.add_child(main._make_label("덱에서 제거할 카드 1장을 고르세요.", 16, Color(0.92, 0.94, 0.98, 1.0)))
 
@@ -30,15 +30,13 @@ func build_remove(body: VBoxContainer, reason: String) -> void:
 
 	if not has_options:
 		box.add_child(main._make_label("제거할 카드가 없습니다.", 15, Color(0.92, 0.94, 0.98, 1.0)))
-	main._add_menu_button(box, "돌아가기", "_cancel_pending_subscreen", Color(0.22, 0.24, 0.28, 1.0))
+
 
 func build_upgrade(body: VBoxContainer) -> void:
-	body.add_child(main._make_run_summary_panel())
-	var panel: PanelContainer = main._make_screen_panel(Color(0.12, 0.135, 0.16, 1.0), 760)
-	body.add_child(panel)
+	Layout.back(main, body, "_cancel_pending_subscreen")
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
-	panel.add_child(box)
+	body.add_child(box)
 	box.add_child(main._make_label("휴식 - 카드 강화", 22, Color(1.0, 0.88, 0.55, 1.0)))
 	box.add_child(main._make_label("강화할 카드 1장을 고르세요.", 16, Color(0.92, 0.94, 0.98, 1.0)))
 
@@ -59,7 +57,7 @@ func build_upgrade(body: VBoxContainer) -> void:
 
 	if not has_options:
 		box.add_child(main._make_label("강화할 카드가 없습니다.", 15, Color(0.92, 0.94, 0.98, 1.0)))
-	main._add_menu_button(box, "돌아가기", "_cancel_pending_subscreen", Color(0.22, 0.24, 0.28, 1.0))
+
 
 func _card_summary(prefix: String, card: Dictionary) -> String:
 	var stats := "마나 %d" % int(card.get("cost", 0))
@@ -70,13 +68,13 @@ func _card_summary(prefix: String, card: Dictionary) -> String:
 func _make_option_row(label_text: String, button_text: String, callback: Callable) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	var label: Label = main._make_label(label_text, 15, Color(0.92, 0.94, 0.98, 1.0))
+	var label: Label = Layout.label(main, label_text)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
 	var button := Button.new()
 	button.text = button_text
-	button.custom_minimum_size = Vector2(96, 40)
+	button.custom_minimum_size = Vector2(96, 44)
 	if button_text == "제거":
 		main.ui.style_role_button(button, "danger", Color(0.9, 0.3, 0.28, 1.0), Color(0.24, 0.07, 0.08, 1.0), 15)
 	else:

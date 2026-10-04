@@ -1,6 +1,9 @@
 extends RefCounted
 class_name EventScreen
 
+const Layout = preload("res://src/ui/screens/screen_layout.gd")
+const Tokens = preload("res://src/ui/styles/ui_tokens.gd")
+
 var main: Node
 var screen_action_dock: PanelContainer = null
 
@@ -24,41 +27,30 @@ func _event_theme_color(event_id: String) -> Color:
 
 func build(body: VBoxContainer) -> void:
 	var event_data: Dictionary = main.current_run.get("pending_event", {})
-	var compact: bool = main._is_compact_layout()
-	body.add_child(main._make_run_summary_panel())
-	body.add_child(main.ui.make_guidance_banner("다음 행동", "선택지 하나를 골라 런의 방향을 바꾸세요", Color(0.18, 0.2, 0.12, 1.0), compact))
-	body.add_child(_make_event_status_strip(event_data, compact))
-
-	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hub.add_theme_constant_override("separation", 12)
-	body.add_child(hub)
-
-	var story_panel := _make_story_panel(event_data, compact)
-	hub.add_child(story_panel)
-
-	var choice_panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 14)
-	choice_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hub.add_child(choice_panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 6)
-	choice_panel.add_child(box)
-	var title: Label = main._make_label("무엇을 하시겠습니까?", 22 if compact else 26, Color(1.0, 0.88, 0.55, 1.0))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 20)
+	body.add_child(row)
+	var art: Control = main.ui.make_location_art(String(event_data.get("id", "")), Vector2(220, 144))
+	row.add_child(art)
+	var story := VBoxContainer.new()
+	story.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	story.add_theme_constant_override("separation", 10)
+	row.add_child(story)
+	var title: Label = main.ui.make_label(String(event_data.get("title", "")), 24, Tokens.TEXT_PRIMARY)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	box.add_child(title)
-	var subtitle: Label = main._make_label("선택 하나가 이번 런의 체력, 골드, 덱, 유물을 바꿉니다.", 13 if compact else 14, Color(0.84, 0.88, 0.94, 1.0))
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	box.add_child(subtitle)
-	box.add_child(main.ui.make_objective_panel("이벤트 목표", "지금 빌드에 맞는 대가와 보상을 비교해 가장 효율적인 선택을 고르세요.", compact))
-	for option in event_data.get("options", []):
-		if typeof(option) != TYPE_DICTIONARY:
+	story.add_child(title)
+	story.add_child(Layout.label(main, String(event_data.get("description", ""))))
+	var dock: Dictionary = Layout.dock(main, body)
+	screen_action_dock = dock.panel
+	for option_variant in event_data.get("options", []):
+		if not option_variant is Dictionary:
 			continue
-		var option_data: Dictionary = option
-		var button: Button = _make_option_button(option_data, compact)
-		button.pressed.connect(Callable(self, "_resolve_event_option").bind(String(option.get("effect", ""))))
-		box.add_child(button)
+		var option: Dictionary = option_variant
+		var effect := String(option.get("effect", ""))
+		var button: Button = main.ui.make_dock_action_button(String(option.get("label", "선택")), _dock_effect_preview_for_option(option), Tokens.ACCENT_TEAL, effect != "leave", 160)
+		button.pressed.connect(Callable(self, "_resolve_event_option").bind(effect))
+		dock.actions.add_child(button)
 
-	hub.add_child(_make_preview_panel(event_data, compact))
 func _mount_event_action_dock(body: VBoxContainer, event_data: Dictionary) -> void:
 	var dock: Dictionary = main.ui.mount_screen_action_dock(
 		main,

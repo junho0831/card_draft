@@ -1,6 +1,7 @@
 extends Control
 ## A single cached card face; only its projection is animated, never game state.
 const EFFECT = preload("res://src/ui/shaders/card_inspection.gdshader")
+const Tokens = preload("res://src/ui/styles/ui_tokens.gd")
 var target_tilt := Vector2.ZERO
 var tilt := Vector2.ZERO
 var pointer := -1
@@ -67,6 +68,8 @@ func _gui_input(event: InputEvent) -> void:
 		_aim(event.position)
 		accept_event()
 	elif event is InputEventMouseButton:
+		if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+			return
 		if not event.pressed: _release()
 		accept_event()
 
@@ -100,13 +103,13 @@ static func make_face(main: Node, card: Dictionary) -> Control:
 	band.color = main.ui.make_race_band_style(card).bg_color
 	band.position = Vector2(6, 304); band.size = Vector2(272, 86)
 	face.add_child(band)
-	var title: Label = main._make_label(String(card.get("name", "카드")), 26, Color(0.96, 0.93, 0.82))
+	var title: Label = main._make_label(String(card.get("name", "카드")), 26, Tokens.TEXT_PRIMARY)
 	title.position = Vector2(10, 312); title.size = Vector2(264, 34)
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	face.add_child(title)
-	var stats: Label = main._make_label("비용 %d" % int(card.get("cost", 0)), 24, Color(0.65, 0.83, 1.0))
+	var stats: Label = main._make_label("비용 %d" % int(card.get("cost", 0)), 24, Tokens.TEXT_SECONDARY)
 	if card.has("attack"):
 		stats.text += "   공격 %d / 체력 %d" % [int(card.attack), int(card.get("health", 0))]
 	stats.position = Vector2(10, 350); stats.size = Vector2(264, 30)

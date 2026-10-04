@@ -3,10 +3,13 @@ class_name RewardScreen
 
 const ButtonMetrics = preload("res://src/ui/styles/button_metrics.gd")
 const Fantasy = preload("res://src/ui/fantasy_components.gd")
+const EconomyDetail = preload("res://src/ui/components/economy_detail_view.gd")
+var detail_overlay: Control
 var selected_card_id := ""
 var reference_cards: Dictionary = {}
 var reference_claim: Button
 var reference_reason: Label
+var reference_comparison: Control
 var main: Node
 var screen_action_dock: PanelContainer = null
 
@@ -20,67 +23,7 @@ func _is_reward_compact_layout() -> bool:
 	return main._layout_viewport_size().x < 1100.0
 
 func build(body: VBoxContainer) -> void:
-	if main._layout_viewport_size().x >= 1100:
-		_build_reference_reward(body)
-		return
-	if not main._lesson_description().is_empty():
-		body.add_child(main.ui.make_guidance_banner("이번에 배울 것", main._lesson_description(), Color(0.12, 0.2, 0.3, 1.0), true))
-	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
-	var compact: bool = _is_reward_compact_layout()
-	var tight: bool = _is_tight_reward_layout()
-	var viewport_size: Vector2 = main._layout_viewport_size()
-	var action_dock_layout: bool = viewport_size.x > viewport_size.y and viewport_size.y <= 800.0
-	if not action_dock_layout:
-		body.add_child(main._make_run_summary_panel())
-	body.add_child(main.ui.make_guidance_banner("다음 행동", "유물을 고른 뒤, 다음 전투에 필요한 카드 1장을 선택하세요" if _has_relic_choice(reward) else ("장비 한 장을 골라 아군을 강화해보세요" if bool(reward.get("lesson_equipment", false)) else "주력 강화 · 보조 연계 · 새로운 방향 중 다음 수를 고르세요"), Color(0.24, 0.2, 0.12, 1.0), compact))
-	if _has_relic_choice(reward) and compact:
-		body.add_child(_make_relic_choices(reward, compact))
-	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hub.add_theme_constant_override("separation", 8 if tight else 10)
-	body.add_child(hub)
-
-	var build_panel := _make_build_panel(compact)
-	build_panel.visible = main._lesson_stage() >= 5
-	if not compact and _has_relic_choice(reward):
-		var relic_panel := _make_relic_choices(reward, true)
-		relic_panel.custom_minimum_size.x = 210
-		hub.add_child(relic_panel)
-		build_panel.queue_free()
-	else:
-		hub.add_child(build_panel)
-
-	var card_panel: PanelContainer = main.ui.make_surface_panel(Color(0.07, 0.08, 0.1, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 14)
-	card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card_panel.custom_minimum_size = Vector2(0, 300 if compact else (324 if tight else 340))
-	hub.add_child(card_panel)
-	var card_box := VBoxContainer.new()
-	card_box.add_theme_constant_override("separation", 5 if tight else 6)
-	card_panel.add_child(card_box)
-	var title: Label = main._make_label("카드 1장 선택", 18 if compact else 22, Color(1.0, 0.88, 0.55, 1.0))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	card_box.add_child(title)
-	var subtitle: Label = main._make_label("카드를 추가하거나 건너뛰면 선택한 보상을 받고 다음 장소로 이동합니다.", 12 if tight else (13 if compact else 14), Color(0.86, 0.9, 0.96, 1.0))
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	card_box.add_child(subtitle)
-
-	var row: BoxContainer = main.ui.make_responsive_box(compact, 10)
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card_box.add_child(row)
-	for card_id in reward.get("choices", []):
-		if not main.cards_by_id.has(String(card_id)):
-			continue
-		row.add_child(_make_reward_choice(main.cards_by_id[String(card_id)]))
-
-	if main._lesson_stage() >= 5:
-		hub.add_child(_make_reward_side_panel(reward, compact))
-	elif not action_dock_layout:
-		var proceed := Button.new()
-		proceed.text = "추천 장비 받기" if bool(reward.get("lesson_equipment", false)) else "카드 건너뛰기"
-		proceed.pressed.connect(_skip_card_reward)
-		hub.add_child(proceed)
-	if action_dock_layout:
-		_mount_reward_action_dock(body, reward)
+	_build_reference_reward(body)
 
 func _mount_reward_action_dock(body: VBoxContainer, reward: Dictionary) -> void:
 	var card: Dictionary = _recommended_reward_card(reward)
@@ -260,7 +203,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	main.ui.decorate_card_frame(frame, card)
 	frame.custom_minimum_size = Vector2(188, 0)
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	frame.tooltip_text = "%s\n%s\n%s" % [_reward_choice_reason(card, matches_primary), main._plain_build_delta_text(card), main._choice_impact_text(card)]
+	frame.tooltip_text = main._card_economy_comparison_text(card)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	frame.add_child(box)
@@ -273,6 +216,10 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	var reason: Label = main._make_label(_reward_choice_reason(card, matches_primary), 13, Color(0.78, 0.86, 0.93))
 	reason.custom_minimum_size.y = 36
 	box.add_child(reason)
+	var inspect := Fantasy.action(main, "덱 변화 보기", _show_card_comparison.bind(String(card.get("id", ""))), false)
+	inspect.name = "EconomyInspect_" + String(card.get("id", ""))
+	ButtonMetrics.apply(inspect)
+	box.add_child(inspect)
 	var button := Button.new()
 	button.text = "덱에 추가 ▶" if matches_primary else "선택"
 	button.focus_mode = Control.FOCUS_NONE
@@ -317,14 +264,13 @@ func _select_relic_reward(relic_id: String) -> void:
 			return
 
 func _make_relic_choices(reward: Dictionary, compact: bool) -> PanelContainer:
-	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.11, 0.09, 0.15, 1.0), Color(0.4, 0.28, 0.58, 1.0), 1, 12, 12)
+	var panel: PanelContainer = main.ui.make_surface_panel(EconomyDetail.Tokens.SURFACE, EconomyDetail.Tokens.BORDER, 1, 8, 8)
+	panel.name = "EconomyRelicChoices"
+	panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	panel.add_child(box)
-	var title: Label = main._make_label("유물 1개 선택", 16 if compact else 18, Color(0.92, 0.82, 1.0))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	box.add_child(title)
-	var row: BoxContainer = main.ui.make_responsive_box(compact, 8)
+	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	box.add_child(row)
 	var selected: Dictionary = _selected_reward_relic(reward)
@@ -332,17 +278,18 @@ func _make_relic_choices(reward: Dictionary, compact: bool) -> PanelContainer:
 		var relic: Dictionary = relic_variant
 		var id := String(relic.get("id", ""))
 		var chosen := String(selected.get("id", "")) == id
-		var button := Button.new()
+		var button := EconomyDetail.action_button(main, String(relic.get("name", "유물")), _show_relic_comparison.bind(relic))
 		button.name = "RelicChoice_" + id
-		button.text = "%s%s\n%s\n%s" % ["✓ 선택됨 · " if chosen else "", String(relic.get("name", "유물")), String(relic.get("text", "")), main._choice_impact_text(relic)]
-		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		button.custom_minimum_size = Vector2(0, 120 if compact else 120)
+		button.tooltip_text = String(relic.get("text", ""))
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		main.ui.style_button(button, Color(0.34, 0.22, 0.52, 1.0) if chosen else Color(0.17, 0.14, 0.24, 1.0))
-		button.add_theme_font_size_override("font_size", 13 if compact else 14)
-		button.pressed.connect(Callable(self, "_select_relic_reward").bind(id))
+		main.ui.style_role_button(button, "primary" if chosen else "secondary", EconomyDetail.Tokens.ACCENT_GOLD if chosen else EconomyDetail.Tokens.BORDER, EconomyDetail.Tokens.SURFACE_RAISED, 14)
+		ButtonMetrics.apply(button, "compact", button.custom_minimum_size.x)
 		row.add_child(button)
 	return panel
+
+func _show_relic_comparison(relic: Dictionary) -> void:
+	_close_card_comparison()
+	detail_overlay = EconomyDetail.show_relic(main, relic, _select_relic_reward.bind(String(relic.get("id", ""))), _close_card_comparison)
 
 func _card_choice_role(card_id: String) -> String:
 	if bool(Dictionary(main.current_run.get("pending_card_reward", {})).get("lesson_equipment", false)):
@@ -392,72 +339,108 @@ func _finalize_reward() -> void:
 
 func _build_reference_reward(body: VBoxContainer) -> void:
 	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
-	body.add_child(Fantasy.heading(main, "⚔  전투 승리", 36))
-	body.add_child(main._make_label("보상 카드를 선택하세요.", 17, Color(0.9, 0.91, 0.94)))
-	var gap := Control.new()
-	gap.custom_minimum_size.y = 14
-	body.add_child(gap)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 18)
-	body.add_child(row)
-	var build_panel: Control
+	var desktop: bool = main._layout_viewport_size().x >= 1100
+	body.add_theme_constant_override("separation", 8)
+	var resources := HBoxContainer.new()
+	resources.add_theme_constant_override("separation", 8)
+	body.add_child(resources)
 	if _has_relic_choice(reward):
-		build_panel = _make_relic_choices(reward, true)
-	else:
-		var build_box := Fantasy.panel(main, "현재 빌드", 210)
-		build_panel = build_box.get_meta("frame")
-		var tag: String = main._primary_build_tag(main._current_build_scores())
-		var meta: Dictionary = main._build_tag_meta().get(tag, {})
-		build_box.add_child(Fantasy.heading(main, String(meta.get("name", "새로운 원정")), 23))
-		build_box.add_child(main._make_label("주력 강화 · 보조 연계 · 새로운 방향 중 다음 수를 고르세요.", 15, Color(0.84, 0.87, 0.91)))
-	build_panel.custom_minimum_size.x = 210
-	row.add_child(build_panel)
+		var relic_choices := _make_relic_choices(reward, true)
+		relic_choices.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		resources.add_child(relic_choices)
+	var gold := EconomyDetail.comparison_label(main, ("전투 승리   ·   골드 +%d" if desktop else "골드 +%d") % int(reward.get("gold_reward", 0)), EconomyDetail.TEXT, 20 if desktop else 14)
+	gold.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	gold.tooltip_text = main._lesson_description()
+	resources.add_child(gold)
+	if desktop and not main._lesson_description().is_empty():
+		body.add_child(EconomyDetail.comparison_label(main, main._lesson_description(), EconomyDetail.MUTED, 14))
+	if not _has_relic_choice(reward) and not _selected_reward_relic(reward).is_empty():
+		body.add_child(main.ui.make_relic_badge(_selected_reward_relic(reward), true))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 20)
+	body.add_child(row)
 	var recommended := _recommended_reward_card(reward)
 	selected_card_id = String(recommended.get("id", ""))
 	var cards := HBoxContainer.new()
+	cards.name = "EconomyOffers"
+	cards.alignment = BoxContainer.ALIGNMENT_CENTER
 	cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cards.add_theme_constant_override("separation", 14)
+	cards.add_theme_constant_override("separation", 12)
 	row.add_child(cards)
 	for id in reward.get("choices", []):
 		var card: Dictionary = main.card_db.get_card(String(id))
+		if card.is_empty():
+			continue
 		var stack := VBoxContainer.new()
-		stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		stack.add_theme_constant_override("separation", 6)
 		cards.add_child(stack)
-		var face := Fantasy.card(main, card, 185, 345, String(id) == selected_card_id)
+		stack.add_child(EconomyDetail.comparison_label(main, _card_choice_role(String(id)), EconomyDetail.MUTED, 14))
+		var reserved_height := 238 if _has_relic_choice(reward) else 206
+		var face := EconomyDetail.offer_face(main, card, 208 if desktop else 180, 320 if desktop else int(clampf(main._layout_viewport_size().y - reserved_height, 120, 300)), not desktop)
+		face.name = "EconomyOffer_" + String(id)
 		stack.add_child(face)
 		reference_cards[String(id)] = face
-		Fantasy.clickable_card(face, _select_reference_reward.bind(String(id)))
-	var details := Fantasy.panel(main, "추천 이유", 218)
-	row.add_child(details.get_meta("frame"))
-	reference_reason = main._make_label("", 15, Color(0.89, 0.9, 0.87))
-	reference_reason.custom_minimum_size = Vector2(182, 130)
-	details.add_child(reference_reason)
-	details.add_child(HSeparator.new())
-	details.add_child(Fantasy.heading(main, "추가 보상", 19))
-	details.add_child(Fantasy.heading(main, "골드 +%d" % reward.get("gold_reward", 0), 22))
+		var inspect := _select_reference_reward.bind(String(id)) if desktop else _inspect_reference_reward.bind(String(id))
+		Fantasy.clickable_card(face, inspect)
+		if desktop:
+			var pick := EconomyDetail.action_button(main, "카드 확인", inspect)
+			pick.name = "EconomyInspect_" + String(id)
+			stack.add_child(pick)
+	var details := EconomyDetail.section(main, "덱 변화", 290 if desktop else 0)
+	details.visible = desktop
+	row.add_child(details)
+	var detail_content := EconomyDetail.add_scroll(details, 180 if desktop else 0)
+	reference_reason = EconomyDetail.comparison_label(main, "", EconomyDetail.TEXT, 16)
+	reference_reason.name = "EconomyCardRole"
+	detail_content.add_child(reference_reason)
 	var footer := HBoxContainer.new()
-	footer.add_theme_constant_override("separation", 14)
+	footer.add_theme_constant_override("separation", 8)
 	body.add_child(footer)
-	reference_claim = Fantasy.action(main, "선택한 카드 받기", _claim_reference_reward)
-	reference_claim.disabled = not _relic_choice_ready(reward)
-	footer.add_child(reference_claim)
-	var skip := Fantasy.action(main, "건너뛰기", _skip_card_reward, false)
+	footer.add_child(EconomyDetail.action_button(main, "덱 보기", Callable(main, "_show_collection")))
+	var skip := EconomyDetail.action_button(main, "추천 장비 받기" if bool(reward.get("lesson_equipment", false)) else "건너뛰기", _skip_card_reward)
 	skip.disabled = not _relic_choice_ready(reward)
 	footer.add_child(skip)
-	footer.add_child(Fantasy.action(main, "덱 보기", Callable(main, "_show_collection"), false))
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(spacer)
+	reference_claim = EconomyDetail.action_button(main, "선택한 카드 받기", _claim_reference_reward, true)
+	reference_claim.name = "EconomyPreviewClaim"
+	ButtonMetrics.apply(reference_claim, "compact", 250)
+	reference_claim.disabled = not _relic_choice_ready(reward)
+	footer.add_child(reference_claim)
 	_select_reference_reward(selected_card_id)
+	if not desktop:
+		screen_action_dock = EconomyDetail.pin_mobile_footer(main, body, footer)
+
+func _inspect_reference_reward(card_id: String) -> void:
+	_select_reference_reward(card_id)
+	_show_card_comparison(card_id)
 
 func _select_reference_reward(card_id: String) -> void:
 	selected_card_id = card_id
 	for id in reference_cards:
-		reference_cards[id].modulate = Color(1.18, 1.1, 0.86) if id == card_id else Color(0.8, 0.84, 0.9)
+		reference_cards[id].modulate = Color.WHITE if id == card_id else Color(0.82, 0.82, 0.82)
 	var card: Dictionary = main.card_db.get_card(card_id)
-	reference_reason.text = "%s
-
-%s
-
-%s" % [card.get("name", ""), _reward_choice_reason(card, main._card_matches_build_tag(card, main._primary_build_tag(main._current_build_scores()))), main._choice_impact_text(card)]
-	reference_claim.text = "%s  ·  선택" % card.get("name", "카드")
+	reference_reason.text = "%s\n\n%s" % [card.get("name", ""), _card_choice_role(card_id)]
+	var detail_content := reference_reason.get_parent() as VBoxContainer
+	if is_instance_valid(reference_comparison):
+		detail_content.remove_child(reference_comparison)
+		reference_comparison.queue_free()
+	reference_comparison = EconomyDetail.make_comparison(main, card, true)
+	detail_content.add_child(reference_comparison)
+	(detail_content.get_parent() as ScrollContainer).scroll_vertical = 0
+	reference_claim.tooltip_text = "%s · 카드 받기" % card.get("name", "카드")
 
 func _claim_reference_reward() -> void:
 	_claim_card_reward(selected_card_id)
+
+func _show_card_comparison(card_id: String) -> void:
+	_close_card_comparison()
+	var card: Dictionary = main.card_db.get_card(card_id)
+	detail_overlay = EconomyDetail.show_card(main, card, "카드 받기", _claim_card_reward.bind(card_id), not _relic_choice_ready(main.current_run.get("pending_card_reward", {})), _close_card_comparison)
+
+func _close_card_comparison() -> void:
+	if is_instance_valid(detail_overlay):
+		detail_overlay.hide()
+		detail_overlay.queue_free()
+	detail_overlay = null

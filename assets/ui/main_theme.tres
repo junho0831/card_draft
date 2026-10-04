@@ -3,48 +3,48 @@
 [ext_resource type="FontFile" path="res://assets/fonts/NotoSansKR-Regular.tres" id="1_font"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.055, 0.066, 0.082, 0.98)
+bg_color = Color(0.141, 0.157, 0.165, 1)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.18, 0.23, 0.3, 1)
+border_color = Color(0.541, 0.588, 0.569, 1)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_normal"]
-bg_color = Color(0.065, 0.078, 0.098, 1)
+bg_color = Color(0.204, 0.235, 0.235, 1)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.25, 0.31, 0.4, 1)
+border_color = Color(0.541, 0.588, 0.569, 1)
 corner_radius_top_left = 7
 corner_radius_top_right = 7
 corner_radius_bottom_right = 7
 corner_radius_bottom_left = 7
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
-bg_color = Color(0.095, 0.115, 0.145, 1)
+bg_color = Color(0.25, 0.29, 0.28, 1)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.42, 0.62, 0.92, 1)
+border_color = Color(0.502, 0.776, 0.706, 1)
 corner_radius_top_left = 7
 corner_radius_top_right = 7
 corner_radius_bottom_right = 7
 corner_radius_bottom_left = 7
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_pressed"]
-bg_color = Color(0.045, 0.055, 0.072, 1)
+bg_color = Color(0.141, 0.157, 0.165, 1)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.34, 0.5, 0.74, 1)
+border_color = Color(0.541, 0.588, 0.569, 1)
 corner_radius_top_left = 7
 corner_radius_top_right = 7
 corner_radius_bottom_right = 7
@@ -52,8 +52,15 @@ corner_radius_bottom_left = 7
 
 [resource]
 default_font = ExtResource("1_font")
-Button/colors/font_color = Color(0.94, 0.96, 1, 1)
+default_font_size = 16
+Label/colors/font_color = Color(0.953, 0.941, 0.910, 1)
+Button/colors/font_color = Color(0.953, 0.941, 0.910, 1)
+Button/colors/font_disabled_color = Color(0.65, 0.68, 0.66, 1)
 Button/styles/hover = SubResource("StyleBoxFlat_button_hover")
 Button/styles/normal = SubResource("StyleBoxFlat_button_normal")
 Button/styles/pressed = SubResource("StyleBoxFlat_button_pressed")
 Panel/styles/panel = SubResource("StyleBoxFlat_panel")
+OptionButton/styles/normal = SubResource("StyleBoxFlat_button_normal")
+OptionButton/styles/hover = SubResource("StyleBoxFlat_button_hover")
+OptionButton/styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+OptionButton/colors/font_color = Color(0.953, 0.941, 0.910, 1)

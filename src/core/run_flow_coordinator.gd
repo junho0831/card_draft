@@ -191,7 +191,7 @@ func complete_event_and_return() -> void:
 func show_shop() -> void:
 	if Dictionary(main.current_run.get("pending_shop", {})).is_empty():
 		main.current_run["pending_shop"] = main.shop_run_service.generate_shop_state({
-			"roll_card_choices": Callable(main, "_roll_card_choices"),
+			"roll_card_choices": Callable(main, "_roll_shop_card_choices"),
 			"random_relic": Callable(main.relic_service, "random_relic"),
 			"relic_ids": main.current_run.get("relic_ids", []),
 		})

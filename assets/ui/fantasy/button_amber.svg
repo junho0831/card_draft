@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="64" viewBox="0 0 320 64">
+<defs><linearGradient id="enamel" x2="0" y2="1"><stop stop-color="#79623c"/><stop offset=".5" stop-color="#59492f"/><stop offset="1" stop-color="#443c2b"/></linearGradient><linearGradient id="gold" x2="0" y2="1"><stop stop-color="#f0d99b"/><stop offset=".5" stop-color="#bb9650"/><stop offset="1" stop-color="#e3be70"/></linearGradient></defs>
+<path d="M16 3H304L317 16V48L304 61H16L3 48V16Z" fill="url(#enamel)" stroke="url(#gold)" stroke-width="3"/>
+<path d="M19 7H301L312 18V46L301 57H19L8 46V18Z" fill="none" stroke="#ddbe79" opacity=".6"/>
+<path d="m16 25-5 7 5 7m288-14 5 7-5 7" fill="none" stroke="#f0d99b"/>
+</svg>

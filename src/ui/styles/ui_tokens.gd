@@ -1,6 +1,19 @@
 extends RefCounted
 class_name UiTokens
 
+const SURFACE := Color("24282a")
+const SURFACE_RAISED := Color("343c3c")
+const TEXT_PRIMARY := Color("f3f0e8")
+const TEXT_SECONDARY := Color("c5cbc7")
+const BORDER := Color("8a9691")
+const ACCENT_GOLD := Color("e3be70")
+const ACCENT_TEAL := Color("80c6b4")
+const ACCENT_DANGER := Color("e68d88")
+const FONT_TITLE := 24
+const TABLETOP_PATH := "res://assets/backgrounds/silver_tabletop_v4.png"
+const SHOP_BACKGROUND_PATH := "res://assets/backgrounds/silver_shop_v1.png"
+const DETAIL_BACKGROUND_PATH := "res://assets/backgrounds/silver_detail_v1.png"
+
 const SPACE_XS := 4
 const SPACE_SM := 8
 const SPACE_MD := 12
@@ -17,9 +30,9 @@ const BUTTON_HEIGHT_LG := 64
 const BUTTON_FONT := 16
 const BUTTON_FONT_COMPACT := 14
 
-const FONT_CAPTION := 11
-const FONT_BODY := 13
-const FONT_CARD_TITLE := 15
+const FONT_CAPTION := 14
+const FONT_BODY := 16
+const FONT_CARD_TITLE := 16
 const FONT_ACTION := 17
 
 const STATE_SELECTED := Color(0.34, 0.72, 1.0, 1.0)
@@ -66,10 +79,10 @@ static func card_metrics(mode: String, compact: bool = false, tight: bool = fals
 			detail_font = FONT_CAPTION if compact else 12
 			separation = 6
 	return {
-		"title_font": title_font,
-		"identity_font": identity_font,
-		"summary_font": summary_font,
-		"detail_font": detail_font,
+		"title_font": maxi(FONT_CAPTION, title_font),
+		"identity_font": maxi(FONT_CAPTION, identity_font),
+		"summary_font": maxi(FONT_CAPTION, summary_font),
+		"detail_font": maxi(FONT_CAPTION, detail_font),
 		"separation": separation,
 	}
 

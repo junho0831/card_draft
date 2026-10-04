@@ -12,6 +12,7 @@ const ORIGINAL_AUDIO_DIR := "res://assets/audio/original_v1"
 const MODEL_AUDIO_DIR := "res://assets/audio/local_models_v1"
 const COMMUNITY_AUDIO_DIR := "res://assets/audio/community_v1"
 const FOLEY_AUDIO_DIR := "res://assets/audio/model_foley_v2"
+const COMBAT_AUDIO_DIR := "res://assets/audio/combat_edited_v1"
 const SFX_HEADROOM_DB := -6.0
 const SHARED_STREAM_GAP_MSEC := 120
 
@@ -515,22 +516,27 @@ func _read_u16_le(bytes: PackedByteArray, offset: int) -> int:
 func _read_u32_le(bytes: PackedByteArray, offset: int) -> int:
 	return int(bytes[offset]) | (int(bytes[offset + 1]) << 8) | (int(bytes[offset + 2]) << 16) | (int(bytes[offset + 3]) << 24)
 
-# CC0 library recordings take priority; unavailable events keep their existing assets.
+# 일반 재생은 CC0만 허용하며 이전 생성 음원으로 되돌아가지 않는다.
 func _sfx_path(sound_name: String) -> String:
-	for path in ["%s/%s.ogg" % [COMMUNITY_AUDIO_DIR, _model_sfx_key(sound_name)], "%s/%s.ogg" % [FOLEY_AUDIO_DIR, _model_sfx_key(sound_name)], "%s/%s.ogg" % [MODEL_AUDIO_DIR, _model_sfx_key(sound_name)], "%s/%s.ogg" % [ORIGINAL_AUDIO_DIR, sound_name]]:
-		if ResourceLoader.exists(path): return path
+	var combat_path := "%s/%s.ogg" % [COMBAT_AUDIO_DIR, _model_sfx_key(sound_name)]
+	if ResourceLoader.exists(combat_path): return combat_path
+	var community_path := "%s/%s.ogg" % [COMMUNITY_AUDIO_DIR, _model_sfx_key(sound_name)]
+	if ResourceLoader.exists(community_path): return community_path
 	return ""
 
 func _music_path(key: String) -> String:
-	for directory in [COMMUNITY_AUDIO_DIR, MODEL_AUDIO_DIR, ORIGINAL_AUDIO_DIR]:
-		var path := "%s/%s.ogg" % [directory, key]
-		if ResourceLoader.exists(path): return path
+	if key in ["battle_tension", "battle_lethal", "battle_low_hp"]:
+		key = "battle_base"
+	var path := "%s/%s.ogg" % [COMMUNITY_AUDIO_DIR, key]
+	if ResourceLoader.exists(path): return path
 	return ""
 
 func _sound_or_generate(sound_name: String, fallback: Callable) -> AudioStream:
 	if not force_procedural:
 		var path := _sfx_path(sound_name)
 		if not path.is_empty(): return load(path) as AudioStream
+		push_error("Missing CC0 effect: " + sound_name)
+		return AudioStreamWAV.new()
 	return fallback.call()
 
 func _generate_all_sounds() -> void:
@@ -646,6 +652,9 @@ func _generate_all_music() -> void:
 	if not force_procedural and not _music_path("battle_base").is_empty():
 		var score: AudioStream = load(_music_path("battle_base"))
 		for key in BATTLE_MUSIC_KEYS: music_streams[key] = score
+		return
+	if not force_procedural:
+		push_error("Missing CC0 battle music")
 		return
 	music_streams["battle_base"] = _generate_battle_music_loop("base")
 	music_streams["battle_tension"] = _generate_battle_music_loop("tension")

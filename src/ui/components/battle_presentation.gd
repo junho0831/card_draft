@@ -64,6 +64,12 @@ static func phase_state(game_over: bool, player_turn: bool, locked: bool) -> Dic
 
 # Differences between layouts are data, not separate animation pipelines.
 static func attack_motion(landscape: bool, damage: int, counter: bool) -> Dictionary:
+	if damage < 4:
+		return {
+			"windup": 0.0, "distance": 34.0 if counter else 40.0,
+			"approach": 0.055, "hit_stop": 0.02,
+			"recoil": 0.02, "recover": 0.08,
+		}
 	return {
 		"windup": 0.055 if landscape else 0.0,
 		"distance": (66.0 if damage >= 4 else 54.0) if landscape else 58.0,

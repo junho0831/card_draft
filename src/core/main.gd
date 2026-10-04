@@ -1,6 +1,7 @@
 extends Control
 
 const LayoutPolicy = preload("res://src/ui/layout_policy.gd")
+const UiTokens = preload("res://src/ui/styles/ui_tokens.gd")
 
 const MAX_MANA := 10
 const MAX_FIELD := 5
@@ -140,6 +141,11 @@ func _ready() -> void:
 		game_window.size_changed.connect(Callable(self, "_on_window_size_changed"))
 
 func _create_premium_background() -> Texture2D:
+	var background_path := UiTokens.TABLETOP_PATH
+	if active_screen in ["shop", "reward"]:
+		background_path = UiTokens.SHOP_BACKGROUND_PATH
+	if ResourceLoader.exists(background_path):
+		return load(background_path) as Texture2D
 	if ResourceLoader.exists("res://assets/backgrounds/siege_castle_v1.png"):
 		return load("res://assets/backgrounds/siege_castle_v1.png") as Texture2D
 	var gradient := Gradient.new()
@@ -164,25 +170,28 @@ func _build_base_ui() -> void:
 	interface_font.font_names = PackedStringArray(["Noto Sans CJK KR", "Noto Sans", "sans-serif"])
 	interface_font.font_weight = 500
 	interface_theme.default_font = interface_font
-	interface_theme.default_font_size = 14
+	interface_theme.default_font_size = UiTokens.FONT_BODY
+	interface_theme.set_color("font_color", "Label", UiTokens.TEXT_PRIMARY)
+	interface_theme.set_color("default_color", "RichTextLabel", UiTokens.TEXT_PRIMARY)
 	theme = interface_theme
 	var background := TextureRect.new()
 	background.name = "WorldBackground"
 	background.texture = _create_premium_background()
 	background.modulate = Color.WHITE
 	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	background.stretch_mode = TextureRect.STRETCH_SCALE
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 
 	var ambient_scrim := ColorRect.new()
-	ambient_scrim.color = Color(0.01, 0.018, 0.03, 0.12)
+	ambient_scrim.color = Color(0.04, 0.06, 0.05, 0.10)
 	ambient_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ambient_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(ambient_scrim)
 
 	var bottom_fade := ColorRect.new()
-	bottom_fade.color = Color(0.0, 0.0, 0.0, 0.18)
+	bottom_fade.color = Color.TRANSPARENT
 	bottom_fade.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	bottom_fade.offset_top = -180
 	bottom_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -190,7 +199,7 @@ func _build_base_ui() -> void:
 
 	var top_shadow := ColorRect.new()
 	top_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top_shadow.color = Color(0.0, 0.0, 0.0, 0.2)
+	top_shadow.color = Color.TRANSPARENT
 	top_shadow.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	top_shadow.offset_bottom = 92
 	add_child(top_shadow)
@@ -350,20 +359,24 @@ func _apply_root_layout() -> void:
 	var safe_rect := _safe_layout_rect()
 	var canvas_size := _layout_size_for_physical_size(_physical_viewport_size())
 	var trailing_inset := canvas_size - safe_rect.end
+	var outer_margin := 4.0 if viewport_size.x <= 600.0 else 8.0
+	var content_width := maxf(300.0, viewport_size.x - outer_margin * 2.0)
 	if modal_layer != null:
 		modal_layer.offset_left = safe_rect.position.x
 		modal_layer.offset_top = safe_rect.position.y
 		modal_layer.offset_right = -trailing_inset.x
 		modal_layer.offset_bottom = -trailing_inset.y
 	if root_scroll != null:
-		var outer_margin := 4.0 if viewport_size.x <= 600.0 else 8.0
+		# Reserve the scrollbar gutter so content cannot widen the viewport.
+		content_width -= root_scroll.get_v_scroll_bar().get_combined_minimum_size().x
 		root_scroll.offset_left = safe_rect.position.x + outer_margin
 		root_scroll.offset_top = safe_rect.position.y + outer_margin
 		root_scroll.offset_right = -trailing_inset.x - outer_margin
 		root_scroll.offset_bottom = -trailing_inset.y - outer_margin - mobile_bottom_inset
 		if root_center != null:
-			root_center.custom_minimum_size = Vector2(maxf(300.0, viewport_size.x - outer_margin * 2.0), 0.0)
+			root_center.custom_minimum_size = Vector2(content_width, 0.0)
 	ui.apply_root_layout(root_box, viewport_size)
+	root_box.custom_minimum_size.x = minf(root_box.custom_minimum_size.x, content_width)
 
 
 func _clear_screen() -> void:
@@ -376,8 +389,7 @@ func _clear_screen() -> void:
 		audio_manager.set_screen_music(active_screen)
 	var world := get_node_or_null("WorldBackground") as TextureRect
 	if world != null:
-		var backdrop := "merchant_hall_v1" if active_screen == "shop" else ("campaign_valley_v1" if active_screen == "map" else "siege_castle_v1")
-		world.texture = load("res://assets/backgrounds/%s.png" % backdrop)
+		world.texture = _create_premium_background()
 	active_screen_controller = null
 	if root_scroll != null:
 		root_scroll.scroll_horizontal = 0
@@ -431,33 +443,61 @@ func _show_main_menu() -> void:
 	_build_phone_home()
 
 func _build_phone_home() -> void:
-	var surface: PanelContainer = ui.make_surface_panel(Color(0.025, 0.035, 0.05, 0.94), Color(0.42, 0.34, 0.19), 1, 8, 12)
-	root_box.add_child(surface)
+	var landscape := LayoutPolicy.is_mobile_landscape(_layout_viewport_size())
 	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 10)
-	surface.add_child(content)
-	var title := _make_label("Card Draft · " + _home_status_text(), 22, Color(0.98, 0.94, 0.84))
+	content.add_theme_constant_override("separation", 12)
+	root_box.add_child(content)
+	var header := HBoxContainer.new()
+	content.add_child(header)
+	var title := _make_label("Card Draft", UiTokens.FONT_TITLE, UiTokens.TEXT_PRIMARY)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	content.add_child(title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	var settings := _make_home_action_button("설정", "", "_show_settings", UiTokens.SURFACE, false)
+	settings.size_flags_horizontal = Control.SIZE_SHRINK_END
+	settings.custom_minimum_size.x = 88
+	header.add_child(settings)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
 	content.add_child(row)
+	if landscape:
+		var art := TextureRect.new()
+		art.texture = load("res://assets/backgrounds/king_commander_v1.png")
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.custom_minimum_size = Vector2(230, maxf(132, _layout_viewport_size().y - 170))
+		art.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(art)
 	var actions := VBoxContainer.new()
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_theme_constant_override("separation", 10)
 	row.add_child(actions)
-	var primary := _make_home_action_button("이어하기" if not current_run.is_empty() else "새 런 시작", "진행 중인 전투와 경로로" if not current_run.is_empty() else "세력과 플레이 방식 선택", "_continue_run" if not current_run.is_empty() else "_start_new_run", Color(0.17, 0.31, 0.56), true)
-	actions.add_child(primary)
+	var status := _make_label(_home_status_text(), 16, UiTokens.TEXT_SECONDARY)
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	actions.add_child(status)
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	actions.add_child(grid)
-	for entry in [["카드", "보유 카드", "_show_collection"], ["강화", "영구 보너스", "_show_meta_upgrade"], ["도감", "카드 / 유물", "_show_compendium"], ["설정", "소리 / 화면", "_show_settings"]]:
-		grid.add_child(_make_home_action_button(entry[0], entry[1], entry[2], Color(0.12, 0.15, 0.2), false))
-	var art := _make_card_art_rect(cards_by_id.get("flame_swordsman", {}), Vector2(180, 210))
-	row.add_child(art)
-	var stats := _make_label("카드 %d · 골드 %s · 영혼석 %s · 기록 %d" % [card_defs.size(), _format_large_number(int(player_profile.get("gold", 0))), _format_large_number(int(player_profile.get("soul_stones", 0))), _recent_runs().size()], 14, Color(0.82, 0.87, 0.94))
+	for entry in [["보유 카드", "_show_collection"], ["영구 성장", "_show_meta_upgrade"], ["도감", "_show_compendium"]]:
+		grid.add_child(_make_home_action_button(entry[0], "", entry[1], UiTokens.SURFACE, false))
+	var space := Control.new()
+	space.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	actions.add_child(space)
+	var primary := _make_home_action_button("이어하기" if not current_run.is_empty() else "새 런 시작", "", "_continue_run" if not current_run.is_empty() else "_start_new_run", UiTokens.ACCENT_GOLD, true)
+	if landscape:
+		var dock: Dictionary = ui.mount_screen_action_dock(self, content, "", "", UiTokens.BORDER, 64)
+		dock.title_label.hide()
+		dock.detail_label.hide()
+		dock.scroll.custom_minimum_size.y = 52
+		primary.custom_minimum_size.x = 240
+		primary.size_flags_horizontal = Control.SIZE_SHRINK_END
+		dock.actions.add_child(primary)
+	else:
+		actions.add_child(primary)
+	var stats := _make_label("카드 %d · 골드 %s · 영혼석 %s · 기록 %d" % [card_defs.size(), _format_large_number(int(player_profile.get("gold", 0))), _format_large_number(int(player_profile.get("soul_stones", 0))), _recent_runs().size()], 14, UiTokens.TEXT_SECONDARY)
 	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	content.add_child(stats)
 
@@ -473,7 +513,7 @@ func _home_headline_text() -> String:
 
 func _make_home_action_button(title: String, detail: String, callback_method: String, color: Color, primary: bool) -> Button:
 	var button := Button.new()
-	button.text = "%s\n%s" % [title, detail]
+	button.text = title if detail.is_empty() else "%s\n%s" % [title, detail]
 	button.custom_minimum_size = Vector2(0, 78 if primary else 58)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -481,7 +521,7 @@ func _make_home_action_button(title: String, detail: String, callback_method: St
 	if primary:
 		ui.style_primary_button(button, color)
 	else:
-		ui.style_flat_button(button, color, color.lightened(0.35), 14, 1)
+		ui.style_role_button(button, "secondary", UiTokens.BORDER, UiTokens.SURFACE, 16)
 	button.pressed.connect(Callable(self, callback_method))
 	return button
 
@@ -1820,6 +1860,64 @@ func _roll_card_choices(count: int) -> Array[String]:
 		pool.remove_at(index)
 	return ids
 
+func _roll_shop_card_choices(count: int) -> Array[String]:
+	var ids: Array[String] = []
+	var pool := _reward_card_pool()
+	if count > 0:
+		_append_random_reward_choice(ids, _primary_reward_pool(false))
+	while ids.size() < count:
+		var before := ids.size()
+		_append_random_reward_choice(ids, pool)
+		if before == ids.size():
+			break
+	return ids
+
+func _primary_reward_pool(high_cost_only: bool, avoid_recent: bool = false) -> Array[String]:
+	var tag := _primary_build_tag(_current_build_scores())
+	var race := String(_current_race_meta().get("data_race", "인간"))
+	var pool := _reward_card_pool(tag, high_cost_only, race)
+	if pool.is_empty():
+		pool = _reward_card_pool(tag, high_cost_only)
+	if pool.is_empty():
+		pool = _reward_card_pool("", high_cost_only)
+	if avoid_recent:
+		var same_role := _reward_card_pool(tag, high_cost_only)
+		if same_role.is_empty():
+			same_role = _reward_card_pool("", high_cost_only)
+		var candidates: Array[String] = preload("res://src/services/reward_economy.gd").available(same_role, [], current_run.get("reward_offer_history", []))
+		var preferred: Array[String] = []
+		for id in pool:
+			if candidates.has(id):
+				preferred.append(id)
+		pool = preferred if not preferred.is_empty() else candidates
+	return pool
+
+func _card_economy_comparison(card: Dictionary) -> Dictionary:
+	var economy = preload("res://src/services/reward_economy.gd")
+	var before := _current_build_scores()
+	var after := before.duplicate()
+	for tag in _card_build_tags(card):
+		after[tag] = int(after.get(tag, 0)) + 1
+	var costs: Dictionary = economy.cost_buckets(current_run.get("deck_ids", []), Callable(card_db, "get_card"))
+	var next_costs := costs.duplicate()
+	if not card.is_empty():
+		next_costs[economy.cost_bucket(int(card.get("cost", 0)))] += 1
+	return {"before_scores": before, "after_scores": after,
+		"before_active": _active_build_tags(before), "after_active": _active_build_tags(after),
+		"before_costs": costs, "after_costs": next_costs}
+
+func _card_economy_comparison_text(card: Dictionary) -> String:
+	var comparison := _card_economy_comparison(card)
+	var lines: Array[String] = []
+	for tag in _valid_build_tags():
+		lines.append("%s %d -> %d · %s -> %s" % [String(_build_tag_meta()[tag].get("name", tag)),
+			comparison.before_scores[tag], comparison.after_scores[tag],
+			"활성" if comparison.before_active.has(tag) else "미활성",
+			"활성" if comparison.after_active.has(tag) else "미활성"])
+	for bucket in ["0-1", "2-3", "4+"]:
+		lines.append("비용 %s: %d -> %d장" % [bucket, comparison.before_costs[bucket], comparison.after_costs[bucket]])
+	return "\n".join(lines)
+
 func _secondary_build_tag(scores: Dictionary) -> String:
 	var primary := _primary_build_tag(scores)
 	var best_tag := ""
@@ -1844,32 +1942,26 @@ func _roll_card_reward_choices(count: int, high_cost_only: bool = false) -> Arra
 	var scores := _current_build_scores()
 	var primary_tag := _primary_build_tag(scores)
 	var secondary_tag := _secondary_build_tag(scores)
-	var race_name := String(_current_race_meta().get("data_race", "인간"))
 	var full_pool := _reward_card_pool("", high_cost_only)
 	if count > 0:
-		var focused_pool := _reward_card_pool(primary_tag, high_cost_only, race_name)
-		if focused_pool.is_empty():
-			focused_pool = _reward_card_pool(primary_tag, high_cost_only)
-		if focused_pool.is_empty():
-			focused_pool = full_pool
-		_append_random_reward_choice(ids, focused_pool)
+		_append_random_reward_choice(ids, _primary_reward_pool(high_cost_only, true), true)
 	if ids.size() < count:
 		var support_pool: Array[String] = []
 		if not secondary_tag.is_empty():
 			support_pool = _reward_card_pool(secondary_tag, high_cost_only)
 		if support_pool.is_empty():
 			support_pool = _reward_card_pool("", high_cost_only, "중립")
-		_append_random_reward_choice(ids, support_pool)
+		_append_random_reward_choice(ids, support_pool, true)
 	if ids.size() < count:
 		var pivot_pool: Array[String] = []
 		for card_id in full_pool:
 			var tags := _card_build_tags(card_db.get_card(card_id))
 			if not tags.has(primary_tag) and (secondary_tag.is_empty() or not tags.has(secondary_tag)):
 				pivot_pool.append(card_id)
-		_append_random_reward_choice(ids, pivot_pool)
+		_append_random_reward_choice(ids, pivot_pool, true)
 	while ids.size() < count:
 		var before_size := ids.size()
-		_append_random_reward_choice(ids, full_pool)
+		_append_random_reward_choice(ids, full_pool, true)
 		if ids.size() == before_size:
 			break
 	return ids
@@ -1881,7 +1973,7 @@ func _roll_boss_card_reward_choices(boss_id: String, count: int = 3) -> Array[St
 	for card_id in _roll_card_reward_choices(count):
 		if ids.size() >= count:
 			break
-		if not ids.has(card_id):
+		if not preload("res://src/services/reward_economy.gd").available([card_id], ids).is_empty():
 			ids.append(card_id)
 	var pool := _reward_card_pool()
 	while ids.size() < count:
@@ -1916,24 +2008,15 @@ func _roll_relic_reward_choices(count: int = 2) -> Array[Dictionary]:
 		pool.remove_at(index)
 	return choices
 
-func _append_random_reward_choice(ids: Array[String], source_pool: Array[String]) -> void:
-	var pool := source_pool.duplicate()
-	for picked_id in ids:
-		pool.erase(picked_id)
+func _append_random_reward_choice(ids: Array[String], source_pool: Array[String], avoid_recent: bool = false) -> void:
+	var history: Array = current_run.get("reward_offer_history", []) if avoid_recent else []
+	var pool: Array[String] = preload("res://src/services/reward_economy.gd").available(source_pool, ids, history)
 	if pool.is_empty():
 		return
 	ids.append(String(pool[randi() % pool.size()]))
 
 func _roll_high_cost_cards(count: int) -> Array[String]:
-	var pool: Array[String] = _reward_card_pool("", true)
-	if pool.is_empty():
-		return _roll_card_choices(count)
-	var ids: Array[String] = []
-	while ids.size() < count and not pool.is_empty():
-		var index := randi() % pool.size()
-		ids.append(pool[index])
-		pool.remove_at(index)
-	return ids
+	return _roll_card_reward_choices(count, not _reward_card_pool("", true).is_empty())
 
 func _reward_card_pool(tag_filter: String = "", high_cost_only: bool = false, race_filter: String = "") -> Array[String]:
 	var pool: Array[String] = []
@@ -2116,7 +2199,9 @@ func _begin_menu_screen(title: String, with_profile: bool = false, subtitle: Str
 			heading.autowrap_mode = TextServer.AUTOWRAP_OFF
 			heading.clip_text = true
 			heading.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		heading.add_theme_font_size_override("font_size", 18 if _is_mobile_phone_layout() else 22)
+		heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		heading.add_theme_color_override("font_color", UiTokens.TEXT_PRIMARY)
+		heading.add_theme_font_size_override("font_size", UiTokens.FONT_TITLE)
 		heading.tooltip_text = subtitle
 		root_box.add_child(header)
 		var compact_body := VBoxContainer.new()
@@ -2148,16 +2233,15 @@ func _make_run_escape_bar() -> PanelContainer:
 	row.add_theme_constant_override("separation", 8)
 	panel.add_child(row)
 
-	if not phone:
-		var hint: Label = _make_label("런 메뉴", 12 if compact else 13, Color(1.0, 0.88, 0.55, 1.0))
-		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(hint)
+	var hint: Label = _make_label("런 메뉴", UiTokens.FONT_TITLE, UiTokens.TEXT_PRIMARY)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(hint)
 
 	var actions: BoxContainer = HBoxContainer.new()
 	actions.alignment = BoxContainer.ALIGNMENT_END
 	actions.add_theme_constant_override("separation", 8)
-	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.size_flags_horizontal = Control.SIZE_SHRINK_END
 	row.add_child(actions)
 
 	_add_escape_action_button(actions, "메인 메뉴", "_show_main_menu", Color(0.16, 0.2, 0.26, 1.0), compact, phone)
@@ -2170,12 +2254,12 @@ func _add_escape_action_button(parent: Node, text: String, callback_method: Stri
 	var button := Button.new()
 	button.text = text
 	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = Vector2(0 if phone else (96 if compact else 108), 48 if phone else (34 if compact else 36))
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if phone else Control.SIZE_FILL
+	button.custom_minimum_size = Vector2(100, 44)
+	button.size_flags_horizontal = Control.SIZE_FILL
 	var role := "danger" if callback_method == "_abandon_run" else "secondary"
 	var accent := Color(0.9, 0.3, 0.28, 1.0) if role == "danger" else color.lightened(0.34)
 	ui.style_role_button(button, role, accent, color, 13 if phone else (12 if compact else 13))
-	button.add_theme_font_size_override("font_size", 13 if phone else (12 if compact else 13))
+	preload("res://src/ui/styles/button_metrics.gd").apply(button, "compact", 100)
 	button.pressed.connect(Callable(self, callback_method))
 	parent.add_child(button)
 	return button
