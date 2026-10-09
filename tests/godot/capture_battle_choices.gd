@@ -44,11 +44,26 @@ func capture(name: String) -> void:
 	check(not picture.is_empty(), "rendered image is nonempty")
 	picture.save_png(Storage.path_for(name + ".png"))
 
+func check_hand_bounds(battle, expected_size: Vector2, last_visible: bool = false) -> void:
+	var bounds: Rect2 = battle.hand_scroll.get_global_rect()
+	for card: Control in battle.hand_box.get_children():
+		check(card.size.is_equal_approx(expected_size), "hand keeps fixed size: %s" % str(card.size))
+		for corner in [Vector2.ZERO, Vector2(card.size.x, 0), card.size, Vector2(0, card.size.y)]:
+			var point: Vector2 = card.get_global_transform() * corner
+			check(point.y >= bounds.position.y - 1 and point.y <= bounds.end.y + 1, "rotated hand fits vertically")
+	var last: Control = battle.hand_box.get_child(battle.hand_box.get_child_count() - 1)
+	if last_visible:
+		for corner in [Vector2.ZERO, Vector2(last.size.x, 0), last.size, Vector2(0, last.size.y)]:
+			var point: Vector2 = last.get_global_transform() * corner
+			check(point.x >= bounds.position.x - 1 and point.x <= bounds.end.x + 1, "last rotated card is fully reachable")
+
 func run() -> void:
 	var mobile := "--landscape" in OS.get_cmdline_user_args()
 	var viewport := Vector2i(844, 390) if mobile else Vector2i(1280, 720)
 	if mobile and "--small" in OS.get_cmdline_user_args():
 		viewport = Vector2i(740, 360)
+	if mobile and "--large-phone" in OS.get_cmdline_user_args():
+		viewport = Vector2i(932, 430)
 	if not mobile and "--wide" in OS.get_cmdline_user_args():
 		viewport = Vector2i(1920, 1080)
 	var expected_hand_size := Vector2(82, 110) if mobile else Vector2(132, 178)
@@ -93,7 +108,16 @@ func run() -> void:
 		check(battle.player_field_box.get_child_count() == 5 and battle.opponent_field_box.get_child_count() == 5, "both lanes retain five slots")
 		check(battle.opponent_field_box.global_position.y < battle.player_field_box.global_position.y, "enemy lane remains above allies")
 		check(not battle.detail_toggle_button.is_visible_in_tree(), "normal battle has one shared information entry")
-		check(battle.hand_box.get_child(0).size == expected_hand_size, "hand has fixed readable dimensions for its viewport")
+		check(battle.hand_box.get_child(0).size.is_equal_approx(expected_hand_size), "hand has fixed readable dimensions for its viewport")
+		check_hand_bounds(battle, expected_hand_size, true)
+		for unit_card: Control in battle.player_field_box.get_children():
+			var card_name := unit_card.get_node_or_null("CardName")
+			if card_name != null:
+				check(card_name.is_visible_in_tree(), "field card names remain visible on mobile")
+		var borders := []
+		for card: Control in battle.hand_box.get_children():
+			borders.append(card.get_node("TypeBorder").get_theme_stylebox("panel").border_color)
+		check(borders[0] != borders[1] and borders[1] != borders[2] and borders[0] != borders[2], "unit equipment and damage have distinct type borders")
 		var board_bounds: Rect2 = battle.landscape_view.get_global_rect()
 		check(absf(battle.end_turn_button.get_global_rect().end.y - board_bounds.end.y) <= 12, "primary action stays at board bottom")
 		check(absf(battle.end_turn_button.get_global_rect().end.x - board_bounds.end.x) <= 12, "primary action stays at board right")
@@ -168,16 +192,22 @@ func run() -> void:
 	await settle()
 	check(main.modal_layer.get_node_or_null("BattleChoiceDialog") == null, "Escape closes shared information")
 	if is_instance_valid(battle.landscape_view):
+		battle.player.hand = main.card_db.build_deck_from_ids(["militia", "training_sword", "fireball", "militia", "training_sword", "fireball", "militia", "training_sword", "fireball", "militia"])
+		battle._ensure_hand_visual_slots()
+		battle._refresh_ui()
+		await settle()
+		battle.hand_scroll.scroll_horizontal = 10000
+		await settle()
+		check_hand_bounds(battle, expected_hand_size, true)
+		await capture("04b-ten-card-hand")
 		battle.player.hand = main.card_db.build_deck_from_ids(["militia", "training_sword", "fireball", "militia", "training_sword", "fireball", "militia", "training_sword", "fireball", "militia", "training_sword", "fireball", "militia", "training_sword"])
 		battle._ensure_hand_visual_slots()
 		battle._refresh_ui()
 		await settle()
-		for card: Control in battle.hand_box.get_children():
-			check(card.size == expected_hand_size, "full hand never shrinks cards")
 		battle.hand_scroll.scroll_horizontal = 10000
 		await settle()
 		check(battle.hand_scroll.scroll_horizontal > 0, "full hand scrolls horizontally")
-		check(battle.hand_box.get_child(battle.hand_box.get_child_count() - 1).get_global_rect().end.x <= battle.hand_scroll.get_global_rect().end.x, "last card is reachable by scrolling")
+		check_hand_bounds(battle, expected_hand_size, true)
 		await capture("05-full-hand")
 	if not mobile:
 		battle.hand_scroll.scroll_horizontal = 0

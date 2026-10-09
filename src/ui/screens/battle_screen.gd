@@ -5247,9 +5247,11 @@ func _layout_hand_cards() -> void:
 	var available: float = minf(hand_scroll.size.x if is_instance_valid(hand_scroll) else hand_box.size.x, main._layout_viewport_size().x - 52.0)
 	var board_layout: bool = is_instance_valid(landscape_view)
 	var gap := 8.0 if board_layout else 10.0
-	var fan_step := minf(card_size.x * 0.68, maxf(44.0, (available - card_size.x - 20.0) / maxf(1.0, count - 1.0)))
-	var track_width := (card_size.x + fan_step * (count - 1) + 20.0) if board_layout else (float(count) * (card_size.x + gap) + gap)
-	var start_x := maxf(10.0, (available - track_width) * 0.5)
+	var fan_step := maxf(44.0, card_size.x * 0.96)
+	# 회전한 카드의 모서리도 스크롤 영역 안에 들어오도록 여백을 포함한다.
+	var fan_padding := ceilf(card_size.y * sin(deg_to_rad(6.0))) + 10.0
+	var track_width := (card_size.x + fan_step * (count - 1) + fan_padding * 2.0) if board_layout else (float(count) * (card_size.x + gap) + gap)
+	var start_x := maxf(0.0 if board_layout else 10.0, (available - track_width) * 0.5)
 	for i in range(count):
 		var card: Control = hand_box.get_child(i)
 		var selected := _uses_touch_hand_selection() and int(card.get_meta("hand_slot", -1)) == selected_hand_slot
@@ -5258,12 +5260,15 @@ func _layout_hand_cards() -> void:
 		var z_order := i
 		if board_layout:
 			var fan_ratio := (float(i) / float(count - 1) - 0.5) * 2.0 if count > 1 else 0.0
-			position = Vector2(start_x + 10.0 + i * fan_step, absf(fan_ratio) * 10.0 - (4.0 if selected else 0.0))
-			rotation = fan_ratio * 10.0
+			position = Vector2(start_x + fan_padding + i * fan_step, 10.0 + absf(fan_ratio) * 4.0 - (4.0 if selected else 0.0))
+			rotation = fan_ratio * 6.0
 			z_order = 100 + int((1.0 - absf(fan_ratio)) * 50.0) + i
+			card.pivot_offset = Vector2(card_size.x * 0.5, card_size.y)
 		else:
 			position = Vector2(start_x + i * (card_size.x + gap), 4.0 if selected else 10.0)
 		card.position = position
+		if board_layout:
+			card.size = card_size
 		card.rotation_degrees = rotation
 		card.scale = Vector2.ONE
 		card.z_index = z_order
@@ -5271,7 +5276,7 @@ func _layout_hand_cards() -> void:
 		card.set_meta("base_rotation", rotation)
 		card.set_meta("base_scale", Vector2.ONE)
 		card.set_meta("base_z_index", z_order)
-	hand_box.custom_minimum_size = Vector2(track_width, card_size.y + (18.0 if board_layout else 24.0))
+	hand_box.custom_minimum_size = Vector2(track_width, card_size.y + 24.0)
 	last_hand_layout_width = hand_box.custom_minimum_size.x
 
 func _hand_sort_key(card: Dictionary) -> String:

@@ -50,14 +50,14 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	hero_width = 80.0 if compact_board else 112.0
 	rail_width = 120.0 if compact_board else 168.0
 	unit_width = minf(104 if compact_board else 136, floorf((viewport.x - rail_width - 36 - hero_width - 32) / 5.0))
-	hand_size = Vector2(82, 110) if compact_board else Vector2(116, 160)
-	field_height = maxf(60, floorf((viewport.y - 228) / 2.0)) if compact_board else clampf(floorf((viewport.y - hand_size.y - 220) / 2.0), 128, 172)
+	hand_size = Vector2(82, 110) if compact_board else Vector2(132, 178)
+	field_height = maxf(52, floorf((viewport.y - 258) / 2.0)) if compact_board else clampf(floorf((viewport.y - hand_size.y - 250) / 2.0), 128, 172)
 	old_root.hide()
 	action_panel.hide()
 	battle.main.mobile_bottom_inset = 0
 	battle.main._apply_root_layout()
 	var background := ColorRect.new()
-	background.color = Color(Tokens.SURFACE, 0.4)
+	background.color = Color(Tokens.SURFACE, 0.12)
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
@@ -118,7 +118,7 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	board_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	board_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	board_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	board_scroll.add_theme_stylebox_override("panel", surface_style(Tokens.BORDER))
+	board_scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	board.add_child(board_scroll)
 	lanes = VBoxContainer.new()
 	lanes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -161,15 +161,15 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	battle.deck_list_label.get_parent().add_child(intent_detail)
 	battle.hand_scroll.reparent(board)
 	battle.hand_scroll.set_meta("cancel_tap_on_motion", true)
-	battle.hand_scroll.add_theme_stylebox_override("panel", surface_style(Tokens.ACCENT_GOLD))
+	battle.hand_scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	battle.hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	battle.hand_scroll.custom_minimum_size = Vector2(0, hand_size.y + 6)
+	battle.hand_scroll.custom_minimum_size = Vector2(0, hand_size.y + 36)
 	battle.hand_scroll.size_flags_vertical = Control.SIZE_SHRINK_END
 	var rail_panel := PanelContainer.new()
 	rail_panel.name = "BattleActionPanel"
 	rail_panel.custom_minimum_size.x = rail_width
 	rail_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	rail_panel.add_theme_stylebox_override("panel", surface_style(Tokens.ACCENT_GOLD))
+	rail_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	body.add_child(rail_panel)
 	var rail := VBoxContainer.new()
 	rail.name = "BattleActionRail"
@@ -184,13 +184,15 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	battle.recommended_action_button.reparent(header)
 	ButtonMetrics.apply(battle.recommended_action_button, "compact", 90)
 	battle.recommended_action_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	for button in [battle.race_power_button, battle.end_turn_button]:
+	for button in [battle.race_power_button]:
 		button.reparent(rail)
 		ButtonMetrics.apply(button, "action", rail_width)
 	var sort_hand_button := action("손패 정리", Callable(battle, "_sort_hand_cards"), "compact")
 	sort_hand_button.name = "SortHandButton"
 	sort_hand_button.tooltip_text = "같은 카드를 묶고 비용순으로 손패를 정렬합니다."
 	rail.add_child(sort_hand_button)
+	battle.end_turn_button.reparent(rail)
+	ButtonMetrics.apply(battle.end_turn_button, "action", rail_width)
 	cancel_button = action("선택 취소", func():
 		battle._cancel_ally_selection()
 		battle.selected_attacker = -1
@@ -418,7 +420,7 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	button.clip_contents = true
 	button.add_theme_stylebox_override("normal", battle.BATTLE_STYLES.make_card_frame(accent, 2))
 	if card.is_empty():
-		button.add_theme_stylebox_override("disabled", SharedStyles.make_style_box(Tokens.SURFACE_RAISED, Tokens.BORDER, 1, 4))
+		button.add_theme_stylebox_override("disabled", SharedStyles.make_style_box(Color(0.08, 0.1, 0.1, 0.12), Color(Tokens.BORDER, 0.25), 1, 4))
 		return button
 	var kind := card_kind(card)
 	button.set_meta("card_kind", kind)
@@ -443,8 +445,8 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	var name_label := stamp(button, "CardName", String(card.get("name", "")), Vector2(7, height - 43), Vector2(width - 14, 20), race_band, 12 if compact_board else 14)
 	if field:
 		if compact_board:
-			name_label.hide()
-			button.get_node("CardNameBand").hide()
+			name_label.position.y = height - 43
+			name_label.add_theme_font_size_override("font_size", 12)
 		else:
 			name_label.position.y = height - 80
 			button.get_node("CardNameBand").position.y = height - 80
@@ -458,8 +460,14 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	type_border.name = "TypeBorder"
 	type_border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	type_border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var type_style: StyleBoxFlat = battle.main.ui.make_race_card_style(card, Color.TRANSPARENT, 3, 2)
-	type_style.draw_center = false
+	var type_style := StyleBoxFlat.new()
+	type_style.bg_color = Color.TRANSPARENT
+	type_style.border_color = kind_color(kind)
+	type_style.set_border_width_all(3 if kind in ["damage", "equipment"] else 2)
+	type_style.set_corner_radius_all({"unit": 3, "damage": 0, "support": 7, "equipment": 1}[kind])
+	if kind == "equipment":
+		type_style.border_width_top = 5
+		type_style.border_width_bottom = 5
 	type_border.add_theme_stylebox_override("panel", type_style)
 	button.add_child(type_border)
 	battle.main.ui.decorate_card_frame(button, card)
@@ -474,6 +482,7 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	if field: icon.hide()
 	var emblem: TextureRect = battle.main.ui.make_race_emblem(card, 20)
 	emblem.position = Vector2((width - 20) * 0.5, 25 if field else 28)
+	emblem.visible = not (field and compact_board)
 	button.add_child(emblem)
 	button.tooltip_text = {"unit":"유닛", "damage":"피해·저주 주문", "support":"회복·지원 주문", "equipment":"장비"}[kind]
 	return button
@@ -484,7 +493,7 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 		if not ally and not compact_board:
 			battle._configure_enemy_field_attack(empty)
 			for state: String in ["normal", "hover", "pressed"]:
-				empty.add_theme_stylebox_override(state, SharedStyles.make_style_box(Tokens.SURFACE_RAISED, Tokens.ACCENT_GOLD if state != "normal" else Tokens.BORDER, 1, 4))
+				empty.add_theme_stylebox_override(state, SharedStyles.make_style_box(Color(0.08, 0.1, 0.1, 0.12), Tokens.ACCENT_GOLD if state != "normal" else Color(Tokens.BORDER, 0.25), 1, 4))
 			return empty
 		empty.disabled = true
 		empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
