@@ -2251,7 +2251,7 @@ func _on_recommended_action_pressed() -> void:
 			_show_first_play_help(state)
 		else:
 			_focus_recommended_action(state, false)
-		if is_instance_valid(landscape_view):
+		if is_instance_valid(landscape_view) and not main.Onboarding.first_battle(main.current_run):
 			landscape_view.show_help()
 		return
 	_show_battle_choice_details()
@@ -3455,11 +3455,12 @@ func _card_exhausts_after_play(card: Dictionary) -> bool:
 	return is_pure_self_setup
 
 
-func _calculate_damage(card_or_unit: Dictionary, is_spell: bool, owner_state: Dictionary, base_damage: int) -> int:
+func _calculate_damage(card_or_unit: Dictionary, is_spell: bool, owner_state: Dictionary, base_damage: int, cards_played_count: int = -1) -> int:
+	var resolved_count: int = int(battle_state.get("cards_played_this_turn", 0)) if cards_played_count < 0 else cards_played_count
 	var damage: int = base_damage + (main.relic_service.damage_bonus(main.current_run, card_or_unit, is_spell, owner_state) if owner_state == player else 0) + _build_damage_bonus(card_or_unit, is_spell, owner_state)
 	if owner_state == player and is_spell and String(card_or_unit.get("attr", "")) == "화염":
 		var relic_ids: Array = main.current_run.get("relic_ids", [])
-		if relic_ids.has("burning_heart") and int(battle_state.get("cards_played_this_turn", 0)) >= 2:
+		if relic_ids.has("burning_heart") and resolved_count >= 2:
 			damage += 1
 	return damage
 
@@ -3672,12 +3673,13 @@ func _card_heal_preview(card: Dictionary) -> int:
 	return 0
 
 func _direct_damage_preview(card: Dictionary) -> int:
+	var prospective_count: int = int(battle_state.get("cards_played_this_turn", 0)) + 1
 	for effect in card.get("effects", []):
 		if effect.op in ["front_damage", "all_damage", "combo_damage", "low_damage"]:
 			var amount := int(effect.amount)
 			if effect.op == "combo_damage" and int(battle_state.get("cards_played_this_turn", 0)) + 1 >= 3: amount = int(effect.extra)
 			if effect.op == "low_damage" and int(player.health) * 2 <= int(player.max_health): amount = int(effect.extra)
-			return _calculate_damage(card, card.get("type") == "spell", player, amount)
+			return _calculate_damage(card, card.get("type") == "spell", player, amount, prospective_count)
 	var card_id = _base_card_id(String(card.get("id", "")))
 	var base_damage = 0
 	match card_id:
@@ -3693,7 +3695,7 @@ func _direct_damage_preview(card: Dictionary) -> int:
 			base_damage = 1
 	if base_damage <= 0:
 		return 0
-	return _calculate_damage(card, true, player, base_damage + int(card.get("effect_bonus", 0)))
+	return _calculate_damage(card, true, player, base_damage + int(card.get("effect_bonus", 0)), prospective_count)
 
 func _card_result_preview(card: Dictionary) -> String:
 	if card.has("effects"):
@@ -5944,18 +5946,33 @@ func _record_first_play_action(action: String) -> void:
 func _first_play_guidance() -> String:
 	if _is_player_input_locked():
 		return "상대 행동이 끝나면 직접 조작할 수 있습니다."
-	var state := _recommended_action_state()
+	var state: Dictionary = _recommended_action_state()
 	match String(state.get("kind", "wait")):
 		"play_card":
-			return "손패의 유닛 카드를 눌러 소환하세요." if not _uses_touch_hand_selection() else "손패 카드를 눌러 확인한 뒤 다시 눌러 소환하세요."
-		"hero_attack_direct", "unit_attack_direct":
+			var index: int = int(state.get("card_index", -1))
+			var card: Dictionary = player.hand[index] if index >= 0 and index < player.hand.size() else {}
+			var action: String = "소환" if card.get("type", "") == "unit" else "사용"
+			var name: String = String(card.get("name", "카드"))
+			if _uses_touch_hand_selection() and not _is_landscape_phone():
+				return "손패의 %s 카드를 눌러 확인한 뒤 다시 눌러 %s하세요." % [name, action]
+			return "손패의 %s 카드를 눌러 %s하세요." % [name, action]
+		"hero_attack_direct":
 			return "선봉을 처치했습니다: 공격 가능한 아군을 선택해 영웅을 노리세요." if main.current_run.get("first_play_actions", {}).get("vanguard_defeated", false) else "공격 가능한 아군을 눌러 선택하세요."
+		"unit_attack_direct":
+			return "공격 가능한 아군을 눌러 선택하세요."
 		"unit_attack_selected":
-			return "적 선봉을 누르세요: 살아남은 적만 반격합니다."
+			var target_index: int = int(state.get("target_index", -1))
+			var target_name: String = String(opponent.field[target_index].get("name", "적 유닛")) if target_index >= 0 and target_index < opponent.field.size() else "적 유닛"
+			return "%s 카드를 누르세요: 살아남은 적만 반격합니다." % target_name
 		"hero_attack_selected":
 			return "적 영웅을 눌러 직접 피해를 주세요."
+		"select_target":
+			return "강조된 아군을 누르세요: 취소 버튼으로 선택을 되돌릴 수 있습니다."
 		"end_turn":
-			return "소환한 유닛은 다음 턴부터 공격합니다: 턴 종료를 누르세요." if not player.field.is_empty() else "지금 가능한 행동이 없습니다: 턴 종료를 누르세요."
+			for unit: Dictionary in player.field:
+				if String(unit.get("attack_wait_reason", "")) == "summoned":
+					return "소환한 유닛은 다음 턴부터 공격합니다: 턴 종료를 누르세요."
+			return "아군이 공격을 마쳤습니다: 턴 종료를 누르세요." if not player.field.is_empty() else "지금 가능한 행동이 없습니다: 턴 종료를 누르세요."
 	return "상대 행동이 끝날 때까지 기다리세요."
 
 func _show_first_play_help(state: Dictionary) -> void:

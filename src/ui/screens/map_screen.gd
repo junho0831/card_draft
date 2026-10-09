@@ -369,7 +369,7 @@ func _node_description(node_type: String) -> String:
 		"rest":
 			return "안전 구역입니다. 체력을 회복하거나 카드를 강화합니다."
 		"boss":
-			return "최종 보스입니다. 승리하면 바로 런 결과가 나옵니다."
+			return "막의 마지막 전투입니다. 승리 보상을 고르면 다음 막으로, 마지막 막에서는 런 결과로 이동합니다."
 		_:
 			return "다음 진행 지점을 선택하세요."
 
@@ -386,7 +386,7 @@ func _node_reward_text(node_type: String) -> String:
 		"rest":
 			return "체력 회복\n카드 강화"
 		"boss":
-			return "최종 승리\n결과 화면으로 직행"
+			return "골드·카드 보상\n유물 선택\n보상 선택 후 막 완료"
 		_:
 			return "진행 보상"
 
@@ -420,7 +420,7 @@ func _node_risk_text(node_type: String) -> String:
 		"rest":
 			return "안전 구역"
 		"boss":
-			return "위험도 최고 / 최종 전투"
+			return "위험도 최고 / 막의 마지막 전투"
 		_:
 			return "진행 정보"
 
@@ -723,11 +723,11 @@ func _node_icon(node_type: String) -> String:
 		return "장비"
 	match node_type:
 		"battle":
-			return "⚔"
+			return "전투"
 		"elite":
 			return "◆"
 		"boss":
-			return "♛"
+			return "보스"
 		"event":
 			return "?"
 		"shop":

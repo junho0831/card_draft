@@ -33,6 +33,7 @@ var current_battle_music_signature := ""
 var rng := RandomNumberGenerator.new()
 var last_sound_at_msec := {}
 var last_stream_at_msec := {}
+var last_stream_priority := {}
 var duck_until_msec := 0
 var force_procedural := false
 var ambient_key := "menu_theme"
@@ -141,6 +142,7 @@ func _exit_tree() -> void:
 	music_streams.clear()
 	last_sound_at_msec.clear()
 	last_stream_at_msec.clear()
+	last_stream_priority.clear()
 
 func play_sound(sound_name: String) -> void:
 	if _is_headless_runtime():
@@ -157,7 +159,10 @@ func play_sound(sound_name: String) -> void:
 	var stream: AudioStream = custom_streams.get(sound_name, streams[sound_name])
 	# Aliased combat events can share one recording despite different sound names.
 	var stream_id := stream.get_instance_id()
-	if now_msec - int(last_stream_at_msec.get(stream_id, -1000)) < SHARED_STREAM_GAP_MSEC:
+	# A click must remain audible immediately after a hover, but combat aliases
+	# still share the original anti-stacking window regardless of their priority.
+	var follows_hover := priority == 1 and int(last_stream_priority.get(stream_id, -1)) == 0
+	if now_msec - int(last_stream_at_msec.get(stream_id, -1000)) < SHARED_STREAM_GAP_MSEC and not follows_hover:
 		return
 	var p := _claim_player(priority)
 	if p == null:
@@ -172,6 +177,7 @@ func play_sound(sound_name: String) -> void:
 	p.play()
 	last_sound_at_msec[sound_name] = now_msec
 	last_stream_at_msec[stream_id] = now_msec
+	last_stream_priority[stream_id] = priority
 	var duck_duration := _duck_duration_msec(sound_name)
 	if duck_duration > 0:
 		duck_until_msec = maxi(duck_until_msec, now_msec + duck_duration)

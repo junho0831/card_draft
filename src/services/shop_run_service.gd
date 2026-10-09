@@ -4,6 +4,7 @@ class_name ShopRunService
 const SHOP_CARD_COST := 35
 const SHOP_RELIC_COST := 110
 const SHOP_HEAL_COST := 45
+const SHOP_HEAL_AMOUNT := 20
 
 func generate_shop_state(context: Dictionary) -> Dictionary:
 	return {
@@ -68,7 +69,7 @@ func buy_heal(run_data: Dictionary) -> Dictionary:
 	if int(run_data.get("hp", 0)) >= max_hp:
 		return {"ok": false}
 	run_data["gold"] = int(run_data["gold"]) - SHOP_HEAL_COST
-	run_data["hp"] = min(max_hp, int(run_data.get("hp", 0)) + 20)
+	run_data["hp"] = min(max_hp, int(run_data.get("hp", 0)) + SHOP_HEAL_AMOUNT)
 	return {"ok": true}
 
 func leave_shop(run_data: Dictionary) -> void:

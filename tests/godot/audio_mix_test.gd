@@ -48,6 +48,9 @@ func run() -> void:
 	check(is_equal_approx(manager.players[0].volume_db, -11.0), "gain reduction occurs before mixing")
 	manager.play_sound("heal")
 	check(manager.last_sound_at_msec.has("heal"), "different sounds remain independent")
+	manager.play_sound("hover")
+	manager.play_sound("click")
+	check(manager.last_sound_at_msec.has("hover") and manager.last_sound_at_msec.has("click"), "click feedback survives immediately preceding hover using the same recording")
 	while Time.get_ticks_msec() - int(manager.last_sound_at_msec["hit_human"]) < 160:
 		await process_frame
 	manager.play_sound("hit_elf")

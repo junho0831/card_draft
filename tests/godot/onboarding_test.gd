@@ -30,7 +30,9 @@ func run() -> Dictionary:
 	check(battle._create_battle_objective().is_empty(), "no optional challenges distract from learning")
 	check(battle._recommended_action_text() == "도움 보기", "first battle uses help")
 	var before_help: String = JSON.stringify([battle.player, battle.opponent, battle.selected_attacker, main.current_run])
+	var modal_count: int = main.modal_layer.get_child_count()
 	await battle._on_recommended_action_pressed()
+	check(main.modal_layer.get_child_count() == modal_count, "first help keeps the highlighted board visible without a modal")
 	check(JSON.stringify([battle.player, battle.opponent, battle.selected_attacker, main.current_run]) == before_help, "help never spends cards mana or advances turn")
 	battle.player.hand = [main.card_db.get_card("knight_spearman")]
 	battle._ensure_hand_visual_slots()
@@ -60,6 +62,28 @@ func run() -> Dictionary:
 	before_help = JSON.stringify([battle.player, battle.opponent, battle.current_player])
 	await battle._on_recommended_action_pressed()
 	check(JSON.stringify([battle.player, battle.opponent, battle.current_player]) == before_help, "end-turn help does not end turn")
+	var guide_unit: Dictionary = preload("res://tests/godot/combat_strategy_test.gd").new().unit(901, "연습 아군", 3, 4)
+	guide_unit.can_attack = false
+	guide_unit["attack_wait_reason"] = "spent"
+	battle.player.field = [guide_unit]
+	check(battle._first_play_guidance().contains("공격을 마쳤"), "spent attacker guidance does not claim summon sickness")
+	guide_unit.attack_wait_reason = "summoned"
+	check(battle._first_play_guidance().contains("소환한 유닛"), "new summon guidance explains waiting")
+	battle.player.hand = [main.card_db.get_card("small_flame")]
+	battle.player.mana = 10
+	battle._ensure_hand_visual_slots()
+	check(battle._first_play_guidance().contains("사용") and not battle._first_play_guidance().contains("소환"), "spell guidance says use instead of summon")
+	battle.player.hand = [main.card_db.get_card("militia")]
+	battle._ensure_hand_visual_slots()
+	check(battle._first_play_guidance().contains("소환"), "unit guidance still teaches summoning")
+	battle.player.hand.clear()
+	guide_unit.can_attack = true
+	battle.selected_attacker = 0
+	battle.opponent.field = [preload("res://tests/godot/combat_strategy_test.gd").new().unit(902, "연습 적", 1, 1)]
+	check(battle._first_play_guidance().contains("연습 적") and not battle._first_play_guidance().contains("선봉"), "attack guidance names actual non-vanguard target")
+	battle.selected_attacker = -1
+	battle.player.field.clear()
+	battle.opponent.field.clear()
 	main.current_run.active_enemy = {}
 	main.current_run.battle_snapshot = {}
 	main.run_flow.advance_from_current_node()

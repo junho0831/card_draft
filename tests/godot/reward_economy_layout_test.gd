@@ -156,6 +156,30 @@ func verify_relic_choices(dimensions: Vector2i) -> void:
 		check(not main.active_screen_controller.reference_claim.disabled, prefix + " confirmed relic enables card claim")
 		check(main.current_run.pending_card_reward.relic_choices == relics, prefix + " all relic choices are preserved")
 
+func verify_shop_healing(prefix: String) -> void:
+	main.current_run.gold = 999
+	main.current_run.hp = main.current_run.max_hp - 3
+	main._show_shop()
+	await settle()
+	var healing: Button
+	for button in main.root_box.find_children("*", "Button", true, false):
+		if button.text.begins_with("체력 +"):
+			healing = button
+	check(healing != null, prefix + " shop displays a healing service")
+	if healing == null:
+		return
+	check(healing.text == "체력 +3 · %d 골드" % main.shop_run_service.SHOP_HEAL_COST and not healing.disabled, prefix + " heal label shows capped recovery and exact price")
+	main.root_scroll.ensure_control_visible(healing)
+	await settle()
+	var hp_before: int = main.current_run.hp
+	var gold_before: int = main.current_run.gold
+	await tap(healing)
+	check(main.current_run.hp == hp_before + 3 and main.current_run.hp == main.current_run.max_hp, prefix + " heal tap grants the displayed capped amount")
+	check(main.current_run.gold == gold_before - main.shop_run_service.SHOP_HEAL_COST, prefix + " heal tap charges the displayed price once")
+	for button in main.root_box.find_children("*", "Button", true, false):
+		if button.text.begins_with("체력 +"):
+			check(button.text == "체력 +0 · %d 골드" % main.shop_run_service.SHOP_HEAL_COST and button.disabled, prefix + " full health shows zero recovery and disables purchase")
+
 func run() -> void:
 	main = preload("res://src/core/Main.tscn").instantiate()
 	main.set_meta("disable_window_mode_changes", true)
@@ -291,6 +315,7 @@ func run() -> void:
 				check(main.current_run.deck_ids.size() == deck_before + 1, prefix + " reward confirm adds one card")
 				check(main.current_run.gold == gold_before, prefix + " reward confirm does not duplicate victory gold")
 				check(main.modal_layer.find_child("EconomyDetailOverlay", true, false) == null, prefix + " reward confirm dismisses overlay")
+		await verify_shop_healing("heal-%dx%d" % [dimensions.x, dimensions.y])
 		await verify_relic_choices(dimensions)
 	main.queue_free()
 	await process_frame

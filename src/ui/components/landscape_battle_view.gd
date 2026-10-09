@@ -522,8 +522,9 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 			button.tooltip_text += " · 내 유닛 사망"
 	button.pressed.connect(func():
 		if button.get_meta("hold_consumed", false) or battle._is_player_input_locked(): return
-		if ally: battle._on_player_unit_pressed(index)
-		else: battle._on_opponent_unit_pressed(index)
+		# Selection and attacks also refresh these field buttons.
+		if ally: battle._on_player_unit_pressed.call_deferred(index)
+		else: battle._on_opponent_unit_pressed.call_deferred(index)
 	)
 	_bind_hold(button, func(): show_unit(unit, ally))
 	return button
@@ -560,13 +561,17 @@ func render_hand() -> void:
 		stamp(button, "Cost", str(cost), Vector2(3, 3), Vector2(26, 26), Color(0.06, 0.26, 0.55), 18)
 		if int(card.get("_hand_slot", i)) == battle.selected_hand_slot:
 			outline(button, Color(1.0, 0.8, 0.25), 4, 2, "SelectionBorder")
+		elif playable:
+			outline(button, Tokens.ACCENT_TEAL.lightened(0.3), 2, 2, "PlayableBorder")
 		if playable:
 			stamp(button, "Playable", "◆", Vector2(hand_size.x - 20, 27), Vector2(16, 16), Tokens.SURFACE, 12)
 		button.set_meta("hand_slot", int(card.get("_hand_slot", i)))
 		if not playable: button.get_node("Illustration").modulate = Color(0.42, 0.42, 0.42)
 		button.pressed.connect(func():
 			if button.get_meta("hold_consumed", false): return
-			battle._on_hand_card_pressed(i)
+			# Card use rebuilds the hand. Finish native touch release before
+			# detaching the Button that is still receiving the GUI event.
+			battle._on_hand_card_pressed.call_deferred(i)
 		)
 		if battle._uses_touch_hand_selection():
 			_bind_hold(button, func(): show_card(i))
@@ -751,7 +756,7 @@ func refresh_labels() -> void:
 		center_guidance.text = battle._current_battle_guidance_text()
 	elif battle.current_player == "player" and not battle._is_player_input_locked() and battle._ready_player_attacker_indexes().is_empty():
 		center_guidance.text = "할 수 있는 행동이 없습니다 · 턴 종료" if battle._turn_action_state().exhausted else "카드·필살기 사용 또는 턴 종료"
-	if battle.selected_attacker >= 0 and battle.pending_action.is_empty() and Time.get_ticks_msec() >= battle.interaction_hint_until:
+	if battle.selected_attacker >= 0 and battle.pending_action.is_empty() and Time.get_ticks_msec() >= battle.interaction_hint_until and not battle.main.Onboarding.first_battle(battle.main.current_run):
 		center_guidance.text = String(battle._selected_player_attacker().get("name", "아군")) + " 선택 · 공격 후 체력 미리보기"
 	center_guidance.text = center_guidance.text.replace("손패 카드를 눌러 확인한 뒤 다시 눌러 소환하세요.", "손패 카드를 누르면 바로 소환합니다.")
 	center_guidance.tooltip_text = center_guidance.text
@@ -759,6 +764,11 @@ func refresh_labels() -> void:
 	SharedStyles.apply_role_button(battle.recommended_action_button, "secondary", Tokens.BORDER, Color.TRANSPARENT, 14)
 	SharedStyles.apply_role_button(battle.race_power_button, "power", Tokens.ACCENT_TEAL, Color.TRANSPARENT, 16)
 	SharedStyles.apply_role_button(battle.end_turn_button, "primary", Tokens.ACCENT_GOLD, Color.TRANSPARENT, 16)
+	var exhausted_edge := battle.end_turn_button.get_node_or_null("ExhaustedBorder") as Control
+	if exhausted_edge == null:
+		outline(battle.end_turn_button, Color(0.3, 1.0, 0.58), 2, 2, "ExhaustedBorder")
+		exhausted_edge = battle.end_turn_button.get_node("ExhaustedBorder")
+	exhausted_edge.visible = not battle.end_turn_button.disabled and bool(battle._turn_action_state().exhausted)
 
 func _exit_tree() -> void:
 	session.dispose()

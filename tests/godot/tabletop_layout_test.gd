@@ -37,7 +37,7 @@ func run() -> void:
 	main.set_process(false)
 	main.player_profile.learning_stage = 5
 	main._init_run("human")
-	for viewport in [Vector2i(844, 390), Vector2i(932, 430), Vector2i(1280, 720), Vector2i(1920, 1080)]:
+	for viewport in [Vector2i(390, 844), Vector2i(844, 390), Vector2i(932, 430), Vector2i(1280, 720), Vector2i(1920, 1080)]:
 		root.size = viewport
 		main.set_meta("layout_viewport_override", viewport)
 		main.touch_input_active = viewport.x < 1100
@@ -47,14 +47,14 @@ func run() -> void:
 		main._show_race_selection()
 		await settle()
 		var bounds := Rect2(Vector2.ZERO, Vector2(root.content_scale_size))
-		if viewport.x < 1100:
+		if viewport.x > viewport.y and viewport.x < 1100:
 			for portrait in main.root_box.find_children("RacePortrait", "TextureRect", true, false):
 				check(portrait.size.y >= 96 and portrait.size.x >= 200, "race portrait fills choice")
 				check(bounds.encloses(portrait.get_global_rect()), "race portrait visible")
 		await verify_actions(main, viewport)
 		main._show_map()
 		await settle()
-		if viewport.x < 1100:
+		if viewport.x > viewport.y and viewport.x < 1100:
 			var dock: Control = main.active_screen_controller.screen_action_dock
 			var buttons := dock.find_children("*", "Button", true, false)
 			for button in buttons:
@@ -69,8 +69,18 @@ func run() -> void:
 			check(bounds.encloses(slider.get_global_rect()), "settings volume visible")
 			check(slider.size.x <= bounds.size.x * 0.6, "settings slider bounded")
 		await verify_actions(main, viewport)
-		main._show_main_menu()
-		await settle()
+		for has_run in [true, false]:
+			var saved_run: Dictionary = main.current_run
+			if not has_run: main.current_run = {}
+			main._show_main_menu()
+			await settle()
+			var primary_found := false
+			for button in main.find_children("*", "Button", true, false):
+				if not button.is_visible_in_tree() or button.text not in ["새 런 시작", "이어하기"]: continue
+				primary_found = true
+				check(bounds.encloses(button.get_global_rect()), "home primary visible: %s %s" % [viewport, button.text])
+			check(primary_found, "home has a primary action: %s" % viewport)
+			main.current_run = saved_run
 		await verify_actions(main, viewport)
 	root.size = Vector2i(932, 430)
 	main.touch_input_active = true

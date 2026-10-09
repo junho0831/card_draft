@@ -21,7 +21,7 @@ func run() -> Dictionary:
 	main.player_profile["learning_stage"] = 0
 	await tree.process_frame
 	await tree.process_frame
-	var start = find_button(main.root_box, "새 런 시작")
+	var start = find_button(main, "새 런 시작")
 	check(start != null, "new-run button is available for mouse input")
 	if start != null:
 		# Exercise GUI event dispatch: synchronous free during release used to crash.
@@ -62,6 +62,22 @@ func run() -> Dictionary:
 	var field_button: Button = find_button(battle.player_field_slots[0], "")
 	await click(field_button, tree)
 	check(battle.pending_action.is_empty() and battle.player.field[0].attack == 4, "clicking the unit artwork confirms equipment on that unit")
+	if is_instance_valid(battle.landscape_view):
+		battle.player.hand = []
+		battle.player.field[0].can_attack = false
+		battle.battle_state["race_power_used"] = true
+		battle._refresh_ui()
+		var exhausted_border: Control = battle.end_turn_button.get_node("ExhaustedBorder")
+		check(exhausted_border.is_visible_in_tree() and not battle.end_turn_button.disabled, "spent player turn highlights the usable end-turn action")
+		battle.current_player = "opponent"
+		battle._refresh_ui()
+		check(not exhausted_border.visible and battle.end_turn_button.disabled, "enemy turn hides end-turn highlight and disables the action")
+		battle.current_player = "player"
+		battle.player.field[0].can_attack = true
+		battle.selected_attacker = 0
+		battle._refresh_ui()
+		check(not exhausted_border.visible and battle.end_turn_button.disabled, "target selection hides end-turn highlight and prevents accidental turn end")
+		battle.selected_attacker = -1
 	for viewport in [Vector2i(1280, 720), Vector2i(844, 390)]:
 		for race in ["human", "elf", "undead"]:
 			tree.root.size = viewport
@@ -84,10 +100,19 @@ func run() -> Dictionary:
 			await click(battle.recommended_action_button, tree)
 			check(JSON.stringify([battle.player, battle.opponent, battle.selected_attacker]) == unchanged, "help input preserves combat %s %s" % [race, viewport])
 			if is_instance_valid(battle.landscape_view):
-				await click(find_button(battle.landscape_view.card_dialog, "닫기"), tree)
+				check(not is_instance_valid(battle.landscape_view.card_dialog), "first-play help leaves the highlighted board directly usable")
 			var index: int = battle._recommended_hand_index()
 			var slot: int = battle.player.hand[index].get("_hand_slot", index)
 			var card_button: Button = battle._hand_card_control(slot)
+			if is_instance_valid(battle.landscape_view):
+				check(card_button.has_node("PlayableBorder"), "affordable hand card has a visible action outline independent of faction frame")
+				var saved_mana: int = battle.player.mana
+				battle.player.mana = 0
+				battle._refresh_ui()
+				check(not battle._hand_card_control(slot).has_node("PlayableBorder"), "unaffordable card loses playable outline")
+				battle.player.mana = saved_mana
+				battle._refresh_ui()
+				card_button = battle._hand_card_control(slot)
 			battle.hand_scroll.ensure_control_visible(card_button)
 			await tree.process_frame
 			await click(battle._hand_card_control(slot), tree)
@@ -173,3 +198,6 @@ func click(button: Control, tree, hold_seconds: float = 0.0) -> void:
 		await tree.process_frame
 		if pressed and hold_seconds > 0.0:
 			await tree.create_timer(hold_seconds).timeout
+	# Mobile card use commits after the native release has finished dispatching.
+	await tree.process_frame
+	await tree.process_frame

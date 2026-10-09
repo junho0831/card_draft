@@ -117,6 +117,23 @@ func run() -> Dictionary:
 	check(battle._recommended_attack_target_index(unit(302)) == -1, "recommendation pressures hero when no favorable kill exists")
 	battle.opponent.field[0]["is_vanguard"] = true
 	check(battle._recommended_attack_target_index(unit(302)) == 0, "recommendation still respects vanguard")
+	# Preview uses the upcoming play count without consuming state or relic effects.
+	main.current_run["relic_ids"] = ["burning_heart"]
+	battle.battle_state["active_build_tags"] = []
+	for played_count: int in [0, 1, 2]:
+		battle.player = side()
+		battle.opponent = side()
+		battle.battle_state["cards_played_this_turn"] = played_count
+		var fireball: Dictionary = db.get_card("fireball")
+		var preview_before: String = JSON.stringify([battle.player, battle.opponent, battle.battle_state])
+		var preview_damage: int = battle._direct_damage_preview(fireball)
+		check(JSON.stringify([battle.player, battle.opponent, battle.battle_state]) == preview_before, "fire preview preserves all combat state at count %d" % played_count)
+		check(preview_damage == (6 if played_count == 0 else 7), "fire preview includes upcoming relic threshold at count %d" % played_count)
+		# Mirror the accepted play boundary: the live resolver receives the incremented count.
+		battle.battle_state["cards_played_this_turn"] = played_count + 1
+		var health_before: int = battle.opponent.health
+		main.battle_effects.play_card(battle.player, battle.opponent, fireball, battle._battle_effect_context("player"))
+		check(health_before - int(battle.opponent.health) == preview_damage, "fire preview matches live damage at count %d" % played_count)
 	main._clear_screen()
 	main._clear_run()
 	Engine.get_main_loop().root.remove_child(main)

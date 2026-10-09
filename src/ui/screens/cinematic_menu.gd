@@ -13,9 +13,12 @@ func build(body: VBoxContainer) -> void:
 	body.add_child(header)
 	var title: Label = main.ui.make_label("Card Draft", 24, Tokens.TEXT_PRIMARY)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
-	header.add_child(Layout.label(main, "영혼석 %d" % main.player_profile.get("soul_stones", 0)))
+	var currency: Label = Layout.label(main, "영혼석 %s" % main._format_large_number(int(main.player_profile.get("soul_stones", 0))))
+	currency.autowrap_mode = TextServer.AUTOWRAP_OFF
+	header.add_child(currency)
 	for entry in [["도감", "_show_compendium"], ["성장", "_show_meta_upgrade"], ["설정", "_show_settings"]]:
 		var button: Button = main.ui.make_dock_action_button(entry[0], "", Tokens.ACCENT_TEAL, false, 72)
 		button.custom_minimum_size = Vector2(72, 44)
@@ -24,7 +27,10 @@ func build(body: VBoxContainer) -> void:
 		header.add_child(button)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 24)
-	row.custom_minimum_size.y = maxf(160, viewport.y - 110)
+	# Fit the hero within the visible scroll region above the shared action dock.
+	# Header labels use their actual minimum height rather than a viewport guess.
+	var dock: Dictionary = Layout.dock(main, body)
+	row.custom_minimum_size.y = maxf(150, viewport.y - main.mobile_bottom_inset - 16.0 - header.get_combined_minimum_size().y - body.get_theme_constant("separation") * 2.0 - 4.0)
 	body.add_child(row)
 	var hero := TextureRect.new()
 	hero.texture = load("res://assets/backgrounds/king_commander_v1.png")
@@ -48,14 +54,13 @@ func build(body: VBoxContainer) -> void:
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	info.add_child(spacer)
-	var actions := HBoxContainer.new()
-	actions.alignment = BoxContainer.ALIGNMENT_END
-	actions.add_theme_constant_override("separation", 8)
-	info.add_child(actions)
+	var actions: HBoxContainer = dock.actions
 	var start: Button = main.ui.make_dock_action_button("새 런 시작", "", Tokens.ACCENT_GOLD, main.current_run.is_empty(), 140)
+	start.size_flags_horizontal = Control.SIZE_SHRINK_END
 	start.pressed.connect(Callable(main, "_start_new_run"))
 	actions.add_child(start)
 	if not main.current_run.is_empty():
 		var resume: Button = main.ui.make_dock_action_button("이어하기", "", Tokens.ACCENT_GOLD, true, 140)
+		resume.size_flags_horizontal = Control.SIZE_SHRINK_END
 		resume.pressed.connect(Callable(main, "_continue_run"))
 		actions.add_child(resume)

@@ -375,7 +375,8 @@ func _build_reference_reward(body: VBoxContainer) -> void:
 		stack.add_theme_constant_override("separation", 6)
 		cards.add_child(stack)
 		stack.add_child(EconomyDetail.comparison_label(main, _card_choice_role(String(id)), EconomyDetail.MUTED, 14))
-		var reserved_height := 238 if _has_relic_choice(reward) else 206
+		# Include the resource row's separation so the card clears the mobile scroll edge.
+		var reserved_height := 238 if _has_relic_choice(reward) else 214
 		var face := EconomyDetail.offer_face(main, card, 208 if desktop else 180, 320 if desktop else int(clampf(main._layout_viewport_size().y - reserved_height, 120, 300)), not desktop)
 		face.name = "EconomyOffer_" + String(id)
 		stack.add_child(face)
