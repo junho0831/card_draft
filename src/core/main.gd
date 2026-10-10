@@ -2228,6 +2228,10 @@ func _make_run_escape_bar() -> PanelContainer:
 	var compact := _is_compact_layout_for(1180.0, 760.0)
 	var phone := _is_mobile_phone_layout()
 	var panel: PanelContainer = ui.make_surface_panel(Color(0.055, 0.065, 0.08, 0.98), Color(0.24, 0.2, 0.12, 1.0), 1, 8 if phone else 10, 6 if phone else 10)
+	var header_style := panel.get_theme_stylebox("panel").duplicate() as StyleBox
+	header_style.content_margin_top = 3 if phone else 5
+	header_style.content_margin_bottom = 3 if phone else 5
+	panel.add_theme_stylebox_override("panel", header_style)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row: BoxContainer = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)

@@ -59,11 +59,21 @@ func check_hand_bounds(battle, expected_size: Vector2, last_visible: bool = fals
 
 func check_field_geometry(battle) -> void:
 	var bounds: Rect2 = battle.landscape_view.board_scroll.get_global_rect()
+	check(battle.landscape_view.board_scroll.scroll_vertical == 0, "battlefield stays fixed while choosing actions")
+	for hero: Control in [battle.player_hero_target, battle.opponent_hero_target]:
+		check(bounds.grow(1).encloses(hero.get_global_rect()), "both heroes remain fully visible together")
 	for lane in [battle.player_field_box, battle.opponent_field_box]:
 		for slot: Control in lane.get_children():
 			var rect := slot.get_global_rect()
-			check(rect.size.y > rect.size.x, "field slots preserve a portrait card silhouette")
-			check(rect.position.x >= bounds.position.x - 1 and rect.end.x <= bounds.end.x + 1, "all five field slots are horizontally reachable without clipping")
+			check(rect.size.x >= 44 and rect.size.y >= 44, "field slots retain minimum touch dimensions")
+			if not battle._is_landscape_phone():
+				check(rect.size.y > rect.size.x, "desktop field slots preserve a portrait card silhouette")
+			check(bounds.grow(1).encloses(rect), "both five-slot lanes remain fully visible together")
+			if battle._is_landscape_phone():
+				var face: Control = slot.get_child(0) if slot is VBoxContainer else slot
+				if face.has_node("CardName"):
+					check(not face.get_node("CardNameBand").get_global_rect().intersects(face.get_node("AttackBand").get_global_rect()), "compact name never covers attack value")
+					check(not face.get_node("CardNameBand").get_global_rect().intersects(face.get_node("HealthBand").get_global_rect()), "compact name never covers health value")
 
 func check_power_labels(battle) -> void:
 	var button: Button = battle.race_power_button
@@ -207,6 +217,7 @@ func run() -> void:
 	await click(input.find_button(battle._card_action_field_slot(true, 0), ""))
 	check(battle.selected_attacker == 0, "tap selects attacker")
 	if is_instance_valid(battle.landscape_view):
+		check_field_geometry(battle)
 		check_external_predictions(battle, input)
 		check(battle.reference_mana_label.get_global_rect().end.x <= battle.landscape_view.get_global_rect().end.x, "mana stays inside reserved rail after selection")
 		check(battle.landscape_view.cancel_button.size.x >= (104 if mobile else 120), "selection cancel retains its touch target width")
@@ -257,6 +268,8 @@ func run() -> void:
 	check(main.run_store.load_or_empty(Storage.run_path()).battle_snapshot.selected_attacker == -1, "cancelled selection stays cleared after loading disk save")
 	check(JSON.stringify([battle.player, battle.opponent, battle.SnapshotCodec.flags(battle.battle_state)]) == before, "select inspect and cancel preserve gameplay state (selection log excluded)")
 	check(randi() == expected_random, "select inspect and cancel preserve gameplay RNG")
+	if is_instance_valid(battle.landscape_view):
+		check_field_geometry(battle)
 	await capture("04-cancelled")
 	await click(battle.recommended_action_button)
 	var escape := InputEventKey.new()

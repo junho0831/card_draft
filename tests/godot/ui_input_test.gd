@@ -186,7 +186,8 @@ func verify_help_reveals_target(battle, main, tree, ally: bool, hero: bool = fal
 	var target: Control = battle._hero_target_for_player(ally) if hero else battle._field_slot_for(battle.player if ally else battle.opponent, 0)
 	if not hero:
 		target = find_button(target, "")
-	check(not view.board_scroll.get_global_rect().encloses(target.get_global_rect()), "help fixture starts with recommended target outside view")
+	check(view.board_scroll.get_global_rect().encloses(target.get_global_rect()), "fixed battlefield exposes the lesson target before help")
+	var scroll_before: int = view.board_scroll.scroll_vertical
 	var before: String = JSON.stringify([battle.player, battle.opponent, battle.battle_state, battle.selected_attacker, battle.pending_action, main.current_run])
 	seed(44217)
 	var expected_random := randi()
@@ -199,8 +200,9 @@ func verify_help_reveals_target(battle, main, tree, ally: bool, hero: bool = fal
 		# The explanatory preview can exceed the lane height; the actual card must fit.
 		target = find_button(target, "")
 	check(view.board_scroll.get_global_rect().encloses(target.get_global_rect()), "explicit help reveals recommended target with automatic focus disabled ally=%s hero=%s viewport=%s target=%s" % [ally, hero, view.board_scroll.get_global_rect(), target.get_global_rect()])
-	check(JSON.stringify([battle.player, battle.opponent, battle.battle_state, battle.selected_attacker, battle.pending_action, main.current_run]) == before, "help scroll preserves combat, selection and run state")
-	check(randi() == expected_random, "help scroll does not consume gameplay RNG")
+	check(view.board_scroll.scroll_vertical == scroll_before, "lesson help does not move the fixed battlefield")
+	check(JSON.stringify([battle.player, battle.opponent, battle.battle_state, battle.selected_attacker, battle.pending_action, main.current_run]) == before, "lesson help preserves combat, selection and run state")
+	check(randi() == expected_random, "lesson help does not consume gameplay RNG")
 	main.player_profile.settings["battle_auto_focus"] = previous_focus
 
 func find_button(node: Node, prefix: String) -> Button:

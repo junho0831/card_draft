@@ -40,7 +40,14 @@ func build(body: VBoxContainer, act_data: Dictionary) -> void:
 
 	if compact:
 		hub.add_child(_make_map_panel(compact))
-		hub.add_child(_make_objective_panel(compact, act_data, not fixed_actions))
+		if phone_landscape:
+			var node_summary: Label = main._make_label("%s · %s" % [_node_objective_text(_current_node_type()), _node_reward_text(_current_node_type())], 14, main.ui.UI_TOKENS.TEXT_PRIMARY)
+			node_summary.name = "MapNodeSummary"
+			node_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			node_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			hub.add_child(node_summary)
+		else:
+			hub.add_child(_make_objective_panel(compact, act_data, not fixed_actions))
 		hub.add_child(_make_legend_panel(compact))
 	else:
 		hub.add_child(_make_legend_panel(compact))
@@ -251,8 +258,8 @@ func _mount_map_action_dock(body: VBoxContainer) -> void:
 	var dock: Dictionary = main.ui.mount_screen_action_dock(
 		main,
 		body,
-		"지금 할 일 · 다음 장소로 진입",
-		"버튼을 누르면 %s 화면으로 바로 이동합니다." % main._node_type_name(current_type),
+		"" if phone_landscape else "지금 할 일 · 다음 장소로 진입",
+		"" if phone_landscape else "버튼을 누르면 %s 화면으로 바로 이동합니다." % main._node_type_name(current_type),
 		_node_color(current_type),
 		78 if phone_landscape else (96 if landscape else 126)
 	)

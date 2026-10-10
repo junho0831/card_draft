@@ -221,9 +221,16 @@ func make_action_bar(compact: bool, separation: int = 10) -> BoxContainer:
 
 func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, detail: String, accent: Color, dock_height: int = 126) -> Dictionary:
 	var wide: bool = main._layout_viewport_size().x >= 1100.0
-	if wide:
+	var actions_only := title.is_empty() and detail.is_empty()
+	if actions_only:
+		dock_height = 60
+	elif wide:
 		dock_height = 90
-	var dock := make_surface_panel(Color(0.025, 0.034, 0.048, 0.99), accent.darkened(0.12), 2, 8, 8)
+	var dock := make_surface_panel(Color(0.025, 0.034, 0.048, 0.94), accent.darkened(0.12), 1, 8, 4 if actions_only else 8)
+	if actions_only:
+		var dock_style := StyleBoxEmpty.new()
+		dock_style.set_content_margin_all(4)
+		dock.add_theme_stylebox_override("panel", dock_style)
 	dock.set_meta("screen_action_dock", true)
 	dock.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	dock.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -259,7 +266,7 @@ func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, de
 	action_scroll.set_meta("allow_horizontal_scroll", true)
 	action_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	action_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	action_scroll.custom_minimum_size = Vector2(0, 62)
+	action_scroll.custom_minimum_size = Vector2(0, 52 if actions_only else 62)
 	action_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(action_scroll)
 	var actions := HBoxContainer.new()
@@ -329,7 +336,11 @@ func make_premium_panel(min_height: int = 0, prominent: bool = false) -> PanelCo
 
 func make_screen_header(title: String, subtitle: String, compact: bool = false) -> PanelContainer:
 	var panel := make_surface_panel(THEME_PANEL_DARK, THEME_BORDER, 1, 8, 12)
-	panel.custom_minimum_size = Vector2(0, 54 if compact else 62)
+	panel.custom_minimum_size = Vector2(0, 48 if compact else 56)
+	var header_style := panel.get_theme_stylebox("panel").duplicate() as StyleBox
+	header_style.content_margin_top = 4
+	header_style.content_margin_bottom = 4
+	panel.add_theme_stylebox_override("panel", header_style)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER

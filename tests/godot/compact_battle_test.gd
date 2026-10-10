@@ -42,7 +42,8 @@ func run() -> void:
 			if control.is_visible_in_tree():
 				check(safe.encloses(control.get_global_rect()), "safe-area control %s %s" % [viewport, control.get_global_rect()])
 		check(view.board_scroll.get_global_rect().encloses(battle.player_hero_target.get_global_rect()), "ally hero visible on entry %s" % viewport)
-		check(view.board_scroll.get_v_scroll_bar().max_value > view.board_scroll.get_v_scroll_bar().page, "tall battlefield lanes scroll %s" % viewport)
+		check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "enemy hero visible together with allies %s" % viewport)
+		check(view.board_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "battlefield never scrolls either lane out of view %s" % viewport)
 		var hand_rect: Rect2 = battle.hand_scroll.get_global_rect()
 		var action_rect: Rect2 = battle.end_turn_button.get_global_rect()
 		for ally in [false, true]:
@@ -54,8 +55,11 @@ func run() -> void:
 			var slots: Array = battle.player_field_slots if ally else battle.opponent_field_slots
 			check(slots.size() == 5, "five slots per side")
 			for slot in slots:
-				check(slot.size.y > slot.size.x, "field card retains a tall silhouette %s %s" % [viewport, slot.size])
+				check(slot.size.x >= 44 and slot.size.y >= 44, "field card retains minimum touch dimensions %s %s" % [viewport, slot.size])
 				check(view.board_scroll.get_global_rect().encloses(slot.get_global_rect()), "all five focused lane cards visible %s ally=%s %s" % [viewport, ally, slot.get_global_rect()])
+			for other_lane in [battle.player_field_slots, battle.opponent_field_slots]:
+				for slot in other_lane:
+					check(view.board_scroll.get_global_rect().encloses(slot.get_global_rect()), "focusing keeps both complete lanes visible %s" % viewport)
 			check(hand_rect == battle.hand_scroll.get_global_rect() and action_rect == battle.end_turn_button.get_global_rect(), "hand and actions remain docked while focusing %s" % viewport)
 		battle.opponent.field.clear()
 		battle.selected_attacker = 0

@@ -105,7 +105,7 @@ func run() -> void:
 	var view = battle.landscape_view
 	check(view != null, "uses landscape battle")
 	if view != null:
-		check(view.board_scroll.get_v_scroll_bar().max_value > view.board_scroll.get_v_scroll_bar().page, "tall battlefield lanes have vertical scroll space")
+		check(view.board_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "both battlefield lanes use a fixed viewport")
 		check(battle.opponent_hero_target.size.x >= 64, "enemy hero has a wide touch target")
 		check(view.enemy_hero_hint.mouse_filter == Control.MOUSE_FILTER_IGNORE, "hero hint does not intercept taps")
 		check(view.board_scroll.get_global_rect().encloses(battle.player_hero_target.get_global_rect()), "ally hero fully visible on entry")
@@ -131,7 +131,8 @@ func run() -> void:
 		await view.focus_targets([{"player": false, "hero": true}], true)
 		await settle()
 		check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "action focus reveals the whole enemy hero")
-		check(view.board_scroll.scroll_vertical < ally_scroll, "action focus moves from allies to the upper enemy lane")
+		check(view.board_scroll.scroll_vertical == ally_scroll, "action focus never hides the opposite lane")
+		check(view.board_scroll.get_global_rect().encloses(battle.player_hero_target.get_global_rect()), "ally hero remains visible while targeting enemies")
 		# Click the newly added right edge rather than only the portrait center.
 		battle.opponent.field.clear()
 		battle.player.field = [{"id":"militia", "battle_unit_id":9901, "name":"민병대", "race":"인간", "attack":1, "health":3, "max_health":3, "can_attack":true}]

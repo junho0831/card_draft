@@ -17,6 +17,15 @@ static func show_dialog(main: Node, data: Dictionary) -> Control:
 	shade.color = Tokens.SURFACE
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(shade)
+	var background := TextureRect.new()
+	background.name = "DetailBackground"
+	background.texture = load(Tokens.DETAIL_BACKGROUND_PATH)
+	background.modulate = Color(0.65, 0.65, 0.65)
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(background)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var horizontal := maxi(24, int((main._layout_viewport_size().x - 960) / 2))
@@ -26,7 +35,7 @@ static func show_dialog(main: Node, data: Dictionary) -> Control:
 		margin.add_theme_constant_override("margin_" + side, 20)
 	overlay.add_child(margin)
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", Styles.make_textured_panel_style(Tokens.SURFACE_RAISED, Tokens.ACCENT_GOLD, 16, true))
+	panel.add_theme_stylebox_override("panel", Styles.make_textured_panel_style(Color(Tokens.SURFACE, 0.88), Tokens.BORDER, 16, false))
 	margin.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)

@@ -16,57 +16,110 @@ static func section(main: Node, title: String, width: int = 0) -> VBoxContainer:
 
 static func action_button(main: Node, title: String, callback: Callable, primary: bool = false) -> Button:
 	var button := Button.new()
-	button.text = title
 	main.ui.style_role_button(button, "primary" if primary else "secondary", Tokens.ACCENT_GOLD if primary else Tokens.BORDER, Tokens.SURFACE_RAISED, 16)
-	ButtonMetrics.apply(button, "compact", 180 if primary else 120)
+	set_action_label(button, title)
+	size_action_labels(button, [title], 180 if primary else 120)
 	button.set_meta("economy_action", true)
 	button.set_meta("economy_primary", primary)
-	button.clip_text = false
-	button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	var text_width := button.get_theme_font("font").get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, button.get_theme_font_size("font_size")).x
-	button.custom_minimum_size.x = maxf(button.custom_minimum_size.x, ceilf(text_width + button.get_theme_stylebox("normal").get_minimum_size().x))
 	button.pressed.connect(callback)
 	return button
 
-static func offer_face(main: Node, card: Dictionary, width: int, height: int, compact: bool = false) -> Control:
+static func set_action_label(button: Button, title: String) -> void:
+	button.text = title
+	button.tooltip_text = title
+	button.set_meta("button_label_tooltip", title)
+
+static func size_action_labels(button: Button, titles: Array[String], minimum_width: float) -> void:
+	ButtonMetrics.apply(button, "compact", minimum_width)
+	button.clip_text = false
+	button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	for title in titles:
+		var text_width := button.get_theme_font("font").get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, button.get_theme_font_size("font_size")).x
+		button.custom_minimum_size.x = maxf(button.custom_minimum_size.x, ceilf(text_width + button.get_theme_stylebox("normal").get_minimum_size().x))
+
+static func offer_face(main: Node, card: Dictionary, width: int, height: int, compact: bool = false, price_text: String = "") -> Control:
+	var face: Control
 	if compact:
-		return compact_offer_face(main, card, width, height)
-	var face := Fantasy.card(main, card, width, height)
-	face.add_theme_stylebox_override("panel", main.ui.make_race_card_style(card, Tokens.SURFACE, 2, 8))
-	main.ui.decorate_card_frame(face, card)
+		face = compact_offer_face(main, card, width, height, price_text)
+	else:
+		face = Fantasy.card(main, card, width, height)
+		face.add_theme_stylebox_override("panel", main.ui.make_race_card_style(card, Tokens.SURFACE, 2, 8))
+		main.ui.decorate_card_frame(face, card)
+	add_offer_selection(main, face)
 	return face
 
-static func compact_offer_face(main: Node, card: Dictionary, width: int, height: int) -> Control:
+static func offer_label(main: Node, title: String, name: String, width: float, height: float, font_size: int, color: Color = TEXT, wrap: bool = false) -> Label:
+	var label := comparison_label(main, title, color, font_size)
+	label.name = name
+	label.size = Vector2(width, height)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if wrap else TextServer.AUTOWRAP_OFF
+	label.max_lines_visible = 2 if wrap else 1
+	label.clip_text = true
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return label
+
+static func add_offer_selection(main: Node, face: Control) -> void:
+	var layer := Control.new()
+	layer.name = "EconomyOfferSelection"
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	face.add_child(layer)
+	layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var badge: PanelContainer = main.ui.make_surface_panel(Tokens.SURFACE_RAISED, Tokens.ACCENT_GOLD, 1, 4, 4)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(badge)
+	badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	badge.offset_left = -70
+	badge.offset_right = -4
+	badge.offset_top = 4
+	badge.offset_bottom = 28
+	badge.add_child(offer_label(main, "✓ 선택", "EconomyOfferCheck", 58, 18, 12, Tokens.ACCENT_GOLD))
+	layer.hide()
+
+static func select_offer(face: Control, selected: bool) -> void:
+	face.get_node("EconomyOfferSelection").visible = selected
+
+static func compact_offer_face(main: Node, card: Dictionary, width: int, height: int, price_text: String = "") -> Control:
 	var face := Panel.new()
 	face.custom_minimum_size = Vector2(width, height)
 	face.add_theme_stylebox_override("panel", main.ui.make_race_card_style(card, Tokens.SURFACE, 2, 8))
 	main.ui.decorate_card_frame(face, card)
+	var title_height := 32
+	var line_height := 24
+	var effect_height := 32
+	var gap := 2
+	# Single-line labels require 24px with the inherited Korean font.
+	var info_height := title_height + line_height + effect_height + gap * 2
+	if not price_text.is_empty():
+		info_height += line_height + gap
+	var info_top := height - info_height - 4
 	var art: TextureRect = main._make_card_art_rect(card, Vector2.ZERO)
+	art.name = "EconomyOfferArt"
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	art.position = Vector2(8, 8)
-	art.size = Vector2(width - 16, height - 76)
+	art.size = Vector2(width - 16, maxf(0, info_top - 8))
 	face.add_child(art)
-	var title := comparison_label(main, String(card.get("name", "")), TEXT, 14)
-	title.name = "EconomyOfferName"
-	title.position = Vector2(8, height - 64)
-	title.size = Vector2(width - 16, 36)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	title.max_lines_visible = 2
+	var title := offer_label(main, String(card.get("name", "")), "EconomyOfferName", width - 16, title_height, 14, TEXT, true)
+	title.position = Vector2(8, info_top)
 	face.add_child(title)
-	var stats_text := "비용 %d" % int(card.get("cost", 0))
+	var stats_text := "마나 %d" % int(card.get("cost", 0))
 	if String(card.get("type", "")) == "unit":
-		stats_text += "   공격 %d · 체력 %d" % [int(card.get("attack", 0)), int(card.get("health", 0))]
-	var stats := comparison_label(main, stats_text, TEXT, 13)
-	stats.name = "EconomyOfferStats"
-	stats.position = Vector2(8, height - 26)
-	stats.size = Vector2(width - 16, 18)
-	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stats.autowrap_mode = TextServer.AUTOWRAP_OFF
+		stats_text += " · 공격 %d · 체력 %d" % [int(card.get("attack", 0)), int(card.get("health", 0))]
+	var stats := offer_label(main, stats_text, "EconomyOfferStats", width - 16, line_height, 12)
+	stats.position = Vector2(8, info_top + title_height + gap)
 	face.add_child(stats)
-	face.tooltip_text = main._card_effect_summary(card)
+	var summary: String = main._card_effect_summary(card)
+	var effect := offer_label(main, summary, "EconomyOfferEffect", width - 16, effect_height, 12, MUTED, true)
+	effect.position = Vector2(8, stats.position.y + line_height + gap)
+	face.add_child(effect)
+	if not price_text.is_empty():
+		var price := offer_label(main, price_text, "EconomyOfferPrice", width - 16, line_height, 12, Tokens.ACCENT_GOLD)
+		price.position = Vector2(8, effect.position.y + effect_height + gap)
+		face.add_child(price)
+	face.tooltip_text = summary if price_text.is_empty() else "%s\n%s" % [price_text, summary]
 	return face
 
 static func pin_mobile_footer(main: Node, body: VBoxContainer, footer: HBoxContainer) -> PanelContainer:
@@ -169,7 +222,7 @@ static func show_card(main: Node, card: Dictionary, action_text: String, action:
 	face.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	row.add_child(face)
 	row.add_child(make_comparison(main, card, narrow))
-	return show_detail(main, String(card.get("name", "")), row, action_text, action, disabled, close)
+	return show_detail(main, String(card.get("name", "")), row, "%s · %s" % [String(card.get("name", "카드")), action_text], action, disabled, close)
 
 static func show_relic(main: Node, relic: Dictionary, action: Callable, close: Callable) -> Control:
 	var details := VBoxContainer.new()
@@ -214,9 +267,7 @@ static func show_detail(main: Node, title: String, detail: Control, action_text:
 	header.add_child(comparison_label(main, title, TEXT, 20))
 	var close_button := action_button(main, "닫기", close)
 	close_button.name = "EconomyDetailClose"
-	ButtonMetrics.apply(close_button, "compact", 96)
-	close_button.clip_text = false
-	close_button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	size_action_labels(close_button, ["닫기"], 96)
 	header.add_child(close_button)
 	var content := add_scroll(box)
 	content.add_child(detail)
@@ -226,7 +277,7 @@ static func show_detail(main: Node, title: String, detail: Control, action_text:
 	var primary := action_button(main, action_text, action, true)
 	primary.name = "EconomyDetailAction"
 	primary.disabled = disabled
-	ButtonMetrics.apply(primary, "compact", 200)
+	size_action_labels(primary, [action_text], 200)
 	footer.add_child(primary)
 	overlay.show()
 	return overlay

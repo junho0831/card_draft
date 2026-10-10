@@ -283,7 +283,7 @@ func _make_relic_choices(reward: Dictionary, compact: bool) -> PanelContainer:
 		button.tooltip_text = String(relic.get("text", ""))
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		main.ui.style_role_button(button, "primary" if chosen else "secondary", EconomyDetail.Tokens.ACCENT_GOLD if chosen else EconomyDetail.Tokens.BORDER, EconomyDetail.Tokens.SURFACE_RAISED, 14)
-		ButtonMetrics.apply(button, "compact", button.custom_minimum_size.x)
+		EconomyDetail.size_action_labels(button, [button.text], button.custom_minimum_size.x)
 		row.add_child(button)
 	return panel
 
@@ -340,7 +340,7 @@ func _finalize_reward() -> void:
 func _build_reference_reward(body: VBoxContainer) -> void:
 	var reward: Dictionary = main.current_run.get("pending_card_reward", {})
 	var desktop: bool = main._layout_viewport_size().x >= 1100
-	body.add_theme_constant_override("separation", 8)
+	body.add_theme_constant_override("separation", 8 if desktop else 2)
 	var resources := HBoxContainer.new()
 	resources.add_theme_constant_override("separation", 8)
 	body.add_child(resources)
@@ -372,11 +372,11 @@ func _build_reference_reward(body: VBoxContainer) -> void:
 		if card.is_empty():
 			continue
 		var stack := VBoxContainer.new()
-		stack.add_theme_constant_override("separation", 6)
+		stack.add_theme_constant_override("separation", 6 if desktop else 2)
 		cards.add_child(stack)
 		stack.add_child(EconomyDetail.comparison_label(main, _card_choice_role(String(id)), EconomyDetail.MUTED, 14))
 		# Include the resource row's separation so the card clears the mobile scroll edge.
-		var reserved_height := 238 if _has_relic_choice(reward) else 214
+		var reserved_height := 222 if _has_relic_choice(reward) else 198
 		var face := EconomyDetail.offer_face(main, card, 208 if desktop else 180, 320 if desktop else int(clampf(main._layout_viewport_size().y - reserved_height, 120, 300)), not desktop)
 		face.name = "EconomyOffer_" + String(id)
 		stack.add_child(face)
@@ -406,7 +406,10 @@ func _build_reference_reward(body: VBoxContainer) -> void:
 	footer.add_child(spacer)
 	reference_claim = EconomyDetail.action_button(main, "선택한 카드 받기", _claim_reference_reward, true)
 	reference_claim.name = "EconomyPreviewClaim"
-	ButtonMetrics.apply(reference_claim, "compact", 250)
+	var claim_labels: Array[String] = []
+	for id in reference_cards:
+		claim_labels.append("%s · 카드 받기" % String(main.card_db.get_card(String(id)).get("name", "카드")))
+	EconomyDetail.size_action_labels(reference_claim, claim_labels, 250)
 	reference_claim.disabled = not _relic_choice_ready(reward)
 	footer.add_child(reference_claim)
 	_select_reference_reward(selected_card_id)
@@ -420,7 +423,7 @@ func _inspect_reference_reward(card_id: String) -> void:
 func _select_reference_reward(card_id: String) -> void:
 	selected_card_id = card_id
 	for id in reference_cards:
-		reference_cards[id].modulate = Color.WHITE if id == card_id else Color(0.82, 0.82, 0.82)
+		EconomyDetail.select_offer(reference_cards[id], id == card_id)
 	var card: Dictionary = main.card_db.get_card(card_id)
 	reference_reason.text = "%s\n\n%s" % [card.get("name", ""), _card_choice_role(card_id)]
 	var detail_content := reference_reason.get_parent() as VBoxContainer
@@ -430,7 +433,7 @@ func _select_reference_reward(card_id: String) -> void:
 	reference_comparison = EconomyDetail.make_comparison(main, card, true)
 	detail_content.add_child(reference_comparison)
 	(detail_content.get_parent() as ScrollContainer).scroll_vertical = 0
-	reference_claim.tooltip_text = "%s · 카드 받기" % card.get("name", "카드")
+	EconomyDetail.set_action_label(reference_claim, "%s · 카드 받기" % card.get("name", "카드"))
 
 func _claim_reference_reward() -> void:
 	_claim_card_reward(selected_card_id)

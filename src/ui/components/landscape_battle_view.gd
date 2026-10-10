@@ -50,11 +50,10 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	compact_board = battle._is_landscape_phone()
 	hero_width = 80.0 if compact_board else 112.0
 	rail_width = 120.0 if compact_board else 168.0
-	# Leave room for the fixed header/hand and a prediction below a whole card.
-	field_height = clampf(viewport.y - 260, 96, 150) if compact_board else 178.0
-	# Reserve the vertical scrollbar as well as lane padding and five slot gaps.
-	unit_width = minf(minf(104, field_height / 1.34) if compact_board else 136, floorf((viewport.x - rail_width - 48 - hero_width - 32) / 5.0))
 	hand_size = Vector2(82, 110) if compact_board else Vector2(132, 178)
+	# Both lanes and the enemy prediction strip stay visible, even during selection.
+	field_height = maxf(44, floorf((viewport.y - hand_size.y - 154) / 2.0)) if compact_board else clampf(floorf((viewport.y - hand_size.y - 160) / 2.0), 128, 178)
+	unit_width = minf(104 if compact_board else 136, floorf((viewport.x - rail_width - 48 - hero_width - 32) / 5.0))
 	old_root.hide()
 	action_panel.hide()
 	battle.main.mobile_bottom_inset = 0
@@ -73,7 +72,10 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	page.add_theme_constant_override("separation", 4)
 	margin.add_child(page)
 	var header_panel := PanelContainer.new()
-	header_panel.add_theme_stylebox_override("panel", surface_style(Tokens.ACCENT_GOLD))
+	var header_style := surface_style(Tokens.BORDER)
+	header_style.content_margin_left = 8
+	header_style.content_margin_right = 4
+	header_panel.add_theme_stylebox_override("panel", header_style)
 	page.add_child(header_panel)
 	var header := HBoxContainer.new()
 	header.custom_minimum_size.y = 36
@@ -136,7 +138,7 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	board_scroll = ScrollContainer.new()
 	board_scroll.name = "BattlefieldScroll"
 	board_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	board_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	board_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	board_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	board_scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	board.add_child(board_scroll)
@@ -144,7 +146,7 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	lanes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lanes.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	lanes.alignment = BoxContainer.ALIGNMENT_CENTER
-	lanes.add_theme_constant_override("separation", 10)
+	lanes.add_theme_constant_override("separation", 6)
 	board_scroll.add_child(lanes)
 	lane(lanes, battle.opponent_field_box, true)
 	lane(lanes, battle.player_field_box, false)
@@ -247,7 +249,7 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 	var panel := PanelContainer.new()
 	panel.name = "EnemyLane" if enemy else "AllyLane"
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var style := SharedStyles.make_style_box(Color(0.025, 0.045, 0.065, 0.78), Color(Tokens.ACCENT_DANGER if enemy else Tokens.ACCENT_TEAL, 0.6), 1, 5)
+	var style := SharedStyles.make_style_box(Color(Tokens.SURFACE, 0.28), Color(Tokens.BORDER, 0.35), 1, 5)
 	style.content_margin_left = 3
 	style.content_margin_right = 3
 	style.content_margin_top = 2
@@ -256,7 +258,8 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 	parent.add_child(panel)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
-	row.custom_minimum_size.y = field_height
+	var lane_height := field_height + (34 if compact_board else 42) if enemy else field_height
+	row.custom_minimum_size.y = lane_height
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.add_child(row)
 	var hero := Button.new()
@@ -344,7 +347,7 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 		battle.player_hero_hp_label = hp
 		battle.player_info = hp
 	cards.reparent(row)
-	cards.custom_minimum_size = Vector2(0, field_height)
+	cards.custom_minimum_size = Vector2(0, lane_height)
 	cards.add_theme_constant_override("separation", 4)
 	cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cards.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -446,12 +449,17 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	button.clip_contents = true
 	button.add_theme_stylebox_override("normal", battle.BATTLE_STYLES.make_card_frame(accent, 2))
 	if card.is_empty():
-		button.add_theme_stylebox_override("disabled", SharedStyles.make_style_box(Color(0.055, 0.085, 0.12, 0.72), Color(Tokens.BORDER, 0.65), 1, 4))
+		button.add_theme_stylebox_override("disabled", SharedStyles.make_style_box(Color(Tokens.SURFACE, 0.12), Color(Tokens.BORDER, 0.35), 1, 4))
 		return button
 	var kind := card_kind(card)
+	var compact_field := field and compact_board
 	button.set_meta("card_kind", kind)
 	for state in ["normal", "hover", "pressed", "disabled"]:
-		button.add_theme_stylebox_override(state, battle.main.ui.make_race_card_style(card, Color.TRANSPARENT, 3, 2, 0.12 if state == "hover" else 0.0))
+		var frame: StyleBoxFlat = battle.main.ui.make_race_card_style(card, Color.TRANSPARENT, 3, 2, 0.12 if state == "hover" else 0.0)
+		if compact_field:
+			frame.set_border_width_all(2)
+			frame.shadow_size = 0
+		button.add_theme_stylebox_override(state, frame)
 	var race_band: Color = battle.main.ui.make_race_band_style(card).bg_color
 	var art: TextureRect = battle.main._make_card_art_rect(card, Vector2.ZERO)
 	art.name = "Illustration"
@@ -463,17 +471,29 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if field:
+	if compact_field:
+		art.offset_left = 3
+		art.offset_right = -3
+		art.offset_top = 3
+		art.offset_bottom = -3
+		art.texture = portrait_texture(card, Vector2(width - 6, height - 6))
+	elif field:
 		art.texture = portrait_texture(card, Vector2(width - 6, height - 24))
 		art.anchor_bottom = 0
 		art.offset_bottom = height - 24
 	button.add_child(art)
-	stamp(button, "CardName", String(card.get("name", "")), Vector2(7, height - 43), Vector2(width - 14, 20), race_band, 12 if compact_board else 14)
+	if compact_field:
+		stamp(button, "CardName", String(card.get("name", "")), Vector2(3, 3), Vector2(width - 27, 16), Color(race_band.darkened(0.45), 0.84), 12)
+	else:
+		stamp(button, "CardName", String(card.get("name", "")), Vector2(7, height - 43), Vector2(width - 14, 20), race_band, 12 if compact_board else 14)
 	if card.has("attack"):
 		stamp(button, "Attack", str(int(card.attack)), Vector2(3, height - 24), Vector2(26, 22), Color(0.48, 0.12, 0.09))
 		stamp(button, "Health", str(int(card.get("health", 0))), Vector2(width - 29, height - 24), Vector2(26, 22), Color(0.08, 0.25, 0.48))
 	if not bottom.is_empty():
-		stamp(button, "Status", bottom, Vector2(3, 3), Vector2(width - 6, 19), Color(Tokens.SURFACE, 0.9), 12)
+		if compact_field:
+			stamp(button, "Status", bottom, Vector2(width - 23, 3), Vector2(20, 16), Color(Tokens.SURFACE, 0.9), 12)
+		else:
+			stamp(button, "Status", bottom, Vector2(3, 3), Vector2(width - 6, 19), Color(Tokens.SURFACE, 0.9), 12)
 	var type_border := Panel.new()
 	type_border.name = "TypeBorder"
 	type_border.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -488,7 +508,8 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 		type_style.border_width_bottom = 5
 	type_border.add_theme_stylebox_override("panel", type_style)
 	button.add_child(type_border)
-	battle.main.ui.decorate_card_frame(button, card)
+	if not compact_field:
+		battle.main.ui.decorate_card_frame(button, card)
 	var icon := TextureRect.new()
 	icon.name = "TypeIcon"
 	icon.texture = load("res://assets/ui/fantasy/type_%s.svg" % kind)
@@ -524,13 +545,19 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 	if ally and battle.selected_attacker == index:
 		accent = Color(1.0, 0.8, 0.25)
 	var status: String = ("대상 선택" if not battle.pending_action.is_empty() else battle._unit_attack_status(unit, index).label) if ally else ("선봉" if unit.get("is_vanguard", false) else "")
+	if compact_board:
+		status = ("◎" if not battle.pending_action.is_empty() else "↗" if ready else "·") if ally else ("◆" if unit.get("is_vanguard", false) else "")
 	var prediction: Dictionary = {}
 	if not ally and ready:
 		var attacker: Dictionary = battle._selected_player_attacker()
 		prediction = battle._predict_unit_attack(attacker, unit, battle.player, battle.opponent)
 	var button := field_card(unit, status, accent)
 	if ally and battle.selected_attacker == index:
-		outline(button, Color(1.0, 0.8, 0.25), 4, 2, "SelectionBorder")
+		stamp(button, "SelectedMark", "✓", Vector2(unit_width - 23, 3), Vector2(20, 19), Tokens.SURFACE, 14)
+		if button.has_node("Status"):
+			button.get_node("Status").text = ""
+			button.get_node("StatusBand").hide()
+		outline(button, Tokens.STATE_SELECTED, 4, 2, "SelectionBorder")
 	elif ready:
 		outline(button, Color(0.3, 1.0, 0.65) if ally else Color(1.0, 0.35, 0.3), 4, 1, "TargetBorder")
 	elif ally:
@@ -540,6 +567,7 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 		button.set_meta("attack_prediction", prediction)
 		var column := VBoxContainer.new()
 		column.name = "PredictedTarget"
+		column.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		column.mouse_filter = Control.MOUSE_FILTER_PASS
 		column.add_theme_constant_override("separation", 2)
 		column.add_child(button)
@@ -553,7 +581,14 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 		column.add_child(preview)
 		slot = column
 		if prediction.defender_health <= 0:
-			if button.has_node("Status"):
+			if compact_board:
+				button.get_node("CardName").size.x = unit_width - 39
+				button.get_node("CardNameBand").size.x = unit_width - 39
+				if button.has_node("StatusBand"):
+					button.get_node("StatusBand").hide()
+					button.get_node("Status").hide()
+				stamp(button, "Lethal", "처치", Vector2(unit_width - 34, 2), Vector2(32, 16), Color(0.45, 0.08, 0.05), 12)
+			elif button.has_node("Status"):
 				button.get_node("Status").text = status + " · 처치"
 			else:
 				stamp(button, "Lethal", "처치", Vector2(2, 2), Vector2(32, 18), Color(0.45, 0.08, 0.05), 12)
@@ -649,9 +684,26 @@ func dialog(title: String, text: String, card: Dictionary = {}, custom_content: 
 	card_dialog.z_index = 350
 	battle.main.modal_layer.add_child(card_dialog)
 	var shade := ColorRect.new()
-	shade.color = Tokens.SURFACE
+	shade.color = Color(Tokens.SURFACE, 0.9)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	card_dialog.add_child(shade)
+	var background := TextureRect.new()
+	background.name = "DetailBackground"
+	background.texture = load(Tokens.DETAIL_BACKGROUND_PATH)
+	background.modulate = Color(0.8, 0.8, 0.8)
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_dialog.add_child(background)
+	var surface := Panel.new()
+	surface.name = "DetailFrame"
+	surface.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var frame_style := SharedStyles.make_textured_panel_style(Tokens.SURFACE, Tokens.BORDER, 0, false) as StyleBoxTexture
+	frame_style.draw_center = false
+	surface.add_theme_stylebox_override("panel", frame_style)
+	card_dialog.add_child(surface)
 	var panel := VBoxContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel.offset_left = 24
@@ -706,7 +758,7 @@ func show_card(index: int) -> void:
 	var card: Dictionary = battle.player.hand[index]
 	var cost: int = battle.main.relic_service.modify_card_cost(battle.main.current_run, battle.battle_state, card, "player")
 	var playable: bool = not battle._is_player_input_locked() and battle._can_play_card(battle.player, card, "player")
-	var info: String = battle._card_result_preview(card) + "\n\n" + battle._combo_card_preview(card) + "\n\n좌우로 밀어 기울이기 · 위아래로 스크롤"
+	var info: String = "마나 %d/%d · 사용 %d\n\n" % [battle.player.mana, battle.player.max_mana, cost] + battle._card_result_preview(card) + "\n\n" + battle._combo_card_preview(card)
 	if battle._requires_ally_target(card):
 		info = info.replace("앞 아군", "선택할 아군")
 	if not playable: info += "\n" + battle._unplayable_card_hint(card, cost)

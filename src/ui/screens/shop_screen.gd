@@ -9,6 +9,7 @@ var offer_cards: Dictionary = {}
 var preview_box: VBoxContainer
 var preview_content: VBoxContainer
 var preview_buy: Button
+var reference_inspect: Button
 var detail_overlay: Control
 var main: Node
 var screen_action_dock: PanelContainer = null
@@ -303,7 +304,7 @@ func _leave_shop() -> void:
 func _build_reference_shop(body: VBoxContainer) -> void:
 	var state: Dictionary = main.current_run.get("pending_shop", {})
 	var desktop: bool = main._layout_viewport_size().x >= 1100
-	body.add_theme_constant_override("separation", 8)
+	body.add_theme_constant_override("separation", 8 if desktop else 2)
 	var title := EconomyDetail.comparison_label(main, ("상점   ·   골드 %d" if desktop else "골드 %d") % int(main.current_run.gold), EconomyDetail.TEXT, 20 if desktop else 14)
 	if not desktop:
 		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -327,19 +328,16 @@ func _build_reference_shop(body: VBoxContainer) -> void:
 		var stack := VBoxContainer.new()
 		stack.add_theme_constant_override("separation", 6)
 		cards.add_child(stack)
-		var face := EconomyDetail.offer_face(main, card, 208 if desktop else 180, 300 if desktop else int(clampf(main._layout_viewport_size().y - 188, 132, 300)), not desktop)
+		var face := EconomyDetail.offer_face(main, card, 208 if desktop else 180, 300 if desktop else int(clampf(main._layout_viewport_size().y - 196, 148, 300)), not desktop, _shop_offer_text(String(id)))
 		face.name = "EconomyOffer_" + String(id)
 		stack.add_child(face)
 		offer_cards[String(id)] = face
 		var inspect := _select_shop_card.bind(String(id)) if desktop else _show_card_comparison.bind(String(id))
 		Fantasy.clickable_card(face, inspect)
-		var purchased: bool = state.get("purchased_cards", []).has(String(id))
 		if desktop:
-			var pick := EconomyDetail.action_button(main, "구매 완료" if purchased else "확인 · %d 골드" % main.shop_run_service.SHOP_CARD_COST, inspect)
+			var pick := EconomyDetail.action_button(main, _shop_offer_text(String(id)) + " · 확인", inspect)
 			pick.name = "EconomyInspect_" + String(id)
 			stack.add_child(pick)
-		if purchased:
-			face.modulate = Color(0.65, 0.65, 0.65)
 	preview_box = EconomyDetail.section(main, "덱 변화", 290 if desktop else 0)
 	preview_box.visible = desktop
 	row.add_child(preview_box)
@@ -347,7 +345,13 @@ func _build_reference_shop(body: VBoxContainer) -> void:
 	preview_buy = EconomyDetail.action_button(main, "%d 골드 · 구매" % main.shop_run_service.SHOP_CARD_COST, func(): _buy_shop_card(selected_card_id), true)
 	preview_buy.name = "EconomyPreviewBuy"
 	preview_buy.size_flags_horizontal = Control.SIZE_SHRINK_END
-	ButtonMetrics.apply(preview_buy, "compact", 230)
+	var buy_labels: Array[String] = []
+	var inspect_labels: Array[String] = []
+	for id in offer_cards:
+		var card: Dictionary = main.card_db.get_card(String(id))
+		buy_labels.append(_shop_buy_text(card))
+		inspect_labels.append("%s · 확인" % String(card.get("name", "카드")))
+	EconomyDetail.size_action_labels(preview_buy, buy_labels, 230)
 	preview_box.add_child(preview_buy)
 	var recommended := _recommended_shop_card(state)
 	_select_shop_card(String(recommended.get("id", "")))
@@ -380,17 +384,36 @@ func _build_reference_shop(body: VBoxContainer) -> void:
 		var spacer := Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		footer.add_child(spacer)
-		var inspect := EconomyDetail.action_button(main, "선택 카드 확인", func(): _show_card_comparison(selected_card_id), true)
-		inspect.disabled = selected_card_id.is_empty()
-		footer.add_child(inspect)
+		reference_inspect = EconomyDetail.action_button(main, "선택 카드 확인", func(): _show_card_comparison(selected_card_id), true)
+		reference_inspect.name = "EconomyPreviewInspect"
+		EconomyDetail.size_action_labels(reference_inspect, inspect_labels, 230)
+		_update_shop_inspect()
+		footer.add_child(reference_inspect)
 		screen_action_dock = EconomyDetail.pin_mobile_footer(main, body, footer)
+
+func _shop_offer_text(card_id: String) -> String:
+	var price := "%d 골드" % main.shop_run_service.SHOP_CARD_COST
+	if main.current_run.pending_shop.get("purchased_cards", []).has(card_id):
+		return price + " · 품절"
+	if int(main.current_run.gold) < main.shop_run_service.SHOP_CARD_COST:
+		return price + " · 골드 부족"
+	return price
+
+func _shop_buy_text(card: Dictionary) -> String:
+	return "%s · %s · 구매" % [String(card.get("name", "카드")), _shop_offer_text(String(card.get("id", "")))]
+
+func _update_shop_inspect() -> void:
+	if not is_instance_valid(reference_inspect):
+		return
+	var card: Dictionary = main.card_db.get_card(selected_card_id)
+	reference_inspect.disabled = card.is_empty()
+	EconomyDetail.set_action_label(reference_inspect, "%s · 확인" % String(card.get("name", "선택 카드")))
 
 func _select_shop_card(card_id: String) -> void:
 	selected_card_id = card_id
 	for id in offer_cards:
-		offer_cards[id].modulate = Color.WHITE if id == card_id else Color(0.82, 0.82, 0.82)
-		if main.current_run.pending_shop.get("purchased_cards", []).has(id):
-			offer_cards[id].modulate = Color(0.65, 0.65, 0.65)
+		EconomyDetail.select_offer(offer_cards[id], id == card_id)
+	_update_shop_inspect()
 	for child in preview_content.get_children():
 		preview_content.remove_child(child)
 		child.queue_free()
@@ -398,11 +421,13 @@ func _select_shop_card(card_id: String) -> void:
 	var card: Dictionary = main.card_db.get_card(card_id)
 	if card.is_empty():
 		preview_content.add_child(Fantasy.heading(main, "카드를 모두 구매했습니다", 17))
+		EconomyDetail.set_action_label(preview_buy, "카드를 모두 구매했습니다")
 		preview_buy.disabled = true
 		return
 	preview_content.add_child(EconomyDetail.comparison_label(main, String(card.get("name", "")), EconomyDetail.TEXT, 18))
 	preview_content.add_child(EconomyDetail.comparison_label(main, main._card_effect_summary(card), EconomyDetail.MUTED, 14))
 	preview_content.add_child(EconomyDetail.make_comparison(main, card, true))
+	EconomyDetail.set_action_label(preview_buy, _shop_buy_text(card))
 	preview_buy.disabled = int(main.current_run.gold) < main.shop_run_service.SHOP_CARD_COST or main.current_run.pending_shop.get("purchased_cards", []).has(card_id)
 
 func _show_card_comparison(card_id: String) -> void:
@@ -410,7 +435,7 @@ func _show_card_comparison(card_id: String) -> void:
 	_select_shop_card(card_id)
 	var card: Dictionary = main.card_db.get_card(card_id)
 	var disabled: bool = int(main.current_run.gold) < main.shop_run_service.SHOP_CARD_COST or main.current_run.pending_shop.get("purchased_cards", []).has(card_id)
-	detail_overlay = EconomyDetail.show_card(main, card, "%d 골드 · 구매" % main.shop_run_service.SHOP_CARD_COST, _buy_shop_card.bind(card_id), disabled, _close_card_comparison)
+	detail_overlay = EconomyDetail.show_card(main, card, _shop_offer_text(card_id) + " · 구매", _buy_shop_card.bind(card_id), disabled, _close_card_comparison)
 
 func _close_card_comparison() -> void:
 	if is_instance_valid(detail_overlay):
