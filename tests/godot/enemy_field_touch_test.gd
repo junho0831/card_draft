@@ -48,7 +48,7 @@ func prepare(selected: bool = true) -> void:
 func target(index: int = 0) -> Vector2:
 	var slot: Control = battle.opponent_field_slots[index]
 	if is_instance_valid(battle.landscape_view):
-		battle.landscape_view.board_scroll.scroll_vertical = 0
+		await battle.landscape_view.focus_targets([{"player": false, "slot": index}], true, true)
 	else:
 		main.root_scroll.ensure_control_visible(slot)
 	await settle()
@@ -69,7 +69,8 @@ func run() -> void:
 	main.current_run.relic_ids = []
 	await settle()
 	if is_instance_valid(battle.landscape_view):
-		check(battle.landscape_view.board_scroll.scroll_vertical == 0, "new battle shows both lanes")
+		check(battle.landscape_view.board_scroll.get_global_rect().encloses(battle.player_hero_target.get_global_rect()), "new battle reveals the ally lane")
+		check(not battle.race_power_button.is_visible_in_tree() and not battle.landscape_view.power_description.is_visible_in_tree(), "first lesson hides the locked power and its description together")
 	await prepare()
 	check(main.Onboarding.first_battle(main.current_run), "also tests the first learning battle")
 	await tap(await target())
@@ -78,7 +79,7 @@ func run() -> void:
 	check(battle.opponent.health == 38 and not battle.player.field[0].can_attack, "hero target attacks exactly once")
 	check(battle._unit_attack_status(battle.player.field[0], 0).label == "공격 완료", "successful attack displays spent status")
 	if is_instance_valid(battle.landscape_view):
-		check(battle.landscape_view.board_scroll.scroll_vertical == 0, "completed attack keeps both lanes visible")
+		check(battle.landscape_view.board_scroll.get_global_rect().encloses(battle.player_hero_target.get_global_rect()), "completed attack returns to the ally lane")
 	await tap(await target())
 	check(battle.opponent.health == 38, "exhausted unit cannot attack again")
 	await prepare(false)
@@ -156,22 +157,32 @@ func run() -> void:
 			await prepare(false)
 			main.player_profile.settings.battle_auto_focus = mode
 			await view.focus_targets([{"player":true, "hero":true}], true, true)
+			await settle()
+			var ally_scroll: int = view.board_scroll.scroll_vertical
 			await battle._on_player_unit_pressed(0)
-			check(view.board_scroll.scroll_vertical == 0, "fixed layout ignores legacy camera mode " + mode)
+			await settle()
+			if mode == "off":
+				check(view.board_scroll.scroll_vertical == ally_scroll, "disabled automatic focus preserves the ally position")
+			else:
+				check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "attacker selection reveals the legal enemy target in " + mode)
+				check(view.board_scroll.scroll_vertical < ally_scroll, "attacker selection moves from allies to enemies in " + mode)
 			await view.focus_targets([{"player":false, "hero":true}], false, true)
-			check(view.board_scroll.scroll_vertical == 0, "manual navigation works in " + mode)
+			await settle()
+			check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "manual navigation reveals enemy hero in " + mode)
 		main.player_profile.settings.battle_auto_focus = "outside"
 		main.set_meta("disable_timed_battle_fx", false)
 		battle.presentation.return_to_allies(battle.presentation.interaction_generation)
 		battle.presentation.gesture_started(Vector2.ZERO)
+		view.board_scroll.scroll_vertical = int((view.board_scroll.get_v_scroll_bar().max_value - view.board_scroll.get_v_scroll_bar().page) * 0.4)
 		battle.presentation.gesture_ended()
+		var manual_scroll: int = view.board_scroll.scroll_vertical
 		await create_timer(0.55).timeout
-		check(view.board_scroll.scroll_vertical == 0, "user gesture cancels delayed return even after release")
+		check(view.board_scroll.scroll_vertical == manual_scroll, "user gesture preserves its manual position after cancelling delayed return")
 		battle.presentation.return_to_allies(battle.presentation.interaction_generation)
 		view.show_help()
 		view.close_detail()
 		await create_timer(0.55).timeout
-		check(view.board_scroll.scroll_vertical == 0, "opening and closing a modal cancels delayed return")
+		check(view.board_scroll.scroll_vertical == manual_scroll, "opening and closing a modal preserves position after cancelling delayed return")
 		main.set_meta("disable_timed_battle_fx", true)
 	if DisplayServer.get_name() != "headless":
 		await prepare()

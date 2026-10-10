@@ -663,7 +663,7 @@ func _race_meta() -> Dictionary:
 			"representative_card_id": "bone_soldier",
 			"representative_card_names": ["해골 병사", "어둠의 거래", "망자의 부름"],
 			"power_name": "죽음의 계약",
-			"power_text": "가장 약한 아군을 희생해 적 영웅에게 피해 3을 주고 해골을 소환합니다.",
+			"power_text": "선택한 아군을 희생해 적 영웅에게 피해 3을 주고 해골을 소환합니다.",
 			"power_short": "아군 희생 · 영웅 피해 3",
 			"power_sfx": "power_undead",
 		},

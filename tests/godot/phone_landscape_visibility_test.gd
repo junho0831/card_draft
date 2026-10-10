@@ -17,6 +17,12 @@ func settle() -> void:
 	for i in range(12):
 		await process_frame
 
+func find_button(node: Node, text: String) -> Button:
+	for candidate in node.find_children("*", "Button", true, false):
+		if candidate.text == text:
+			return candidate
+	return null
+
 func capture(name: String) -> void:
 	if DisplayServer.get_name() != "headless":
 		await RenderingServer.frame_post_draw
@@ -51,7 +57,20 @@ func run() -> void:
 	main._clear_run()
 	await main._show_main_menu()
 	await settle()
-	check(main.root_box.get_combined_minimum_size().y <= main.root_scroll.size.y, "home actions fit without vertical scrolling")
+	var home_start: Button = find_button(main.modal_layer, "새 런 시작")
+	check(home_start != null, "home new-run action exists in the fixed dock")
+	for title in ["보유 카드", "영구 성장", "도감", "설정"]:
+		var action: Button = find_button(main.root_box, title)
+		check(action != null, "home %s action exists" % title)
+		if action != null:
+			main.root_scroll.ensure_control_visible(action)
+			await settle()
+			check(main.root_scroll.get_global_rect().encloses(action.get_global_rect()), "home %s action is reachable by scrolling" % title)
+	main.root_scroll.scroll_vertical = int(main.root_scroll.get_v_scroll_bar().max_value)
+	await settle()
+	if home_start != null:
+		check(main.modal_layer.get_global_rect().encloses(home_start.get_global_rect()), "home new-run action stays fully visible after scrolling")
+		check(main.root_scroll.get_global_rect().end.y <= home_start.get_global_rect().position.y, "home content cannot overlap the fixed new-run action")
 	await capture("home")
 	main._start_new_run()
 	await settle()
@@ -62,8 +81,13 @@ func run() -> void:
 		check(visible_area.encloses(selection.race_buttons[id].get_global_rect()), "%s choice button visible without scrolling" % id)
 	check(selection.fixed_footer.size.y <= 90, "start dock leaves space for choices")
 	check(selection.start_button.get_global_rect().end.y <= root.size.y, "start button fits screen")
-	check(visible_area.encloses(selection.selected_race_details.get_global_rect()), "selected race description and power fit above the dock: %s inside %s" % [selection.selected_race_details.get_global_rect(), visible_area])
 	await capture("race-selection")
+	main.root_scroll.ensure_control_visible(selection.selected_race_details)
+	await settle()
+	check(main.root_scroll.get_global_rect().encloses(selection.selected_race_details.get_global_rect()), "selected race description and power are fully reachable by scrolling: %s inside %s" % [selection.selected_race_details.get_global_rect(), main.root_scroll.get_global_rect()])
+	check(main.modal_layer.get_global_rect().encloses(selection.start_button.get_global_rect()), "race start action stays fully visible while reading details")
+	check(main.root_scroll.get_global_rect().end.y <= selection.fixed_footer.get_global_rect().position.y, "race details never overlap the fixed start dock")
+	await capture("race-details")
 	selection._select_race("elf")
 	check(selection.selected_race_id == "elf", "race remains selectable")
 	selection._set_guided_mode(false)
@@ -81,7 +105,7 @@ func run() -> void:
 	var view = battle.landscape_view
 	check(view != null, "uses landscape battle")
 	if view != null:
-		check(view.board_scroll.scroll_vertical == 0, "battle entry uses fixed lanes")
+		check(view.board_scroll.get_v_scroll_bar().max_value > view.board_scroll.get_v_scroll_bar().page, "tall battlefield lanes have vertical scroll space")
 		check(battle.opponent_hero_target.size.x >= 64, "enemy hero has a wide touch target")
 		check(view.enemy_hero_hint.mouse_filter == Control.MOUSE_FILTER_IGNORE, "hero hint does not intercept taps")
 		check(view.board_scroll.get_global_rect().encloses(battle.player_hero_target.get_global_rect()), "ally hero fully visible on entry")
@@ -90,7 +114,7 @@ func run() -> void:
 		if not battle.opponent.field.is_empty():
 			check(view.board_scroll.get_global_rect().encloses(battle._card_action_field_slot(false, 0).get_global_rect()), "enemy vanguard fully visible after navigating")
 		await capture("battle-entry")
-		check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "enemy hero remains visible alongside ally hero")
+		check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "enemy hero is fully visible after focusing its lane")
 		view.show_card(0)
 		await settle()
 		var viewer = view.card_dialog.find_child("CardInspectionView", true, false)
@@ -101,9 +125,13 @@ func run() -> void:
 		view.close_detail()
 		check(battle.player.hand.size() == before, "closing card detail does not play it")
 		await view.focus_targets([{"player": true, "hero": true}], true)
-		check(view.board_scroll.scroll_vertical == 0, "action focus never moves the board")
+		await settle()
+		check(view.board_scroll.get_global_rect().encloses(battle.player_hero_target.get_global_rect()), "action focus reveals the whole ally hero: %s inside %s" % [battle.player_hero_target.get_global_rect(), view.board_scroll.get_global_rect()])
+		var ally_scroll: int = view.board_scroll.scroll_vertical
 		await view.focus_targets([{"player": false, "hero": true}], true)
-		check(view.board_scroll.scroll_vertical == 0, "action focus can return to enemy lane")
+		await settle()
+		check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "action focus reveals the whole enemy hero")
+		check(view.board_scroll.scroll_vertical < ally_scroll, "action focus moves from allies to the upper enemy lane")
 		# Click the newly added right edge rather than only the portrait center.
 		battle.opponent.field.clear()
 		battle.player.field = [{"id":"militia", "battle_unit_id":9901, "name":"민병대", "race":"인간", "attack":1, "health":3, "max_health":3, "can_attack":true}]
@@ -113,6 +141,10 @@ func run() -> void:
 		battle.rebuild_layout()
 		await settle()
 		check(battle.selected_attacker == 0, "layout rebuild preserves the selected attacker")
+		view = battle.landscape_view
+		await view.focus_targets([{"player": false, "hero": true}], true)
+		await settle()
+		check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "rebuilt enemy hero is visible before tapping its edge")
 		var hp_before := int(battle.opponent.health)
 		var hero_rect: Rect2 = battle.opponent_hero_target.get_global_rect()
 		var point := hero_rect.position + Vector2(hero_rect.size.x - 8, hero_rect.size.y / 2)

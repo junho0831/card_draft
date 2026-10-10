@@ -125,10 +125,14 @@ func run() -> Dictionary:
 			battle.player.field[0].can_attack = true
 			battle._refresh_ui()
 			await tree.process_frame
+			if viewport == Vector2i(844, 390):
+				await verify_help_reveals_target(battle, main, tree, true)
 			if is_instance_valid(battle.landscape_view):
 				await battle.landscape_view.focus_targets([{"player": true, "hero": true}], true)
 			await click(find_button(battle.player_field_slots[0], ""), tree)
 			check(battle.selected_attacker == 0, "manual attacker selection")
+			if viewport == Vector2i(844, 390):
+				await verify_help_reveals_target(battle, main, tree, false)
 			if OS.get_cmdline_user_args().has("--capture-input") and race == "human":
 				await RenderingServer.frame_post_draw
 				tree.root.get_texture().get_image().save_png(preload("res://src/services/game_storage.gd").path_for("target_%d.png" % viewport.x))
@@ -148,6 +152,8 @@ func run() -> Dictionary:
 				await battle.landscape_view.focus_targets([{"player": true, "hero": true}], true)
 			await click(find_button(battle.player_field_slots[0], ""), tree)
 			if is_instance_valid(battle.landscape_view):
+				if viewport == Vector2i(844, 390):
+					await verify_help_reveals_target(battle, main, tree, false, true)
 				await battle.landscape_view.focus_targets([{"player": false, "hero": true}], true)
 				await click(battle.opponent_hero_target, tree)
 			else:
@@ -170,6 +176,32 @@ func run() -> Dictionary:
 	await tree.process_frame
 	tree.root.size = original_size
 	return {"count": count, "failures": failures}
+
+func verify_help_reveals_target(battle, main, tree, ally: bool, hero: bool = false) -> void:
+	var view = battle.landscape_view
+	var previous_focus: String = main.player_profile.settings.get("battle_auto_focus", "outside")
+	main.player_profile.settings["battle_auto_focus"] = "off"
+	await view.focus_targets([{"player": not ally, "hero": true}], true)
+	await tree.process_frame
+	var target: Control = battle._hero_target_for_player(ally) if hero else battle._field_slot_for(battle.player if ally else battle.opponent, 0)
+	if not hero:
+		target = find_button(target, "")
+	check(not view.board_scroll.get_global_rect().encloses(target.get_global_rect()), "help fixture starts with recommended target outside view")
+	var before: String = JSON.stringify([battle.player, battle.opponent, battle.battle_state, battle.selected_attacker, battle.pending_action, main.current_run])
+	seed(44217)
+	var expected_random := randi()
+	seed(44217)
+	await click(battle.recommended_action_button, tree)
+	await tree.process_frame
+	await tree.process_frame
+	target = battle._hero_target_for_player(ally) if hero else battle._field_slot_for(battle.player if ally else battle.opponent, 0)
+	if not hero:
+		# The explanatory preview can exceed the lane height; the actual card must fit.
+		target = find_button(target, "")
+	check(view.board_scroll.get_global_rect().encloses(target.get_global_rect()), "explicit help reveals recommended target with automatic focus disabled ally=%s hero=%s viewport=%s target=%s" % [ally, hero, view.board_scroll.get_global_rect(), target.get_global_rect()])
+	check(JSON.stringify([battle.player, battle.opponent, battle.battle_state, battle.selected_attacker, battle.pending_action, main.current_run]) == before, "help scroll preserves combat, selection and run state")
+	check(randi() == expected_random, "help scroll does not consume gameplay RNG")
+	main.player_profile.settings["battle_auto_focus"] = previous_focus
 
 func find_button(node: Node, prefix: String) -> Button:
 	if node is Button and node.text.begins_with(prefix):

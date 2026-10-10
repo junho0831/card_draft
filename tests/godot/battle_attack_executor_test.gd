@@ -11,7 +11,7 @@ class DummyView extends Control:
 
 class DelayedPresentation extends RefCounted:
 	var disposed := false
-	func focus(_targets: Array, _immediate: bool = false) -> void:
+	func focus(_targets: Array, _immediate: bool = false, _manual: bool = false) -> void:
 		for i in range(3):
 			if disposed: return
 			await Engine.get_main_loop().process_frame

@@ -23,6 +23,7 @@ var center_guidance: Label
 var intent_detail: Label
 var hud_hp_label: Label
 var hud_gold_label: Label
+var power_description: Label
 # Overrides follow the existing art identity; other portraits use the default focus.
 const PORTRAIT_FOCUS := {
 	"trainee_swordsman": Vector2(0.5, 0.2),
@@ -49,9 +50,11 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	compact_board = battle._is_landscape_phone()
 	hero_width = 80.0 if compact_board else 112.0
 	rail_width = 120.0 if compact_board else 168.0
-	unit_width = minf(104 if compact_board else 136, floorf((viewport.x - rail_width - 36 - hero_width - 32) / 5.0))
+	# Leave room for the fixed header/hand and a prediction below a whole card.
+	field_height = clampf(viewport.y - 260, 96, 150) if compact_board else 178.0
+	# Reserve the vertical scrollbar as well as lane padding and five slot gaps.
+	unit_width = minf(minf(104, field_height / 1.34) if compact_board else 136, floorf((viewport.x - rail_width - 48 - hero_width - 32) / 5.0))
 	hand_size = Vector2(82, 110) if compact_board else Vector2(132, 178)
-	field_height = maxf(52, floorf((viewport.y - 258) / 2.0)) if compact_board else clampf(floorf((viewport.y - hand_size.y - 250) / 2.0), 128, 172)
 	old_root.hide()
 	action_panel.hide()
 	battle.main.mobile_bottom_inset = 0
@@ -76,14 +79,23 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	header.custom_minimum_size.y = 36
 	header.add_theme_constant_override("separation", 8)
 	header_panel.add_child(header)
+	var heading := VBoxContainer.new()
+	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading.add_theme_constant_override("separation", 0)
+	header.add_child(heading)
 	var title := label("전투 · " + String(battle.opponent.name), 16)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.clip_text = true
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	header.add_child(title)
+	heading.add_child(title)
+	center_guidance = label("", 13 if compact_board else 14)
+	center_guidance.clip_text = true
+	center_guidance.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	heading.add_child(center_guidance)
 	phase_badge = label("", 14)
 	phase_badge.custom_minimum_size.x = 64
 	phase_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	phase_badge.visible = not compact_board
 	header.add_child(phase_badge)
 	battle.reference_mana_label = label("", 18)
 	battle.reference_mana_label.clip_text = true
@@ -96,14 +108,22 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 		hud_gold_label = hud_chip("골드 %d" % int(battle.main.current_run.get("gold", 0)), Tokens.ACCENT_GOLD)
 		run_hud.add_child(hud_hp_label)
 		run_hud.add_child(hud_gold_label)
-	header.add_child(run_hud)
+	if not compact_board:
+		header.add_child(run_hud)
+	else:
+		run_hud.free()
 	battle.detail_toggle_button.reparent(header)
 	battle.detail_toggle_button.visible = battle._uses_tutorial_guidance()
 	ButtonMetrics.apply(battle.detail_toggle_button, "compact", 60)
 	SharedStyles.apply_role_button(battle.detail_toggle_button, "secondary", Tokens.BORDER, Color.TRANSPARENT, 14)
-	header.add_child(action("메뉴", func():
+	if compact_board:
+		ButtonMetrics.apply(battle.detail_toggle_button, "compact", 60)
+	var menu_button := action("메뉴", func():
 		cancel_focus()
-		battle.main._show_main_menu(), "compact"))
+		battle.main._show_main_menu(), "compact")
+	if compact_board:
+		ButtonMetrics.apply(menu_button, "compact", 60)
+	header.add_child(menu_button)
 	battle.battle_guidance_label.hide()
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 8)
@@ -116,16 +136,15 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	board_scroll = ScrollContainer.new()
 	board_scroll.name = "BattlefieldScroll"
 	board_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	board_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	board_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	board_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	board_scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	board.add_child(board_scroll)
 	lanes = VBoxContainer.new()
 	lanes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lanes.custom_minimum_size.x = maxf(0.0, viewport.x - rail_width - 24.0)
 	lanes.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	lanes.alignment = BoxContainer.ALIGNMENT_CENTER
-	lanes.add_theme_constant_override("separation", 4)
+	lanes.add_theme_constant_override("separation", 10)
 	board_scroll.add_child(lanes)
 	lane(lanes, battle.opponent_field_box, true)
 	lane(lanes, battle.player_field_box, false)
@@ -146,16 +165,6 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 		fx_clip.position = board_scroll.global_position - global_position
 		fx_clip.size = board_scroll.size
 	)
-	center_guidance = label("", 14)
-	center_guidance.custom_minimum_size.y = 20
-	center_guidance.clip_text = true
-	center_guidance.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	var selection_row := HBoxContainer.new()
-	selection_row.name = "BattleSelectionSummary"
-	selection_row.custom_minimum_size.y = 44
-	board.add_child(selection_row)
-	center_guidance.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	selection_row.add_child(center_guidance)
 	intent_detail = label("", 16)
 	intent_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	battle.deck_list_label.get_parent().add_child(intent_detail)
@@ -182,24 +191,28 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	battle.reference_mana_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rail.add_child(battle.reference_mana_label)
 	battle.recommended_action_button.reparent(header)
-	ButtonMetrics.apply(battle.recommended_action_button, "compact", 90)
+	ButtonMetrics.apply(battle.recommended_action_button, "compact", 92 if compact_board else 110)
 	battle.recommended_action_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	for button in [battle.race_power_button]:
 		button.reparent(rail)
-		ButtonMetrics.apply(button, "action", rail_width)
+		ButtonMetrics.apply(button, "multiline", rail_width)
+	power_description = label("", 13 if compact_board else 14)
+	power_description.name = "RacePowerDescription"
+	power_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	power_description.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	power_description.add_theme_color_override("font_color", Tokens.TEXT_SECONDARY)
+	rail.add_child(power_description)
 	var sort_hand_button := action("손패 정리", Callable(battle, "_sort_hand_cards"), "compact")
 	sort_hand_button.name = "SortHandButton"
 	sort_hand_button.tooltip_text = "같은 카드를 묶고 비용순으로 손패를 정렬합니다."
 	rail.add_child(sort_hand_button)
 	battle.end_turn_button.reparent(rail)
 	ButtonMetrics.apply(battle.end_turn_button, "action", rail_width)
-	cancel_button = action("선택 취소", func():
-		battle._cancel_ally_selection()
-		battle.selected_attacker = -1
-		battle._refresh_ui()
-		battle._store_battle_snapshot(), "compact")
-	selection_row.add_child(cancel_button)
-	cancel_button.custom_minimum_size.x = 120
+	cancel_button = action("선택 취소", _cancel_selection, "compact")
+	header.add_child(cancel_button)
+	cancel_button.custom_minimum_size.x = 104 if compact_board else 120
+	if compact_board:
+		ButtonMetrics.apply(cancel_button, "compact", 104)
 
 func surface_style(accent: Color) -> StyleBox:
 	return SharedStyles.make_textured_panel_style(Tokens.SURFACE_RAISED, accent, 0, accent == Tokens.ACCENT_GOLD)
@@ -231,13 +244,24 @@ func action(value: String, callback: Callable, kind: String = "action") -> Butto
 	return button
 
 func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
+	var panel := PanelContainer.new()
+	panel.name = "EnemyLane" if enemy else "AllyLane"
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var style := SharedStyles.make_style_box(Color(0.025, 0.045, 0.065, 0.78), Color(Tokens.ACCENT_DANGER if enemy else Tokens.ACCENT_TEAL, 0.6), 1, 5)
+	style.content_margin_left = 3
+	style.content_margin_right = 3
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
+	panel.add_theme_stylebox_override("panel", style)
+	parent.add_child(panel)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 	row.custom_minimum_size.y = field_height
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	parent.add_child(row)
+	panel.add_child(row)
 	var hero := Button.new()
 	hero.custom_minimum_size = Vector2(hero_width, field_height)
+	hero.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	hero.add_theme_stylebox_override("normal", SharedStyles.make_textured_panel_style(Tokens.SURFACE_RAISED, Tokens.BORDER, 1, false))
 	hero.add_theme_stylebox_override("hover", SharedStyles.make_textured_panel_style(Tokens.SURFACE_RAISED, Tokens.ACCENT_GOLD, 2, false))
 	hero.add_theme_stylebox_override("pressed", SharedStyles.make_textured_panel_style(Tokens.SURFACE_RAISED, Tokens.ACCENT_GOLD, 2, false))
@@ -323,6 +347,7 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 	cards.custom_minimum_size = Vector2(0, field_height)
 	cards.add_theme_constant_override("separation", 4)
 	cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cards.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	cards.alignment = BoxContainer.ALIGNMENT_CENTER
 
 func stamp(parent: Control, node_name: String, value: String, at: Vector2, extent: Vector2, color: Color, font_size: int = 16) -> Label:
@@ -417,10 +442,11 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	var button := Button.new()
 	button.custom_minimum_size = Vector2(width, height)
 	button.size = button.custom_minimum_size
+	button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	button.clip_contents = true
 	button.add_theme_stylebox_override("normal", battle.BATTLE_STYLES.make_card_frame(accent, 2))
 	if card.is_empty():
-		button.add_theme_stylebox_override("disabled", SharedStyles.make_style_box(Color(0.08, 0.1, 0.1, 0.12), Color(Tokens.BORDER, 0.25), 1, 4))
+		button.add_theme_stylebox_override("disabled", SharedStyles.make_style_box(Color(0.055, 0.085, 0.12, 0.72), Color(Tokens.BORDER, 0.65), 1, 4))
 		return button
 	var kind := card_kind(card)
 	button.set_meta("card_kind", kind)
@@ -442,15 +468,7 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 		art.anchor_bottom = 0
 		art.offset_bottom = height - 24
 	button.add_child(art)
-	var name_label := stamp(button, "CardName", String(card.get("name", "")), Vector2(7, height - 43), Vector2(width - 14, 20), race_band, 12 if compact_board else 14)
-	if field:
-		if compact_board:
-			name_label.position.y = height - 43
-			name_label.add_theme_font_size_override("font_size", 12)
-		else:
-			name_label.position.y = height - 80
-			button.get_node("CardNameBand").position.y = height - 80
-			name_label.add_theme_font_size_override("font_size", 14)
+	stamp(button, "CardName", String(card.get("name", "")), Vector2(7, height - 43), Vector2(width - 14, 20), race_band, 12 if compact_board else 14)
 	if card.has("attack"):
 		stamp(button, "Attack", str(int(card.attack)), Vector2(3, height - 24), Vector2(26, 22), Color(0.48, 0.12, 0.09))
 		stamp(button, "Health", str(int(card.get("health", 0))), Vector2(width - 29, height - 24), Vector2(26, 22), Color(0.08, 0.25, 0.48))
@@ -493,7 +511,7 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 		if not ally and not compact_board:
 			battle._configure_enemy_field_attack(empty)
 			for state: String in ["normal", "hover", "pressed"]:
-				empty.add_theme_stylebox_override(state, SharedStyles.make_style_box(Color(0.08, 0.1, 0.1, 0.12), Tokens.ACCENT_GOLD if state != "normal" else Color(Tokens.BORDER, 0.25), 1, 4))
+				empty.add_theme_stylebox_override(state, SharedStyles.make_style_box(Color(0.055, 0.085, 0.12, 0.72), Tokens.ACCENT_GOLD if state != "normal" else Color(Tokens.BORDER, 0.65), 1, 4))
 			return empty
 		empty.disabled = true
 		empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -517,15 +535,28 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 		outline(button, Color(0.3, 1.0, 0.65) if ally else Color(1.0, 0.35, 0.3), 4, 1, "TargetBorder")
 	elif ally:
 		button.get_node("Illustration").modulate = Color(0.65, 0.65, 0.65)
+	var slot: Control = button
 	if not prediction.is_empty():
 		button.set_meta("attack_prediction", prediction)
-		for node_name in ["Attack", "AttackBand", "Health", "HealthBand"]:
-			var node := button.get_node_or_null(node_name)
-			if node != null: node.hide()
-		stamp(button, "CombatPrediction", "적 %d→%d\n내 %d→%d" % [int(unit.health), int(prediction.defender_health), int(battle._selected_player_attacker().get("health", 0)), int(prediction.attacker_health)], Vector2(2, field_height - 56), Vector2(unit_width - 4, 54), Tokens.SURFACE, 14 if compact_board else 16)
+		var column := VBoxContainer.new()
+		column.name = "PredictedTarget"
+		column.mouse_filter = Control.MOUSE_FILTER_PASS
+		column.add_theme_constant_override("separation", 2)
+		column.add_child(button)
+		var preview := label("적 %d→%d\n내 %d→%d" % [int(unit.health), int(prediction.defender_health), int(battle._selected_player_attacker().get("health", 0)), int(prediction.attacker_health)], 12 if compact_board else 14)
+		preview.name = "CombatPrediction"
+		preview.custom_minimum_size = Vector2(unit_width, 32 if compact_board else 40)
+		preview.add_theme_constant_override("line_spacing", 0)
+		preview.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		preview.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		preview.add_theme_color_override("font_color", Tokens.ACCENT_GOLD)
+		column.add_child(preview)
+		slot = column
 		if prediction.defender_health <= 0:
-			button.get_node("CardName").size.x = unit_width - 38
-			stamp(button, "Lethal", "처치", Vector2(2, 2), Vector2(32, 18), Color(0.45, 0.08, 0.05), 12)
+			if button.has_node("Status"):
+				button.get_node("Status").text = status + " · 처치"
+			else:
+				stamp(button, "Lethal", "처치", Vector2(2, 2), Vector2(32, 18), Color(0.45, 0.08, 0.05), 12)
 		button.tooltip_text = battle._unit_attack_preview_text(unit, prediction) + " (후속 사망·장비 효과 별도)"
 		if int(prediction.attacker_health) <= 0:
 			button.tooltip_text += " · 내 유닛 사망"
@@ -536,7 +567,7 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 		else: battle._on_opponent_unit_pressed.call_deferred(index)
 	)
 	_bind_hold(button, func(): show_unit(unit, ally))
-	return button
+	return slot
 
 func _bind_hold(button: Button, inspect: Callable) -> void:
 	var timer := Timer.new()
@@ -723,18 +754,21 @@ func handle_back() -> bool:
 	if is_instance_valid(card_dialog):
 		close_detail()
 		return true
-	if not battle.pending_action.is_empty():
-		battle._cancel_ally_selection()
-		return true
-	if battle.selected_attacker >= 0:
-		battle.selected_attacker = -1
-		battle._refresh_ui()
-		battle._store_battle_snapshot()
+	if not battle.pending_action.is_empty() or battle.selected_attacker >= 0:
+		_cancel_selection()
 		return true
 	if battle.battle_detail_visible:
 		battle._toggle_battle_details()
 		return true
 	return false
+
+func _cancel_selection() -> void:
+	cancel_focus()
+	battle._cancel_ally_selection()
+	battle.selected_attacker = -1
+	battle._refresh_ui()
+	battle._store_battle_snapshot()
+	battle._focus_battle_targets([{"player": true, "hero": true}])
 
 func refresh_labels() -> void:
 	battle.recommended_action_button.text = battle._recommended_action_text()
@@ -769,15 +803,49 @@ func refresh_labels() -> void:
 		center_guidance.text = String(battle._selected_player_attacker().get("name", "아군")) + " 선택 · 공격 후 체력 미리보기"
 	center_guidance.text = center_guidance.text.replace("손패 카드를 눌러 확인한 뒤 다시 눌러 소환하세요.", "손패 카드를 누르면 바로 소환합니다.")
 	center_guidance.tooltip_text = center_guidance.text
+	if compact_board and battle.main.Onboarding.first_battle(battle.main.current_run):
+		center_guidance.text = _compact_first_play_guidance()
 	intent_detail.text = battle._battle_choice_detail_text()
 	SharedStyles.apply_role_button(battle.recommended_action_button, "secondary", Tokens.BORDER, Color.TRANSPARENT, 14)
+	if compact_board:
+		ButtonMetrics.apply(battle.recommended_action_button, "compact", 92)
 	SharedStyles.apply_role_button(battle.race_power_button, "power", Tokens.ACCENT_TEAL, Color.TRANSPARENT, 16)
+	battle.race_power_button.text = "필살기\n%s" % ("사용 완료" if battle.battle_state.get("race_power_used", false) else battle.main._current_race_meta().get("power_name", ""))
+	power_description.text = _power_description()
+	power_description.visible = battle.race_power_button.visible
 	SharedStyles.apply_role_button(battle.end_turn_button, "primary", Tokens.ACCENT_GOLD, Color.TRANSPARENT, 16)
 	var exhausted_edge := battle.end_turn_button.get_node_or_null("ExhaustedBorder") as Control
 	if exhausted_edge == null:
 		outline(battle.end_turn_button, Color(0.3, 1.0, 0.58), 2, 2, "ExhaustedBorder")
 		exhausted_edge = battle.end_turn_button.get_node("ExhaustedBorder")
 	exhausted_edge.visible = not battle.end_turn_button.disabled and bool(battle._turn_action_state().exhausted)
+
+func _compact_first_play_guidance() -> String:
+	if battle.game_over:
+		return "전투 종료"
+	var state: Dictionary = battle._recommended_action_state()
+	match String(state.get("kind", "wait")):
+		"play_card":
+			var index: int = int(state.get("card_index", -1))
+			var unit_card: bool = index >= 0 and index < battle.player.hand.size() and battle.player.hand[index].get("type", "") == "unit"
+			return "손패 카드를 소환하세요" if unit_card else "손패 카드를 사용하세요"
+		"hero_attack_direct", "unit_attack_direct": return "공격할 아군을 선택하세요"
+		"unit_attack_selected": return "붉은 대상을 눌러 공격하세요"
+		"hero_attack_selected": return "적 영웅을 눌러 공격하세요"
+		"select_target": return "효과를 받을 아군을 선택하세요"
+		"race_power": return "필살기를 눌러 사용하세요"
+		"end_turn": return "턴 종료를 누르세요"
+		_: return "상대 행동을 기다리세요"
+
+func _power_description() -> String:
+	if battle.battle_state.get("race_power_used", false):
+		return "이번 전투 사용 완료"
+	match battle.main._current_race_id():
+		"human":
+			return "필드 가득 참\n아군 공격 +1" if battle.player.field.size() >= battle.MAX_FIELD else "근위대 소환\n아군 공격 +1"
+		"elf": return "카드 2장 뽑기\n마나 +2"
+		"undead": return "아군 선택·희생\n적 영웅 피해 3\n해골 소환"
+	return "전투당 1회"
 
 func _exit_tree() -> void:
 	session.dispose()
@@ -787,7 +855,7 @@ func show_help() -> void:
 	if not battle._uses_tutorial_guidance():
 		battle._show_battle_choice_details()
 		return
-	dialog("전투 도움", center_guidance.text + "\n\n" + battle._next_enemy_action_text() + "\n\n카드를 누르면 바로 사용합니다. 길게 누르면 효과와 비용을 확인합니다.\n아군을 누른 뒤 강조된 적을 누르면 공격합니다. 선봉을 처치하면 적 영웅을 공격할 수 있습니다.\n카드 숫자는 공격 / 체력입니다. 유닛을 길게 누르면 효과를 확인합니다.\n대상을 고르는 중에는 선택 취소로 돌아갈 수 있습니다.")
+	dialog("전투 도움", center_guidance.tooltip_text + "\n\n" + battle._next_enemy_action_text() + "\n\n카드를 누르면 바로 사용합니다. 길게 누르면 효과와 비용을 확인합니다.\n아군을 누른 뒤 강조된 적을 누르면 공격합니다. 선봉을 처치하면 적 영웅을 공격할 수 있습니다.\n카드 숫자는 공격 / 체력입니다. 유닛을 길게 누르면 효과를 확인합니다.\n대상을 고르는 중에는 선택 취소로 돌아갈 수 있습니다.")
 
 # Camera movement is presentation only; cancelling it never cancels combat.
 func cancel_focus() -> void:
@@ -804,7 +872,8 @@ func _initial_focus() -> void:
 		return
 	await get_tree().process_frame
 	if is_inside_tree() and not is_queued_for_deletion():
-		await focus_targets([{"player": battle.current_player == "player", "hero": true}], true)
+		var ally: bool = battle.current_player == "player" and (battle.selected_attacker < 0 or not battle.pending_action.is_empty())
+		await focus_targets([{"player": ally, "hero": true}], true)
 
 func resolve_focus(target: Dictionary) -> Control:
 	var ally := bool(target.get("player", true))
@@ -821,4 +890,4 @@ func scroll_for_rect(rect: Rect2) -> int:
 	return session.scroll_for_rect(rect)
 
 func focus_targets(targets: Array, immediate: bool = false, manual: bool = false) -> void:
-	pass
+	await session.focus(targets, immediate, manual)

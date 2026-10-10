@@ -38,13 +38,25 @@ func run() -> void:
 		battle._refresh_ui()
 		await settle()
 		var safe: Rect2 = main.modal_layer.get_global_rect()
-		for control in [battle.player_hero_target, battle.opponent_hero_target, battle.hand_scroll, battle.end_turn_button, battle.race_power_button, battle.detail_toggle_button]:
-			check(safe.encloses(control.get_global_rect()), "safe-area control %s %s" % [viewport, control.get_global_rect()])
-		for slots in [battle.player_field_slots, battle.opponent_field_slots]:
+		for control in [view.board_scroll, battle.hand_scroll, battle.end_turn_button, battle.race_power_button, battle.detail_toggle_button]:
+			if control.is_visible_in_tree():
+				check(safe.encloses(control.get_global_rect()), "safe-area control %s %s" % [viewport, control.get_global_rect()])
+		check(view.board_scroll.get_global_rect().encloses(battle.player_hero_target.get_global_rect()), "ally hero visible on entry %s" % viewport)
+		check(view.board_scroll.get_v_scroll_bar().max_value > view.board_scroll.get_v_scroll_bar().page, "tall battlefield lanes scroll %s" % viewport)
+		var hand_rect: Rect2 = battle.hand_scroll.get_global_rect()
+		var action_rect: Rect2 = battle.end_turn_button.get_global_rect()
+		for ally in [false, true]:
+			await view.focus_targets([{"player": ally, "hero": true}], true)
+			await settle()
+			var hero: Control = battle.player_hero_target if ally else battle.opponent_hero_target
+			check(view.board_scroll.get_global_rect().encloses(hero.get_global_rect()), "focused hero fully visible %s ally=%s" % [viewport, ally])
+			check(safe.encloses(hero.get_global_rect()), "focused hero stays in safe area %s ally=%s" % [viewport, ally])
+			var slots: Array = battle.player_field_slots if ally else battle.opponent_field_slots
 			check(slots.size() == 5, "five slots per side")
 			for slot in slots:
-				check(view.board_scroll.get_global_rect().encloses(slot.get_global_rect()), "both full lanes visible %s %s" % [viewport, slot.get_global_rect()])
-		check(view.board_scroll.scroll_vertical == 0, "no battlefield scrolling")
+				check(slot.size.y > slot.size.x, "field card retains a tall silhouette %s %s" % [viewport, slot.size])
+				check(view.board_scroll.get_global_rect().encloses(slot.get_global_rect()), "all five focused lane cards visible %s ally=%s %s" % [viewport, ally, slot.get_global_rect()])
+			check(hand_rect == battle.hand_scroll.get_global_rect() and action_rect == battle.end_turn_button.get_global_rect(), "hand and actions remain docked while focusing %s" % viewport)
 		battle.opponent.field.clear()
 		battle.selected_attacker = 0
 		battle._refresh_ui()

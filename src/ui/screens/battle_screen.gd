@@ -1332,9 +1332,13 @@ func _work_on_race_power_pressed(target_unit_id: int = -1) -> void:
 	pending_action.clear()
 	input_locked = true
 	selected_attacker = -1
+	var gesture: int = presentation.interaction_generation
 	_refresh_ui()
 	if main._current_race_id() != "elf":
 		await _focus_battle_targets([{"player": true, "unit_id": target_unit_id}] if target_unit_id >= 0 else [{"player": true, "hero": true}])
+	if main._current_race_id() == "undead":
+		# The chosen sacrifice is already visible; reveal the impact before damage.
+		await _focus_battle_targets([{"player": false, "hero": true}])
 	battle_state["race_power_used"] = true
 	var old_player_hp := int(player.get("health", 0))
 	var old_opponent_hp := int(opponent.get("health", 0))
@@ -1353,6 +1357,8 @@ func _work_on_race_power_pressed(target_unit_id: int = -1) -> void:
 	_store_battle_snapshot()
 	_check_game_over()
 	_check_no_actions_loss()
+	if main._current_race_id() == "undead":
+		presentation.return_to_allies(gesture)
 
 func _resolve_human_race_power() -> void:
 	if player.field.size() < MAX_FIELD:
@@ -3237,6 +3243,8 @@ func _work_on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed:
 	var target := _field_slot_for(player, _ally_index_by_id(target_unit_id)) if target_unit_id >= 0 else _card_action_target(card, true)
 	var accent := _card_accent_color(card)
 	var flying_card: Control = null
+	var sacrifice_impact := target_unit_id >= 0 and _card_has_impact_feedback(card)
+	var gesture: int = presentation.interaction_generation
 	input_locked = true
 	_refresh_ui()
 	await _focus_card_action(card, true, target_unit_id)
@@ -3254,6 +3262,12 @@ func _work_on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed:
 			accent,
 			not _is_battle_cutscene_enabled()
 		)
+	if sacrifice_impact:
+		# Finish the visual at the sacrifice, then show the enemy hit in its lane.
+		if is_instance_valid(flying_card) and is_instance_valid(battle_fx_layer):
+			await battle_fx_layer.finish_card(flying_card, card_type, accent, not _is_battle_cutscene_enabled())
+			flying_card = null
+		await _focus_battle_targets([_focus_unit(opponent, 0)])
 	player.mana -= cost
 	player.hand.remove_at(index)
 	var own_impact: bool = _card_has_impact_feedback(card)
@@ -3299,6 +3313,8 @@ func _work_on_hand_card_pressed(index: int, target_unit_id: int = -1, confirmed:
 	_refresh_ui()
 	_store_battle_snapshot()
 	_check_no_actions_loss()
+	if sacrifice_impact:
+		presentation.return_to_allies(gesture)
 
 
 func _hand_card_control(hand_slot: int) -> Control:
@@ -5809,6 +5825,7 @@ func _begin_ally_selection(action: Dictionary) -> void:
 	_refresh_ui()
 	for i in range(player.field.size()):
 		_spawn_target_glow(_field_slot_for(player, i), Color(0.4, 1.0, 0.7), 0.42)
+	await _focus_battle_targets([_focus_unit(player, 0)])
 
 func _cancel_ally_selection() -> void:
 	pending_action.clear()
@@ -5982,6 +5999,7 @@ func _first_play_guidance() -> String:
 
 func _show_first_play_help(state: Dictionary) -> void:
 	var target: Control = null
+	var focus_target: Dictionary = {}
 	match String(state.get("kind", "wait")):
 		"play_card":
 			var index := int(state.get("card_index", -1))
@@ -5991,23 +6009,32 @@ func _show_first_play_help(state: Dictionary) -> void:
 					hand_scroll.ensure_control_visible(target)
 		"hero_attack_direct", "unit_attack_direct":
 			target = _field_slot_for(player, int(state.get("attacker_index", -1)))
+			focus_target = _focus_unit(player, int(state.get("attacker_index", -1)))
 		"unit_attack_selected":
 			target = _field_slot_for(opponent, int(state.get("target_index", -1)))
+			focus_target = _focus_unit(opponent, int(state.get("target_index", -1)))
 		"hero_attack_selected":
 			target = opponent_hero_target
+			focus_target = {"player": false, "hero": true}
 		"end_turn":
 			target = end_turn_button
+	if not focus_target.is_empty() and is_instance_valid(landscape_view):
+		# Help is an explicit request to reveal a control, even with auto-focus off.
+		await _focus_battle_targets([focus_target], true)
+		if leaving_battle or not is_instance_valid(landscape_view):
+			return
+		target = landscape_view.resolve_focus(focus_target)
 	if target != null and is_instance_valid(target):
 		_spawn_target_glow(target, Color(1.0, 0.82, 0.3), 0.72)
 
-func _focus_battle_targets(targets: Array) -> void:
+func _focus_battle_targets(targets: Array, manual: bool = false) -> void:
 	var session = presentation
 	if session.disposed or not is_instance_valid(landscape_view): return
 	# The native-release wait belongs to phone input, not the shared board layout.
 	# Finish Android's native release before deciding whether a finger is held.
 	if _is_landscape_phone():
 		await main.get_tree().process_frame
-	await session.focus(targets)
+	await session.focus(targets, false, manual)
 
 func _focus_unit(side: Dictionary, index: int) -> Dictionary:
 	if index < 0 or index >= side.field.size():
