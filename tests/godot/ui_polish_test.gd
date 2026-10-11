@@ -73,10 +73,11 @@ func run() -> void:
 	for dimensions in [Vector2i(844, 390), Vector2i(932, 430), Vector2i(1280, 720), Vector2i(1920, 1080)]:
 		root.size = dimensions
 		main.set_meta("layout_viewport_override", dimensions)
+		main.touch_input_active = dimensions.x < 1100
 		main._apply_root_layout()
+		await settle()
 		main._init_run("human", "human_elite")
 		main.run_flow.prepare_battle("normal")
-		main.touch_input_active = true
 		var battle = main.battle_screen
 		battle.player.hand.clear()
 		for i in range(10):
@@ -123,7 +124,12 @@ func run() -> void:
 		battle.selected_hand_slot = int(last.get_meta("hand_slot"))
 		battle._layout_hand_cards()
 		await settle()
-		check(battle.hand_scroll.get_global_rect().grow(1).encloses(transformed_bounds(last)), "selected rotated card is completely visible: " + str(dimensions))
+		if battle.landscape_view.compact_board:
+			var visible: Rect2 = battle.hand_scroll.get_global_rect().intersection(last.get_global_rect())
+			check(visible.size.x >= 44 and visible.size.y >= 44, "folded hand keeps a usable tap target: " + str(dimensions))
+			check(battle.hand_scroll.get_global_rect().grow(1).encloses(last.get_node("CardName").get_global_rect()), "folded hand name remains visible: " + str(dimensions))
+		else:
+			check(battle.hand_scroll.get_global_rect().grow(1).encloses(transformed_bounds(last)), "selected rotated card is completely visible: " + str(dimensions))
 		var before := JSON.stringify(battle.battle_state)
 		var saved := FileAccess.get_file_as_string(Storage.run_path())
 		seed(73411)

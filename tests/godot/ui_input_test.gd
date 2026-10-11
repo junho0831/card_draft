@@ -115,9 +115,14 @@ func run() -> Dictionary:
 				card_button = battle._hand_card_control(slot)
 			battle.hand_scroll.ensure_control_visible(card_button)
 			await tree.process_frame
+			var before_use: String = JSON.stringify([battle.player, battle.opponent, battle.selected_attacker])
 			await click(battle._hand_card_control(slot), tree)
 			if is_instance_valid(battle.landscape_view):
-				check(not is_instance_valid(battle.landscape_view.card_dialog), "mobile tap plays without inspection dialog")
+				if battle.landscape_view.compact_board:
+					check(is_instance_valid(battle.landscape_view.card_dialog), "mobile tap unfolds the card for inspection")
+					check(JSON.stringify([battle.player, battle.opponent, battle.selected_attacker]) == before_use, "unfolding the card never uses it")
+					await click(battle.landscape_view.confirm_button, tree)
+				check(not is_instance_valid(battle.landscape_view.card_dialog), "confirmed card use returns to the battlefield")
 			check(not battle.player.field.is_empty(), "manual card input summons %s %s" % [race, viewport])
 			if battle.player.field.is_empty():
 				continue
@@ -168,6 +173,9 @@ func run() -> Dictionary:
 				await tree.process_frame
 				var equipment_slot: int = battle.player.hand[0].get("_hand_slot", 0)
 				await click(battle._hand_card_control(equipment_slot), tree)
+				if is_instance_valid(battle.landscape_view) and battle.landscape_view.compact_board:
+					check(battle.pending_action.is_empty() and battle.player.mana == 10, "equipment inspection waits for confirmation")
+					await click(battle.landscape_view.confirm_button, tree)
 				check(not battle.pending_action.is_empty(), "equipment input opens target selection %s" % viewport)
 				await click(battle.landscape_view.cancel_button if is_instance_valid(battle.landscape_view) else battle.end_turn_button, tree)
 				check(battle.pending_action.is_empty() and battle.player.mana == 10 and battle.player.hand.size() == 1, "cancel input preserves equipment and mana %s" % viewport)

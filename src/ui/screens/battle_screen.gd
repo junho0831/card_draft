@@ -5257,7 +5257,7 @@ func _layout_hand_cards() -> void:
 		return
 	if hand_box.get_child_count() == 0:
 		if is_instance_valid(landscape_view):
-			hand_box.custom_minimum_size = Vector2(0, landscape_view.hand_size.y + 4)
+			hand_box.custom_minimum_size = Vector2(0, landscape_view.hand_viewport_height)
 		return
 	var count := hand_box.get_child_count()
 	var card_size: Vector2 = hand_box.get_child(0).custom_minimum_size
@@ -5293,7 +5293,7 @@ func _layout_hand_cards() -> void:
 		card.set_meta("base_rotation", rotation)
 		card.set_meta("base_scale", Vector2.ONE)
 		card.set_meta("base_z_index", z_order)
-	hand_box.custom_minimum_size = Vector2(track_width, card_size.y + 24.0)
+	hand_box.custom_minimum_size = Vector2(track_width, landscape_view.hand_viewport_height if board_layout else card_size.y + 24.0)
 	last_hand_layout_width = hand_box.custom_minimum_size.x
 	if board_layout and selected_hand_slot >= 0:
 		var selected_card := _hand_card_control(selected_hand_slot)

@@ -13,6 +13,7 @@ var detail_slot := -1
 var confirm_in_progress := false
 var unit_width := 80.0
 var hand_size := Vector2(80, 112)
+var hand_viewport_height := Tokens.HAND_PEEK_HEIGHT
 var hero_width: float = 80.0
 var rail_width: float = 120.0
 var compact_board: bool = true
@@ -53,9 +54,7 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	hero_width = 80.0 if compact_board else 112.0
 	rail_width = 148.0 if compact_board else 176.0
 	hand_size = Tokens.HAND_MIN_SIZE if compact_board else Vector2(132, 198)
-	# Reserve a single-line prediction strip without flattening the portraits.
-	field_height = maxf(44, floorf((viewport.y - hand_size.y - 112) / 2.0)) if compact_board else clampf(floorf((viewport.y - hand_size.y - 160) / 2.0), 128, 178)
-	unit_width = minf(maxf(64, field_height), floorf((viewport.x - rail_width - hero_width - 46) / 5.0)) if compact_board else minf(136, floorf((viewport.x - rail_width - 48 - hero_width - 32) / 5.0))
+	refresh_board_layout()
 	old_root.hide()
 	action_panel.hide()
 	battle.main.mobile_bottom_inset = 0
@@ -182,7 +181,7 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	battle.hand_scroll.set_meta("cancel_tap_on_motion", true)
 	battle.hand_scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	battle.hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if compact_board else ScrollContainer.SCROLL_MODE_AUTO
-	battle.hand_scroll.custom_minimum_size = Vector2(0, hand_size.y + 24)
+	battle.hand_scroll.custom_minimum_size = Vector2(0, hand_viewport_height)
 	battle.hand_scroll.size_flags_vertical = Control.SIZE_SHRINK_END
 	var rail_panel := PanelContainer.new()
 	rail_panel.name = "BattleActionPanel"
@@ -225,6 +224,31 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	if compact_board:
 		ButtonMetrics.apply(cancel_button, "compact", 104)
 
+func refresh_board_layout() -> void:
+	var viewport: Vector2 = battle.main._layout_viewport_size()
+	var targeting: bool = battle.selected_attacker >= 0 or not battle.pending_action.is_empty()
+	var next_hand_height: float = Tokens.HAND_TARGETING_HEIGHT if targeting else Tokens.HAND_PEEK_HEIGHT
+	if not compact_board: next_hand_height = hand_size.y + 24
+	var next_height := clampf(floorf((viewport.y - next_hand_height - 92) / 2.0), 44, Tokens.PHONE_FIELD_MAX_SIZE.y) if compact_board else clampf(floorf((viewport.y - hand_size.y - 160) / 2.0), 128, 230)
+	var next_width := minf(Tokens.PHONE_FIELD_MAX_SIZE.x, floorf((viewport.x - rail_width - hero_width - 46) / 5.0)) if compact_board else minf(156, floorf((viewport.x - rail_width - 48 - hero_width - 32) / 5.0))
+	if is_equal_approx(next_hand_height, hand_viewport_height) and is_equal_approx(next_height, field_height) and is_equal_approx(next_width, unit_width): return
+	hand_viewport_height = next_hand_height
+	field_height = next_height
+	unit_width = next_width
+	if is_instance_valid(battle.hand_scroll): battle.hand_scroll.custom_minimum_size.y = hand_viewport_height
+	if is_instance_valid(lanes):
+		for enemy in [true, false]:
+			var panel: Control = lanes.get_node("EnemyLane" if enemy else "AllyLane")
+			var row: HBoxContainer = panel.get_child(0)
+			var height := field_height + (22 if compact_board else 42) if enemy else field_height
+			row.custom_minimum_size.y = height
+			row.get_node("HeroAnchor").custom_minimum_size.y = field_height
+			(battle.opponent_field_box if enemy else battle.player_field_box).custom_minimum_size.y = height
+	# Geometry is presentation-only; existing renderers recreate the five slots.
+	battle.opponent_field_signature = ""
+	battle.player_field_signature = ""
+	battle.hand_render_signature = ""
+
 func surface_style(accent: Color) -> StyleBox:
 	return SharedStyles.make_textured_panel_style(Tokens.SURFACE_RAISED, accent, 0, accent == Tokens.ACCENT_GOLD)
 
@@ -265,7 +289,7 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 	parent.add_child(panel)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
-	var lane_height := field_height + (18 if compact_board else 42) if enemy else field_height
+	var lane_height := field_height + (22 if compact_board else 42) if enemy else field_height
 	row.custom_minimum_size.y = lane_height
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.add_child(row)
@@ -459,6 +483,16 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	var kind := card_kind(card)
 	if not field:
 		var face := CardView.make_compact_offer(battle.main, card, int(width), int(height))
+		if compact_board:
+			var title: Label = face.get_node("EconomyOfferName")
+			title.autowrap_mode = TextServer.AUTOWRAP_OFF
+			title.max_lines_visible = 1
+			title.position.y = 64
+			title.size.y = maxf(28, title.get_theme_font("font").get_height(14) + 4)
+			var band: Control = face.get_node("EconomyOfferNameBand")
+			band.position.y = title.position.y
+			band.size.y = title.size.y
+			face.get_node("EconomyOfferArt").size.y = title.position.y - 6
 		face.get_node("EconomyOfferArt").name = "Illustration"
 		face.get_node("EconomyOfferName").name = "CardName"
 		face.get_node("CardPlate").name = "TypeBorder"
@@ -505,8 +539,8 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	else:
 		stamp(button, "CardName", String(card.get("name", "")), Vector2(7, height - 43), Vector2(width - 14, 20), race_band, 12 if compact_board else 14)
 	if card.has("attack"):
-		stamp(button, "Attack", str(int(card.attack)), Vector2(3, height - 24), Vector2(26, 22), Color(0.48, 0.12, 0.09))
-		stamp(button, "Health", str(int(card.get("health", 0))), Vector2(width - 29, height - 24), Vector2(26, 22), Color(0.08, 0.25, 0.48))
+		stamp(button, "Attack", str(int(card.attack)), Vector2(3, height - 30), Vector2(32, 28), Color(0.48, 0.12, 0.09), 20)
+		stamp(button, "Health", str(int(card.get("health", 0))), Vector2(width - 35, height - 30), Vector2(32, 28), Color(0.08, 0.25, 0.48), 20)
 	if not bottom.is_empty():
 		if compact_field:
 			stamp(button, "Status", bottom, Vector2(width - 23, 3), Vector2(20, 16), Color(Tokens.SURFACE, 0.9), 12)
@@ -580,9 +614,9 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 		column.add_theme_constant_override("separation", 2)
 		column.add_child(button)
 		var preview_text := "적%d 내%d" % [int(prediction.defender_health), int(prediction.attacker_health)] if compact_board else "적 %d→%d\n내 %d→%d" % [int(unit.health), int(prediction.defender_health), int(battle._selected_player_attacker().get("health", 0)), int(prediction.attacker_health)]
-		var preview := label(preview_text, 12 if compact_board else 14)
+		var preview := label(preview_text, 14)
 		preview.name = "CombatPrediction"
-		preview.custom_minimum_size = Vector2(unit_width, 16 if compact_board else 40)
+		preview.custom_minimum_size = Vector2(unit_width, 20 if compact_board else 40)
 		preview.clip_text = true
 		preview.add_theme_constant_override("line_spacing", 0)
 		preview.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -657,6 +691,9 @@ func render_hand() -> void:
 		if not playable: button.get_node("Illustration").modulate = Color(0.42, 0.42, 0.42)
 		button.pressed.connect(func():
 			if button.get_meta("hold_consumed", false): return
+			if compact_board:
+				show_card.call_deferred(i)
+				return
 			# Card use rebuilds the hand. Finish native touch release before
 			# detaching the Button that is still receiving the GUI event.
 			battle._on_hand_card_pressed.call_deferred(i)
@@ -787,6 +824,7 @@ func _cancel_selection() -> void:
 	battle._focus_battle_targets([{"player": true, "hero": true}])
 
 func refresh_labels() -> void:
+	refresh_board_layout()
 	battle.recommended_action_button.text = battle._recommended_action_text()
 	phase_badge.text = battle._battle_phase_state().badge
 	phase_badge.add_theme_color_override("font_color", Tokens.TEXT_SECONDARY if battle.current_player != "player" else Tokens.ACCENT_GOLD)
@@ -817,7 +855,7 @@ func refresh_labels() -> void:
 		center_guidance.text = "할 수 있는 행동이 없습니다 · 턴 종료" if battle._turn_action_state().exhausted else "카드·필살기 사용 또는 턴 종료"
 	if battle.selected_attacker >= 0 and battle.pending_action.is_empty() and Time.get_ticks_msec() >= battle.interaction_hint_until and not battle.main.Onboarding.first_battle(battle.main.current_run):
 		center_guidance.text = String(battle._selected_player_attacker().get("name", "아군")) + " 선택 · 공격 후 체력 미리보기"
-	center_guidance.text = center_guidance.text.replace("손패 카드를 눌러 확인한 뒤 다시 눌러 소환하세요.", "손패 카드를 누르면 바로 소환합니다.")
+	center_guidance.text = center_guidance.text.replace("손패 카드를 눌러 확인한 뒤 다시 눌러 소환하세요.", "손패 선택 · 확인 후 사용")
 	center_guidance.tooltip_text = center_guidance.text
 	if compact_board and battle.main.Onboarding.first_battle(battle.main.current_run):
 		center_guidance.text = _compact_first_play_guidance()

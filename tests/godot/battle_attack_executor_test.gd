@@ -6,6 +6,7 @@ var count := 0
 
 class DummyView extends Control:
 	var hand_size := Vector2(80, 112)
+	var hand_viewport_height := 136.0
 	func refresh_labels() -> void:
 		pass
 
