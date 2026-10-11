@@ -1,7 +1,6 @@
 extends Control
 ## A single cached card face; only its projection is animated, never game state.
 const EFFECT = preload("res://src/ui/shaders/card_inspection.gdshader")
-const Tokens = preload("res://src/ui/styles/ui_tokens.gd")
 var target_tilt := Vector2.ZERO
 var tilt := Vector2.ZERO
 var pointer := -1
@@ -84,36 +83,4 @@ func _process(delta: float) -> void:
 	if effect != null: effect.set_shader_parameter("tilt", tilt)
 
 static func make_face(main: Node, card: Dictionary) -> Control:
-	var face := Panel.new()
-	face.theme = main.theme
-	var style: StyleBoxFlat = main.ui.make_race_card_style(card)
-	face.set_meta("type_edge_color", style.border_color)
-	face.add_theme_stylebox_override("panel", style)
-	main.ui.decorate_card_frame(face, card)
-	var art: TextureRect = main._make_card_art_rect(card, Vector2.ZERO)
-	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	art.offset_left = 6; art.offset_top = 6; art.offset_right = -6; art.offset_bottom = -6
-	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	face.add_child(art)
-	var emblem: TextureRect = main.ui.make_race_emblem(card, 48)
-	emblem.position = Vector2(118, 12)
-	face.add_child(emblem)
-	var band := ColorRect.new()
-	band.color = main.ui.make_race_band_style(card).bg_color
-	band.position = Vector2(6, 304); band.size = Vector2(272, 86)
-	face.add_child(band)
-	var title: Label = main._make_label(String(card.get("name", "카드")), 26, Tokens.TEXT_PRIMARY)
-	title.position = Vector2(10, 312); title.size = Vector2(264, 34)
-	title.autowrap_mode = TextServer.AUTOWRAP_OFF
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	face.add_child(title)
-	var stats: Label = main._make_label("비용 %d" % int(card.get("cost", 0)), 24, Tokens.TEXT_SECONDARY)
-	if card.has("attack"):
-		stats.text += "   공격 %d / 체력 %d" % [int(card.attack), int(card.get("health", 0))]
-	stats.position = Vector2(10, 350); stats.size = Vector2(264, 30)
-	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stats.add_theme_font_size_override("font_size", 20)
-	face.add_child(stats)
-	return face
+	return preload("res://src/ui/components/card_view.gd").make_inspection_face(main, card)

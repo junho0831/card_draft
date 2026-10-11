@@ -200,7 +200,7 @@ func _make_shop_card_product(card: Dictionary, shop_state: Dictionary, compact: 
 		var tag_label: Label = main._make_label(tag_text, 10 if tight else 11, Color(1.0, 0.82, 0.56, 1.0))
 		tag_label.clip_text = true
 		inner.add_child(tag_label)
-	var button := Button.new()
+	var button: Button = main.ui.make_button("")
 	button.text = "구매 ▶"
 	button.custom_minimum_size.x = 120
 	main.ui.style_role_button(button, "primary", Color(0.96, 0.74, 0.3, 1.0), Color(0.24, 0.18, 0.07, 1.0), 14)
@@ -246,7 +246,7 @@ func _make_shop_relic_product(relic: Dictionary, shop_state: Dictionary, compact
 		box.add_child(relic_tag_label)
 		var promise: PanelContainer = main.ui.make_chip(main._choice_playstyle_text(relic), Color(0.12, 0.18, 0.24, 1.0), Color(0.84, 0.94, 1.0, 1.0), 10 if tight else 11)
 		box.add_child(promise)
-	var button := Button.new()
+	var button: Button = main.ui.make_button("")
 	button.text = "유물 구매 ▶"
 	button.custom_minimum_size.x = 120
 	main.ui.style_button(button, Color(0.38, 0.3, 0.14, 1.0))

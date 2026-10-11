@@ -2,6 +2,7 @@ extends RefCounted
 class_name CollectionScreen
 
 const Layout = preload("res://src/ui/screens/screen_layout.gd")
+const DetailDialog = preload("res://src/ui/components/detail_dialog.gd")
 
 var main: Node
 
@@ -79,7 +80,7 @@ func _make_collection_card(card: Dictionary, compact: bool) -> Control:
 	if owned <= 0:
 		face.modulate = Color(0.45, 0.45, 0.5, 1.0)
 	content.add_child(face)
-	var inspect := Button.new()
+	var inspect: Button = main.ui.make_button("")
 	inspect.text = "크게 보기"
 	inspect.custom_minimum_size.y = 48
 	inspect.pressed.connect(_inspect_card.bind(card))
@@ -104,28 +105,10 @@ func _collection_lore_text(card: Dictionary) -> String:
 
 func _inspect_card(card: Dictionary) -> void:
 	main._clear_modal()
-	var overlay := ColorRect.new()
-	overlay.color = Color(0.015, 0.025, 0.04, 0.97)
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	main.modal_layer.add_child(overlay)
-	var box := VBoxContainer.new()
-	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	box.offset_left = 24
-	box.offset_right = -24
-	box.offset_top = 16
-	box.offset_bottom = -16
-	overlay.add_child(box)
-	var close := Button.new()
-	close.text = "닫기"
+	var close: Button = main.ui.make_button("닫기")
 	close.custom_minimum_size.y = 48
-	close.pressed.connect(main._clear_modal)
-	box.add_child(close)
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(scroll)
-	var column := VBoxContainer.new()
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(column)
+	var overlay = DetailDialog.create(main.modal_layer, DetailDialog.Profile.COLLECTION, null, close, main._clear_modal, main._layout_viewport_size(), main.ui)
+	var column: Control = overlay.content
 	var face := preload("res://src/ui/components/card_inspection_view.gd").make_face(main, card)
 	var viewer := preload("res://src/ui/components/card_inspection_view.gd").new()
 	viewer.setup(face, Vector2(300, 470))

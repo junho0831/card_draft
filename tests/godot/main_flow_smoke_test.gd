@@ -12,7 +12,11 @@ func run() -> Dictionary:
 	_count = 0
 
 	var tree := Engine.get_main_loop() as SceneTree
+	await tree.process_frame
 	var main = MAIN_SCENE.instantiate()
+	# These flow assertions are synchronous; rendered effects have their own tests.
+	main.set_meta("disable_window_mode_changes", true)
+	main.set_meta("disable_timed_battle_fx", true)
 	tree.root.add_child(main)
 
 	_test_boots_to_main_menu(main)

@@ -51,7 +51,7 @@ func build(body: VBoxContainer) -> void:
 	_refresh_grid()
 	var relics := VBoxContainer.new()
 	relics.visible = false
-	var toggle := Button.new()
+	var toggle: Button = main.ui.make_button("")
 	toggle.text = "유물 %d개 펼쳐보기" % main.relic_service.relics.size()
 	toggle.custom_minimum_size.y = 44
 	toggle.pressed.connect(func(): relics.visible = not relics.visible)

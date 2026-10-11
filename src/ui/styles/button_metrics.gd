@@ -2,6 +2,22 @@ extends RefCounted
 ## Shared action geometry. Card faces and illustrated choice tiles keep their own layout.
 const Tokens = preload("res://src/ui/styles/ui_tokens.gd")
 
+static func set_label(button: Button, title: String) -> void:
+	button.text = title
+	button.tooltip_text = title
+	button.set_meta("button_label_tooltip", title)
+
+static func reserve_labels(button: Button, titles: Array[String], minimum_width: float, kind: String = "compact") -> void:
+	apply(button, kind, minimum_width)
+	button.clip_text = false
+	button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	var font := button.get_theme_font("font")
+	var font_size := button.get_theme_font_size("font_size")
+	var padding := button.get_theme_stylebox("normal").get_minimum_size().x
+	for title in titles:
+		var text_width := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		button.custom_minimum_size.x = maxf(button.custom_minimum_size.x, ceilf(text_width + padding))
+
 static func apply(button: Button, kind: String = "action", minimum_width: float = -1) -> void:
 	var resolved := kind
 	if kind == "action" and button.text.contains("\n"): resolved = "multiline"

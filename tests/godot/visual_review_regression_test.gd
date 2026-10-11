@@ -40,7 +40,8 @@ func run() -> void:
 	main._enter_current_node()
 	await settle()
 	var battle = main.battle_screen
-	check(main.root_scroll.get_global_rect().encloses(battle.hand_box.get_global_rect()), "1024x768 hand fits on the first screen: %s inside %s" % [battle.hand_box.get_global_rect(), main.root_scroll.get_global_rect()])
+	var battle_bounds: Rect2 = main.modal_layer.get_global_rect() if battle.landscape_view != null else main.root_scroll.get_global_rect()
+	check(battle_bounds.encloses(battle.hand_box.get_global_rect()), "1024x768 hand fits on the active battle screen: %s inside %s" % [battle.hand_box.get_global_rect(), battle_bounds])
 	var tag_meta: Dictionary = main._build_tag_meta()
 	for meta in tag_meta.values():
 		check(meta.icon != meta.name, "build icon does not repeat its name")

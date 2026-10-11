@@ -2,67 +2,20 @@ extends RefCounted
 
 const Tokens = preload("res://src/ui/styles/ui_tokens.gd")
 const Styles = preload("res://src/ui/styles/ui_styles.gd")
+const DetailDialog = preload("res://src/ui/components/detail_dialog.gd")
 const TEXT := Tokens.TEXT_PRIMARY
 const MUTED := Tokens.TEXT_SECONDARY
 const SUCCESS := Tokens.ACCENT_TEAL
 const WARNING := Tokens.ACCENT_GOLD
 
 static func show_dialog(main: Node, data: Dictionary) -> Control:
-	var overlay := Control.new()
-	overlay.name = "BattleChoiceDialog"
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 350
-	main.modal_layer.add_child(overlay)
-	var shade := ColorRect.new()
-	shade.color = Tokens.SURFACE
-	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(shade)
-	var background := TextureRect.new()
-	background.name = "DetailBackground"
-	background.texture = load(Tokens.DETAIL_BACKGROUND_PATH)
-	background.modulate = Color(0.65, 0.65, 0.65)
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(background)
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var horizontal := maxi(24, int((main._layout_viewport_size().x - 960) / 2))
-	for side in ["left", "right"]:
-		margin.add_theme_constant_override("margin_" + side, horizontal)
-	for side in ["top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 20)
-	overlay.add_child(margin)
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", Styles.make_textured_panel_style(Color(Tokens.SURFACE, 0.88), Tokens.BORDER, 16, false))
-	margin.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
-	panel.add_child(box)
-	var header := HBoxContainer.new()
-	box.add_child(header)
-	header.add_child(text("전투 정보", 20))
-	var close := Button.new()
+	var close: Button = main.ui.make_button("닫기")
 	close.name = "BattleChoiceClose"
-	close.text = "닫기"
 	Styles.apply_role_button(close, "secondary", Tokens.BORDER, Color.TRANSPARENT, 16)
 	preload("res://src/ui/styles/button_metrics.gd").apply(close, "action", 96)
 	close.clip_text = false
-	header.add_child(close)
-	close.pressed.connect(overlay.queue_free)
-	var scroll := ScrollContainer.new()
-	scroll.name = "CardDetailScroll"
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	box.add_child(scroll)
-	scroll.add_child(build(data))
-	close.gui_input.connect(func(event: InputEvent):
-		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-			close.accept_event()
-			overlay.queue_free()
-	)
-	close.grab_focus()
+	var overlay = DetailDialog.create(main.modal_layer, DetailDialog.Profile.BATTLE_INFO, text("전투 정보", 20), close, Callable(), main._layout_viewport_size(), main.ui, DetailDialog.CloseBehavior.FREE)
+	overlay.scroll.add_child(build(data))
 	return overlay
 
 static func text(value: String, size: int = 16, color: Color = TEXT) -> Label:

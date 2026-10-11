@@ -52,7 +52,7 @@ func build(body: VBoxContainer) -> void:
 	columns.add_child(box)
 	_add_choice(box, "전투 연출", ["풍부하게", "간결하게", "최소화"], EFFECT_MODES.find(Presentation.effect_mode(main.player_profile.settings)), _on_effects_selected, "EffectsMode")
 	_add_hint(box, "최소화는 타격 숫자·소리를 유지하고 돌진·섬광을 줄입니다.")
-	preview_button = Button.new()
+	preview_button = main.ui.make_button("")
 	preview_button.name = "ImpactPreviewButton"
 	preview_button.text = "타격 효과·소리 미리보기"
 	preload("res://src/ui/styles/battle_styles.gd").apply_compact_button(preview_button, Color("d5b779"))
@@ -206,10 +206,10 @@ func show_preview() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 12)
 	box.add_child(actions)
-	preview_replay = Button.new()
+	preview_replay = main.ui.make_button("")
 	preview_replay.text = "다시 재생"
 	preview_replay.disabled = true
-	preview_close = Button.new()
+	preview_close = main.ui.make_button("")
 	preview_close.text = "닫기"
 	for button in [preview_replay, preview_close]:
 		button.custom_minimum_size.x = 120

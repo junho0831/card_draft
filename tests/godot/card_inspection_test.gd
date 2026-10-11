@@ -30,37 +30,43 @@ func run():
 	var center: Vector2 = viewer.get_global_rect().get_center()
 	var touch := InputEventScreenTouch.new()
 	touch.index = 0; touch.pressed = true; touch.position = center
-	Input.parse_input_event(touch)
+	root.push_input(touch, true)
 	await process_frame
 	var drag := InputEventScreenDrag.new()
 	drag.index = 0; drag.position = center + Vector2(80, -15); drag.relative = Vector2(80, -15)
-	Input.parse_input_event(drag)
+	root.push_input(drag, true)
 	await create_timer(0.3).timeout
 	check(viewer.tilt.length() > 0.08, "touch drag tilts card")
 	check(JSON.stringify(battle.player) == before, "inspection cannot play a card")
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(Storage.path_for("tilted.png"))
 	touch.pressed = false; touch.position = drag.position
-	Input.parse_input_event(touch)
+	root.push_input(touch, true)
 	await create_timer(0.7).timeout
 	check(viewer.tilt.length() < 0.002, "release returns to front")
 	check(not viewer.is_processing(), "idle viewer stops processing")
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(Storage.path_for("front.png"))
 	var scroll = main.modal_layer.find_child("CardDetailScroll", true, false)
-	check(viewer.size.y >= 470, "card stays large instead of fitting screen height")
-	check(scroll.get_v_scroll_bar().max_value > scroll.get_v_scroll_bar().page, "large card is scrollable")
+	check(is_equal_approx(viewer.size.y, main._layout_viewport_size().y - 116), "card keeps baseline landscape inspection dimensions")
+	check(not scroll.is_ancestor_of(viewer), "card remains fixed beside the scrollable description")
+	var viewer_rect: Rect2 = viewer.get_global_rect()
+	var description := scroll.get_child(0) as Label
+	description.text += "\n" + "상세보기 스크롤 검사용 설명입니다.\n".repeat(24)
+	await create_timer(0.2).timeout
+	check(scroll.get_v_scroll_bar().max_value > scroll.get_v_scroll_bar().page, "long description is scrollable")
 	var action_rect: Rect2 = battle.landscape_view.confirm_button.get_global_rect()
-	touch.pressed = true; touch.position = viewer.global_position + Vector2(100, 95)
-	Input.parse_input_event(touch)
+	touch.pressed = true; touch.position = scroll.global_position + Vector2(100, 95)
+	root.push_input(touch, true)
 	await process_frame
 	drag.position = touch.position - Vector2(0, 65); drag.relative = Vector2(0, -65)
-	Input.parse_input_event(drag)
+	root.push_input(drag, true)
 	await process_frame
 	touch.pressed = false; touch.position = drag.position
-	Input.parse_input_event(touch)
+	root.push_input(touch, true)
 	await create_timer(0.2).timeout
-	check(scroll.scroll_vertical > 0, "vertical swipe over card scrolls content")
+	check(scroll.scroll_vertical > 0, "vertical swipe over description scrolls content")
+	check(viewer.get_global_rect() == viewer_rect, "description scroll does not move the card")
 	check(battle.landscape_view.confirm_button.get_global_rect() == action_rect, "use button stays fixed")
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(Storage.path_for("scrolled.png"))
@@ -78,7 +84,7 @@ func run():
 	await create_timer(0.4).timeout
 	var collection_view = main.modal_layer.find_child("CardInspectionView", true, false)
 	check(is_instance_valid(collection_view), "collection opens inspection")
-	if is_instance_valid(collection_view): check(collection_view.get_global_rect().end.x <= 390, "portrait inspection fits")
+	if is_instance_valid(collection_view): check(collection_view.get_global_rect().end.x <= main.modal_layer.get_global_rect().end.x, "collection inspection fits the enforced landscape viewport")
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(Storage.path_for("collection.png"))
 	main._clear_modal()

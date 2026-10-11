@@ -23,33 +23,13 @@ static func open_surface(panel: PanelContainer, padding: int = 0) -> void:
 	panel.add_theme_stylebox_override("panel", style)
 
 static func make_detail_overlay(host: Control, content: Control, close: Callable) -> Control:
-	var overlay := Control.new()
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 300
-	host.add_child(overlay)
-	var scrim := ColorRect.new()
-	scrim.color = Color(0.006, 0.01, 0.02, 0.9)
-	scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(scrim)
-	var box := VBoxContainer.new()
-	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	box.offset_left = 16
-	box.offset_right = -16
-	box.offset_top = 16
-	box.offset_bottom = -16
-	overlay.add_child(box)
-	var button := Button.new()
-	button.text = "전투로 돌아가기"
+	var dialog = preload("res://src/ui/components/detail_dialog.gd")
+	var ui := preload("res://src/ui/ui_factory.gd").new()
+	var button: Button = ui.make_button("전투로 돌아가기")
 	button.custom_minimum_size.y = 44
-	button.pressed.connect(close)
-	box.add_child(button)
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	box.add_child(scroll)
-	content.reparent(scroll)
+	var overlay = dialog.create(host, dialog.Profile.LEGACY_BATTLE, null, button, close, Vector2.ZERO, ui, dialog.CloseBehavior.HIDE)
+	content.reparent(overlay.scroll)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	overlay.visible = false
 	return overlay
 
 # Shared by the turn action and the compact header; priority must stay identical.

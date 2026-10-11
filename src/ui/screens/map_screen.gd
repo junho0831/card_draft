@@ -631,7 +631,7 @@ func _make_path_segment(from_pos: Vector2, to_pos: Vector2, color: Color) -> Con
 	return segment
 
 func _make_node_button(index: int, type: String, pos: Vector2) -> Control:
-	var btn := Button.new()
+	var btn: Button = main.ui.make_button("")
 	var size: int = 60
 	var label_text: String = main._node_type_name(type)
 	var icon_text: String = _node_icon(type)

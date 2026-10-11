@@ -107,6 +107,8 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	await _wait_for_capture_frame()
 	main._clear_run()
 	main._show_main_menu()
+	if args_have_refactor_fixture():
+		seed(729441)
 	if initial_layout_size != viewport_size:
 		main.set_meta("layout_viewport_override", viewport_size)
 		main._apply_root_layout()
@@ -182,6 +184,10 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	await _wait_for_capture_frame()
 	await _capture_screen(main, "%s_04c_ally_target" % viewport_name, "battle")
 	main.battle_screen._cancel_ally_selection()
+	if args_have_refactor_fixture():
+		preload("res://src/ui/components/battle_choice_view.gd").show_dialog(main, main.battle_screen._battle_choice_data())
+		await _capture_screen(main, "%s_04d_battle_info" % viewport_name, "battle")
+		main._clear_modal()
 	main.current_run["pending_card_reward"] = {
 		"relic_choices": main._roll_relic_reward_choices(2),
 		"selected_relic_id": "",
@@ -203,6 +209,11 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	await _wait_for_capture_frame()
 	await _wait_for_capture_frame()
 	await _capture_screen(main, "%s_%s" % [viewport_name, CAPTURE_NAMES[5]], "shop")
+	if args_have_refactor_fixture():
+		var detail := preload("res://src/ui/components/economy_detail_view.gd").show_card(main, main.card_db.get_card("forest_archer"), "구매", func(): pass, false, main._clear_modal)
+		await _capture_screen(main, "%s_06b_shop_detail" % viewport_name, "shop")
+		detail.queue_free()
+		await _wait_for_capture_frame()
 
 	main.current_run["pending_event"] = main.event_service.roll_event()
 	main.current_run["pending_card_reward"] = {}
@@ -233,6 +244,10 @@ func _capture_suite_for_viewport(viewport_name: String, viewport_size: Vector2i)
 	]:
 		main.call(entry[1])
 		await _capture_screen(main, "%s_%s" % [viewport_name, entry[0]], entry[2])
+		if args_have_refactor_fixture() and entry[2] in ["collection", "compendium"]:
+			main.active_screen_controller.call("_inspect_card" if entry[2] == "collection" else "_show_detail", main.card_db.get_card("forest_archer"))
+			await _capture_screen(main, "%s_%sb_detail" % [viewport_name, entry[0]], entry[2])
+			main._clear_modal()
 	main._show_remove_card_screen("상점")
 	await _capture_screen(main, "%s_16_remove_card" % viewport_name, "remove_card")
 	main._show_upgrade_card_screen()
@@ -263,6 +278,25 @@ func _capture_screen(main: Node, file_name: String, expected_screen: String) -> 
 	RenderingServer.force_draw(false, 0.0)
 	await _wait_for_capture_frame()
 	await _capture(file_name)
+	if args_have_refactor_fixture():
+		var geometry := {}
+		_collect_geometry(main, geometry)
+		var file := FileAccess.open("%s/%s.json" % [output_dir, file_name], FileAccess.WRITE)
+		file.store_string(JSON.stringify(geometry, "\t", true))
+
+func args_have_refactor_fixture() -> bool:
+	return OS.get_cmdline_user_args().has("--refactor-fixture")
+
+func _collect_geometry(node: Node, geometry: Dictionary) -> void:
+	if node is Control and node.is_visible_in_tree() and (node is Button or node is Label or node is TextureRect or String(node.name).begins_with("EconomyOffer_")):
+		var identity: String = node.get_class() + ":" + (node.text if node is Button or node is Label else String(node.name).split("@")[0])
+		var ordinal := 0
+		while geometry.has(identity + ":" + str(ordinal)):
+			ordinal += 1
+		var rect: Rect2 = node.get_global_rect()
+		geometry[identity + ":" + str(ordinal)] = [rect.position.x, rect.position.y, rect.size.x, rect.size.y]
+	for child in node.get_children():
+		_collect_geometry(child, geometry)
 
 func _capture(file_name: String) -> void:
 	var image: Image = null

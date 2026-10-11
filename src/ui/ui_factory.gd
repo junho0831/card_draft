@@ -42,6 +42,18 @@ func make_label(text: String, font_size: int, color: Color) -> Label:
 	label.add_theme_color_override("font_color", color)
 	return label
 
+func make_button(title: String, callback: Callable = Callable()) -> Button:
+	var button := Button.new()
+	button.text = title
+	if callback.is_valid():
+		button.pressed.connect(callback)
+	return button
+
+func make_action_button(title: String, callback: Callable, role: String = "secondary", accent: Color = UI_TOKENS.BORDER, base: Color = Color.TRANSPARENT, font_size: int = 16) -> Button:
+	var button := make_button(title, callback)
+	style_role_button(button, role, accent, base, font_size)
+	return button
+
 func is_compact(viewport_width: float) -> bool:
 	return viewport_width < COMPACT_BREAKPOINT
 
@@ -185,12 +197,42 @@ func begin_screen(root: Node, title: String, summary: Control = null, spacing: i
 	root.add_child(make_screen_header(title, subtitle, compact))
 	if summary != null:
 		root.add_child(summary)
-	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", spacing)
-	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var body := make_content_column(spacing, Control.SIZE_SHRINK_BEGIN)
 	root.add_child(body)
 	return body
+
+func make_content_column(spacing: int = -1, vertical_flags: int = Control.SIZE_FILL) -> VBoxContainer:
+	var content := VBoxContainer.new()
+	if spacing >= 0:
+		content.add_theme_constant_override("separation", spacing)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.size_flags_vertical = vertical_flags
+	return content
+
+func make_scroll(parent: Control, horizontal_mode: int = ScrollContainer.SCROLL_MODE_AUTO, expand_horizontal: bool = false, node_name: String = "", minimum_height: float = 0) -> ScrollContainer:
+	var scroll := ScrollContainer.new()
+	if not node_name.is_empty():
+		scroll.name = node_name
+	scroll.horizontal_scroll_mode = horizontal_mode
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if expand_horizontal:
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size.y = minimum_height
+	parent.add_child(scroll)
+	return scroll
+
+func make_scroll_column(parent: Control, spacing: int = 8, minimum_height: float = 0, horizontal_mode: int = ScrollContainer.SCROLL_MODE_DISABLED, node_name: String = "") -> VBoxContainer:
+	var scroll := make_scroll(parent, horizontal_mode, true, node_name, minimum_height)
+	var content := make_content_column(spacing)
+	scroll.add_child(content)
+	return content
+
+func make_action_row(spacing: int = -1) -> HBoxContainer:
+	var actions := HBoxContainer.new()
+	actions.alignment = BoxContainer.ALIGNMENT_END
+	if spacing >= 0:
+		actions.add_theme_constant_override("separation", spacing)
+	return actions
 
 func make_screen_panel(color: Color, viewport_width: float, preferred_width: int, min_height: int = 0) -> PanelContainer:
 	var panel := make_responsive_panel(color, viewport_width, preferred_width, min_height)
@@ -200,13 +242,8 @@ func make_screen_panel(color: Color, viewport_width: float, preferred_width: int
 func make_scroll_panel(color: Color, viewport_width: float, preferred_width: int, content_separation: int = 8, min_height: int = 0) -> Dictionary:
 	var panel := make_screen_panel(color, viewport_width, preferred_width, min_height)
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_child(scroll)
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", content_separation)
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var scroll := make_scroll(panel, ScrollContainer.SCROLL_MODE_AUTO, true)
+	var content := make_content_column(content_separation)
 	scroll.add_child(content)
 	return {
 		"panel": panel,
@@ -218,6 +255,14 @@ func make_action_bar(compact: bool, separation: int = 10) -> BoxContainer:
 	var bar := make_responsive_box(compact, separation)
 	bar.size_flags_horizontal = Control.SIZE_SHRINK_END
 	return bar
+
+func mount_actions_only_dock(main: Node, body: VBoxContainer, accent: Color, scroll_height: float = -1) -> Dictionary:
+	var dock := mount_screen_action_dock(main, body, "", "", accent, 60)
+	dock.title_label.hide()
+	dock.detail_label.hide()
+	if scroll_height >= 0:
+		dock.scroll.custom_minimum_size.y = scroll_height
+	return dock
 
 func mount_screen_action_dock(main: Node, body: VBoxContainer, title: String, detail: String, accent: Color, dock_height: int = 126) -> Dictionary:
 	var wide: bool = main._layout_viewport_size().x >= 1100.0
@@ -335,17 +380,10 @@ func make_premium_panel(min_height: int = 0, prominent: bool = false) -> PanelCo
 	return panel
 
 func make_screen_header(title: String, subtitle: String, compact: bool = false) -> PanelContainer:
-	var panel := make_surface_panel(THEME_PANEL_DARK, THEME_BORDER, 1, 8, 12)
+	var panel := make_header_frame(THEME_PANEL_DARK, THEME_BORDER)
 	panel.custom_minimum_size = Vector2(0, 48 if compact else 56)
-	var header_style := panel.get_theme_stylebox("panel").duplicate() as StyleBox
-	header_style.content_margin_top = 4
-	header_style.content_margin_bottom = 4
-	panel.add_theme_stylebox_override("panel", header_style)
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := HBoxContainer.new()
+	var row := panel.get_child(0) as HBoxContainer
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
-	panel.add_child(row)
 	var title_box := VBoxContainer.new()
 	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_box.add_theme_constant_override("separation", 4)
@@ -358,6 +396,18 @@ func make_screen_header(title: String, subtitle: String, compact: bool = false) 
 		var subtitle_label := make_label(subtitle, 14, THEME_TEXT_MUTED)
 		subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		title_box.add_child(subtitle_label)
+	return panel
+
+func make_header_frame(base: Color, border: Color, margins: int = 12, vertical_padding: int = 4, spacing: int = 12, radius: int = 8) -> PanelContainer:
+	var panel := make_surface_panel(base, border, 1, radius, margins)
+	var style := panel.get_theme_stylebox("panel").duplicate() as StyleBox
+	style.content_margin_top = vertical_padding
+	style.content_margin_bottom = vertical_padding
+	panel.add_theme_stylebox_override("panel", style)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", spacing)
+	panel.add_child(row)
 	return panel
 
 func make_large_action_button(title: String, subtitle: String, icon_text: String, base_color: Color, compact: bool = false) -> Button:
@@ -500,28 +550,10 @@ func make_race_rules_style(card: Dictionary, margin: int = 6) -> StyleBoxFlat:
 	return CARD_RACE_STYLES.make_rules_style(String(card.get("race", "중립")), margin)
 
 func make_race_emblem(card: Dictionary, edge: float = 24) -> TextureRect:
-	var race := String(card.get("race", "중립"))
-	var key: String = {"인간": "human", "엘프": "elf", "언데드": "undead", "정령": "spirit"}.get(race, "neutral")
-	var emblem := TextureRect.new()
-	emblem.name = "RaceEmblem"
-	emblem.texture = load("res://assets/ui/fantasy/race_%s.svg" % key)
-	emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	emblem.custom_minimum_size = Vector2(edge, edge)
-	emblem.size = Vector2(edge, edge)
-	emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	emblem.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	emblem.tooltip_text = race
-	return emblem
+	return CARD_VIEW.make_race_emblem(card, edge)
 
 func decorate_card_frame(frame: Control, card: Dictionary) -> void:
-	var ornament := preload("res://src/ui/components/card_frame_ornaments.gd").new()
-	ornament.name = "RaceOrnaments"
-	ornament.race = String(card.get("race", "중립"))
-	ornament.card_type = String(card.get("type", "unit"))
-	ornament.accent = card_race_color(card)
-	ornament.z_index = 0
-	frame.add_child(ornament)
+	CARD_VIEW.decorate_frame(frame, card, card_race_color(card))
 
 func make_race_card_panel(card: Dictionary, margins: int = 10, border_width: int = 2, emphasis: float = 0.0) -> PanelContainer:
 	var panel := PanelContainer.new()

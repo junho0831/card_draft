@@ -64,7 +64,7 @@ func build(body: VBoxContainer) -> void:
 	learning.toggled.connect(_set_guided_mode)
 	learning.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	modes.add_child(learning)
-	var skip := Button.new()
+	var skip: Button = main.ui.make_button("")
 	skip.text = "바로 시작 · 전략 고르기"
 	if phone:
 		skip.custom_minimum_size.y = 56
@@ -130,7 +130,7 @@ func build(body: VBoxContainer) -> void:
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	Layout.back(main, body)
 
-	start_button = Button.new()
+	start_button = main.ui.make_button("")
 	start_button.custom_minimum_size = Vector2(280, 52)
 	start_button.size_flags_horizontal = Control.SIZE_FILL
 	start_button.pressed.connect(Callable(self, "_confirm_selection"))
@@ -210,7 +210,7 @@ func _make_race_card(race_id: String, compact: bool, phone: bool, short: bool) -
 		cards_label.hide()
 		frame.tooltip_text = "%s\n%s · %s" % [description.text, power_name.text, power_text.text]
 
-	var select_button := Button.new()
+	var select_button: Button = main.ui.make_button("")
 	select_button.text = "%s 선택" % String(meta.get("name", race_id))
 	select_button.custom_minimum_size = Vector2(0, 56 if short else (64 if compact else 68))
 	select_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -219,7 +219,7 @@ func _make_race_card(race_id: String, compact: bool, phone: bool, short: bool) -
 	box.add_child(select_button)
 	race_buttons[race_id] = select_button
 
-	var card_hit_target := Button.new()
+	var card_hit_target: Button = main.ui.make_button("")
 	card_hit_target.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	card_hit_target.focus_mode = Control.FOCUS_NONE
 	card_hit_target.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -377,12 +377,12 @@ func _render_strategies() -> void:
 			label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 			box.add_child(label)
-		var choose := Button.new()
+		var choose: Button = main.ui.make_button("")
 		choose.text = ("✓ 선택됨 · " if selected else "이 전략 선택 · ") + String(strategy.name)
 		ButtonMetrics.apply(choose)
 		choose.pressed.connect(_choose_strategy.bind(String(strategy.id)))
 		box.add_child(choose)
-		var expand := Button.new()
+		var expand: Button = main.ui.make_button("")
 		expand.text = "덱 10장 접기" if expanded_strategy_id == String(strategy.id) else "덱 10장 펼쳐보기"
 		ButtonMetrics.apply(expand)
 		expand.pressed.connect(_toggle_strategy_deck.bind(String(strategy.id)))

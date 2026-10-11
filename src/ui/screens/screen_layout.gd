@@ -29,8 +29,4 @@ static func label(main: Node, text: String, secondary: bool = false) -> Label:
 	return result
 
 static func dock(main: Node, body: VBoxContainer) -> Dictionary:
-	var result: Dictionary = main.ui.mount_screen_action_dock(main, body, "", "", Tokens.ACCENT_GOLD, 64)
-	result.title_label.hide()
-	result.detail_label.hide()
-	result.actions.alignment = BoxContainer.ALIGNMENT_END
-	return result
+	return main.ui.mount_actions_only_dock(main, body, Tokens.ACCENT_GOLD)

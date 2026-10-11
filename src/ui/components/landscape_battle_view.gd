@@ -1,7 +1,9 @@
 extends Control
+const CardView = preload("res://src/ui/components/card_view.gd")
 const ButtonMetrics = preload("res://src/ui/styles/button_metrics.gd")
 const SharedStyles = preload("res://src/ui/styles/ui_styles.gd")
 const Tokens = preload("res://src/ui/styles/ui_tokens.gd")
+const DetailDialog = preload("res://src/ui/components/detail_dialog.gd")
 ## Shared landscape board presentation. Input policy and combat remain in BattleScreen.
 var battle
 var session
@@ -238,10 +240,8 @@ func hud_chip(value: String, accent: Color) -> Label:
 	return chip
 
 func action(value: String, callback: Callable, kind: String = "action") -> Button:
-	var button := Button.new()
-	button.text = value
+	var button: Button = battle.main.ui.make_button(value, callback)
 	ButtonMetrics.apply(button, kind, 88 if kind == "compact" else 120)
-	button.pressed.connect(callback)
 	SharedStyles.apply_role_button(button, "secondary", Tokens.BORDER, Color.TRANSPARENT, 14 if kind == "compact" else 16)
 	return button
 
@@ -262,7 +262,7 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 	row.custom_minimum_size.y = lane_height
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.add_child(row)
-	var hero := Button.new()
+	var hero: Button = battle.main.ui.make_button("")
 	hero.custom_minimum_size = Vector2(hero_width, field_height)
 	hero.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	hero.add_theme_stylebox_override("normal", SharedStyles.make_textured_panel_style(Tokens.SURFACE_RAISED, Tokens.BORDER, 1, false))
@@ -354,33 +354,7 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 	cards.alignment = BoxContainer.ALIGNMENT_CENTER
 
 func stamp(parent: Control, node_name: String, value: String, at: Vector2, extent: Vector2, color: Color, font_size: int = 16) -> Label:
-	var band := Panel.new()
-	band.name = node_name + "Band"
-	band.position = at
-	band.size = extent
-	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.set_corner_radius_all(5)
-	if node_name in ["Cost", "Attack", "Health"]:
-		var gem := StyleBoxTexture.new()
-		gem.texture = load("res://assets/ui/fantasy/gem_red.svg" if node_name == "Attack" else "res://assets/ui/fantasy/gem_blue.svg")
-		band.add_theme_stylebox_override("panel", gem)
-	else:
-		band.add_theme_stylebox_override("panel", style)
-	parent.add_child(band)
-	var text := label(value, font_size)
-	text.add_theme_color_override("font_color", Color.WHITE)
-	text.add_theme_constant_override("line_spacing", 0)
-	text.name = node_name
-	text.position = at
-	text.size = extent
-	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	text.clip_text = true
-	text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	parent.add_child(text)
-	return text
+	return CardView.make_stamp(battle.main, parent, node_name, value, at, extent, color, font_size)
 
 static func card_kind(card: Dictionary) -> String:
 	var type := String(card.get("type", "unit"))
@@ -397,21 +371,7 @@ static func kind_color(kind: String) -> Color:
 	return {"unit": Color("7299bb"), "damage": Color("d35b52"), "support": Color("57aa7b"), "equipment": Color("d8ae54")}[kind]
 
 func outline(parent: Control, color: Color, inset: float, width: int, node_name: String) -> void:
-	var edge := Panel.new()
-	edge.name = node_name
-	edge.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	edge.offset_left = inset
-	edge.offset_top = inset
-	edge.offset_right = -inset
-	edge.offset_bottom = -inset
-	edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color.TRANSPARENT
-	style.border_color = color
-	style.set_border_width_all(width)
-	style.set_corner_radius_all(4)
-	edge.add_theme_stylebox_override("panel", style)
-	parent.add_child(edge)
+	CardView.add_outline(parent, color, inset, width, node_name)
 
 func portrait_texture(card: Dictionary, target_size: Vector2) -> Texture2D:
 	var source: Texture2D = battle.main.ui.card_art_texture(card)
@@ -442,7 +402,7 @@ func field_card(unit: Dictionary, status: String, accent: Color) -> Button:
 	return tile(unit, status, unit_width, accent, field_height, true)
 
 func tile(card: Dictionary, bottom: String, width: float, accent: Color, height: float = 72, field: bool = false) -> Button:
-	var button := Button.new()
+	var button: Button = battle.main.ui.make_button("")
 	button.custom_minimum_size = Vector2(width, height)
 	button.size = button.custom_minimum_size
 	button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -461,7 +421,7 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 			frame.shadow_size = 0
 		button.add_theme_stylebox_override(state, frame)
 	var race_band: Color = battle.main.ui.make_race_band_style(card).bg_color
-	var art: TextureRect = battle.main._make_card_art_rect(card, Vector2.ZERO)
+	var art: TextureRect = CardView.make_art_rect(battle.main, card, Vector2.ZERO)
 	art.name = "Illustration"
 	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	art.offset_left = 7
@@ -679,79 +639,29 @@ func close_detail() -> void:
 func dialog(title: String, text: String, card: Dictionary = {}, custom_content: Control = null) -> HBoxContainer:
 	cancel_focus()
 	close_detail()
-	card_dialog = Control.new()
-	card_dialog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	card_dialog.z_index = 350
-	battle.main.modal_layer.add_child(card_dialog)
-	var shade := ColorRect.new()
-	shade.color = Color(Tokens.SURFACE, 0.9)
-	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	card_dialog.add_child(shade)
-	var background := TextureRect.new()
-	background.name = "DetailBackground"
-	background.texture = load(Tokens.DETAIL_BACKGROUND_PATH)
-	background.modulate = Color(0.8, 0.8, 0.8)
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_dialog.add_child(background)
-	var surface := Panel.new()
-	surface.name = "DetailFrame"
-	surface.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var frame_style := SharedStyles.make_textured_panel_style(Tokens.SURFACE, Tokens.BORDER, 0, false) as StyleBoxTexture
-	frame_style.draw_center = false
-	surface.add_theme_stylebox_override("panel", frame_style)
-	card_dialog.add_child(surface)
-	var panel := VBoxContainer.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	panel.offset_left = 24
-	panel.offset_right = -24
-	panel.offset_top = 12
-	panel.offset_bottom = -12
-	card_dialog.add_child(panel)
 	var heading := label(title, 20)
 	heading.clip_text = true
 	heading.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	var heading_row := HBoxContainer.new()
-	panel.add_child(heading_row)
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading_row.add_child(heading)
-	var close := action("닫기", close_detail)
-	heading_row.add_child(close)
-	var content := HBoxContainer.new()
-	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation", 20)
-	panel.add_child(content)
+	var shell = DetailDialog.create(battle.main.modal_layer, DetailDialog.Profile.LANDSCAPE_CARD, heading, action("닫기", Callable()), close_detail, battle.main._layout_viewport_size(), battle.main.ui)
+	card_dialog = shell
 	if not card.is_empty():
 		var face := preload("res://src/ui/components/card_inspection_view.gd").make_face(battle.main, card)
 		var viewer := preload("res://src/ui/components/card_inspection_view.gd").new()
 		var available_height: float = battle.main._layout_viewport_size().y - 116.0
 		viewer.setup(face, Vector2(available_height * 284.0 / 396.0, available_height))
-		content.add_child(viewer)
-	var right := VBoxContainer.new()
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_child(right)
-	var scroll := ScrollContainer.new()
-	scroll.name = "CardDetailScroll"
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	right.add_child(scroll)
+		shell.media.add_child(viewer)
+		shell.media.move_child(viewer, 0)
 	if custom_content != null:
-		scroll.add_child(custom_content)
+		shell.scroll.add_child(custom_content)
 	else:
 		var description := label(text, 18)
 		description.add_theme_constant_override("line_spacing", 5)
 		description.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		scroll.add_child(description)
-	var buttons := HBoxContainer.new()
-	right.add_child(buttons)
-	buttons.alignment = BoxContainer.ALIGNMENT_END
-	return buttons
+		shell.scroll.add_child(description)
+	return shell.actions
 
 func show_card(index: int) -> void:
 	if index < 0 or index >= battle.player.hand.size(): return

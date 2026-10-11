@@ -157,7 +157,7 @@ func _make_reward_side_panel(reward: Dictionary, compact: bool) -> PanelContaine
 	box.add_child(reason)
 	var skip_chip: PanelContainer = main.ui.make_chip("선택 안 해도 됨", Color(0.12, 0.14, 0.18, 1.0), Color(0.9, 0.94, 1.0, 1.0), 11 if compact else 12)
 	box.add_child(skip_chip)
-	var skip_button := Button.new()
+	var skip_button: Button = main.ui.make_button("")
 	skip_button.text = "건너뛰기"
 	skip_button.focus_mode = Control.FOCUS_NONE
 	skip_button.custom_minimum_size.x = 132 if compact else 142
@@ -220,7 +220,7 @@ func _make_reward_choice(card: Dictionary) -> Control:
 	inspect.name = "EconomyInspect_" + String(card.get("id", ""))
 	ButtonMetrics.apply(inspect)
 	box.add_child(inspect)
-	var button := Button.new()
+	var button: Button = main.ui.make_button("")
 	button.text = "덱에 추가 ▶" if matches_primary else "선택"
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size.x = 120

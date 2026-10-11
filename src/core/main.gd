@@ -512,7 +512,7 @@ func _home_headline_text() -> String:
 	return "%s 이어서 플레이" % String(_current_act().get("name", "현재 런"))
 
 func _make_home_action_button(title: String, detail: String, callback_method: String, color: Color, primary: bool) -> Button:
-	var button := Button.new()
+	var button: Button = ui.make_button("")
 	button.text = title if detail.is_empty() else "%s\n%s" % [title, detail]
 	button.custom_minimum_size = Vector2(0, 78 if primary else 58)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -781,7 +781,7 @@ func _menu_nav_button(parent: Node, title: String, subtitle: String, callback_me
 	return button
 
 func _small_hub_button(parent: Node, title: String, callback_method: String, icon_text: String) -> void:
-	var button := Button.new()
+	var button: Button = ui.make_button("")
 	button.text = icon_text
 	button.tooltip_text = title
 	button.custom_minimum_size = Vector2(42, 42)
@@ -791,7 +791,7 @@ func _small_hub_button(parent: Node, title: String, callback_method: String, ico
 	parent.add_child(button)
 
 func _small_hub_button_config(parent: Node, title: String, callback_method: String, icon_text: String, width: int = 58, height: int = 62, font_size: int = 13) -> Button:
-	var button := Button.new()
+	var button: Button = ui.make_button("")
 	button.text = title if ui.mobile_layout else "%s\n%s" % [icon_text, title]
 	button.custom_minimum_size = Vector2(width, height)
 	ui.style_flat_button(button, Color(0.08, 0.11, 0.16, 1.0), Color(0.44, 0.6, 0.82, 1.0), font_size, 2)
@@ -2204,9 +2204,7 @@ func _begin_menu_screen(title: String, with_profile: bool = false, subtitle: Str
 		heading.add_theme_font_size_override("font_size", UiTokens.FONT_TITLE)
 		heading.tooltip_text = subtitle
 		root_box.add_child(header)
-		var compact_body := VBoxContainer.new()
-		compact_body.add_theme_constant_override("separation", 10)
-		compact_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var compact_body: VBoxContainer = ui.make_content_column(10)
 		root_box.add_child(compact_body)
 		if with_profile:
 			compact_body.add_child(_make_run_summary_panel())
@@ -2227,24 +2225,15 @@ func _should_show_run_escape_actions() -> bool:
 func _make_run_escape_bar() -> PanelContainer:
 	var compact := _is_compact_layout_for(1180.0, 760.0)
 	var phone := _is_mobile_phone_layout()
-	var panel: PanelContainer = ui.make_surface_panel(Color(0.055, 0.065, 0.08, 0.98), Color(0.24, 0.2, 0.12, 1.0), 1, 8 if phone else 10, 6 if phone else 10)
-	var header_style := panel.get_theme_stylebox("panel").duplicate() as StyleBox
-	header_style.content_margin_top = 3 if phone else 5
-	header_style.content_margin_bottom = 3 if phone else 5
-	panel.add_theme_stylebox_override("panel", header_style)
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row: BoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	panel.add_child(row)
+	var panel: PanelContainer = ui.make_header_frame(Color(0.055, 0.065, 0.08, 0.98), Color(0.24, 0.2, 0.12, 1.0), 6 if phone else 10, 3 if phone else 5, 8, 8 if phone else 10)
+	var row := panel.get_child(0) as HBoxContainer
 
 	var hint: Label = _make_label("런 메뉴", UiTokens.FONT_TITLE, UiTokens.TEXT_PRIMARY)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(hint)
 
-	var actions: BoxContainer = HBoxContainer.new()
-	actions.alignment = BoxContainer.ALIGNMENT_END
-	actions.add_theme_constant_override("separation", 8)
+	var actions: HBoxContainer = ui.make_action_row(8)
 	actions.size_flags_horizontal = Control.SIZE_SHRINK_END
 	row.add_child(actions)
 
@@ -2255,8 +2244,7 @@ func _make_run_escape_bar() -> PanelContainer:
 	return panel
 
 func _add_escape_action_button(parent: Node, text: String, callback_method: String, color: Color, compact: bool, phone: bool = false) -> Button:
-	var button := Button.new()
-	button.text = text
+	var button: Button = ui.make_button(text, Callable(self, callback_method))
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(100, 44)
 	button.size_flags_horizontal = Control.SIZE_FILL
@@ -2264,7 +2252,6 @@ func _add_escape_action_button(parent: Node, text: String, callback_method: Stri
 	var accent := Color(0.9, 0.3, 0.28, 1.0) if role == "danger" else color.lightened(0.34)
 	ui.style_role_button(button, role, accent, color, 13 if phone else (12 if compact else 13))
 	preload("res://src/ui/styles/button_metrics.gd").apply(button, "compact", 100)
-	button.pressed.connect(Callable(self, callback_method))
 	parent.add_child(button)
 	return button
 

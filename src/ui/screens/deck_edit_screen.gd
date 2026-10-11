@@ -72,7 +72,7 @@ func _make_option_row(label_text: String, button_text: String, callback: Callabl
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
-	var button := Button.new()
+	var button: Button = main.ui.make_button("")
 	button.text = button_text
 	button.custom_minimum_size = Vector2(96, 44)
 	if button_text == "제거":

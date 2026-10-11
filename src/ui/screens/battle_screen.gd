@@ -934,7 +934,7 @@ func _make_battle_tutorial_panel(compact: bool) -> PanelContainer:
 	hint.clip_text = false
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(hint)
-	var dismiss = Button.new()
+	var dismiss = main.ui.make_button("")
 	dismiss.text = "확인"
 	dismiss.focus_mode = Control.FOCUS_NONE
 	dismiss.custom_minimum_size = Vector2(76 if mobile else (64 if tight else 76), 48 if mobile else (26 if tight else 30))
@@ -1593,7 +1593,7 @@ func _make_top_status_bar(compact: bool) -> PanelContainer:
 	actions.alignment = BoxContainer.ALIGNMENT_END
 	actions.add_theme_constant_override("separation", 6 if tight else 8)
 	row.add_child(actions)
-	detail_toggle_button = Button.new()
+	detail_toggle_button = main.ui.make_button("")
 	detail_toggle_button.text = "정보"
 	detail_toggle_button.focus_mode = Control.FOCUS_NONE
 	detail_toggle_button.custom_minimum_size = Vector2(60 if mobile else (44 if tight else 54), 48 if mobile else (24 if tight else 28))
@@ -1610,7 +1610,7 @@ func _make_top_status_bar(compact: bool) -> PanelContainer:
 	return panel
 
 func _make_exit_button(text: String, callback_method: String, color: Color, tight: bool, compact: bool, mobile: bool = false) -> Button:
-	var button = Button.new()
+	var button = main.ui.make_button("")
 	button.text = text
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(60 if mobile else (44 if tight else (54 if compact else 62)), 48 if mobile else (24 if tight else 28))
@@ -1706,7 +1706,7 @@ func _make_hero_target(side: Dictionary, hero_art: int, enemy_target: bool, comp
 	var node: Control
 	var content_parent: Control
 	if enemy_target:
-		var button = Button.new()
+		var button = main.ui.make_button("")
 		button.text = ""
 		button.focus_mode = Control.FOCUS_NONE
 		button.custom_minimum_size = Vector2(0, 42 if mobile else (38 if wide_tight else (46 if tight else (72 if compact else 64))))
@@ -2008,7 +2008,7 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		box.add_child(sub)
 
-	recommended_action_button = Button.new()
+	recommended_action_button = main.ui.make_button("")
 	recommended_action_button.text = "다음 행동"
 	var primary_height := 56 if mobile else 56 if wide_tight else 64 if tight else 70 if compact else 78
 	if guidance_mode == GUIDANCE_MODE_HINT:
@@ -2024,7 +2024,7 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 
 	var secondary_parent: BoxContainer = box
 
-	race_power_button = Button.new()
+	race_power_button = main.ui.make_button("")
 	race_power_button.text = _race_power_button_text()
 	race_power_button.tooltip_text = "전투당 1회 · %s" % String(race_meta.get("power_text", ""))
 	race_power_button.custom_minimum_size = Vector2(0, 56 if mobile else 44 if wide_tight else 46 if tight else 50 if compact else 54)
@@ -2034,7 +2034,7 @@ func _make_battle_action_panel(compact: bool) -> PanelContainer:
 	race_power_button.pressed.connect(Callable(self, "_on_race_power_pressed"))
 	secondary_parent.add_child(race_power_button)
 
-	end_turn_button = Button.new()
+	end_turn_button = main.ui.make_button("")
 	end_turn_button.text = "턴 넘기기"
 	end_turn_button.custom_minimum_size = Vector2(0, 56 if mobile else 40 if wide_tight else 44 if tight else 46 if compact else 50)
 	end_turn_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2053,7 +2053,7 @@ func _make_detail_toggle_row(compact: bool) -> HBoxContainer:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(title)
-	detail_toggle_button = Button.new()
+	detail_toggle_button = main.ui.make_button("")
 	detail_toggle_button.text = "상세 정보"
 	detail_toggle_button.custom_minimum_size = Vector2(124 if tight else 144, 30 if tight else 34)
 	_style_detail_action_button(detail_toggle_button, false)
@@ -2077,7 +2077,7 @@ func _make_battle_detail_panel(compact: bool) -> PanelContainer:
 	if _should_show_battle_tutorial():
 		var help: Dictionary = _battle_tutorial_content()
 		outer.add_child(main._make_label("\n".join(help.get("lines", [])), 14, Color(0.86, 0.9, 0.96)))
-		var understood := Button.new()
+		var understood: Button = main.ui.make_button("")
 		understood.text = "안내 확인"
 		understood.custom_minimum_size.y = 44
 		understood.pressed.connect(func():
@@ -4829,7 +4829,7 @@ func _make_empty_field_slot(compact: bool, is_next_summon_slot: bool = false, is
 	var border_alpha := 0.38 if is_next_summon_slot else 0.08
 	var placeholder: Control
 	if not is_player_field:
-		var button := Button.new()
+		var button: Button = main.ui.make_button("")
 		button.text = ""
 		_configure_enemy_field_attack(button)
 		var enemy_border := Color(0.4, 0.5, 0.6, 0.08)
@@ -4891,7 +4891,7 @@ func _build_field_slot(side: Dictionary, index: int, is_player_field: bool) -> C
 	slot_root.custom_minimum_size = frame_size
 	slot_root.mouse_filter = Control.MOUSE_FILTER_PASS
 	slot_root.z_index = 1
-	var frame = Button.new()
+	var frame = main.ui.make_button("")
 	frame.custom_minimum_size = visual_size
 	frame.size = visual_size
 	frame.position = (frame_size - visual_size) * 0.5
@@ -5064,7 +5064,7 @@ func _render_hand() -> void:
 		var playable: bool = not _is_player_input_locked() and _can_play_card(player, card, "player")
 		var is_recommended = i == recommended_index and (not main.Onboarding.first_battle(main.current_run) or _recommended_action_state().get("kind") == "play_card")
 		var is_touch_selected := _uses_touch_hand_selection() and hand_slot == selected_hand_slot
-		var frame = Button.new()
+		var frame = main.ui.make_button("")
 		frame.text = ""
 		frame.focus_mode = Control.FOCUS_NONE
 		var wide_tight := _is_wide_tight_battle_layout()
@@ -5899,7 +5899,7 @@ func _record_strategy_metric(key: String) -> void:
 	battle_state["strategy_metrics"] = metrics
 
 func _make_reference_hero(side: Dictionary, hero_art: int, enemy_target: bool) -> Control:
-	var hero := Button.new()
+	var hero: Button = main.ui.make_button("")
 	hero.custom_minimum_size = Vector2(248, 136)
 	hero.focus_mode = Control.FOCUS_NONE
 	var accent := Color(0.88, 0.22, 0.29) if enemy_target else Color(0.18, 0.63, 0.92)
