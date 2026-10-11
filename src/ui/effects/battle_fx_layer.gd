@@ -279,6 +279,8 @@ func _spawn_card_arc_trail(start: Vector2, curve: Vector2, finish: Vector2, colo
 	tween.tween_callback(Callable(self, "_free_if_valid").bind(trail))
 
 func _spawn_screen_flash(color: Color, alpha: float, duration: float) -> void:
+	if get_meta("compact_landscape", false):
+		return
 	var flash := ColorRect.new()
 	flash.color = Color(color.r, color.g, color.b, alpha)
 	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE

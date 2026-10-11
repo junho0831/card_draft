@@ -45,6 +45,22 @@ func make_label(text: String, font_size: int, color: Color) -> Label:
 func make_button(title: String, callback: Callable = Callable()) -> Button:
 	var button := Button.new()
 	button.text = title
+	button.button_down.connect(func():
+		if button.has_meta("press_tween"):
+			var previous: Tween = button.get_meta("press_tween")
+			if previous != null and previous.is_valid(): previous.kill()
+		var tween := button.create_tween()
+		button.set_meta("press_tween", tween)
+		tween.tween_property(button, "self_modulate", Color(0.82, 0.86, 0.85), UI_TOKENS.PRESS_DURATION)
+	)
+	var release := func():
+		if button.has_meta("press_tween"):
+			var previous: Tween = button.get_meta("press_tween")
+			if previous != null and previous.is_valid(): previous.kill()
+		button.self_modulate = Color.WHITE
+	button.button_up.connect(release)
+	button.mouse_exited.connect(release)
+	button.focus_exited.connect(release)
 	if callback.is_valid():
 		button.pressed.connect(callback)
 	return button
@@ -438,10 +454,10 @@ func make_objective_panel(title: String, objective: String, compact: bool = fals
 func make_surface_panel(bg_color: Color, border_color: Color = Color(0.32, 0.35, 0.4, 1.0), border_width: int = 1, radius: int = 10, margins: int = 12) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	var surface_base := Color(THEME_PANEL.r, THEME_PANEL.g, THEME_PANEL.b, bg_color.a)
+	var surface_base := Color(UI_TOKENS.SURFACE, minf(bg_color.a, 0.78))
 	var surface_color := surface_base
 	var surface_border := THEME_BORDER
-	var style: StyleBox = UI_STYLES.make_textured_panel_style(surface_color, surface_border, margins, border_color.r > border_color.b + 0.12) if radius >= 8 and margins >= 10 else make_style_box(surface_color, surface_border, border_width, min(radius, 8))
+	var style: StyleBox = make_style_box(surface_color, Color(surface_border, 0.32), mini(border_width, 1), min(radius, 8))
 	if style is StyleBoxFlat:
 		var flat_style := style as StyleBoxFlat
 		flat_style.content_margin_left = margins

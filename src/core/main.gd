@@ -75,7 +75,7 @@ var touch_input_active := OS.has_feature("mobile")
 var touch_scroll_router = preload("res://src/ui/touch_scroll_router.gd").new()
 var mobile_bottom_inset := 0.0
 var root_scroll: ScrollContainer
-var root_center: CenterContainer
+var root_center: MarginContainer
 var modal_layer: Control
 var battle_cutscene
 var layout_resize_timer: Timer
@@ -220,7 +220,8 @@ func _build_base_ui() -> void:
 	modal_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(modal_layer)
 
-	root_center = CenterContainer.new()
+	# Center horizontally, but keep every screen's title anchored at the top.
+	root_center = MarginContainer.new()
 	root_center.mouse_filter = Control.MOUSE_FILTER_PASS
 	root_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root_center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN

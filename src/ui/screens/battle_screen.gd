@@ -9,6 +9,7 @@ const STARTING_MAX_MANA = 1
 const TURN_TIME_SECONDS = 0.0
 const SnapshotCodec = preload("res://src/battle/battle_snapshot_codec.gd")
 const LayoutPolicy = preload("res://src/ui/layout_policy.gd")
+const UiTokens = preload("res://src/ui/styles/ui_tokens.gd")
 const EnemyPolicy = preload("res://src/battle/battle_enemy_policy.gd")
 const LANDSCAPE_VIEW = preload("res://src/ui/components/landscape_battle_view.gd")
 var hero_impact_expected_hp := {}
@@ -5263,9 +5264,9 @@ func _layout_hand_cards() -> void:
 	var available: float = minf(hand_scroll.size.x if is_instance_valid(hand_scroll) else hand_box.size.x, main._layout_viewport_size().x - 52.0)
 	var board_layout: bool = is_instance_valid(landscape_view)
 	var gap := 8.0 if board_layout else 10.0
-	var fan_step := maxf(44.0, card_size.x * 0.96)
+	var fan_step := maxf(44.0, card_size.x * UiTokens.HAND_FAN_STEP)
 	# 회전한 카드의 모서리도 스크롤 영역 안에 들어오도록 여백을 포함한다.
-	var fan_padding := ceilf(card_size.y * sin(deg_to_rad(6.0))) + 10.0
+	var fan_padding := ceilf(card_size.y * sin(deg_to_rad(UiTokens.HAND_FAN_ANGLE))) + 10.0
 	var track_width := (card_size.x + fan_step * (count - 1) + fan_padding * 2.0) if board_layout else (float(count) * (card_size.x + gap) + gap)
 	var start_x := maxf(0.0 if board_layout else 10.0, (available - track_width) * 0.5)
 	for i in range(count):
@@ -5276,8 +5277,8 @@ func _layout_hand_cards() -> void:
 		var z_order := i
 		if board_layout:
 			var fan_ratio := (float(i) / float(count - 1) - 0.5) * 2.0 if count > 1 else 0.0
-			position = Vector2(start_x + fan_padding + i * fan_step, 10.0 + absf(fan_ratio) * 4.0 - (4.0 if selected else 0.0))
-			rotation = fan_ratio * 6.0
+			position = Vector2(start_x + fan_padding + i * fan_step, 10.0 + absf(fan_ratio) * 4.0 - (UiTokens.HAND_SELECTED_LIFT if selected else 0.0))
+			rotation = fan_ratio * UiTokens.HAND_FAN_ANGLE
 			z_order = 100 + int((1.0 - absf(fan_ratio)) * 50.0) + i
 			card.pivot_offset = Vector2(card_size.x * 0.5, card_size.y)
 		else:
@@ -5294,6 +5295,9 @@ func _layout_hand_cards() -> void:
 		card.set_meta("base_z_index", z_order)
 	hand_box.custom_minimum_size = Vector2(track_width, card_size.y + 24.0)
 	last_hand_layout_width = hand_box.custom_minimum_size.x
+	if board_layout and selected_hand_slot >= 0:
+		var selected_card := _hand_card_control(selected_hand_slot)
+		if is_instance_valid(selected_card): hand_scroll.call_deferred("ensure_control_visible", selected_card)
 
 func _hand_sort_key(card: Dictionary) -> String:
 	var cost: int = main.relic_service.modify_card_cost(main.current_run, battle_state, card, "player")

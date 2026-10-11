@@ -16,6 +16,8 @@ func check(ok: bool, message: String) -> void:
 func settle() -> void:
 	for i in range(12):
 		await process_frame
+	# Window/safe-area changes rebuild the active screen after a 200ms debounce.
+	await create_timer(0.25).timeout
 
 func find_button(node: Node, text: String) -> Button:
 	for candidate in node.find_children("*", "Button", true, false):

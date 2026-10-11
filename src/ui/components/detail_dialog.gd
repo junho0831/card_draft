@@ -129,25 +129,39 @@ func _build_surface(profile: Profile, viewport: Vector2, ui: RefCounted) -> void
 			body.add_theme_constant_override("separation", 8)
 			panel.add_child(body)
 		Profile.COLLECTION:
-			_shade(Color(0.015, 0.025, 0.04, 0.97))
+			_background("DetailBackground", 0.8)
+			_shade(Color(Tokens.SURFACE, 0.55))
 			_inset(body, 24, 16)
 			add_child(body)
 		Profile.LEGACY_BATTLE:
 			z_index = 300
-			_shade(Color(0.006, 0.01, 0.02, 0.9))
+			_background("DetailBackground", 0.8)
+			_shade(Color(Tokens.SURFACE, 0.55))
 			_inset(body, 16, 16)
 			add_child(body)
+	if profile != Profile.LANDSCAPE_CARD:
+		var frame := Panel.new()
+		frame.name = "DetailFrame"
+		frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		frame.add_theme_stylebox_override("panel", Styles.make_textured_panel_style(Color.WHITE, Tokens.BORDER, 0))
+		add_child(frame)
 
 func _build_content(profile: Profile) -> void:
 	if title_label != null:
+		title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title_label.add_theme_font_size_override("font_size", Tokens.FONT_TITLE)
 		header = HBoxContainer.new()
 		body.add_child(header)
 		header.add_child(title_label)
 		header.add_child(close_button)
 	else:
-		body.add_child(close_button)
+		header = HBoxContainer.new()
+		header.alignment = BoxContainer.ALIGNMENT_END
+		body.add_child(header)
+		header.add_child(close_button)
 	var scroll_parent: Control = body
-	if profile == Profile.LANDSCAPE_CARD:
+	if profile in [Profile.LANDSCAPE_CARD, Profile.ECONOMY, Profile.COLLECTION]:
 		media = HBoxContainer.new()
 		media.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		media.size_flags_horizontal = Control.SIZE_EXPAND_FILL

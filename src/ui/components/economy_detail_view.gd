@@ -31,13 +31,7 @@ static func size_action_labels(button: Button, titles: Array[String], minimum_wi
 	ButtonMetrics.reserve_labels(button, titles, minimum_width)
 
 static func offer_face(main: Node, card: Dictionary, width: int, height: int, compact: bool = false, price_text: String = "") -> Control:
-	var face: Control
-	if compact:
-		face = compact_offer_face(main, card, width, height, price_text)
-	else:
-		face = Fantasy.card(main, card, width, height)
-		face.add_theme_stylebox_override("panel", main.ui.make_race_card_style(card, Tokens.SURFACE, 2, 8))
-		main.ui.decorate_card_frame(face, card)
+	var face := compact_offer_face(main, card, width, height, price_text)
 	add_offer_selection(main, face)
 	return face
 
@@ -48,7 +42,16 @@ static func add_offer_selection(main: Node, face: Control) -> void:
 	CardView.add_offer_selection(main, face)
 
 static func select_offer(face: Control, selected: bool) -> void:
-	face.get_node("EconomyOfferSelection").visible = selected
+	var layer: Control = face.get_node("EconomyOfferSelection")
+	if face.has_meta("selection_tween"):
+		var previous: Tween = face.get_meta("selection_tween")
+		if previous != null and previous.is_valid(): previous.kill()
+	layer.visible = selected
+	if selected and face.is_inside_tree():
+		layer.modulate.a = 0.0
+		var tween := face.create_tween()
+		face.set_meta("selection_tween", tween)
+		tween.tween_property(layer, "modulate:a", 1.0, Tokens.SELECTION_DURATION)
 
 static func compact_offer_face(main: Node, card: Dictionary, width: int, height: int, price_text: String = "") -> Control:
 	return CardView.make_compact_offer(main, card, width, height, price_text)
@@ -129,16 +132,18 @@ static func add_scroll(parent: Control, min_height: float = 0.0) -> VBoxContaine
 	return preload("res://src/ui/ui_factory.gd").new().make_scroll_column(parent, 8, min_height, ScrollContainer.SCROLL_MODE_DISABLED, "EconomyDetailScroll")
 
 static func show_card(main: Node, card: Dictionary, action_text: String, action: Callable, disabled: bool, close: Callable) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 16)
-	var narrow: bool = main._layout_viewport_size().x < 600
-	var face := offer_face(main, card, 128 if narrow else 190, 220 if narrow else 300)
+	var viewport: Vector2 = main._layout_viewport_size()
+	var height := int(clampf(viewport.y - 136, 160, 420))
+	var face := offer_face(main, card, int(height * 2.0 / 3.0), height)
 	face.name = "EconomyDetailCard"
 	face.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	face.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	row.add_child(face)
-	row.add_child(make_comparison(main, card, narrow))
-	return show_detail(main, String(card.get("name", "")), row, "%s · %s" % [String(card.get("name", "카드")), action_text], action, disabled, close)
+	var details := section(main, main._card_effect_summary(card))
+	details.add_child(make_comparison(main, card, viewport.x < 1100))
+	var dialog = show_detail(main, String(card.get("name", "")), details, "%s · %s" % [String(card.get("name", "카드")), action_text], action, disabled, close)
+	dialog.media.add_child(face)
+	dialog.media.move_child(face, 0)
+	return dialog
 
 static func show_relic(main: Node, relic: Dictionary, action: Callable, close: Callable) -> Control:
 	var details := VBoxContainer.new()

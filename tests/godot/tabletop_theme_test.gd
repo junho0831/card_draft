@@ -36,11 +36,11 @@ func run() -> Dictionary:
 	var battle_button := Button.new()
 	BattleStyles.apply_battle_button(battle_button, Color.RED, Color.BLUE, false, "turn")
 	var style := battle_button.get_theme_stylebox("normal") as StyleBoxTexture
-	check(style != null and style.texture.resource_path == Styles.BUTTON_GOLD_PATH, "turn end shares primary material")
+	check(style != null and style.texture == Styles._load_texture(Styles.BUTTON_GOLD_PATH), "turn end shares primary material")
 	battle_button.free()
 	for accent in [Color.RED, Color.BLUE, Color.GREEN]:
 		var panel := Styles.make_textured_panel_style(Tokens.SURFACE, accent, 12) as StyleBoxTexture
-		check(panel.texture.resource_path.ends_with("panel_silver.svg"), "panels share silver material")
+		check(panel.texture == Styles._load_texture(Styles.PANEL_BLUE_PATH), "panels share silver material")
 		check(panel.texture_margin_left == panel.texture_margin_right, "symmetric nine slice")
 	return {"count": count, "failures": failures}
 

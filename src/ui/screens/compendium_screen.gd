@@ -2,7 +2,8 @@ extends RefCounted
 class_name CompendiumScreen
 
 const Fantasy = preload("res://src/ui/fantasy_components.gd")
-const Presentation = preload("res://src/ui/components/battle_presentation.gd")
+const DetailDialog = preload("res://src/ui/components/detail_dialog.gd")
+const CardView = preload("res://src/ui/components/card_view.gd")
 const Layout = preload("res://src/ui/screens/screen_layout.gd")
 
 var main: Node
@@ -80,19 +81,20 @@ func _refresh_grid() -> void:
 
 func _show_detail(card: Dictionary) -> void:
 	_close_detail()
-	var content := VBoxContainer.new()
-	main.modal_layer.add_child(content)
+	var close: Button = main.ui.make_action_button("닫기", Callable())
+	close.custom_minimum_size.y = 44
+	detail_overlay = DetailDialog.create(main.modal_layer, DetailDialog.Profile.COLLECTION, main._make_label(String(card.name), 24, main.ui.UI_TOKENS.TEXT_PRIMARY), close, _close_detail, main._layout_viewport_size(), main.ui)
 	var viewer := preload("res://src/ui/components/card_inspection_view.gd").new()
-	var face := Fantasy.card(main, card, 270, 420)
+	var height := clampf(main._layout_viewport_size().y - 116, 160, 470)
+	var extent := Vector2(height * 2.0 / 3.0, height)
+	var face := CardView.make_compact_offer(main, card, int(extent.x), int(extent.y))
 	face.theme = main.theme
-	viewer.setup(face, Vector2(300, 470), Vector2(270, 420))
-	content.add_child(viewer)
+	viewer.setup(face, extent, extent)
+	detail_overlay.media.add_child(viewer)
+	detail_overlay.media.move_child(viewer, 0)
+	detail_overlay.content.add_child(main._make_label(main._card_effect_summary(card), 16, main.ui.UI_TOKENS.TEXT_PRIMARY))
 	var lore: Dictionary = main.card_lore_service.lore_for(String(card.get("id", "")))
-	content.add_child(main._make_label(String(lore.get("story", "")), 15, Color(0.86, 0.9, 0.96)))
-	detail_overlay = Presentation.make_detail_overlay(main.modal_layer, content, _close_detail)
-	var close_button := detail_overlay.find_children("*", "Button", true, false)
-	if not close_button.is_empty():
-		close_button[0].text = "도감으로 돌아가기"
+	detail_overlay.content.add_child(main._make_label(String(lore.get("story", "")), 16, main.ui.UI_TOKENS.TEXT_SECONDARY))
 	detail_overlay.visible = true
 
 func _close_detail() -> void:

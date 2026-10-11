@@ -88,16 +88,24 @@ func verify_offers(screen: String, dimensions: Vector2i, prefix: String) -> void
 		if id == OFFER_IDS[0]:
 			print("OFFER ART ", prefix, " face=", rect.size, " art=", art.get_global_rect().size)
 		var labels: Array[Control] = [art]
-		for node_name in ["EconomyOfferName", "EconomyOfferStats", "EconomyOfferEffect"]:
+		for node_name in ["EconomyOfferName", "EconomyOfferEffect"]:
 			var label: Label = face.get_node(node_name)
-			labels.append(label)
-			check(label.is_visible_in_tree() and rect.encloses(label.get_global_rect()), prefix + " visible label inside card: " + node_name + id)
-			check(label.get_visible_line_count() == label.get_line_count(), prefix + " sample label lines fit: " + node_name + id)
+			if label.is_visible_in_tree():
+				labels.append(label)
+				check(rect.encloses(label.get_global_rect()), prefix + " visible label inside card: " + node_name + id)
+				check(label.get_visible_line_count() == label.get_line_count(), prefix + " sample label lines fit: " + node_name + id)
+		check(face.get_node("EconomyOfferName").is_visible_in_tree(), prefix + " card name remains visible: " + id)
 		var effect: Label = face.get_node("EconomyOfferEffect")
 		check(effect.text == main._card_effect_summary(card) and not effect.text.is_empty(), prefix + " uses existing effect summary: " + id)
 		var stats: Label = face.get_node("EconomyOfferStats")
 		check(stats.text.begins_with("마나 %d" % int(card.cost)), prefix + " mana stays distinct from gold: " + id)
-		check(stats.get_theme_font("font").get_string_size(stats.text, HORIZONTAL_ALIGNMENT_LEFT, -1, stats.get_theme_font_size("font_size")).x <= stats.size.x, prefix + " mana and unit stats fit: " + id)
+		var cost: Label = face.get_node("Cost")
+		check(cost.is_visible_in_tree() and cost.text == str(int(card.cost)), prefix + " visible cost gem uses integer mana: " + id)
+		if card.get("type") == "unit":
+			for field in ["Attack", "Health"]:
+				var badge: Label = face.get_node(field)
+				check(badge.is_visible_in_tree() and rect.encloses(badge.get_global_rect()), prefix + " unit badge remains visible: " + field + id)
+				check(not badge.get_global_rect().intersects(face.get_node("EconomyOfferName").get_global_rect()), prefix + " name clears stat badges: " + field + id)
 		if screen == "shop":
 			var price: Label = face.get_node("EconomyOfferPrice")
 			labels.append(price)
@@ -108,6 +116,7 @@ func verify_offers(screen: String, dimensions: Vector2i, prefix: String) -> void
 				expected += " · 골드 부족"
 			check(price.text == expected and price.is_visible_in_tree(), prefix + " actual price and availability: " + id)
 			check(rect.encloses(price.get_global_rect()), prefix + " price fits card: " + id)
+			check(not face.get_node("CardPlate").get_global_rect().intersects(price.get_global_rect()), prefix + " price is outside portrait: " + id)
 			check(price.get_theme_font("font").get_string_size(price.text, HORIZONTAL_ALIGNMENT_LEFT, -1, price.get_theme_font_size("font_size")).x <= price.size.x, prefix + " price and status text fit: " + id)
 		for index in range(labels.size()):
 			for other in range(index + 1, labels.size()):

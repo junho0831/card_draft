@@ -113,9 +113,12 @@ func verify_mobile_offers(prefix: String) -> void:
 		check(visible_rect.encloses(rect) and not rect.intersects(dock), prefix + " entire card silhouette visible above dock: " + id)
 		var title: Label = face.get_node("EconomyOfferName")
 		check(rect.encloses(title.get_global_rect()) and title.get_line_count() <= 2 and title.get_visible_line_count() == title.get_line_count(), prefix + " complete card name fits within two lines: " + id)
-		var stats: Label = face.get_node("EconomyOfferStats")
-		var text_width := stats.get_theme_font("font").get_string_size(stats.text, HORIZONTAL_ALIGNMENT_LEFT, -1, stats.get_theme_font_size("font_size")).x
-		check(rect.encloses(stats.get_global_rect()) and text_width <= stats.size.x, prefix + " card cost and stats fully visible: " + id)
+		var badges: Array[String] = ["Cost"]
+		if main.card_db.get_card(id).get("type", "") == "unit": badges.append_array(["Attack", "Health"])
+		for badge_name in badges:
+			var badge: Label = face.get_node(badge_name)
+			var text_width := badge.get_theme_font("font").get_string_size(badge.text, HORIZONTAL_ALIGNMENT_LEFT, -1, badge.get_theme_font_size("font_size")).x
+			check(badge.is_visible_in_tree() and rect.encloses(badge.get_global_rect()) and text_width <= badge.size.x, prefix + " numeric badge is fully visible: " + id + " " + badge_name)
 
 func verify_relic_choices(dimensions: Vector2i) -> void:
 	var relics: Array = main._roll_relic_reward_choices(3)

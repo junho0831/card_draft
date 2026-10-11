@@ -17,48 +17,22 @@ func _init(_main: Node) -> void:
 
 func build(body: VBoxContainer, act_data: Dictionary) -> void:
 	phone_landscape = main.LayoutPolicy.is_mobile_landscape(main._layout_viewport_size())
-	if not main._lesson_description().is_empty() and not phone_landscape:
-		body.add_child(main.ui.make_guidance_banner("이번에 배울 것", main._lesson_description(), Color(0.12, 0.2, 0.3, 1.0), true))
 	nodes_data = act_data.get("nodes", [])
 	current_index = int(main.current_run.get("current_node_index", 0))
-
-	var compact: bool = _is_map_compact_layout()
 	vertical_route = false
-	var phone: bool = main._is_mobile_phone_layout()
-	var viewport_size: Vector2 = main._layout_viewport_size()
-	var fixed_actions: bool = true
-	if not phone_landscape:
-		body.add_child(_make_map_status_strip(compact))
-	if compact and not phone_landscape:
-		body.add_child(main.ui.make_guidance_banner("다음 행동", _map_primary_guidance_text(), Color(0.2, 0.24, 0.18, 1.0), compact))
-
-	var hub: BoxContainer = VBoxContainer.new() if compact else HBoxContainer.new()
-	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hub.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	hub.add_theme_constant_override("separation", 10)
-	body.add_child(hub)
-
-	if compact:
-		hub.add_child(_make_map_panel(compact))
-		if phone_landscape:
-			var node_summary: Label = main._make_label("%s · %s" % [_node_objective_text(_current_node_type()), _node_reward_text(_current_node_type())], 14, main.ui.UI_TOKENS.TEXT_PRIMARY)
-			node_summary.name = "MapNodeSummary"
-			node_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-			node_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			hub.add_child(node_summary)
-		else:
-			hub.add_child(_make_objective_panel(compact, act_data, not fixed_actions))
-		hub.add_child(_make_legend_panel(compact))
-	else:
-		hub.add_child(_make_legend_panel(compact))
-		hub.add_child(_make_map_panel(compact))
-		hub.add_child(_make_objective_panel(compact, act_data, false))
-
-	body.add_child(_make_build_direction_panel(compact))
-	if phone_landscape and not main._lesson_description().is_empty():
-		body.add_child(main._make_label(main._lesson_description(), 14, Color(0.85, 0.9, 1.0)))
-	if fixed_actions:
-		_mount_map_action_dock(body)
+	var compact := _is_map_compact_layout()
+	body.add_child(_make_map_panel(compact))
+	var summary: Label = main._make_label("%s · %s\n%s" % [main._node_type_name(_current_node_type()), _node_risk_text(_current_node_type()), _node_reward_text(_current_node_type()).replace("\n", " · ")], 14, main.ui.UI_TOKENS.TEXT_PRIMARY)
+	summary.name = "MapNodeSummary"
+	summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	summary.max_lines_visible = 2
+	summary.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	body.add_child(summary)
+	if not main._lesson_description().is_empty():
+		body.add_child(main._make_label(main._lesson_description(), 14, main.ui.UI_TOKENS.TEXT_SECONDARY))
+	_mount_map_action_dock(body)
 
 func _is_map_compact_layout() -> bool:
 	return main._is_compact_layout_for(1080.0)
@@ -78,7 +52,8 @@ func _make_map_status_strip(compact: bool) -> PanelContainer:
 func _make_map_panel(compact: bool) -> PanelContainer:
 	var phone: bool = bool(main._is_mobile_phone_layout())
 	var panel: PanelContainer = main.ui.make_surface_panel(Color(0.055, 0.065, 0.075, 1.0), Color(0.2, 0.17, 0.11, 1.0), 1, 12, 4 if phone_landscape else 12)
-	panel.custom_minimum_size = Vector2(0, 286 if phone else (300 if compact else 318))
+	panel.custom_minimum_size = Vector2.ZERO
+	panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	if phone_landscape:
 		panel.custom_minimum_size.y = 0
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -91,8 +66,8 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	var title_row := HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", 8)
 	box.add_child(title_row)
-	var title: Label = main._make_label("Act 경로", 18 if compact else 20, Color(1.0, 0.88, 0.55, 1.0))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	var title: Label = main._make_label("HP %d/%d · 골드 %d" % [main.current_run.hp, main.current_run.max_hp, main.current_run.gold], 14, main.ui.UI_TOKENS.ACCENT_GOLD)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(title)
 	var progress: Label = main._make_label("노드 %d / %d" % [current_index + 1, nodes_data.size()], 14 if compact else 15, Color(0.82, 0.86, 0.92, 1.0))
@@ -100,10 +75,12 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	progress.autowrap_mode = TextServer.AUTOWRAP_OFF
 	progress.custom_minimum_size = Vector2(96, 0)
 	title_row.add_child(progress)
+	title_row.move_child(progress, 0)
 	var subtitle_text := "좌우로 밀어 경로를 보고, 밝은 노드를 누르세요." if phone else "현재 진입 가능한 노드만 밝게 표시됩니다."
 	var subtitle: Label = main._make_label(subtitle_text, 13 if compact else 14, Color(0.8, 0.84, 0.9, 1.0))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(subtitle)
+	subtitle.hide()
 	if phone_landscape:
 		title.text = "HP %d/%d · 골드 %d" % [main.current_run.hp, main.current_run.max_hp, main.current_run.gold]
 		subtitle.hide()
@@ -120,18 +97,18 @@ func _make_map_panel(compact: bool) -> PanelContainer:
 	map_canvas = Control.new()
 	var step_count: int = max(1, nodes_data.size() - 1)
 	var viewport_width: int = int(main._layout_viewport_size().x)
-	var visible_map_width: int = max(420 if compact else 520, viewport_width - (20 if phone else (48 if compact else 420)))
+	var visible_map_width: int = maxi(420, viewport_width - 48)
 	var min_spacing: int = 92
-	var max_spacing: int = 116 if compact else 126
+	var max_spacing: int = 280
 	if phone_landscape:
 		visible_map_width = viewport_width - 32
 		max_spacing = 170
 	var node_spacing: int = clampi(int((visible_map_width - 184) / step_count), min_spacing, max_spacing)
-	var canvas_width: int = 184 + step_count * node_spacing
-	var canvas_height := 198 if compact else 212
+	var canvas_width: int = maxi(visible_map_width, 184 + step_count * node_spacing)
+	var canvas_height := maxi(180, int(main._layout_viewport_size().y) - 260)
 	if phone_landscape:
-		canvas_height = 150
-		map_scroll.custom_minimum_size.y = canvas_height
+		canvas_height = maxi(150, int(main._layout_viewport_size().y) - 228)
+	map_scroll.custom_minimum_size.y = canvas_height
 	if vertical_route:
 		canvas_width = maxi(460, viewport_width - 610)
 		canvas_height = 390
@@ -258,8 +235,8 @@ func _mount_map_action_dock(body: VBoxContainer) -> void:
 	var dock: Dictionary = main.ui.mount_screen_action_dock(
 		main,
 		body,
-		"" if phone_landscape else "지금 할 일 · 다음 장소로 진입",
-		"" if phone_landscape else "버튼을 누르면 %s 화면으로 바로 이동합니다." % main._node_type_name(current_type),
+		"",
+		"",
 		_node_color(current_type),
 		78 if phone_landscape else (96 if landscape else 126)
 	)

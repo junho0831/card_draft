@@ -51,11 +51,11 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	var viewport: Vector2 = battle.main._layout_viewport_size()
 	compact_board = battle._is_landscape_phone()
 	hero_width = 80.0 if compact_board else 112.0
-	rail_width = 120.0 if compact_board else 168.0
-	hand_size = Vector2(82, 110) if compact_board else Vector2(132, 178)
-	# Both lanes and the enemy prediction strip stay visible, even during selection.
-	field_height = maxf(44, floorf((viewport.y - hand_size.y - 154) / 2.0)) if compact_board else clampf(floorf((viewport.y - hand_size.y - 160) / 2.0), 128, 178)
-	unit_width = minf(104 if compact_board else 136, floorf((viewport.x - rail_width - 48 - hero_width - 32) / 5.0))
+	rail_width = 148.0 if compact_board else 176.0
+	hand_size = Tokens.HAND_MIN_SIZE if compact_board else Vector2(132, 198)
+	# Reserve a single-line prediction strip without flattening the portraits.
+	field_height = maxf(44, floorf((viewport.y - hand_size.y - 112) / 2.0)) if compact_board else clampf(floorf((viewport.y - hand_size.y - 160) / 2.0), 128, 178)
+	unit_width = minf(maxf(64, field_height), floorf((viewport.x - rail_width - hero_width - 46) / 5.0)) if compact_board else minf(136, floorf((viewport.x - rail_width - 48 - hero_width - 32) / 5.0))
 	old_root.hide()
 	action_panel.hide()
 	battle.main.mobile_bottom_inset = 0
@@ -74,7 +74,10 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	page.add_theme_constant_override("separation", 4)
 	margin.add_child(page)
 	var header_panel := PanelContainer.new()
-	var header_style := surface_style(Tokens.BORDER)
+	var header_style := StyleBoxFlat.new()
+	header_style.bg_color = Color(Tokens.SURFACE, 0.3)
+	header_style.content_margin_top = 0
+	header_style.content_margin_bottom = 0
 	header_style.content_margin_left = 8
 	header_style.content_margin_right = 4
 	header_panel.add_theme_stylebox_override("panel", header_style)
@@ -83,18 +86,21 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	header.custom_minimum_size.y = 36
 	header.add_theme_constant_override("separation", 8)
 	header_panel.add_child(header)
-	var heading := VBoxContainer.new()
+	var heading: BoxContainer = HBoxContainer.new() if compact_board else VBoxContainer.new()
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading.add_theme_constant_override("separation", 0)
+	heading.add_theme_constant_override("separation", 12 if compact_board else 0)
 	header.add_child(heading)
-	var title := label("전투 · " + String(battle.opponent.name), 16)
+	var title := label("전투 · " + String(battle.opponent.name), 18 if viewport.x < 800 else Tokens.FONT_TITLE)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.clip_text = true
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	heading.add_child(title)
-	center_guidance = label("", 13 if compact_board else 14)
+	center_guidance = label("", Tokens.FONT_CAPTION)
 	center_guidance.clip_text = true
 	center_guidance.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	if compact_board:
+		center_guidance.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		center_guidance.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	heading.add_child(center_guidance)
 	phase_badge = label("", 14)
 	phase_badge.custom_minimum_size.x = 64
@@ -148,7 +154,7 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	lanes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lanes.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	lanes.alignment = BoxContainer.ALIGNMENT_CENTER
-	lanes.add_theme_constant_override("separation", 6)
+	lanes.add_theme_constant_override("separation", 2 if compact_board else 6)
 	board_scroll.add_child(lanes)
 	lane(lanes, battle.opponent_field_box, true)
 	lane(lanes, battle.player_field_box, false)
@@ -175,8 +181,8 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	battle.hand_scroll.reparent(board)
 	battle.hand_scroll.set_meta("cancel_tap_on_motion", true)
 	battle.hand_scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	battle.hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	battle.hand_scroll.custom_minimum_size = Vector2(0, hand_size.y + 36)
+	battle.hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if compact_board else ScrollContainer.SCROLL_MODE_AUTO
+	battle.hand_scroll.custom_minimum_size = Vector2(0, hand_size.y + 24)
 	battle.hand_scroll.size_flags_vertical = Control.SIZE_SHRINK_END
 	var rail_panel := PanelContainer.new()
 	rail_panel.name = "BattleActionPanel"
@@ -213,7 +219,8 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	battle.end_turn_button.reparent(rail)
 	ButtonMetrics.apply(battle.end_turn_button, "action", rail_width)
 	cancel_button = action("선택 취소", _cancel_selection, "compact")
-	header.add_child(cancel_button)
+	rail.add_child(cancel_button)
+	rail.move_child(cancel_button, rail.get_child_count() - 2)
 	cancel_button.custom_minimum_size.x = 104 if compact_board else 120
 	if compact_board:
 		ButtonMetrics.apply(cancel_button, "compact", 104)
@@ -252,28 +259,50 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 	var style := SharedStyles.make_style_box(Color(Tokens.SURFACE, 0.28), Color(Tokens.BORDER, 0.35), 1, 5)
 	style.content_margin_left = 3
 	style.content_margin_right = 3
-	style.content_margin_top = 2
-	style.content_margin_bottom = 2
+	style.content_margin_top = 1 if compact_board else 2
+	style.content_margin_bottom = 1 if compact_board else 2
 	panel.add_theme_stylebox_override("panel", style)
 	parent.add_child(panel)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
-	var lane_height := field_height + (34 if compact_board else 42) if enemy else field_height
+	var lane_height := field_height + (18 if compact_board else 42) if enemy else field_height
 	row.custom_minimum_size.y = lane_height
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.add_child(row)
+	var hero_anchor := Control.new()
+	hero_anchor.name = "HeroAnchor"
+	hero_anchor.custom_minimum_size = Vector2(hero_width, field_height)
+	hero_anchor.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	hero_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(hero_anchor)
+	var medallion_size := minf(hero_width, field_height)
 	var hero: Button = battle.main.ui.make_button("")
-	hero.custom_minimum_size = Vector2(hero_width, field_height)
-	hero.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	hero.add_theme_stylebox_override("normal", SharedStyles.make_textured_panel_style(Tokens.SURFACE_RAISED, Tokens.BORDER, 1, false))
-	hero.add_theme_stylebox_override("hover", SharedStyles.make_textured_panel_style(Tokens.SURFACE_RAISED, Tokens.ACCENT_GOLD, 2, false))
-	hero.add_theme_stylebox_override("pressed", SharedStyles.make_textured_panel_style(Tokens.SURFACE_RAISED, Tokens.ACCENT_GOLD, 2, false))
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		hero.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	hero.custom_minimum_size = Vector2(hero_width, medallion_size)
+	hero.set_anchors_preset(Control.PRESET_CENTER)
+	hero.offset_left = -hero_width * 0.5
+	hero.offset_right = hero_width * 0.5
+	hero.offset_top = -medallion_size * 0.5
+	hero.offset_bottom = medallion_size * 0.5
 	hero.clip_text = true
 	hero.add_theme_font_size_override("font_size", 16)
-	row.add_child(hero)
+	hero_anchor.add_child(hero)
 	hero.clip_contents = true
+	var medallion := Panel.new()
+	medallion.name = "HeroMedallion"
+	medallion.set_anchors_preset(Control.PRESET_CENTER)
+	medallion.offset_left = -medallion_size * 0.5
+	medallion.offset_right = medallion_size * 0.5
+	medallion.offset_top = -medallion_size * 0.5
+	medallion.offset_bottom = medallion_size * 0.5
+	medallion.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var medallion_style := SharedStyles.make_style_box(Tokens.SURFACE, Tokens.TEXT_SECONDARY, 3)
+	medallion_style.set_corner_radius_all(999)
+	medallion.add_theme_stylebox_override("panel", medallion_style)
+	hero.add_child(medallion)
 	var portrait: TextureRect = battle._make_battle_hero_art(int(battle.main.current_run.get("active_enemy", {}).get("art", 0)), Vector2.ZERO, enemy)
-	var portrait_size := minf(hero_width, field_height) - 10.0
+	var portrait_size := medallion_size - 10.0
 	portrait.set_anchors_preset(Control.PRESET_CENTER)
 	portrait.offset_left = -portrait_size * 0.5
 	portrait.offset_top = -portrait_size * 0.5
@@ -322,16 +351,33 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 	bar.show_percentage = false
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hero.add_child(bar)
+	bar.hide()
 	hero_bars.append(bar)
-	var hp := label("", 20)
+	var badge_size := 28.0 if compact_board else 36.0
+	var health_plate := Panel.new()
+	health_plate.name = "HeroHealthPlate"
+	health_plate.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	health_plate.offset_left = -badge_size * 0.5
+	health_plate.offset_right = badge_size * 0.5
+	health_plate.offset_top = -badge_size - 1
+	health_plate.offset_bottom = -1
+	health_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var health_style := SharedStyles.make_style_box(Tokens.ACCENT_DANGER.darkened(0.55), Tokens.TEXT_SECONDARY, 2)
+	health_style.set_corner_radius_all(999)
+	health_plate.add_theme_stylebox_override("panel", health_style)
+	hero.add_child(health_plate)
+	var hp := label("", 18 if compact_board else 20)
 	hp.name = "HeroHealth"
-	hp.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hp.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	hp.offset_left = -badge_size * 0.5
+	hp.offset_right = badge_size * 0.5
+	hp.offset_top = -badge_size - 1
+	hp.offset_bottom = -1
 	hp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hp.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	hp.offset_bottom = -7
+	hp.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	hp.add_theme_color_override("font_outline_color", Color.BLACK)
 	hp.add_theme_color_override("font_color", Color.WHITE)
-	hp.add_theme_constant_override("outline_size", 5)
+	hp.add_theme_constant_override("outline_size", 2)
 	hero.add_child(hp)
 	if enemy:
 		battle.opponent_hero_target = hero
@@ -341,6 +387,13 @@ func lane(parent: Control, cards: HBoxContainer, enemy: bool) -> void:
 		battle.opponent_info = hp
 		hero.pressed.connect(func(): battle._attack_opponent_hero())
 		outline(hero, Color(1.0, 0.35, 0.3), 1, 3, "TargetBorder")
+		var target_border: Control = hero.get_node("TargetBorder")
+		(target_border.get_theme_stylebox("panel") as StyleBoxFlat).set_corner_radius_all(999)
+		target_border.set_anchors_preset(Control.PRESET_CENTER)
+		target_border.offset_left = -medallion_size * 0.5
+		target_border.offset_right = medallion_size * 0.5
+		target_border.offset_top = -medallion_size * 0.5
+		target_border.offset_bottom = medallion_size * 0.5
 	else:
 		battle.player_hero_target = hero
 		battle.player_hero_target_hp_label = hp
@@ -357,15 +410,7 @@ func stamp(parent: Control, node_name: String, value: String, at: Vector2, exten
 	return CardView.make_stamp(battle.main, parent, node_name, value, at, extent, color, font_size)
 
 static func card_kind(card: Dictionary) -> String:
-	var type := String(card.get("type", "unit"))
-	if type == "unit": return "unit"
-	if type == "equipment": return "equipment"
-	for effect in card.get("effects", []):
-		if effect.op in ["front_damage", "all_damage", "combo_damage", "low_damage", "curse", "hero_damage"]: return "damage"
-	var id := String(card.get("id", "")).trim_suffix("_plus")
-	if id in ["small_flame", "gale_shot", "corpse_explosion", "fireball", "death_mark", "plague_spread", "soul_shackle", "funeral_fog", "vampiric_strike"]:
-		return "damage"
-	return "support"
+	return CardView.card_kind(card)
 
 static func kind_color(kind: String) -> Color:
 	return {"unit": Color("7299bb"), "damage": Color("d35b52"), "support": Color("57aa7b"), "equipment": Color("d8ae54")}[kind]
@@ -412,6 +457,18 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 		button.add_theme_stylebox_override("disabled", SharedStyles.make_style_box(Color(Tokens.SURFACE, 0.12), Color(Tokens.BORDER, 0.35), 1, 4))
 		return button
 	var kind := card_kind(card)
+	if not field:
+		var face := CardView.make_compact_offer(battle.main, card, int(width), int(height))
+		face.get_node("EconomyOfferArt").name = "Illustration"
+		face.get_node("EconomyOfferName").name = "CardName"
+		face.get_node("CardPlate").name = "TypeBorder"
+		face.get_node("EconomyOfferEffect").hide()
+		face.get_node("TypeIcon").texture = load("res://assets/ui/fantasy/type_%s.svg" % kind)
+		for child in face.get_children(): child.reparent(button)
+		face.free()
+		button.set_meta("card_kind", kind)
+		button.tooltip_text = String(card.get("name", "")) + "\n" + battle.main._card_effect_summary(card)
+		return button
 	var compact_field := field and compact_board
 	button.set_meta("card_kind", kind)
 	for state in ["normal", "hover", "pressed", "disabled"]:
@@ -442,6 +499,7 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 		art.anchor_bottom = 0
 		art.offset_bottom = height - 24
 	button.add_child(art)
+	battle.main.ui.decorate_card_frame(button, card)
 	if compact_field:
 		stamp(button, "CardName", String(card.get("name", "")), Vector2(3, 3), Vector2(width - 27, 16), Color(race_band.darkened(0.45), 0.84), 12)
 	else:
@@ -458,18 +516,8 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	type_border.name = "TypeBorder"
 	type_border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	type_border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var type_style := StyleBoxFlat.new()
-	type_style.bg_color = Color.TRANSPARENT
-	type_style.border_color = kind_color(kind)
-	type_style.set_border_width_all(3 if kind in ["damage", "equipment"] else 2)
-	type_style.set_corner_radius_all({"unit": 3, "damage": 0, "support": 7, "equipment": 1}[kind])
-	if kind == "equipment":
-		type_style.border_width_top = 5
-		type_style.border_width_bottom = 5
-	type_border.add_theme_stylebox_override("panel", type_style)
+	type_border.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	button.add_child(type_border)
-	if not compact_field:
-		battle.main.ui.decorate_card_frame(button, card)
 	var icon := TextureRect.new()
 	icon.name = "TypeIcon"
 	icon.texture = load("res://assets/ui/fantasy/type_%s.svg" % kind)
@@ -480,7 +528,7 @@ func tile(card: Dictionary, bottom: String, width: float, accent: Color, height:
 	button.add_child(icon)
 	if field: icon.hide()
 	var emblem: TextureRect = battle.main.ui.make_race_emblem(card, 20)
-	emblem.position = Vector2((width - 20) * 0.5, 25 if field else 28)
+	emblem.position = Vector2((width - 20) * 0.5, height - 24 if field else 28)
 	emblem.visible = not (field and compact_board)
 	button.add_child(emblem)
 	button.tooltip_text = {"unit":"유닛", "damage":"피해·저주 주문", "support":"회복·지원 주문", "equipment":"장비"}[kind]
@@ -531,9 +579,11 @@ func field_slot(side: Dictionary, index: int, ally: bool) -> Control:
 		column.mouse_filter = Control.MOUSE_FILTER_PASS
 		column.add_theme_constant_override("separation", 2)
 		column.add_child(button)
-		var preview := label("적 %d→%d\n내 %d→%d" % [int(unit.health), int(prediction.defender_health), int(battle._selected_player_attacker().get("health", 0)), int(prediction.attacker_health)], 12 if compact_board else 14)
+		var preview_text := "적%d 내%d" % [int(prediction.defender_health), int(prediction.attacker_health)] if compact_board else "적 %d→%d\n내 %d→%d" % [int(unit.health), int(prediction.defender_health), int(battle._selected_player_attacker().get("health", 0)), int(prediction.attacker_health)]
+		var preview := label(preview_text, 12 if compact_board else 14)
 		preview.name = "CombatPrediction"
-		preview.custom_minimum_size = Vector2(unit_width, 32 if compact_board else 40)
+		preview.custom_minimum_size = Vector2(unit_width, 16 if compact_board else 40)
+		preview.clip_text = true
 		preview.add_theme_constant_override("line_spacing", 0)
 		preview.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		preview.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -596,6 +646,9 @@ func render_hand() -> void:
 		stamp(button, "Cost", str(cost), Vector2(3, 3), Vector2(26, 26), Color(0.06, 0.26, 0.55), 18)
 		if int(card.get("_hand_slot", i)) == battle.selected_hand_slot:
 			outline(button, Color(1.0, 0.8, 0.25), 4, 2, "SelectionBorder")
+			var edge: Control = button.get_node("SelectionBorder")
+			edge.modulate.a = 0.35
+			edge.create_tween().tween_property(edge, "modulate:a", 1.0, Tokens.SELECTION_DURATION)
 		elif playable:
 			outline(button, Tokens.ACCENT_TEAL.lightened(0.3), 2, 2, "PlayableBorder")
 		if playable:
@@ -646,10 +699,11 @@ func dialog(title: String, text: String, card: Dictionary = {}, custom_content: 
 	var shell = DetailDialog.create(battle.main.modal_layer, DetailDialog.Profile.LANDSCAPE_CARD, heading, action("닫기", Callable()), close_detail, battle.main._layout_viewport_size(), battle.main.ui)
 	card_dialog = shell
 	if not card.is_empty():
-		var face := preload("res://src/ui/components/card_inspection_view.gd").make_face(battle.main, card)
 		var viewer := preload("res://src/ui/components/card_inspection_view.gd").new()
 		var available_height: float = battle.main._layout_viewport_size().y - 116.0
-		viewer.setup(face, Vector2(available_height * 284.0 / 396.0, available_height))
+		var extent := Vector2(available_height * 2.0 / 3.0, available_height)
+		var face := CardView.make_compact_offer(battle.main, card, int(extent.x), int(extent.y))
+		viewer.setup(face, extent, extent)
 		shell.media.add_child(viewer)
 		shell.media.move_child(viewer, 0)
 	if custom_content != null:
@@ -679,7 +733,7 @@ func show_card(index: int) -> void:
 	if is_instance_valid(source) and not source.has_node("SelectionBorder"):
 		outline(source, Color.WHITE, 4, 2, "SelectionBorder")
 	card_dialog.modulate.a = 0.65
-	card_dialog.create_tween().tween_property(card_dialog, "modulate:a", 1.0, 0.1)
+	card_dialog.create_tween().tween_property(card_dialog, "modulate:a", 1.0, Tokens.SELECTION_DURATION)
 	detail_slot = int(card.get("_hand_slot", index))
 	confirm_button = action("사용 · 마나 %d" % cost, confirm_card)
 	confirm_button.disabled = not playable

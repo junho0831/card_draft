@@ -165,7 +165,10 @@ func run() -> void:
 				check(view.board_scroll.scroll_vertical == ally_scroll, "disabled automatic focus preserves the ally position")
 			else:
 				check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "attacker selection reveals the legal enemy target in " + mode)
-				check(view.board_scroll.scroll_vertical < ally_scroll, "attacker selection moves from allies to enemies in " + mode)
+				if view.board_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED:
+					check(view.board_scroll.scroll_vertical == ally_scroll, "fixed battlefield keeps both lanes in place in " + mode)
+				else:
+					check(view.board_scroll.scroll_vertical < ally_scroll, "attacker selection moves from allies to enemies in " + mode)
 			await view.focus_targets([{"player":false, "hero":true}], false, true)
 			await settle()
 			check(view.board_scroll.get_global_rect().encloses(battle.opponent_hero_target.get_global_rect()), "manual navigation reveals enemy hero in " + mode)

@@ -1,8 +1,8 @@
 extends RefCounted
 class_name UiTokens
 
-const SURFACE := Color("24282a")
-const SURFACE_RAISED := Color("343c3c")
+const SURFACE := Color("151b1c")
+const SURFACE_RAISED := Color("222c2a")
 const TEXT_PRIMARY := Color("f3f0e8")
 const TEXT_SECONDARY := Color("c5cbc7")
 const BORDER := Color("8a9691")
@@ -10,6 +10,13 @@ const ACCENT_GOLD := Color("e3be70")
 const ACCENT_TEAL := Color("80c6b4")
 const ACCENT_DANGER := Color("e68d88")
 const FONT_TITLE := 24
+const MATERIAL_PATH := "res://assets/ui/polish_v1/"
+const PRESS_DURATION := 0.08
+const SELECTION_DURATION := 0.12
+const HAND_MIN_SIZE := Vector2(96, 144)
+const HAND_FAN_STEP := 0.8
+const HAND_FAN_ANGLE := 7.0
+const HAND_SELECTED_LIFT := 8.0
 const TABLETOP_PATH := "res://assets/backgrounds/silver_tabletop_v4.png"
 const SHOP_BACKGROUND_PATH := "res://assets/backgrounds/silver_shop_v1.png"
 const DETAIL_BACKGROUND_PATH := "res://assets/backgrounds/silver_detail_v1.png"

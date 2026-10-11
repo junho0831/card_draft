@@ -3,6 +3,17 @@ class_name CardView
 
 const UI_TOKENS = preload("res://src/ui/styles/ui_tokens.gd")
 
+static func card_kind(card: Dictionary) -> String:
+	var type := String(card.get("type", "unit"))
+	if type == "unit": return "unit"
+	if type == "equipment": return "equipment"
+	for effect in card.get("effects", []):
+		if effect.op in ["front_damage", "all_damage", "combo_damage", "low_damage", "curse", "hero_damage"]: return "damage"
+	var id := String(card.get("id", "")).trim_suffix("_plus")
+	if id in ["small_flame", "gale_shot", "corpse_explosion", "fireball", "death_mark", "plague_spread", "soul_shackle", "funeral_fog", "vampiric_strike"]:
+		return "damage"
+	return "support"
+
 static func metrics(mode: String, compact: bool = false, tight: bool = false) -> Dictionary:
 	return UI_TOKENS.card_metrics(mode, compact, tight)
 
@@ -167,43 +178,14 @@ static func make_title(main: Node, text: String, font_size: int = 24) -> Label:
 	return title
 
 static func make_illustrated_face(main: Node, data: Dictionary, width: int, height: int, selected: bool = false) -> PanelContainer:
-	var frame: PanelContainer = main.ui.make_surface_panel(Color(0.025, 0.035, 0.05), Color(0.9, 0.69, 0.28), 2, 12, 8)
-	frame.add_theme_stylebox_override("panel", preload("res://src/ui/styles/ui_styles.gd").make_textured_panel_style(Color(1, 1, 1, 0.95), Color(0.9, 0.7, 0.3), 8, true))
+	var frame := PanelContainer.new()
+	frame.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	frame.custom_minimum_size = Vector2(width, height)
-	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	frame.tooltip_text = String(data.get("text", ""))
+	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var face := make_compact_offer(main, data, width, height)
+	frame.add_child(face)
 	if selected:
-		frame.modulate = Color(1.12, 1.07, 0.96)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
-	frame.add_child(box)
-	var art: TextureRect = make_art_rect(main, data, Vector2(width - 16, height * 0.52))
-	art.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	box.add_child(art)
-	var cost: PanelContainer = make_gem(main, int(data.get("cost", 0)), false)
-	cost.position = Vector2(0, 0)
-	art.add_child(cost)
-	var name_label: Label = make_title(main, String(data.get("name", "")), 18 if width >= 190 else 15)
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(name_label)
-	box.add_child(HSeparator.new())
-	var rules: Label = main._make_label(main._card_effect_summary(data), 13, Color(0.91, 0.91, 0.87))
-	rules.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	rules.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(rules)
-	var stats := HBoxContainer.new()
-	box.add_child(stats)
-	if String(data.get("type", "")) == "unit":
-		stats.add_child(make_gem(main, int(data.get("attack", 0)), true))
-		var space := Control.new()
-		space.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		stats.add_child(space)
-		stats.add_child(make_gem(main, int(data.get("health", 0)), false))
-	else:
-		var tag := make_title(main, ("주문" if data.get("type") == "spell" else "장비") + " · " + String(data.get("race", "공용")), 12)
-		tag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		stats.add_child(tag)
+		add_outline(face, UI_TOKENS.ACCENT_GOLD, -2, 2, "SelectionOutline")
 	return frame
 
 static func make_gem(main: Node, value: int, red: bool) -> PanelContainer:
@@ -221,6 +203,7 @@ static func make_gem(main: Node, value: int, red: bool) -> PanelContainer:
 
 static func make_offer_label(main: Node, title: String, name: String, width: float, height: float, font_size: int, color: Color = UI_TOKENS.TEXT_PRIMARY, wrap: bool = false) -> Label:
 	var label: Label = main._make_label(title, font_size, color)
+	label.theme = main.theme
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.name = name
 	label.size = Vector2(width, height)
@@ -232,6 +215,17 @@ static func make_offer_label(main: Node, title: String, name: String, width: flo
 	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return label
+
+static func _offer_label_height(label: Label) -> float:
+	# Measure the wrapped text before Label's height-dependent ellipsis is applied.
+	var paragraph := TextParagraph.new()
+	paragraph.width = label.size.x
+	paragraph.break_flags = TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND | TextServer.BREAK_ADAPTIVE
+	paragraph.add_string(label.text, label.get_theme_font("font"), label.get_theme_font_size("font_size"))
+	var lines := mini(2, paragraph.get_line_count())
+	var height := 8.0 + maxf(0, lines - 1) * label.get_theme_constant("line_spacing")
+	for line in range(lines): height += paragraph.get_line_size(line).y
+	return ceilf(height)
 
 static func add_offer_selection(main: Node, face: Control) -> void:
 	var layer := Control.new()
@@ -248,85 +242,106 @@ static func add_offer_selection(main: Node, face: Control) -> void:
 	badge.offset_top = 4
 	badge.offset_bottom = 28
 	badge.add_child(make_offer_label(main, "✓ 선택", "EconomyOfferCheck", 58, 18, 12, UI_TOKENS.ACCENT_GOLD))
+	add_outline(layer, UI_TOKENS.ACCENT_GOLD, -2, 2, "SelectionOutline")
 	layer.hide()
 
 static func make_compact_offer(main: Node, card: Dictionary, width: int, height: int, price_text: String = "") -> Control:
-	var face := Panel.new()
-	face.custom_minimum_size = Vector2(width, height)
-	face.add_theme_stylebox_override("panel", main.ui.make_race_card_style(card, UI_TOKENS.SURFACE, 2, 8))
-	main.ui.decorate_card_frame(face, card)
-	var title_height := 32
-	var line_height := 24
-	var effect_height := 32
-	var gap := 2
-	# Single-line labels require 24px with the inherited Korean font.
-	var info_height := title_height + line_height + effect_height + gap * 2
-	if not price_text.is_empty():
-		info_height += line_height + gap
-	var info_top := height - info_height - 4
-	var art: TextureRect = make_art_rect(main, card, Vector2.ZERO)
+	var face := Control.new()
+	face.custom_minimum_size = Vector2(width, height + (28 if not price_text.is_empty() else 0))
+	face.size = face.custom_minimum_size
+	face.set_meta("portrait_height", height)
+	var plate := Panel.new()
+	plate.name = "CardPlate"
+	plate.size = Vector2(width, height)
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style: StyleBoxFlat = main.ui.make_race_card_style(card, Color.TRANSPARENT, 1, 0)
+	style.set_border_width_all(1)
+	plate.add_theme_stylebox_override("panel", style)
+	face.add_child(plate)
+	var art := make_art(main, card, Vector2.ZERO)
 	art.name = "EconomyOfferArt"
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	art.position = Vector2(8, 8)
-	art.size = Vector2(width - 16, maxf(0, info_top - 8))
+	art.position = Vector2(6, 6)
+	var name_font := 14 if width < 200 else 16
+	var title := make_offer_label(main, String(card.get("name", "")), "EconomyOfferName", width - 16, 0, name_font, UI_TOKENS.TEXT_PRIMARY, true)
+	var title_height := _offer_label_height(title)
+	var effect := make_offer_label(main, main._card_effect_summary(card), "EconomyOfferEffect", width - 24, 0, 14, UI_TOKENS.TEXT_SECONDARY, true)
+	var show_effect := height >= 200 and not effect.text.is_empty()
+	var effect_height := _offer_label_height(effect) if show_effect else 0.0
+	var art_height := floorf(height - title_height - effect_height - 42)
+	art.size = Vector2(width - 12, art_height)
 	face.add_child(art)
-	var title := make_offer_label(main, String(card.get("name", "")), "EconomyOfferName", width - 16, title_height, 14, UI_TOKENS.TEXT_PRIMARY, true)
-	title.position = Vector2(8, info_top)
+	var title_y := art_height + 6
+	var band := Panel.new()
+	band.name = "EconomyOfferNameBand"
+	band.position = Vector2(6, title_y)
+	band.size = Vector2(width - 12, title_height)
+	var name_style: StyleBoxFlat = main.ui.make_race_band_style(card)
+	name_style.set_border_width_all(0)
+	name_style.border_width_top = 1
+	name_style.set_corner_radius_all(0)
+	band.add_theme_stylebox_override("panel", name_style)
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	face.add_child(band)
+	title.size.y = title_height
+	title.position = Vector2(8, title_y)
 	face.add_child(title)
+	var effect_y := title_y + title_height
+	var rules := Panel.new()
+	rules.name = "EconomyOfferRules"
+	rules.position = Vector2(6, effect_y)
+	rules.size = Vector2(width - 12, height - effect_y - 6)
+	rules.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rules_style := StyleBoxFlat.new()
+	rules_style.bg_color = Color(UI_TOKENS.SURFACE, 0.92)
+	rules.add_theme_stylebox_override("panel", rules_style)
+	face.add_child(rules)
+	effect.size.y = effect_height
+	effect.position = Vector2(12, effect_y)
+	effect.visible = show_effect
+	face.add_child(effect)
 	var stats_text := "마나 %d" % int(card.get("cost", 0))
 	if String(card.get("type", "")) == "unit":
 		stats_text += " · 공격 %d · 체력 %d" % [int(card.get("attack", 0)), int(card.get("health", 0))]
-	var stats := make_offer_label(main, stats_text, "EconomyOfferStats", width - 16, line_height, 12)
-	stats.position = Vector2(8, info_top + title_height + gap)
+	var stats := make_offer_label(main, stats_text, "EconomyOfferStats", width - 16, 24, 14)
+	stats.hide()
 	face.add_child(stats)
-	var summary: String = main._card_effect_summary(card)
-	var effect := make_offer_label(main, summary, "EconomyOfferEffect", width - 16, effect_height, 12, UI_TOKENS.TEXT_SECONDARY, true)
-	effect.position = Vector2(8, stats.position.y + line_height + gap)
-	face.add_child(effect)
+	main.ui.decorate_card_frame(plate, card)
+	make_stamp(main, face, "Cost", str(int(card.get("cost", 0))), Vector2(3, 3), Vector2(32, 30), UI_TOKENS.SURFACE, 20)
+	if card.has("attack"):
+		make_stamp(main, face, "Attack", str(int(card.attack)), Vector2(4, height - 30), Vector2(32, 28), UI_TOKENS.SURFACE, 20)
+		make_stamp(main, face, "Health", str(int(card.get("health", 0))), Vector2(width - 36, height - 30), Vector2(32, 28), UI_TOKENS.SURFACE, 20)
+	var emblem: TextureRect = main.ui.make_race_emblem(card, 22)
+	emblem.position = Vector2((width - 22) * 0.5, height - 26)
+	face.add_child(emblem)
+	var kind := card_kind(card)
+	var icon := TextureRect.new()
+	icon.name = "TypeIcon"
+	icon.texture = load("res://assets/ui/fantasy/type_%s.svg" % kind)
+	icon.position = Vector2(width - 25, 5)
+	icon.size = Vector2(20, 20)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	face.add_child(icon)
 	if not price_text.is_empty():
-		var price := make_offer_label(main, price_text, "EconomyOfferPrice", width - 16, line_height, 12, UI_TOKENS.ACCENT_GOLD)
-		price.position = Vector2(8, effect.position.y + effect_height + gap)
+		var price := make_offer_label(main, price_text, "EconomyOfferPrice", width, 26, 14, UI_TOKENS.ACCENT_GOLD)
+		price.position = Vector2(0, height + 2)
 		face.add_child(price)
-	face.tooltip_text = summary if price_text.is_empty() else "%s\n%s" % [price_text, summary]
+	face.tooltip_text = "%s\n%s" % [String(card.get("name", "")), main._card_effect_summary(card)]
 	return face
 
 static func make_inspection_face(main: Node, card: Dictionary) -> Control:
-	var face := Panel.new()
+	var face := make_compact_offer(main, card, 284, 426)
 	face.theme = main.theme
-	var style: StyleBoxFlat = main.ui.make_race_card_style(card)
-	face.set_meta("type_edge_color", style.border_color)
-	face.add_theme_stylebox_override("panel", style)
-	main.ui.decorate_card_frame(face, card)
-	var art: TextureRect = make_art_rect(main, card, Vector2.ZERO)
-	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	art.offset_left = 6; art.offset_top = 6; art.offset_right = -6; art.offset_bottom = -6
-	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	face.add_child(art)
-	var emblem: TextureRect = main.ui.make_race_emblem(card, 48)
-	emblem.position = Vector2(118, 12)
-	face.add_child(emblem)
-	var band := ColorRect.new()
-	band.color = main.ui.make_race_band_style(card).bg_color
-	band.position = Vector2(6, 304); band.size = Vector2(272, 86)
-	face.add_child(band)
-	var title: Label = main._make_label(String(card.get("name", "카드")), 26, UI_TOKENS.TEXT_PRIMARY)
-	title.position = Vector2(10, 312); title.size = Vector2(264, 34)
-	title.autowrap_mode = TextServer.AUTOWRAP_OFF
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	face.add_child(title)
-	var stats: Label = main._make_label("비용 %d" % int(card.get("cost", 0)), 24, UI_TOKENS.TEXT_SECONDARY)
-	if card.has("attack"):
-		stats.text += "   공격 %d / 체력 %d" % [int(card.attack), int(card.get("health", 0))]
-	stats.position = Vector2(10, 350); stats.size = Vector2(264, 30)
-	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stats.add_theme_font_size_override("font_size", 20)
-	face.add_child(stats)
+	face.set_meta("type_edge_color", main.ui.make_race_card_style(card).border_color)
 	return face
 
 static func make_stamp(main: Node, parent: Control, node_name: String, value: String, at: Vector2, extent: Vector2, color: Color, font_size: int = 16) -> Label:
+	var existing := parent.get_node_or_null(node_name) as Label
+	if existing != null:
+		existing.text = value
+		return existing
 	var band := Panel.new()
 	band.name = node_name + "Band"
 	band.position = at

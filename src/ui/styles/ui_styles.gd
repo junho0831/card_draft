@@ -2,12 +2,13 @@ extends RefCounted
 class_name UiStyles
 
 const UI_TOKENS = preload("res://src/ui/styles/ui_tokens.gd")
-const BUTTON_GOLD_PATH := "res://assets/ui/fantasy/button_amber.svg"
-const BUTTON_BLUE_PATH := "res://assets/ui/fantasy/button_silver.svg"
-const BUTTON_RED_PATH := "res://assets/ui/fantasy/button_red.svg"
-const BUTTON_DARK_PATH := "res://assets/ui/fantasy/button_silver.svg"
-const PANEL_GOLD_PATH := "res://assets/ui/fantasy/panel_silver.svg"
-const PANEL_BLUE_PATH := "res://assets/ui/fantasy/panel_silver.svg"
+const BUTTON_GOLD_PATH := UI_TOKENS.MATERIAL_PATH + "button_gold.png"
+const BUTTON_BLUE_PATH := UI_TOKENS.MATERIAL_PATH + "button_silver.png"
+const BUTTON_RED_PATH := BUTTON_BLUE_PATH
+const BUTTON_DARK_PATH := BUTTON_BLUE_PATH
+const PANEL_GOLD_PATH := UI_TOKENS.MATERIAL_PATH + "detail_border.png"
+const PANEL_BLUE_PATH := PANEL_GOLD_PATH
+static var _material_cache: Dictionary = {}
 
 const NEUTRAL_BASE := UI_TOKENS.SURFACE
 const NEUTRAL_BORDER := UI_TOKENS.BORDER
@@ -61,7 +62,27 @@ static func make_action_button_style(bg_color: Color, accent_color: Color, activ
 	return style
 
 static func _load_texture(path: String) -> Texture2D:
-	return ResourceLoader.load(path) as Texture2D
+	if _material_cache.has(path):
+		return _material_cache[path]
+	var texture := ResourceLoader.load(path) as Texture2D
+	if texture != null and path.begins_with(UI_TOKENS.MATERIAL_PATH):
+		# Pack transparent canvas padding once, not on every screen refresh.
+		var pixels := texture.get_image()
+		if pixels.is_compressed(): pixels.decompress()
+		if path.contains("button_"):
+			# Ignore stray alpha pixels outside the solid central strip of generated buttons.
+			var first := 0
+			var last := pixels.get_height() - 1
+			var center := pixels.get_width() / 2
+			while first < last and pixels.get_pixel(center, first).a < 0.9: first += 1
+			while last > first and pixels.get_pixel(center, last).a < 0.9: last -= 1
+			pixels = pixels.get_region(Rect2i(0, maxi(0, first - 4), pixels.get_width(), mini(pixels.get_height() - first + 4, last - first + 9)))
+		else:
+			pixels = pixels.get_region(pixels.get_used_rect())
+		pixels.resize(512, 96 if path.contains("button_") else 288, Image.INTERPOLATE_LANCZOS)
+		texture = ImageTexture.create_from_image(pixels)
+	_material_cache[path] = texture
+	return texture
 
 static func _panel_texture_for_accent(accent_color: Color) -> Texture2D:
 	var path := PANEL_GOLD_PATH if accent_color.r >= accent_color.b else PANEL_BLUE_PATH
@@ -73,8 +94,9 @@ static func make_textured_panel_style(bg_color: Color, accent_color: Color, marg
 	style.texture = _load_texture(PANEL_GOLD_PATH if gold_bias else PANEL_BLUE_PATH)
 	style.texture_margin_left = 16
 	style.texture_margin_right = 16
-	style.texture_margin_top = 16
-	style.texture_margin_bottom = 16
+	style.texture_margin_top = 8
+	style.texture_margin_bottom = 8
+	style.draw_center = false
 	style.content_margin_left = margin
 	style.content_margin_right = margin
 	style.content_margin_top = margin
@@ -97,10 +119,11 @@ static func _button_texture_for_role(role: String, accent_color: Color) -> Textu
 static func _make_textured_button_style(texture: Texture2D, tint: Color, active: bool = false) -> StyleBoxTexture:
 	var style := StyleBoxTexture.new()
 	style.texture = texture
+	style.draw_center = true
 	style.texture_margin_left = 32
-	style.texture_margin_top = 16
+	style.texture_margin_top = 8
 	style.texture_margin_right = 32
-	style.texture_margin_bottom = 16
+	style.texture_margin_bottom = 8
 	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.content_margin_left = 18
@@ -113,10 +136,11 @@ static func _make_textured_button_style(texture: Texture2D, tint: Color, active:
 static func _textured_button_state_styles(role: String, accent_color: Color, active: bool) -> Array[StyleBox]:
 	var texture := _button_texture_for_role(role, accent_color)
 	var normal := _make_textured_button_style(texture, Color(0.92, 0.94, 0.98, 1.0), active)
+	if role == "danger": normal.modulate_color = Color(1.0, 0.48, 0.42)
 	var hover: StyleBoxTexture = normal.duplicate()
-	hover.modulate_color = Color(1.08, 1.08, 1.1, 1.0)
+	hover.modulate_color = normal.modulate_color * Color(1.15, 1.15, 1.15)
 	var pressed: StyleBoxTexture = normal.duplicate()
-	pressed.modulate_color = Color(0.78, 0.8, 0.84, 1.0)
+	pressed.modulate_color = normal.modulate_color * Color(0.84, 0.84, 0.84)
 	var disabled: StyleBoxTexture = normal.duplicate()
 	disabled.modulate_color = Color(0.52, 0.55, 0.6, 0.62)
 	return [normal, hover, pressed, disabled]
@@ -154,18 +178,23 @@ static func _apply_button_styles(button: Button, styles: Array[StyleBox]) -> voi
 	button.add_theme_stylebox_override("disabled", styles[3])
 
 static func apply_flat_button(button: Button, base_color: Color, accent_color: Color = Color(0.38, 0.62, 1.0, 1.0), font_size: int = 16, outline_size: int = 0) -> void:
-	_apply_button_styles(button, _button_state_styles(base_color, accent_color, false))
+	_apply_button_styles(button, _textured_button_state_styles("secondary", accent_color, false))
 	_apply_button_text(button, font_size, mini(outline_size, 1))
 
 static func apply_button(button: Button, base_color: Color) -> void:
 	var accent := _game_button_accent(base_color.lightened(0.34))
-	_apply_button_styles(button, _button_state_styles(base_color, accent, false))
+	_apply_button_styles(button, _textured_button_state_styles("secondary", accent, false))
 	_apply_button_text(button, 16)
 
 static func apply_primary_button(button: Button, base_color: Color = Color(0.16, 0.34, 0.66, 1.0)) -> void:
 	var accent := Color(0.46, 0.7, 1.0, 1.0).lerp(base_color.lightened(0.28), 0.28)
 	_apply_button_styles(button, _textured_button_state_styles("primary", accent, true))
 	_apply_button_text(button, 17)
+	_apply_primary_text(button)
+
+static func _apply_primary_text(button: Button) -> void:
+	for state in ["font_color", "font_hover_color", "font_pressed_color"]:
+		button.add_theme_color_override(state, Color("24251d"))
 
 static func apply_role_button(
 	button: Button,
@@ -198,3 +227,4 @@ static func apply_role_button(
 	_apply_button_styles(button, _textured_button_state_styles(role, accent_color, active))
 	var resolved_font := font_size if font_size > 0 else UI_TOKENS.FONT_ACTION if role in ["primary", "power"] else 16
 	_apply_button_text(button, resolved_font, 0)
+	if role == "primary": _apply_primary_text(button)

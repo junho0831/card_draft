@@ -7,7 +7,7 @@ var pointer := -1
 var effect: ShaderMaterial
 var capture: SubViewport
 
-func setup(face: Control, display_size := Vector2(300, 470), face_size := Vector2(284, 396)) -> void:
+func setup(face: Control, display_size := Vector2(300, 470), face_size := Vector2(284, 426)) -> void:
 	name = "CardInspectionView"
 	custom_minimum_size = display_size
 	size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -33,6 +33,7 @@ func setup(face: Control, display_size := Vector2(300, 470), face_size := Vector
 	surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	effect = ShaderMaterial.new()
 	effect.shader = EFFECT
+	effect.set_shader_parameter("card_aspect", face_size.y / face_size.x)
 	effect.set_shader_parameter("edge_color", face.get_meta("type_edge_color", Color.WHITE))
 	surface.material = effect
 	add_child(surface)

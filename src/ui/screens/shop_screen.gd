@@ -328,16 +328,13 @@ func _build_reference_shop(body: VBoxContainer) -> void:
 		var stack := VBoxContainer.new()
 		stack.add_theme_constant_override("separation", 6)
 		cards.add_child(stack)
-		var face := EconomyDetail.offer_face(main, card, 208 if desktop else 180, 300 if desktop else int(clampf(main._layout_viewport_size().y - 196, 148, 300)), not desktop, _shop_offer_text(String(id)))
+		var card_height := 330 if desktop else int(clampf(main._layout_viewport_size().y - 204, 160, 246))
+		var face := EconomyDetail.offer_face(main, card, int(card_height * 2.0 / 3.0), card_height, not desktop, _shop_offer_text(String(id)))
 		face.name = "EconomyOffer_" + String(id)
 		stack.add_child(face)
 		offer_cards[String(id)] = face
 		var inspect := _select_shop_card.bind(String(id)) if desktop else _show_card_comparison.bind(String(id))
 		Fantasy.clickable_card(face, inspect)
-		if desktop:
-			var pick := EconomyDetail.action_button(main, _shop_offer_text(String(id)) + " · 확인", inspect)
-			pick.name = "EconomyInspect_" + String(id)
-			stack.add_child(pick)
 	preview_box = EconomyDetail.section(main, "덱 변화", 290 if desktop else 0)
 	preview_box.visible = desktop
 	row.add_child(preview_box)
@@ -358,7 +355,17 @@ func _build_reference_shop(body: VBoxContainer) -> void:
 	var services := HFlowContainer.new()
 	services.add_theme_constant_override("h_separation", 8)
 	services.add_theme_constant_override("v_separation", 8)
-	stock.add_child(services)
+	if desktop:
+		stock.add_child(services)
+	else:
+		var service_column := VBoxContainer.new()
+		service_column.name = "ShopServices"
+		service_column.custom_minimum_size.x = 156
+		service_column.add_theme_constant_override("separation", 8)
+		row.add_child(service_column)
+		service_column.add_child(services)
+		services.custom_minimum_size.x = 156
+		services.size_flags_horizontal = Control.SIZE_FILL
 	var remove := EconomyDetail.action_button(main, "카드 제거 · %d" % _shop_remove_cost(), _begin_shop_remove)
 	remove.disabled = int(main.current_run.gold) < _shop_remove_cost() or main.current_run.deck_ids.is_empty()
 	services.add_child(remove)
@@ -368,8 +375,9 @@ func _build_reference_shop(body: VBoxContainer) -> void:
 	services.add_child(heal)
 	var relic: Dictionary = state.get("relic", {})
 	if not relic.is_empty():
-		stock.add_child(EconomyDetail.comparison_label(main, "%s · %s" % [String(relic.get("name", "유물")), String(relic.get("text", ""))], EconomyDetail.MUTED, 14))
-		var buy_relic := EconomyDetail.action_button(main, "%s · %d 골드" % [String(relic.get("name", "유물")), main.shop_run_service.SHOP_RELIC_COST], _buy_shop_relic)
+		if desktop:
+			stock.add_child(EconomyDetail.comparison_label(main, "%s · %s" % [String(relic.get("name", "유물")), String(relic.get("text", ""))], EconomyDetail.MUTED, 14))
+		var buy_relic := EconomyDetail.action_button(main, "%s · %d 골드" % [String(relic.get("name", "유물")), main.shop_run_service.SHOP_RELIC_COST], _buy_shop_relic if desktop else _show_relic_comparison)
 		buy_relic.tooltip_text = String(relic.get("text", ""))
 		buy_relic.disabled = int(main.current_run.gold) < main.shop_run_service.SHOP_RELIC_COST or bool(state.get("relic_bought", false))
 		services.add_child(buy_relic)
@@ -436,6 +444,16 @@ func _show_card_comparison(card_id: String) -> void:
 	var card: Dictionary = main.card_db.get_card(card_id)
 	var disabled: bool = int(main.current_run.gold) < main.shop_run_service.SHOP_CARD_COST or main.current_run.pending_shop.get("purchased_cards", []).has(card_id)
 	detail_overlay = EconomyDetail.show_card(main, card, _shop_offer_text(card_id) + " · 구매", _buy_shop_card.bind(card_id), disabled, _close_card_comparison)
+
+func _show_relic_comparison() -> void:
+	_close_card_comparison()
+	var state: Dictionary = main.current_run.pending_shop
+	var relic: Dictionary = state.get("relic", {})
+	if relic.is_empty(): return
+	var details := EconomyDetail.section(main, String(relic.get("text", "")))
+	details.add_child(EconomyDetail.comparison_label(main, main._choice_impact_text(relic), EconomyDetail.MUTED, 16))
+	var disabled: bool = int(main.current_run.gold) < main.shop_run_service.SHOP_RELIC_COST or bool(state.get("relic_bought", false))
+	detail_overlay = EconomyDetail.show_detail(main, String(relic.get("name", "유물")), details, "%d 골드 · 구매" % main.shop_run_service.SHOP_RELIC_COST, _buy_shop_relic, disabled, _close_card_comparison)
 
 func _close_card_comparison() -> void:
 	if is_instance_valid(detail_overlay):
