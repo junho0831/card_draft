@@ -147,7 +147,7 @@ godot --resolution 390x844 --path . -s res://tests/godot/capture_onboarding.gd -
 xvfb-run -a godot --resolution 390x844 --path . -s res://tests/godot/capture_onboarding.gd -- --test-data-dir=/tmp/card-draft-onboarding-ui
 ```
 
-현재 캡처 종료 시 그래픽 리소스 해제 경고가 남는 경우가 있다. 관련 검증 기록은 [전략 업데이트 검증 기록](strategy-verification.md)을 참고한다.
+캡처 생성 여부와 종료 로그의 스크립트 오류·리소스 경고를 별도로 확인한다. 과거 검사 통과를 현재 빌드의 검증 결과로 간주하지 않는다.
 
 ## 저장 경로와 실행 시 주의점
 
@@ -181,9 +181,7 @@ godot --resolution 390x844 --path . -s res://tests/godot/capture_strategies.gd -
 
 전략 선택·덱 펼쳐보기·시작 버튼 PNG와 인간·엘프 네 전략의 `input_scenarios.json`을 저장한다. 입력 시나리오는 실제 카드 선택 및 아군 대상 확정 핸들러를 호출하는 자동 검사이며 신규 사용자 직접 플레이 검증과는 구분한다.
 
-실제 GUI 입력으로 발견한 화면 전환 문제와 수정 검증은 [실행 조작 점검 기록](ui-playtest-review.md)을 참고한다.
-
-현재 음악·효과음 제작과 검증은 [로컬 모델 음원](local-model-audio.md), 화면 변경 사항은 [참조 기반 UI 기록](ui-reference-redesign.md)을 참고한다. [이전 합성 오디오](original-audio.md)는 사용자가 교체를 요청한 초기 실험 기록이다.
+현재 음악·효과음의 출처와 검증은 [커뮤니티 오디오](community-audio.md), 화면 조작 기준은 [모바일 조작](mobile-controls.md)을 참고한다.
 ## 중복 검사 정리 기록 — 2026-09-15
 
 짧은 가로 화면에서 지도 진행 버튼 고정·공격 대상 자동 이동을 변경한 경우 다음 표시 창 검사를 추가로 실행한다. 지도 스크롤 중 버튼 위치 보존, 선봉/영웅 표시, 선택 시 전투 상태 보존, 빈 손패 상태를 확인한다.

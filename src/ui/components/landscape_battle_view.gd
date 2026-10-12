@@ -192,7 +192,8 @@ func setup(owner_battle, old_root: Control, action_panel: Control) -> void:
 	var rail := VBoxContainer.new()
 	rail.name = "BattleActionRail"
 	rail.custom_minimum_size.x = rail_width - 16
-	rail.add_theme_constant_override("separation", 6)
+	# Preserve touch target sizes when safe-area insets leave little vertical room.
+	rail.add_theme_constant_override("separation", 2 if compact_board and viewport.y < 370 else 6)
 	rail_panel.add_child(rail)
 	var rail_space := Control.new()
 	rail_space.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -884,7 +885,7 @@ func _compact_first_play_guidance() -> String:
 			var unit_card: bool = index >= 0 and index < battle.player.hand.size() and battle.player.hand[index].get("type", "") == "unit"
 			return "손패 카드를 소환하세요" if unit_card else "손패 카드를 사용하세요"
 		"hero_attack_direct", "unit_attack_direct": return "공격할 아군을 선택하세요"
-		"unit_attack_selected": return "붉은 대상을 눌러 공격하세요"
+		"unit_attack_selected": return "붉은 적을 눌러 공격하세요"
 		"hero_attack_selected": return "적 영웅을 눌러 공격하세요"
 		"select_target": return "효과를 받을 아군을 선택하세요"
 		"race_power": return "필살기를 눌러 사용하세요"
@@ -898,7 +899,7 @@ func _power_description() -> String:
 		"human":
 			return "필드 가득 참\n아군 공격 +1" if battle.player.field.size() >= battle.MAX_FIELD else "근위대 소환\n아군 공격 +1"
 		"elf": return "카드 2장 뽑기\n마나 +2"
-		"undead": return "아군 선택·희생\n적 영웅 피해 3\n해골 소환"
+		"undead": return "아군 희생·해골 소환\n적 영웅 피해 3"
 	return "전투당 1회"
 
 func _exit_tree() -> void:

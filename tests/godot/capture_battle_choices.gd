@@ -2,6 +2,8 @@ extends SceneTree
 
 const Storage = preload("res://src/services/game_storage.gd")
 const Fixture = preload("res://tests/godot/combat_strategy_test.gd")
+const Tokens = preload("res://src/ui/styles/ui_tokens.gd")
+const SharedStyles = preload("res://src/ui/styles/ui_styles.gd")
 var failures: Array[String] = []
 
 func _initialize() -> void:
@@ -18,10 +20,10 @@ func settle() -> void:
 	await process_frame
 	await create_timer(0.3).timeout
 
-func click(control: Control) -> void:
+func click(control: Control, point_override: Variant = null) -> void:
 	check(is_instance_valid(control), "click target exists")
 	if not is_instance_valid(control): return
-	var point := control.get_global_rect().get_center()
+	var point: Vector2 = control.get_global_rect().get_center() if point_override == null else point_override
 	var motion := InputEventMouseMotion.new()
 	motion.position = point
 	root.push_input(motion, true)
@@ -44,18 +46,36 @@ func capture(name: String) -> void:
 	check(not picture.is_empty(), "rendered image is nonempty")
 	picture.save_png(Storage.path_for(name + ".png"))
 
+func transformed_bounds(control: Control) -> Rect2:
+	var bounds := Rect2(control.get_global_transform() * Vector2.ZERO, Vector2.ZERO)
+	for corner in [Vector2(control.size.x, 0), control.size, Vector2(0, control.size.y)]:
+		bounds = bounds.expand(control.get_global_transform() * corner)
+	return bounds
+
 func check_hand_bounds(battle, expected_size: Vector2, last_visible: bool = false) -> void:
 	var bounds: Rect2 = battle.hand_scroll.get_global_rect()
+	check(battle.landscape_view.get_global_rect().grow(1).encloses(bounds), "hand viewport stays within the safe display area: %s in %s" % [bounds, battle.landscape_view.get_global_rect()])
+	var mobile: bool = battle._is_landscape_phone()
+	var targeting: bool = battle.selected_attacker >= 0 or not battle.pending_action.is_empty()
+	if mobile:
+		check(is_equal_approx(bounds.size.y, Tokens.HAND_TARGETING_HEIGHT if targeting else Tokens.HAND_PEEK_HEIGHT), "mobile hand uses its intentional resting or targeting height")
+		check(battle.hand_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "folded hand does not scroll vertically")
 	for card: Control in battle.hand_box.get_children():
 		check(card.size.is_equal_approx(expected_size), "hand keeps fixed size: %s" % str(card.size))
-		for corner in [Vector2.ZERO, Vector2(card.size.x, 0), card.size, Vector2(0, card.size.y)]:
-			var point: Vector2 = card.get_global_transform() * corner
-			check(point.y >= bounds.position.y - 1 and point.y <= bounds.end.y + 1, "rotated hand fits vertically")
+		var card_bounds := transformed_bounds(card)
+		if mobile:
+			var visible := bounds.intersection(card_bounds)
+			if visible.size.x >= 44:
+				check(visible.size.y >= 44, "folded reachable card retains a usable touch target")
+				for node_name in (["Cost"] if targeting else ["Cost", "CardName"]):
+					var content := transformed_bounds(card.get_node(node_name))
+					check(content.position.y >= bounds.position.y - 1 and content.end.y <= bounds.end.y + 1, "folded card retains readable %s vertically" % node_name)
+		else:
+			check(card_bounds.position.y >= bounds.position.y - 1 and card_bounds.end.y <= bounds.end.y + 1, "desktop rotated hand fits vertically")
 	var last: Control = battle.hand_box.get_child(battle.hand_box.get_child_count() - 1)
 	if last_visible:
-		for corner in [Vector2.ZERO, Vector2(last.size.x, 0), last.size, Vector2(0, last.size.y)]:
-			var point: Vector2 = last.get_global_transform() * corner
-			check(point.x >= bounds.position.x - 1 and point.x <= bounds.end.x + 1, "last rotated card is fully reachable")
+		var last_bounds := transformed_bounds(last)
+		check(last_bounds.position.x >= bounds.position.x - 1 and last_bounds.end.x <= bounds.end.x + 1, "last rotated card is horizontally reachable")
 
 func check_field_geometry(battle) -> void:
 	var bounds: Rect2 = battle.landscape_view.board_scroll.get_global_rect()
@@ -142,7 +162,7 @@ func run() -> void:
 		viewport = Vector2i(932, 430)
 	if not mobile and "--wide" in OS.get_cmdline_user_args():
 		viewport = Vector2i(1920, 1080)
-	var expected_hand_size := Vector2(82, 110) if mobile else Vector2(132, 178)
+	var expected_hand_size := Tokens.HAND_MIN_SIZE if mobile else Vector2(132, 198)
 	root.size = viewport
 	root.gui_embed_subwindows = true
 	var main = preload("res://src/core/Main.tscn").instantiate()
@@ -183,8 +203,10 @@ func run() -> void:
 	check(is_instance_valid(battle.landscape_view), "landscape phone and desktop both use the shared board")
 	check(battle._is_landscape_phone() == mobile, "board presentation does not masquerade as phone input")
 	if is_instance_valid(battle.landscape_view):
-		check_field_geometry(battle)
 		check_power_labels(battle)
+		# Power visibility checks invalidate container layout before the first capture.
+		await settle()
+		check_field_geometry(battle)
 		check(battle.player_field_box.get_child_count() == 5 and battle.opponent_field_box.get_child_count() == 5, "both lanes retain five slots")
 		check(battle.opponent_field_box.global_position.y < battle.player_field_box.global_position.y, "enemy lane remains above allies")
 		check(not battle.detail_toggle_button.is_visible_in_tree(), "normal battle has one shared information entry")
@@ -199,6 +221,8 @@ func run() -> void:
 			borders.append(card.get_node("TypeBorder").get_theme_stylebox("panel").border_color)
 		check(borders[0] != borders[1] and borders[1] != borders[2] and borders[0] != borders[2], "unit equipment and damage have distinct type borders")
 		var board_bounds: Rect2 = battle.landscape_view.get_global_rect()
+		for button: Control in [battle.race_power_button, battle.end_turn_button, battle.landscape_view.cancel_button, battle.landscape_view.find_child("SortHandButton", true, false)]:
+			check(board_bounds.grow(1).encloses(button.get_global_rect()), "action button stays within the safe display area")
 		check(absf(battle.end_turn_button.get_global_rect().end.y - board_bounds.end.y) <= 12, "primary action stays at board bottom")
 		check(absf(battle.end_turn_button.get_global_rect().end.x - board_bounds.end.x) <= 12, "primary action stays at board right")
 		check(battle.hand_scroll.get_global_rect().end.x <= battle.end_turn_button.global_position.x, "hand reserves action rail")
@@ -207,7 +231,7 @@ func run() -> void:
 		for hero: Control in [battle.opponent_hero_target, battle.player_hero_target]:
 			check(hero.find_children("*", "Label", true, false).size() == 2, "hero portrait reserves its center for artwork")
 		var info_style: StyleBoxTexture = battle.recommended_action_button.get_theme_stylebox("normal") as StyleBoxTexture
-		check(info_style != null and info_style.texture.resource_path.ends_with("button_silver.svg"), "battle information uses silver secondary style")
+		check(info_style != null and info_style.texture == SharedStyles._button_texture_for_role("secondary", Tokens.BORDER), "battle information uses shared silver secondary texture")
 	await capture("01-threats")
 	var before := JSON.stringify([battle.player, battle.opponent, battle.SnapshotCodec.flags(battle.battle_state)])
 	seed(729441)
@@ -218,6 +242,7 @@ func run() -> void:
 	check(battle.selected_attacker == 0, "tap selects attacker")
 	if is_instance_valid(battle.landscape_view):
 		check_field_geometry(battle)
+		check_hand_bounds(battle, expected_hand_size, true)
 		check_external_predictions(battle, input)
 		check(battle.reference_mana_label.get_global_rect().end.x <= battle.landscape_view.get_global_rect().end.x, "mana stays inside reserved rail after selection")
 		check(battle.landscape_view.cancel_button.size.x >= (104 if mobile else 120), "selection cancel retains its touch target width")
@@ -296,6 +321,24 @@ func run() -> void:
 		check(battle.hand_scroll.scroll_horizontal > 0, "full hand scrolls horizontally")
 		check_hand_bounds(battle, expected_hand_size, true)
 		await capture("05-full-hand")
+		if mobile:
+			# Exercise the exposed portion after scrolling, not the clipped card center.
+			var last: Control = battle.hand_box.get_child(battle.hand_box.get_child_count() - 1)
+			var cost: Control = last.get_node("Cost")
+			var tap_point := cost.get_global_transform() * (cost.size * 0.5)
+			check(battle.hand_scroll.get_global_rect().has_point(tap_point), "last card cost offers an exposed tap point")
+			var before_detail := JSON.stringify([battle.player, battle.opponent, battle.SnapshotCodec.flags(battle.battle_state)])
+			seed(730117)
+			var expected_detail_random := randi()
+			seed(730117)
+			await click(last, tap_point)
+			check(is_instance_valid(battle.landscape_view.card_dialog), "tapping the last folded card opens its full detail")
+			if is_instance_valid(battle.landscape_view.card_dialog):
+				var viewer: Control = battle.landscape_view.card_dialog.find_child("CardInspectionView", true, false)
+				check(is_instance_valid(viewer) and main.modal_layer.get_global_rect().grow(1).encloses(viewer.get_global_rect()), "full card detail fits the safe display area")
+				await click(input.find_button(battle.landscape_view.card_dialog, "닫기"))
+			check(JSON.stringify([battle.player, battle.opponent, battle.SnapshotCodec.flags(battle.battle_state)]) == before_detail, "last card inspection preserves resources")
+			check(randi() == expected_detail_random, "last card inspection preserves gameplay RNG")
 	if not mobile:
 		battle.hand_scroll.scroll_horizontal = 0
 		await settle()
