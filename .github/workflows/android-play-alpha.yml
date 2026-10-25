@@ -219,7 +219,9 @@ jobs:
 
       - name: Export signed Android App Bundle
         shell: bash
-        run: godot --headless --path . --export-release Android "$AAB_PATH"
+        run: |
+          mkdir -p "$(dirname "$AAB_PATH")"
+          godot --headless --path . --export-release Android "$AAB_PATH"
 
       - name: Run isolated regression suite
         shell: bash
