@@ -39,6 +39,10 @@ def main() -> int:
     before, android, after = text[:android_start], text[android_start:android_end], text[android_end:]
 
     values = {
+        r'^architectures/armeabi-v7a=.*$': 'architectures/armeabi-v7a=true',
+        r'^architectures/arm64-v8a=.*$': 'architectures/arm64-v8a=true',
+        r'^architectures/x86=.*$': 'architectures/x86=false',
+        r'^architectures/x86_64=.*$': 'architectures/x86_64=false',
         r'^keystore/release=.*$': f'keystore/release="{os.environ["ANDROID_KEYSTORE_PATH"]}"',
         r'^keystore/release_user=.*$': f'keystore/release_user="{os.environ["ANDROID_KEY_ALIAS"]}"',
         r'^keystore/release_password=.*$': f'keystore/release_password="{os.environ["ANDROID_KEYSTORE_PASSWORD"]}"',
