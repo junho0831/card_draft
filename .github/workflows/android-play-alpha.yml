@@ -1,0 +1,220 @@
+name: Android Play Alpha
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "Release version name, for example 1.0.3"
+        required: true
+        default: "1.0.3"
+      version_code:
+        description: "Unique Play version code; blank uses UTC YYYYMMDD"
+        required: false
+        default: ""
+      track:
+        description: "Google Play test track"
+        required: true
+        type: choice
+        options:
+          - alpha
+          - internal
+        default: alpha
+      release_notes:
+        description: "Korean release notes"
+        required: true
+        default: "Android 안정성과 조작감을 개선했습니다."
+      publish:
+        description: "Publish the verified bundle to Google Play"
+        required: true
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "android-v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: google-play-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  build-test-publish:
+    name: Build, verify, and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GODOT_VERSION: "4.6.3"
+      PACKAGE_NAME: "com.card_draft"
+      AAB_PATH: "build/android/card_draft.aab"
+      TEST_DATA_DIR: "/tmp/card-draft-actions-${{ github.run_id }}"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Resolve release metadata
+        id: release
+        shell: bash
+        env:
+          INPUT_VERSION_NAME: ${{ inputs.version_name }}
+          INPUT_VERSION_CODE: ${{ inputs.version_code }}
+          INPUT_TRACK: ${{ inputs.track }}
+          INPUT_RELEASE_NOTES: ${{ inputs.release_notes }}
+          INPUT_PUBLISH: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            version_name="${GITHUB_REF_NAME#android-v}"
+            version_code="$(date -u +%Y%m%d)"
+            track="alpha"
+            release_notes="Android ${version_name} 테스트 버전입니다."
+            publish="true"
+          else
+            version_name="${INPUT_VERSION_NAME}"
+            version_code="${INPUT_VERSION_CODE:-$(date -u +%Y%m%d)}"
+            track="${INPUT_TRACK}"
+            release_notes="${INPUT_RELEASE_NOTES}"
+            publish="${INPUT_PUBLISH:-false}"
+          fi
+
+          [[ "$version_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+)*$ ]] || {
+            echo "Invalid version_name: $version_name" >&2
+            exit 1
+          }
+          [[ "$version_code" =~ ^[1-9][0-9]{0,9}$ ]] || {
+            echo "version_code must be a positive integer" >&2
+            exit 1
+          }
+          (( version_code <= 2100000000 )) || {
+            echo "version_code exceeds the Android limit" >&2
+            exit 1
+          }
+          [[ "$track" == "alpha" || "$track" == "internal" ]] || {
+            echo "Only test tracks are allowed by this workflow" >&2
+            exit 1
+          }
+          [[ "$publish" == "true" || "$publish" == "false" ]] || {
+            echo "publish must be true or false" >&2
+            exit 1
+          }
+
+          {
+            echo "version_name=$version_name"
+            echo "version_code=$version_code"
+            echo "track=$track"
+            echo "release_name=${version_code} (${version_name})"
+            echo "publish=$publish"
+            echo "release_notes<<__NOTES__"
+            echo "$release_notes"
+            echo "__NOTES__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Require signing secrets
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS; do
+            [[ -n "${!name:-}" ]] || {
+              echo "Missing GitHub Actions secret: $name" >&2
+              exit 1
+            }
+          done
+
+      - name: Require Google Play secret
+        if: steps.release.outputs.publish == 'true'
+        shell: bash
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          [[ -n "$PLAY_SERVICE_ACCOUNT_JSON" ]] || {
+            echo "Missing GitHub Actions secret: PLAY_SERVICE_ACCOUNT_JSON" >&2
+            exit 1
+          }
+
+      - name: Prepare Android signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          RELEASE_VERSION_NAME: ${{ steps.release.outputs.version_name }}
+          RELEASE_VERSION_CODE: ${{ steps.release.outputs.version_code }}
+        run: |
+          set -euo pipefail
+          keystore_path="$RUNNER_TEMP/card-draft-upload.keystore"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          chmod 600 "$keystore_path"
+          export ANDROID_KEYSTORE_PATH="$keystore_path"
+          python3 .github/scripts/configure_android_export.py export_presets.cfg
+
+      - name: Export signed Android App Bundle
+        uses: dulvui/godot-android-export@306a55061b42bae807cbd787ce0b6684275048be # v4
+        with:
+          godot-version: ${{ env.GODOT_VERSION }}
+
+      - name: Run isolated regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . -s res://tests/godot/run_tests.gd -- \
+            --test-data-dir="$TEST_DATA_DIR"
+
+      - name: Verify release bundle
+        shell: bash
+        env:
+          EXPECTED_VERSION_CODE: ${{ steps.release.outputs.version_code }}
+          EXPECTED_VERSION_NAME: ${{ steps.release.outputs.version_name }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/card-draft-upload.keystore
+        run: .github/scripts/verify_android_release.sh "$AAB_PATH"
+
+      - name: Upload verified bundle artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: card-draft-${{ steps.release.outputs.version_code }}
+          path: ${{ env.AAB_PATH }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Write localized release notes
+        shell: bash
+        env:
+          RELEASE_NOTES: ${{ steps.release.outputs.release_notes }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/whatsnew"
+          printf '%s\n' "$RELEASE_NOTES" > "$RUNNER_TEMP/whatsnew/whatsnew-ko-KR"
+
+      - name: Publish to Google Play test track
+        if: steps.release.outputs.publish == 'true'
+        id: play
+        uses: r0adkll/upload-google-play@eb49699984a39f23558439581660aa6f088acfd6 # v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.PACKAGE_NAME }}
+          releaseFiles: ${{ env.AAB_PATH }}
+          track: ${{ steps.release.outputs.track }}
+          status: completed
+          releaseName: ${{ steps.release.outputs.release_name }}
+          whatsNewDirectory: ${{ runner.temp }}/whatsnew
+          changesNotSentForReview: false
+
+      - name: Deployment summary
+        shell: bash
+        run: |
+          {
+            echo "## Android release result"
+            echo "- Package: \`$PACKAGE_NAME\`"
+            echo "- Version: \`${{ steps.release.outputs.release_name }}\`"
+            echo "- Track: \`${{ steps.release.outputs.track }}\`"
+            echo "- Published: \`${{ steps.release.outputs.publish }}\`"
+            echo "- Target SDK: \`36\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
