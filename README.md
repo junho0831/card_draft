@@ -56,6 +56,7 @@ UI를 변경했을 때는 실제 렌더링과 입력을, 런 흐름을 변경했
 | 화면 이동·저장·정산 | [서비스 흐름도](docs/service-flow.md) |
 | 게임 규칙 | [게임 기획서](docs/game-design.md) |
 | 실행·테스트·저장 격리 | [실행과 테스트](docs/run-and-test.md) |
+| Google Play 테스트 트랙 배포 | [Android 자동 배포](docs/android-auto-deploy.md) |
 | 첫 플레이 학습 | [첫판 경험](docs/first-play-experience.md) |
 | 모바일 입력·스크롤 | [모바일 조작](docs/mobile-controls.md) |
 | 화면 배율·배치 | [반응형 UI](docs/ui-responsive.md) |

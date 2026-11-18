@@ -4,6 +4,11 @@
 /build/*
 !/build/.gdignore
 
+# Local Fastlane output and Bundler configuration
+/.bundle/
+/vendor/bundle/
+/fastlane/report.xml
+
 # Local editor settings
 .idea/
 docs/.idea/

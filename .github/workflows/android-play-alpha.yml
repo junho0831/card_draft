@@ -106,10 +106,13 @@ jobs:
             echo "track=$track"
             echo "release_name=${version_code} (${version_name})"
             echo "publish=$publish"
-            echo "release_notes<<__NOTES__"
-            echo "$release_notes"
-            echo "__NOTES__"
           } >> "$GITHUB_OUTPUT"
+
+          if [[ "$publish" == "true" ]]; then
+            notes_dir="$RUNNER_TEMP/play-metadata/ko-KR/changelogs"
+            mkdir -p "$notes_dir"
+            printf '%s\n' "$release_notes" > "$notes_dir/$version_code.txt"
+          fi
 
       - name: Require signing secrets
         shell: bash
@@ -248,28 +251,34 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Write localized release notes
+      - name: Set up Ruby and Fastlane
+        if: steps.release.outputs.publish == 'true'
+        uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          ruby-version: "3.3.13"
+          bundler-cache: true
+
+      - name: Publish to Google Play test track with Fastlane
+        if: steps.release.outputs.publish == 'true'
         shell: bash
         env:
-          RELEASE_NOTES: ${{ steps.release.outputs.release_notes }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          PLAY_TRACK: ${{ steps.release.outputs.track }}
+          PLAY_RELEASE_NAME: ${{ steps.release.outputs.release_name }}
+          FASTLANE_SKIP_UPDATE_CHECK: "true"
+          FASTLANE_OPT_OUT_USAGE: "true"
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/whatsnew"
-          printf '%s\n' "$RELEASE_NOTES" > "$RUNNER_TEMP/whatsnew/whatsnew-ko-KR"
+          umask 077
+          key_path="$(mktemp "$RUNNER_TEMP/play-key.XXXXXXXX.json")"
+          trap 'rm -f -- "$key_path"' EXIT
+          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > "$key_path"
+          unset PLAY_SERVICE_ACCOUNT_JSON
 
-      - name: Publish to Google Play test track
-        if: steps.release.outputs.publish == 'true'
-        id: play
-        uses: r0adkll/upload-google-play@eb49699984a39f23558439581660aa6f088acfd6 # v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: ${{ env.PACKAGE_NAME }}
-          releaseFiles: ${{ env.AAB_PATH }}
-          track: ${{ steps.release.outputs.track }}
-          status: completed
-          releaseName: ${{ steps.release.outputs.release_name }}
-          whatsNewDirectory: ${{ runner.temp }}/whatsnew
-          changesNotSentForReview: false
+          export PLAY_JSON_KEY_PATH="$key_path"
+          export PLAY_AAB_PATH="$GITHUB_WORKSPACE/$AAB_PATH"
+          export PLAY_METADATA_PATH="$RUNNER_TEMP/play-metadata"
+          bundle exec fastlane android deploy_test
 
       - name: Deployment summary
         shell: bash
@@ -279,7 +288,7 @@ jobs:
             echo "- Package: \`$PACKAGE_NAME\`"
             echo "- Version: \`${{ steps.release.outputs.release_name }}\`"
             echo "- Track: \`${{ steps.release.outputs.track }}\`"
-            echo "- Published: \`${{ steps.release.outputs.publish }}\`"
+            echo "- Submitted to Google Play: \`${{ steps.release.outputs.publish }}\`"
             echo "- Target SDK: \`36\`"
             echo "- Commit: \`${GITHUB_SHA}\`"
           } >> "$GITHUB_STEP_SUMMARY"
