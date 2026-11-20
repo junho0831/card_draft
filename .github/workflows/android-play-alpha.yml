@@ -28,6 +28,10 @@ on:
         required: true
         type: boolean
         default: false
+      verify_auth:
+        description: "Check Play authentication only; skip build and publication"
+        type: boolean
+        default: false
   push:
     tags:
       - "android-v*"
@@ -40,10 +44,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-test-publish:
-    name: Build, verify, and publish
+  build:
+    name: Build and verify Android bundle
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.verify_auth }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      version_code: ${{ steps.release.outputs.version_code }}
+      release_name: ${{ steps.release.outputs.release_name }}
+      release_notes_base64: ${{ steps.release.outputs.release_notes_base64 }}
+      track: ${{ steps.release.outputs.track }}
+      publish: ${{ steps.release.outputs.publish }}
     env:
       GODOT_VERSION: "4.6.3"
       PACKAGE_NAME: "com.card_draft"
@@ -106,13 +117,8 @@ jobs:
             echo "track=$track"
             echo "release_name=${version_code} (${version_name})"
             echo "publish=$publish"
+            printf 'release_notes_base64=%s\n' "$(printf '%s' "$release_notes" | base64 -w0)"
           } >> "$GITHUB_OUTPUT"
-
-          if [[ "$publish" == "true" ]]; then
-            notes_dir="$RUNNER_TEMP/play-metadata/ko-KR/changelogs"
-            mkdir -p "$notes_dir"
-            printf '%s\n' "$release_notes" > "$notes_dir/$version_code.txt"
-          fi
 
       - name: Require signing secrets
         shell: bash
@@ -128,17 +134,6 @@ jobs:
               exit 1
             }
           done
-
-      - name: Require Google Play secret
-        if: steps.release.outputs.publish == 'true'
-        shell: bash
-        env:
-          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-        run: |
-          [[ -n "$PLAY_SERVICE_ACCOUNT_JSON" ]] || {
-            echo "Missing GitHub Actions secret: PLAY_SERVICE_ACCOUNT_JSON" >&2
-            exit 1
-          }
 
       - name: Prepare Android signing
         shell: bash
@@ -251,44 +246,80 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Build summary
+        shell: bash
+        run: |
+          {
+            echo "## Verified Android bundle"
+            echo "- Package: \`$PACKAGE_NAME\`"
+            echo "- Version: \`${{ steps.release.outputs.release_name }}\`"
+            echo "- Target SDK: \`36\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  play:
+    name: Authenticate to Google Play
+    needs: build
+    if: >-
+      ${{ always() && !cancelled() &&
+          ((github.event_name == 'workflow_dispatch' && inputs.verify_auth) ||
+           (needs.build.result == 'success' && needs.build.outputs.publish == 'true')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      FASTLANE_SKIP_UPDATE_CHECK: "true"
+      FASTLANE_OPT_OUT_USAGE: "true"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
       - name: Set up Ruby and Fastlane
-        if: steps.release.outputs.publish == 'true'
         uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
           ruby-version: "3.3.13"
           bundler-cache: true
 
+      - name: Download verified bundle
+        if: needs.build.outputs.publish == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: card-draft-${{ needs.build.outputs.version_code }}
+          path: ${{ runner.temp }}/play-bundle
+
+      - name: Obtain short-lived Google credentials
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          project_id: card-draft-play-deploy
+          workload_identity_provider: projects/110442834426/locations/global/workloadIdentityPools/card-draft-github-actions/providers/github-actions
+          service_account: card-draft-test-deploy@card-draft-play-deploy.iam.gserviceaccount.com
+          export_environment_variables: false
+
+      - name: Verify Play API without publishing
+        if: github.event_name == 'workflow_dispatch' && inputs.verify_auth
+        env:
+          PLAY_JSON_KEY_PATH: ${{ steps.auth.outputs.credentials_file_path }}
+        run: bundle exec fastlane android verify_play_access
+
       - name: Publish to Google Play test track with Fastlane
-        if: steps.release.outputs.publish == 'true'
+        if: needs.build.outputs.publish == 'true'
         shell: bash
         env:
-          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          PLAY_TRACK: ${{ steps.release.outputs.track }}
-          PLAY_RELEASE_NAME: ${{ steps.release.outputs.release_name }}
-          FASTLANE_SKIP_UPDATE_CHECK: "true"
-          FASTLANE_OPT_OUT_USAGE: "true"
+          PLAY_JSON_KEY_PATH: ${{ steps.auth.outputs.credentials_file_path }}
+          PLAY_TRACK: ${{ needs.build.outputs.track }}
+          PLAY_RELEASE_NAME: ${{ needs.build.outputs.release_name }}
+          PLAY_VERSION_CODE: ${{ needs.build.outputs.version_code }}
+          PLAY_RELEASE_NOTES_BASE64: ${{ needs.build.outputs.release_notes_base64 }}
         run: |
           set -euo pipefail
-          umask 077
-          key_path="$(mktemp "$RUNNER_TEMP/play-key.XXXXXXXX.json")"
-          trap 'rm -f -- "$key_path"' EXIT
-          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > "$key_path"
-          unset PLAY_SERVICE_ACCOUNT_JSON
-
-          export PLAY_JSON_KEY_PATH="$key_path"
-          export PLAY_AAB_PATH="$GITHUB_WORKSPACE/$AAB_PATH"
+          export PLAY_AAB_PATH="$RUNNER_TEMP/play-bundle/card_draft.aab"
           export PLAY_METADATA_PATH="$RUNNER_TEMP/play-metadata"
+          notes_dir="$PLAY_METADATA_PATH/ko-KR/changelogs"
+          mkdir -p "$notes_dir"
+          printf '%s' "$PLAY_RELEASE_NOTES_BASE64" | base64 --decode > "$notes_dir/$PLAY_VERSION_CODE.txt"
           bundle exec fastlane android deploy_test
-
-      - name: Deployment summary
-        shell: bash
-        run: |
-          {
-            echo "## Android release result"
-            echo "- Package: \`$PACKAGE_NAME\`"
-            echo "- Version: \`${{ steps.release.outputs.release_name }}\`"
-            echo "- Track: \`${{ steps.release.outputs.track }}\`"
-            echo "- Submitted to Google Play: \`${{ steps.release.outputs.publish }}\`"
-            echo "- Target SDK: \`36\`"
-            echo "- Commit: \`${GITHUB_SHA}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          printf 'Submitted %s to Google Play test track %s.\n' "$PLAY_RELEASE_NAME" "$PLAY_TRACK" >> "$GITHUB_STEP_SUMMARY"

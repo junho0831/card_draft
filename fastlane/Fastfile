@@ -1,18 +1,33 @@
 default_platform(:android)
 
 platform :android do
+  private_lane :play_credentials_path do
+    path = ENV.fetch("PLAY_JSON_KEY_PATH", "")
+    UI.user_error!("Set PLAY_JSON_KEY_PATH to the Google credentials file") unless File.file?(path) && File.size?(path)
+    File.expand_path(path)
+  end
+
+  desc "Read Google Play test-track releases without opening or committing an edit"
+  lane :verify_play_access do
+    require "supply"
+
+    client = Supply::Client.make_from_config(params: { json_key: play_credentials_path, timeout: 60 })
+    %w[alpha internal].each do |track|
+      releases = client.list_track_release_summaries("com.card_draft", track)
+      UI.success("Google Play access verified for #{track} (#{releases.size} releases)")
+    end
+  end
+
   desc "Upload a verified Card Draft AAB to a Google Play test track"
   lane :deploy_test do
     track = ENV.fetch("PLAY_TRACK", "alpha")
     UI.user_error!("Only alpha and internal tracks are allowed") unless %w[alpha internal].include?(track)
 
     aab = ENV.fetch("PLAY_AAB_PATH", "")
-    key = ENV.fetch("PLAY_JSON_KEY_PATH", "")
     metadata = ENV.fetch("PLAY_METADATA_PATH", "")
     release_name = ENV.fetch("PLAY_RELEASE_NAME", "")
 
     UI.user_error!("Set PLAY_AAB_PATH to the verified AAB") unless File.file?(aab) && File.size?(aab)
-    UI.user_error!("Set PLAY_JSON_KEY_PATH to the Play service account key") unless File.file?(key) && File.size?(key)
     UI.user_error!("Set PLAY_METADATA_PATH to the release notes directory") unless File.directory?(metadata)
     UI.user_error!("Set PLAY_RELEASE_NAME") if release_name.empty?
 
@@ -20,7 +35,7 @@ platform :android do
       package_name: "com.card_draft",
       track: track,
       aab: File.expand_path(aab),
-      json_key: File.expand_path(key),
+      json_key: play_credentials_path,
       metadata_path: File.expand_path(metadata),
       version_name: release_name,
       release_status: "completed",

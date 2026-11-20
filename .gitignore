@@ -8,6 +8,7 @@
 /.bundle/
 /vendor/bundle/
 /fastlane/report.xml
+/gha-creds-*.json
 
 # Local editor settings
 .idea/
